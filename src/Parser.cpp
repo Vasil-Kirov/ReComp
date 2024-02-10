@@ -8,6 +8,16 @@ node *AllocateNode(error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeFunction(error_info *ErrorInfo, node **Args, node *ReturnType, node **Body)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_FN;
+	Result->Fn.Args = Args;
+	Result->Fn.ReturnType = ReturnType;
+	Result->Fn.Body = Body;
+	return Result;
+}
+
 node *MakeBinary(error_info *ErrorInfo, node *Left, node *Right, token_type Op)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -26,6 +36,33 @@ node *MakeID(error_info *ErrorInfo, const string *ID)
 	return Result;
 }
 
+node *MakePointerType(error_info *ErrorInfo, node *Pointed)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_PTRTYPE;
+	Result->PointerType.Pointed = Pointed;
+	return Result;
+}
+
+node *MakeBasicType(error_info *ErrorInfo, node *ID)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_BASICTYPE;
+	Result->BasicType.ID = ID;
+	return Result;
+}
+
+node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeType, b32 IsConst)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_DECL;
+	Result->Decl.ID = ID;
+	Result->Decl.Expression = Expression;
+	Result->Decl.Type = MaybeType;
+	Result->Decl.IsConst = IsConst;
+	return Result;
+}
+
 node *MakeASTString(error_info *ErrorInfo, const string *String)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -34,19 +71,18 @@ node *MakeASTString(error_info *ErrorInfo, const string *String)
 	return Result;
 }
 
-node *MakeNumber(error_info *ErrorInfo, u64 Number, b32 IsFloat, b32 IsSigned)
+node *MakeNumber(error_info *ErrorInfo, u64 Number, b32 IsFloat)
 {
 	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_NUMBER;
 	Result->Number.Bytes = Number;
 	Result->Number.IsFloat = IsFloat;
-	Result->Number.IsSigned = IsSigned;
 	return Result;
 }
 
-token GetToken(token **Tokens)
+token GetToken(parser *Parser)
 {
-	token Token = **Tokens;
-	*Tokens = *Tokens + 1;
+	token Token = Parser->Tokens[Parser->TokenIndex++];
 	if(Token.Type == T_EOF)
 	{
 		RaiseError(Token.ErrorInfo, "Unexpected End of File");
@@ -54,36 +90,61 @@ token GetToken(token **Tokens)
 	return Token;
 }
 
-token PeekToken(token **Tokens)
+token PeekToken(parser *Parser, int Depth)
 {
-	token Token = **Tokens;
+	token Token = Parser->Tokens[Parser->TokenIndex + Depth];
 	return Token;
+}
+
+token PeekToken(parser *Parser)
+{
+	return PeekToken(Parser, 0);
+}
+
+token EatToken(parser *Parser, token_type Type)
+{
+	token Token = PeekToken(Parser);
+	if(Token.Type != Type)
+	{
+		RaiseError(Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot %s", GetTokenName(Type), GetTokenName(Token.Type));
+	}
+	GetToken(Parser);
+	return Token;
+}
+
+token EatToken(parser *Parser, char C)
+{
+	return EatToken(Parser, (token_type)C);
 }
 
 node **ParseTokens(token *Tokens)
 {
 	node **Result = ArrCreate(node *);
+
+	parser Parser;
+	Parser.Tokens = Tokens;
+	Parser.TokenIndex = 0;
+	Parser.IsInBody = false;
+
 	size_t TokenCount = ArrLen(Tokens);
-	for(int I = 0; I < TokenCount; ++I)
+	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
+	while(Parser.TokenIndex + 1 < TokenCount)
 	{
-		node *Node = ParseNode(&Tokens);
+		node *Node = ParseNode(&Parser);
 		ArrPush(Result, Node);
 	}
 	return Result;
 }
 
-node *ParseNumber(token **Tokens)
+node *ParseNumber(parser *Parser)
 {
-	token NumberToken = GetToken(Tokens);
+	token NumberToken = GetToken(Parser);
 	const string *NumberString = NumberToken.ID;
 
 	b32 IsFloat = false;
-	b32 IsSigned = false;
 	for(int I = 0; I < NumberString->Size; ++I)
 	{
-		if(NumberString->Data[I] == '-')
-			IsSigned = true;
-		else if(NumberString->Data[I] == '.')
+		if(NumberString->Data[I] == '.')
 			IsFloat = true;
 	}
 
@@ -94,56 +155,155 @@ node *ParseNumber(token **Tokens)
 		f64 Typed = strtod(Start, NULL);
 		Bytes = *(u64 *)&Typed;
 	}
-	else if(IsSigned)
-	{
-		i64 Typed = strtoll(Start, NULL, 10);
-		Bytes = *(u64 *)&Typed;
-	}
 	else
 	{
 		Bytes = strtoul(Start, NULL, 10);
 	}
-	return MakeNumber(&NumberToken.ErrorInfo, Bytes, IsFloat, IsSigned);
+	return MakeNumber(&NumberToken.ErrorInfo, Bytes, IsFloat);
 }
 
-node *ParseAtom(token **Tokens, node *Operand)
+node *ParseAtom(parser *Parser, node *Operand)
 {
 	// @TODO: Implement
 	return Operand;
 }
 
-node *ParseOperand(token **Tokens)
+// @Todo: arrays and type types
+node *ParseType(parser *Parser)
 {
-	token Token = PeekToken(Tokens);
-	node *Result = NULL;
-	switch((int)Token.Type)
+	token FirstToken = PeekToken(Parser);
+	switch(FirstToken.Type)
 	{
 		case T_ID:
 		{
-			GetToken(Tokens);
+			GetToken(Parser);
+			node *ID = MakeID(&FirstToken.ErrorInfo, FirstToken.ID);
+			return MakeBasicType(&FirstToken.ErrorInfo, ID);
+		} break;
+		case T_PTR:
+		{
+			GetToken(Parser);
+			return MakePointerType(&FirstToken.ErrorInfo, ParseType(Parser));
+		} break;
+		case T_FN:
+		{
+			return ParseFunctionType(Parser);
+		} break;
+		default:
+		{
+			RaiseError(FirstToken.ErrorInfo, "Expected a type. Found %s", GetTokenName(FirstToken.Type));
+		} break;
+	}
+	return NULL; // @Note: Unreachable
+}
+
+node *ParseFunctionArgument(parser *Parser)
+{
+	token ID = EatToken(Parser, T_ID);
+	EatToken(Parser, ':');
+	node *IDNode = MakeID(&ID.ErrorInfo, ID.ID);
+	node *Type   = ParseType(Parser);
+	return MakeDecl(&ID.ErrorInfo, IDNode, NULL, Type, true);
+}
+
+node **Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
+{
+	node **Nodes = ArrCreate(node *);
+	while(true)
+	{
+		node *Result = Fn(Parser);
+		ArrPush(Nodes, Result);
+		if(PeekToken(Parser).Type != Deliminator)
+			break;
+		GetToken(Parser);
+	}
+	return Nodes;
+}
+
+node **Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
+{
+	return Delimited(Parser, (token_type)Deliminator, Fn);
+}
+
+node *ParseFunctionType(parser *Parser)
+{
+	token FnToken = EatToken(Parser, T_FN);
+	EatToken(Parser, '(');
+	node **Args = Delimited(Parser, ',', ParseFunctionArgument);
+	EatToken(Parser, ')');
+
+	node *ReturnType = NULL;
+	if(PeekToken(Parser).Type == T_ARR)
+	{
+		GetToken(Parser);
+		ReturnType = ParseType(Parser);
+	}
+
+	return MakeFunction(&FnToken.ErrorInfo, Args, ReturnType, NULL);
+}
+
+node **ParseBody(parser *Parser)
+{
+	b32 WasInBody = Parser->IsInBody;
+	Parser->IsInBody = true;
+
+	node **Body = ArrCreate(node *);
+	EatToken(Parser, T_STARTSCOPE);
+	while(true)
+	{
+		node *Node = ParseNode(Parser);
+		if(Node == NULL)
+		{
+			EatToken(Parser, T_ENDSCOPE);
+			break;
+		}
+		ArrPush(Body, Node);
+	}
+
+	Parser->IsInBody = WasInBody;
+	return Body;
+}
+
+node *ParseOperand(parser *Parser)
+{
+	token Token = PeekToken(Parser);
+	node *Result = NULL;
+	switch((int)Token.Type)
+	{
+		case T_FN:
+		{
+			Result = ParseFunctionType(Parser);
+			if((int)PeekToken(Parser).Type == T_STARTSCOPE)
+			{
+				Result->Fn.Body = ParseBody(Parser);
+			}
+		} break;
+		case T_ID:
+		{
+			GetToken(Parser);
 			Result = MakeID(&Token.ErrorInfo, Token.ID);
 		} break;
 		case T_NUM:
 		{
-			Result = ParseNumber(Tokens);
+			Result = ParseNumber(Parser);
 		} break;
 		case T_STR:
 		{
-			GetToken(Tokens);
+			GetToken(Parser);
 			Result = MakeASTString(&Token.ErrorInfo, Token.ID);
 		} break;
 		case '(':
 		{
-			GetToken(Tokens);
-			Result = ParseExpression(Tokens);
+			GetToken(Parser);
+			Result = ParseExpression(Parser);
 		} break;
 	}
 	return Result;
 }
 
-node *ParseUnary(token **Tokens)
+node *ParseUnary(parser *Parser)
 {
-	token Token = PeekToken(Tokens);
+	token Token = PeekToken(Parser);
 
 	node *Current = NULL;
 
@@ -159,9 +319,9 @@ node *ParseUnary(token **Tokens)
 		}
 	}
 
-	node *Operand = ParseOperand(Tokens);
+	node *Operand = ParseOperand(Parser);
 
-	node *Atom = ParseAtom(Tokens, Operand);
+	node *Atom = ParseAtom(Parser, Operand);
 	if(!Atom)
 	{
 		RaiseError(Token.ErrorInfo, "Expected operand in expression");
@@ -187,6 +347,9 @@ precedence GetPrecedence(token_type Op)
 {
 	switch ((int)Op)
 	{
+		case '.':
+			return MakePrecedence(90, 91);
+
 		case '*':
 		case '/':
 		case '%':
@@ -225,45 +388,127 @@ precedence GetPrecedence(token_type Op)
 		case T_LOR:
 			return MakePrecedence(-10, -9);
 
+		case '=':
+		case T_PEQ:
+		case T_MEQ:
+		case T_TEQ:
+		case T_DEQ:
+		case T_MODEQ:
+		case T_ANDEQ:
+		case T_XOREQ:
+		case T_OREQ:
+			return MakePrecedence(-20, -21); // right to left precedence
+
+
 		// Non binary operator, abort the loop
 		default:
-			return MakePrecedence(-999, -999);
+			return MakePrecedence(-1000, -1000);
 	}
 }
 
-node *ParseExpression(token **Tokens, int CurrentPrecedence)
+node *ParseExpression(parser *Parser, int CurrentPrecedence)
 {
-	node *LHS = ParseUnary(Tokens);
+	node *LHS = ParseUnary(Parser);
 	
 	while(true)
 	{
-		token BinaryOp = PeekToken(Tokens);
+		token BinaryOp = PeekToken(Parser);
 		precedence Prec = GetPrecedence(BinaryOp.Type);
 		int LeftP  = Prec.Left;
 		int RightP = Prec.Right;
 		if(LeftP < CurrentPrecedence)
 			break;
-		GetToken(Tokens);
-		node *RHS = ParseExpression(Tokens, RightP);
+		GetToken(Parser);
+		node *RHS = ParseExpression(Parser, RightP);
 		LHS = MakeBinary(&BinaryOp.ErrorInfo, LHS, RHS, BinaryOp.Type);
 	}
 	return LHS;
 }
 
-node *ParseExpression(token **Tokens)
+node *ParseExpression(parser *Parser)
 {
-	return ParseExpression(Tokens, 99);
+	return ParseExpression(Parser, -999);
 }
 
-node *ParseNode(token **Tokens)
+node *ParseDeclaration(parser *Parser)
 {
-	token Token = GetToken(Tokens);
-	switch(Token.Type)
+	b32 IsConst = false;
+
+	token ID = GetToken(Parser);
+	node *IDNode = MakeID(&ID.ErrorInfo, ID.ID);
+	token Decl = GetToken(Parser);
+	switch(Decl.Type)
 	{
+		case T_DECL:
+		{
+			IsConst = false;
+		} break;
+		case T_CONST:
+		{
+			IsConst = true;
+		} break;
 		default:
 		{
-			return ParseExpression(Tokens);
+			Assert(false);
 		} break;
 	}
+
+	token MaybeType = PeekToken(Parser);
+	node *MaybeTypeNode = NULL;
+	if(!IsConst)
+	{
+		if((int)MaybeType.Type != '=')
+		{
+			MaybeTypeNode = ParseType(Parser);
+		}
+		else
+		{
+			GetToken(Parser);
+		}
+	}
+	node *Expression = ParseExpression(Parser);
+	return MakeDecl(&Decl.ErrorInfo, IDNode, Expression, MaybeTypeNode, IsConst);
+}
+
+node *ParseNode(parser *Parser)
+{
+	token Token = PeekToken(Parser);
+	node *Result = NULL;
+	b32 ExpectSemicolon = true;
+	switch(Token.Type)
+	{
+		case T_ID:
+		{
+			token Next = PeekToken(Parser, 1);
+			switch(Next.Type)
+			{
+				case T_DECL:
+				case T_CONST:
+				{
+					Result = ParseDeclaration(Parser);
+				} break;
+				default:
+				{
+					Result = ParseExpression(Parser);
+				} break;
+			}
+
+		} break;
+		case T_ENDSCOPE:
+		{
+			if(!Parser->IsInBody)
+			{
+				RaiseError(Token.ErrorInfo, "No matching opening '{' for '}'");
+			}
+			ExpectSemicolon = false;
+		} break;
+		default:
+		{
+			Result = ParseExpression(Parser);
+		} break;
+	}
+	if(ExpectSemicolon)
+		EatToken(Parser, ';');
+	return Result;
 }
 

@@ -8,8 +8,8 @@ struct error_info
 {
 	string *Data;
 	const char *FileName;
-	size_t Line;
-	size_t Character;
+	i64 Line;
+	i64 Character;
 };
 
 

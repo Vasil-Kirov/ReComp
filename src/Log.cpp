@@ -33,7 +33,7 @@ Log(log_level Level, const char *Format, ...)
 	va_list Args;
 	va_start(Args, Format);
 	
-	vsnprintf_s(FinalFormat, FormatCopy.Size, FormatCopy.Data, Args);
+	vsnprintf_s(FinalFormat, 4096, FormatCopy.Data, Args);
 	
 	va_end(Args);
 

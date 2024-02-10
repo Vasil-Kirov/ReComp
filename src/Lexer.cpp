@@ -88,6 +88,8 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
 
+	error_info StartErrorInfo = *ErrorInfo;
+
 	while(IsIDCharacter(PeekC(String)) || isdigit(PeekC(String)))
 		AdvanceC(String, ErrorInfo);
 
@@ -97,7 +99,7 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 
 	token Token = {};
 	Token.Type = TokenType;
-	Token.ErrorInfo = *ErrorInfo;
+	Token.ErrorInfo = StartErrorInfo;
 	if(TokenType == T_ID)
 		Token.ID = MakeStringPointer(ID);
 	return Token;
@@ -106,6 +108,7 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 token TokinizeNumber(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
+	error_info StartErrorInfo = *ErrorInfo;
 
 	b32 FoundDot = false;
 	while(IsNumCharacter(PeekC(String), &FoundDot))
@@ -114,30 +117,33 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 	const char *End  = String->Data;
 
 	string Number = MakeString(Start, End - Start);
-	return MakeToken(T_NUM, *ErrorInfo, MakeStringPointer(Number));
+	return MakeToken(T_NUM, StartErrorInfo, MakeStringPointer(Number));
 }
 
 token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
+	error_info StartErrorInfo = *ErrorInfo;
+
 	char C = AdvanceC(String, ErrorInfo);
 	if(String->Size == 0)
 	{
-		return MakeToken((token_type)C, *ErrorInfo, NULL);
+		return MakeToken((token_type)C, StartErrorInfo, NULL);
 	}
 	string PotentialKeywordString = MakeString(Start, 2);
 	token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
 	if(PotentialKeyword == T_ID)
 	{
-		return MakeToken((token_type)C, *ErrorInfo, NULL);
+		return MakeToken((token_type)C, StartErrorInfo, NULL);
 	}
 	AdvanceC(String, ErrorInfo);
 
-	return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
+	return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 }
 
 token TokinizeString(string *String, error_info *ErrorInfo)
 {
+	error_info StartErrorInfo = *ErrorInfo;
 	AdvanceC(String, ErrorInfo);
 	const char *Start = String->Data;
 	while(PeekC(String) != '"')
@@ -152,7 +158,7 @@ token TokinizeString(string *String, error_info *ErrorInfo)
 	const char *End = String->Data;
 	AdvanceC(String, ErrorInfo);
 	string Tokinized = MakeString(Start, End - Start);
-	return MakeToken(T_STR, *ErrorInfo, MakeStringPointer(Tokinized));
+	return MakeToken(T_STR, StartErrorInfo, MakeStringPointer(Tokinized));
 }
 
 token GetNextToken(string *String, error_info *ErrorInfo)
@@ -174,7 +180,7 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	{
 		return TokinizeIdentifier(String, ErrorInfo);
 	}
-	if(isdigit(FirstChar) || FirstChar == '-')
+	if(isdigit(FirstChar))
 	{
 		return TokinizeNumber(String, ErrorInfo);
 	}
@@ -198,6 +204,7 @@ void InitializeLexer()
 	KeywordTable = ArrCreate(keyword);
 	AddKeyword("if",  T_IF);
 	AddKeyword("for", T_FOR);
+	AddKeyword("fn", T_FN);
 	AddKeyword(">=",  T_GEQ);
 	AddKeyword("<=",  T_LEQ);
 	AddKeyword("!=",  T_NEQ);
@@ -205,5 +212,18 @@ void InitializeLexer()
 	AddKeyword("->",  T_ARR);
 	AddKeyword("++",  T_PPLUS);
 	AddKeyword("--",  T_MMIN);
+	AddKeyword("||",  T_LOR);
+	AddKeyword("&&",  T_LAND);
+	AddKeyword("<<",  T_SLEFT);
+	AddKeyword(">>",  T_SRIGHT);
+	AddKeyword("+=",  T_PEQ);
+	AddKeyword("-=",  T_MEQ);
+	AddKeyword("*=",  T_TEQ);
+	AddKeyword("/=",  T_DEQ);
+	AddKeyword("%=",  T_MODEQ);
+	AddKeyword("&=",  T_ANDEQ);
+	AddKeyword("^=",  T_XOREQ);
+	AddKeyword("|=",  T_OREQ);
+	AddKeyword("::",  T_CONST);
 }
 

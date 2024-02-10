@@ -20,8 +20,6 @@
 #error unsupported platform
 #endif
 
-const char* GetTokenName(token_type Token);
-
 int
 main(int ArgCount, char *Args[])
 {
@@ -39,6 +37,9 @@ main(int ArgCount, char *Args[])
 	error_info ErrorInfo = {};
 	ErrorInfo.Data = &FileData;
 	ErrorInfo.FileName = Args[1];
+	ErrorInfo.Line = 1;
+	ErrorInfo.Character = 1;
+
 	token *Tokens = StringToTokens(FileData, ErrorInfo);
 	size_t TokenCount = ArrLen(Tokens);
 	for(int I = 0; I < TokenCount; ++I)
@@ -47,6 +48,11 @@ main(int ArgCount, char *Args[])
 		if(I + 1 != TokenCount)
 			printf(", ");
 	}
+	putchar('\n');
+
+	node **Nodes = ParseTokens(Tokens);
+	
+	int f = 0;
 
 	return 0;
 }

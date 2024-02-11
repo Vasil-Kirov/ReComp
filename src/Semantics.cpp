@@ -8,6 +8,7 @@ extern const type *UntypedFloat;
 extern const type *BasicUint;
 extern const type *BasicInt;
 extern const type *BasicF32;
+extern u32 TypeCount;
 
 uint32_t murmur3_32(const uint8_t* key, size_t len, uint32_t seed);
 uint32_t murmur3_32(const char* key, size_t len, uint32_t seed)
@@ -19,20 +20,22 @@ const int HASH_SEED = 0;
 
 void RaiseBinaryTypeError(const error_info *ErrorInfo, const type *Left, const type *Right)
 {
-	RaiseError(*ErrorInfo, "Incompatible types in binary expression: %s and %s", GetTypeName(Left), GetTypeName(Right));
+	RaiseError(*ErrorInfo, "Incompatible types in binary expression: %s and %s",
+			GetTypeName(Left), GetTypeName(Right));
 }
 
-const type *FindType(checker *Checker, const string *Name)
+u32 FindType(checker *Checker, const string *Name)
 {
-	FOR_ARRAY(Checker->TypeTable.Types, Checker->TypeTable.TypeCount)
+	for(int I = 0; I < TypeCount; ++I)
 	{
-		switch((*It)->Kind)
+		const type *Type = GetType(I);
+		switch(Type->Kind)
 		{
 			case TypeKind_Basic:
 			{
-				if(*Name == (*It)->Basic.Name)
+				if(*Name == Type->Basic.Name)
 				{
-					return *It;
+					return I;
 				}
 			} break;
 			default:
@@ -41,21 +44,21 @@ const type *FindType(checker *Checker, const string *Name)
 			} break;
 		}
 	}
-	return NULL;
+	return INVALID_TYPE;
 }
 
-const type *GetTypeFromTypeNode(checker *Checker, node *TypeNode)
+u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 {
 	if(TypeNode == NULL)
-		return NULL;
+		return INVALID_TYPE;
 
 	switch(TypeNode->Type)
 	{
 		case AST_BASICTYPE:
 		{
 			const string *Name = TypeNode->BasicType.ID->ID.Name;
-			const type *Type = FindType(Checker, Name);
-			if(Type == NULL)
+			u32 Type = FindType(Checker, Name);
+			if(Type == INVALID_TYPE)
 			{
 				RaiseError(*TypeNode->ErrorInfo, "Type \"%s\" is not defined", Name->Data);
 			}
@@ -113,7 +116,7 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 	}
 }
 
-const type *GetVariable(checker *Checker, const string *ID)
+u32 GetVariable(checker *Checker, const string *ID)
 {
 	int FirstAtRightDepth = -1;
 	for(int I = 0; I < Checker->LocalCount; ++I)
@@ -125,10 +128,10 @@ const type *GetVariable(checker *Checker, const string *ID)
 		}
 	}
 	if(FirstAtRightDepth == -1)
-		return NULL;
+		return INVALID_TYPE;
 
 	// @Note: find the last instance of the variable (for shadowing)
-	const local *Found = NULL;
+	u32 Found = INVALID_TYPE;
 	const local *Locals = Checker->Locals;
 	u32 LocalCount = Checker->LocalCount;
 	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
@@ -136,12 +139,10 @@ const type *GetVariable(checker *Checker, const string *ID)
 	{
 		const local *Local = &Locals[I];
 		if(Hash == Local->Hash && *ID == *Local->Name)
-			Found = Local;
+			Found = Local->Type;
 	}
 
-	if(Found)
-		return Found->Type;
-	return NULL;
+	return Found;
 }
 
 
@@ -149,14 +150,14 @@ const int MAX_ARGS = 512;
 locals_for_next_scope LocalsNextScope[MAX_ARGS];
 int LocalNextCount = 0;
 
-const type *CreateFunctionType(checker *Checker, node *FnNode)
+u32 CreateFunctionType(checker *Checker, node *FnNode)
 {
 	type *NewType = NewType(type);
 	NewType->Kind = TypeKind_Function;
 	function_type Function;
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
 	Function.ArgCount = ArrLen(FnNode->Fn.Args);
-	Function.Args = (const type **)AllocatePermanent(sizeof(type *) * Function.ArgCount);
+	Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
@@ -170,21 +171,7 @@ const type *CreateFunctionType(checker *Checker, node *FnNode)
 	}
 	
 	NewType->Function = Function;
-	Checker->TypeTable.Types[Checker->TypeTable.TypeCount++] = NewType;
-	return NewType;
-}
-
-const type *GetBasicTypeFromKind(checker *Checker, basic_kind Kind)
-{
-	const type_table *TypeTable = &Checker->TypeTable;
-	for(int I = 0; I < TypeTable->TypeCount; ++I)
-	{
-		if(TypeTable->Types[I]->Kind == TypeKind_Basic && TypeTable->Types[I]->Basic.Kind == Kind)
-			return TypeTable->Types[I];
-	}
-
-	Assert(false);
-	return NULL;
+	return AddType(NewType);
 }
 
 void PopScope(checker *Checker)
@@ -218,14 +205,14 @@ void AnalyzeBody(checker *Checker, node **Body)
 	PopScope(Checker);
 }
 
-const type *AnalyzeAtom(checker *Checker, node *Expr)
+u32 AnalyzeAtom(checker *Checker, node *Expr)
 {
 	switch(Expr->Type)
 	{
 		case AST_ID:
 		{
-			const type *Type = GetVariable(Checker, Expr->ID.Name);
-			if(Type == NULL)
+			u32 Type = GetVariable(Checker, Expr->ID.Name);
+			if(Type == INVALID_TYPE)
 			{
 				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
@@ -233,7 +220,7 @@ const type *AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_FN:
 		{
-			const type *Result = CreateFunctionType(Checker, Expr);
+			u32 Result = CreateFunctionType(Checker, Expr);
 			if(Expr->Fn.Body)
 			{
 				AnalyzeBody(Checker, Expr->Fn.Body);
@@ -243,18 +230,18 @@ const type *AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_NUMBER:
 		{
 			if(Expr->Number.IsFloat)
-				return UntypedFloat;
-			return UntypedInteger;
+				return Basic_UntypedFloat;
+			return Basic_UntypedInteger;
 		} break;
 		default:
 		{
 			Assert(false);
-			return NULL;
+			return INVALID_TYPE;
 		} break;
 	}
 }
 
-const type *AnalyzeUnary(checker *Checker, node *Expr)
+u32 AnalyzeUnary(checker *Checker, node *Expr)
 {
 	switch(Expr->Type)
 	{
@@ -265,19 +252,23 @@ const type *AnalyzeUnary(checker *Checker, node *Expr)
 	}
 }
 
-const type *AnalyzeExpression(checker *Checker, node *Expr)
+u32 AnalyzeExpression(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_BINARY)
 	{
-		const type *Left  = AnalyzeExpression(Checker, Expr->Binary.Left);
-		const type *Right = AnalyzeExpression(Checker, Expr->Binary.Right);
+		u32 Left  = AnalyzeExpression(Checker, Expr->Binary.Left);
+		u32 Right = AnalyzeExpression(Checker, Expr->Binary.Right);
+		Expr->Binary.ExpressionType = Left;
+
+		const type *LeftType  = GetType(Left);
+		const type *RightType = GetType(Right);
 		const type *Promotion = NULL;
-		if(!IsTypeCompatible(Left, Right, &Promotion, false))
+		if(!IsTypeCompatible(LeftType, RightType, &Promotion, false))
 		{
-			RaiseBinaryTypeError(Expr->ErrorInfo, Left, Right);
+			RaiseBinaryTypeError(Expr->ErrorInfo, LeftType, RightType);
 		}
 
-		const type *Result = Left;
+		u32 Result = Left;
 		switch(Expr->Binary.Op)
 		{
 			case T_PEQ:
@@ -291,7 +282,7 @@ const type *AnalyzeExpression(checker *Checker, node *Expr)
 			{
 				if(!IsLHSAssignable(Checker, Expr->Binary.Left))
 					RaiseError(*Expr->ErrorInfo, "Left-hand side of assignment is not assignable");
-				if(Promotion == Right)
+				if(Promotion == RightType)
 				{
 					RaiseError(*Expr->ErrorInfo, "Incompatible types in assignment expression!\n"
 							"Right-hand side doesn't fit in the left-hand side");
@@ -305,7 +296,7 @@ const type *AnalyzeExpression(checker *Checker, node *Expr)
 			case T_LOR:
 			case T_LAND:
 			{
-				Result = BasicBool;
+				Result = (u32)Basic_bool;
 			} break;
 			default:
 			{
@@ -314,16 +305,21 @@ const type *AnalyzeExpression(checker *Checker, node *Expr)
 
 		if(Promotion)
 		{
-			if(Promotion == Left)
+			u32 PromotionIdx = -1;
+			if(Promotion == LeftType)
 			{
 				Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Promotion);
+				PromotionIdx = Left;
 			}
-			else if(Promotion == Right)
+			else if(Promotion == RightType)
 			{
 				Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left,   NULL, Promotion);
+				PromotionIdx = Right;
 			}
 			else
 				Assert(false);
+
+			Expr->Binary.ExpressionType = PromotionIdx;
 		}
 		return Result;
 	}
@@ -333,7 +329,7 @@ const type *AnalyzeExpression(checker *Checker, node *Expr)
 	}
 }
 
-void AddVariable(checker *Checker, const error_info *ErrorInfo, const type *Type, const string *ID, b32 IsShadow,
+void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, b32 IsShadow,
 		b32 IsConst)
 {
 	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
@@ -360,20 +356,22 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, const type *Type
 	Checker->Locals[Checker->LocalCount++] = Local;
 }
 
-void AnalyzeDeclerations(checker *Checker, node *Node)
+const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
 	const node *ID = Node->Decl.ID;
-	const type *Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
+	u32 Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
 	if(Node->Decl.Expression)
 	{
-		const type *ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
+		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
 		if(Type != NULL)
 		{
-			if(!IsTypeCompatible(Type, ExprType, NULL, true))
+			const type *TypePointer     = GetType(Type);
+			const type *ExprTypePointer = GetType(ExprType);
+			if(!IsTypeCompatible(TypePointer, ExprTypePointer, NULL, true))
 			{
 				RaiseError(*Node->ErrorInfo, "Cannot assign expression of type %s to variable of type %s",
-						GetTypeName(ExprType), GetTypeName(Type));
+						GetTypeName(ExprTypePointer), GetTypeName(TypePointer));
 			}
 		}
 		else
@@ -383,12 +381,13 @@ void AnalyzeDeclerations(checker *Checker, node *Node)
 	}
 	else
 	{
-		if(Type == NULL)
+		if(Type == INVALID_TYPE)
 		{
 			RaiseError(*Node->ErrorInfo, "Expected either type or expression in variable declaration");
 		}
 	}
 	AddVariable(Checker, Node->ErrorInfo, Type, ID->ID.Name, Node->Decl.IsShadow, Node->Decl.IsConst);
+	return Type;
 }
 
 void AnalyzeNode(checker *Checker, node *Node)
@@ -397,7 +396,13 @@ void AnalyzeNode(checker *Checker, node *Node)
 	{
 		case AST_DECL:
 		{
-			AnalyzeDeclerations(Checker, Node);
+			const type *Type = GetType(AnalyzeDeclerations(Checker, Node));
+			if(Checker->CurrentDepth == 0 && !Node->Decl.IsConst && Type->Kind == TypeKind_Function)
+			{
+				RaiseError(*Node->ErrorInfo, "Global function declaration needs to be constant\n"
+						"To declare a function do it like this:\n\t"
+						"FunctionName :: fn(Argument: i32) -> i32");
+			}
 		} break;
 		default:
 		{
@@ -406,27 +411,12 @@ void AnalyzeNode(checker *Checker, node *Node)
 	}
 }
 
-size_t MAX_TYPES = MB(1);
-type_table CreateTypeTable()
-{
-	type_table Result;
-	Result.TypeCount = 0;
-	Result.Types = (const type **)AllocateVirtualMemory(sizeof(type *) * MAX_TYPES);
-	for(int I = 0; I < BasicTypesCount; ++I)
-	{
-		Result.Types[Result.TypeCount++] = &BasicTypes[I];
-	}
-
-	return Result;
-}
-
 void Analyze(node **Nodes)
 {
 	checker Checker;
 	Checker.Locals = (local *)AllocateVirtualMemory(MB(1) * sizeof(local));
 	Checker.LocalCount = 0;
 	Checker.CurrentDepth = 0;
-	Checker.TypeTable = CreateTypeTable();
 
 	int NodeCount = ArrLen(Nodes);
 	for(int I = 0; I < NodeCount; ++I)

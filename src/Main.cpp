@@ -9,6 +9,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Parser.h"
 #include "Semantics.h"
 #include "Type.h"
+#include "IR.h"
+#include "Threading.h"
 
 #include "Memory.cpp"
 #include "String.cpp"
@@ -18,6 +20,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Parser.cpp"
 #include "Semantics.cpp"
 #include "Type.cpp"
+#include "IR.cpp"
+#include "Threading.cpp"
 
 #if defined(_WIN32)
 #include "Win32.cpp"

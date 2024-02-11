@@ -1,4 +1,5 @@
 #include "Memory.h"
+#include "Threading.h"
 
 typedef struct _ap_memory
 {
@@ -44,7 +45,7 @@ InitializeMemory()
 void *
 AllocateMemory(u64 Size, i8 Index)
 {
-	//lock_mutex();
+	LockMutex();
 
 	void *Result = MemoryAllocators[Index].Current;
 	MemoryAllocators[Index].Current = (char *)MemoryAllocators[Index].Current + Size;
@@ -60,7 +61,7 @@ AllocateMemory(u64 Size, i8 Index)
 		MemoryAllocators[Index].End = (u8 *)MemoryAllocators[Index].End + MemoryAllocators[Index].ChunkSize;
 	}
 
-	//unlock_mutex();
+	UnlockMutex();
 	memset(Result, 0, Size);
 	return Result;
 }

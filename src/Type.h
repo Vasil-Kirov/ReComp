@@ -66,7 +66,7 @@ struct basic_type
 struct struct_member
 {
 	string ID;
-	const type *Type;
+	u32 Type;
 };
 
 struct struct_type
@@ -76,8 +76,8 @@ struct struct_type
 
 struct function_type
 {
-	const type *Return;
-	const type **Args;
+	u32 Return;
+	u32 *Args;
 	int ArgCount;
 };
 
@@ -99,6 +99,11 @@ struct type
 };
 
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);
+u32 AddType(type *Type);
+
+// @Note: I don't know if I need this but I'm wondering if later on accessing a global variable could
+// have some problems with threading, shouldn't hurt to have it for now
+inline const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
 

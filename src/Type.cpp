@@ -2,7 +2,7 @@
 #include "String.h"
 
 const type BasicTypes[] = {
-	{TypeKind_Basic, {Basic_bool, BasicFlag_Boolean,                               4, STR_LIT("bool")}},
+	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean,                             4, STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
 
 	{TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
@@ -33,6 +33,40 @@ const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
 const type *BasicInt       = &BasicTypes[Basic_int];
 const type *BasicUint      = &BasicTypes[Basic_uint];
 const type *BasicF32       = &BasicTypes[Basic_f32];
+
+
+u32 TypeCount = 0;
+const size_t MAX_TYPES = MB(1);
+const type **InitializeTypeTable()
+{
+	const type **Types = (const type **)AllocateVirtualMemory(sizeof(type *) * MAX_TYPES);
+	for(int I = 0; I < BasicTypesCount; ++I)
+	{
+		Types[TypeCount++] = &BasicTypes[I];
+	}
+
+	return Types;
+}
+
+const type **TypeTable = InitializeTypeTable();
+
+inline const type *GetType(u32 TypeIdx)
+{
+	return TypeTable[TypeIdx];
+}
+
+// @Note: Does this really need to lock and unlock mutex, it's like 2 instructions
+// I guess there is a chance that the function gets called at the same time by 2 threads
+u32 AddType(type *Type)
+{
+	LockMutex();
+
+	TypeTable[TypeCount++] = Type;
+	u32 Result = TypeCount - 1;
+
+	UnlockMutex();
+	return Result;
+}
 
 int GetBasicTypeSize(const type *Type)
 {

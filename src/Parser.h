@@ -32,6 +32,7 @@ struct node
 		struct {
 			node *Left;
 			node *Right;
+			u32 ExpressionType;
 			token_type Op;
 		} Binary;
 		struct {

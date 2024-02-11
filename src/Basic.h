@@ -25,4 +25,10 @@ typedef double f64;
 #define Assert(expression)
 #endif
 
+#define BIT(x) (1 << (x))
+
+#define ARR_LEN(ARR) (sizeof(ARR) / sizeof(ARR[0]))
+
+#define FOR_ARRAY(ARR, LEN) for(auto It = ARR; It < ARR + LEN; ++It)
+
 

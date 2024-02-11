@@ -9,6 +9,7 @@ enum token_type
 	T_DECL  = ':',
 	T_STARTSCOPE = '{',
 	T_ENDSCOPE   = '}',
+	T_EQ    = '=',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,
@@ -38,6 +39,7 @@ enum token_type
 	T_OREQ  = -27,
 	T_FN    = -28,
 	T_CONST = -29,
+	T_SHADOW= -30,
 };
 
 struct token

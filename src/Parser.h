@@ -1,5 +1,6 @@
 #pragma once
 #include "Lexer.h"
+struct type;
 
 enum node_type
 {
@@ -16,6 +17,8 @@ enum node_type
 	AST_BASICTYPE,
 	AST_PTRTYPE,
 	AST_FN,
+	
+	AST_CAST,
 };
 
 struct node
@@ -32,6 +35,11 @@ struct node
 			token_type Op;
 		} Binary;
 		struct {
+			node *Expression;
+			node *NodeType;    // @Note: This is written by the parser
+			const type *Type;  // This is written by the semantics checker, either one can be NULL
+		} Cast;
+		struct {
 			const string *S;
 		} String;
 		struct {
@@ -43,6 +51,7 @@ struct node
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
 			b32 IsConst;
+			b32 IsShadow;
 		} Decl;
 		struct {
 			node **Args;
@@ -70,4 +79,7 @@ node **ParseTokens(token *Tokens);
 node *ParseNode(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
+node *MakeCast(const error_info *ErrorInfo, node *Expression, node *NodeType, const type *Type);
+
+#define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo
 

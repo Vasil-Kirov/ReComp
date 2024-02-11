@@ -1,10 +1,20 @@
 #include "Parser.h"
 #include "Memory.h"
 
-node *AllocateNode(error_info *ErrorInfo)
+node *AllocateNode(const error_info *ErrorInfo)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
 	Result->ErrorInfo = ErrorInfo;
+	return Result;
+}
+
+node *MakeCast(const error_info *ErrorInfo, node *Expression, node *NodeType, const type *Type)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_CAST;
+	Result->Cast.Expression = Expression;
+	Result->Cast.NodeType = NodeType;
+	Result->Cast.Type = Type;
 	return Result;
 }
 
@@ -52,7 +62,7 @@ node *MakeBasicType(error_info *ErrorInfo, node *ID)
 	return Result;
 }
 
-node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeType, b32 IsConst)
+node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeType, b32 IsConst, b32 IsShadow)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_DECL;
@@ -60,6 +70,7 @@ node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeTyp
 	Result->Decl.Expression = Expression;
 	Result->Decl.Type = MaybeType;
 	Result->Decl.IsConst = IsConst;
+	Result->Decl.IsShadow = IsShadow;
 	return Result;
 }
 
@@ -138,6 +149,7 @@ node **ParseTokens(token *Tokens)
 
 node *ParseNumber(parser *Parser)
 {
+	ERROR_INFO;
 	token NumberToken = GetToken(Parser);
 	const string *NumberString = NumberToken.ID;
 
@@ -159,7 +171,7 @@ node *ParseNumber(parser *Parser)
 	{
 		Bytes = strtoul(Start, NULL, 10);
 	}
-	return MakeNumber(&NumberToken.ErrorInfo, Bytes, IsFloat);
+	return MakeNumber(ErrorInfo, Bytes, IsFloat);
 }
 
 node *ParseAtom(parser *Parser, node *Operand)
@@ -176,14 +188,16 @@ node *ParseType(parser *Parser)
 	{
 		case T_ID:
 		{
+			ERROR_INFO;
 			GetToken(Parser);
-			node *ID = MakeID(&FirstToken.ErrorInfo, FirstToken.ID);
-			return MakeBasicType(&FirstToken.ErrorInfo, ID);
+			node *ID = MakeID(ErrorInfo, FirstToken.ID);
+			return MakeBasicType(ErrorInfo, ID);
 		} break;
 		case T_PTR:
 		{
+			ERROR_INFO;
 			GetToken(Parser);
-			return MakePointerType(&FirstToken.ErrorInfo, ParseType(Parser));
+			return MakePointerType(ErrorInfo, ParseType(Parser));
 		} break;
 		case T_FN:
 		{
@@ -199,11 +213,12 @@ node *ParseType(parser *Parser)
 
 node *ParseFunctionArgument(parser *Parser)
 {
+	ERROR_INFO;
 	token ID = EatToken(Parser, T_ID);
 	EatToken(Parser, ':');
-	node *IDNode = MakeID(&ID.ErrorInfo, ID.ID);
+	node *IDNode = MakeID(ErrorInfo, ID.ID);
 	node *Type   = ParseType(Parser);
-	return MakeDecl(&ID.ErrorInfo, IDNode, NULL, Type, true);
+	return MakeDecl(ErrorInfo, IDNode, NULL, Type, true, false);
 }
 
 node **Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
@@ -227,6 +242,7 @@ node **Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 
 node *ParseFunctionType(parser *Parser)
 {
+	ERROR_INFO;
 	token FnToken = EatToken(Parser, T_FN);
 	EatToken(Parser, '(');
 	node **Args = Delimited(Parser, ',', ParseFunctionArgument);
@@ -239,7 +255,7 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(&FnToken.ErrorInfo, Args, ReturnType, NULL);
+	return MakeFunction(ErrorInfo, Args, ReturnType, NULL);
 }
 
 node **ParseBody(parser *Parser)
@@ -280,8 +296,9 @@ node *ParseOperand(parser *Parser)
 		} break;
 		case T_ID:
 		{
+			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeID(&Token.ErrorInfo, Token.ID);
+			Result = MakeID(ErrorInfo, Token.ID);
 		} break;
 		case T_NUM:
 		{
@@ -289,8 +306,9 @@ node *ParseOperand(parser *Parser)
 		} break;
 		case T_STR:
 		{
+			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeASTString(&Token.ErrorInfo, Token.ID);
+			Result = MakeASTString(ErrorInfo, Token.ID);
 		} break;
 		case '(':
 		{
@@ -418,9 +436,10 @@ node *ParseExpression(parser *Parser, int CurrentPrecedence)
 		int RightP = Prec.Right;
 		if(LeftP < CurrentPrecedence)
 			break;
+		ERROR_INFO;
 		GetToken(Parser);
 		node *RHS = ParseExpression(Parser, RightP);
-		LHS = MakeBinary(&BinaryOp.ErrorInfo, LHS, RHS, BinaryOp.Type);
+		LHS = MakeBinary(ErrorInfo, LHS, RHS, BinaryOp.Type);
 	}
 	return LHS;
 }
@@ -430,12 +449,13 @@ node *ParseExpression(parser *Parser)
 	return ParseExpression(Parser, -999);
 }
 
-node *ParseDeclaration(parser *Parser)
+node *ParseDeclaration(parser *Parser, b32 IsShadow)
 {
 	b32 IsConst = false;
 
+	ERROR_INFO;
 	token ID = GetToken(Parser);
-	node *IDNode = MakeID(&ID.ErrorInfo, ID.ID);
+	node *IDNode = MakeID(ErrorInfo, ID.ID);
 	token Decl = GetToken(Parser);
 	switch(Decl.Type)
 	{
@@ -457,17 +477,14 @@ node *ParseDeclaration(parser *Parser)
 	node *MaybeTypeNode = NULL;
 	if(!IsConst)
 	{
-		if((int)MaybeType.Type != '=')
+		if(MaybeType.Type != T_EQ)
 		{
 			MaybeTypeNode = ParseType(Parser);
 		}
-		else
-		{
-			GetToken(Parser);
-		}
+		EatToken(Parser, T_EQ);
 	}
 	node *Expression = ParseExpression(Parser);
-	return MakeDecl(&Decl.ErrorInfo, IDNode, Expression, MaybeTypeNode, IsConst);
+	return MakeDecl(ErrorInfo, IDNode, Expression, MaybeTypeNode, IsConst, IsShadow);
 }
 
 node *ParseNode(parser *Parser)
@@ -477,6 +494,23 @@ node *ParseNode(parser *Parser)
 	b32 ExpectSemicolon = true;
 	switch(Token.Type)
 	{
+		case T_SHADOW:
+		{
+			GetToken(Parser);
+			if(PeekToken(Parser).Type != T_ID)
+			{
+				RaiseError(Token.ErrorInfo, "Expected variable declaration after compiler directive #shadow\n"
+						"Example: #shadow MyVar := 10;");
+			}
+			token Next = PeekToken(Parser, 1);
+			if(Next.Type != T_DECL && Next.Type != T_CONST)
+			{
+				RaiseError(Token.ErrorInfo, "Expected variable declaration after compiler directive #shadow\n"
+						"Example: #shadow MyVar := 10;");
+			}
+
+			Result = ParseDeclaration(Parser, true);
+		} break;
 		case T_ID:
 		{
 			token Next = PeekToken(Parser, 1);
@@ -485,7 +519,7 @@ node *ParseNode(parser *Parser)
 				case T_DECL:
 				case T_CONST:
 				{
-					Result = ParseDeclaration(Parser);
+					Result = ParseDeclaration(Parser, false);
 				} break;
 				default:
 				{

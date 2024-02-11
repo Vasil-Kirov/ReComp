@@ -60,6 +60,14 @@ char AdvanceC(string *String, error_info *Error)
 	return Result;
 }
 
+char PeekCAhead(string *String, int Depth)
+{
+	if(Depth >= String->Size)
+		return 0;
+	else
+		return String->Data[Depth];
+}
+
 char PeekC(string *String)
 {
 	return *String->Data;
@@ -82,6 +90,27 @@ token *StringToTokens(string String, error_info ErrorInfo)
 	}
 
 	return Result;
+}
+
+token TokinizeCompilerDirective(string *String, error_info *ErrorInfo)
+{
+	const char *Start = String->Data;
+	error_info StartErrorInfo = *ErrorInfo;
+
+	AdvanceC(String, ErrorInfo);
+	while(IsIDCharacter(PeekC(String)) || isdigit(PeekC(String)))
+		AdvanceC(String, ErrorInfo);
+
+	const char *End = String->Data;
+	string ID = MakeString(Start, End - Start);
+	token_type TokenType = GetKeyword(ID);
+	if(TokenType == T_ID)
+		RaiseError(StartErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
+
+	token Token = {};
+	Token.Type = TokenType;
+	Token.ErrorInfo = StartErrorInfo;
+	return Token;
 }
 
 token TokinizeIdentifier(string *String, error_info *ErrorInfo)
@@ -188,6 +217,19 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	{
 		return TokinizeString(String, ErrorInfo);
 	}
+	if(FirstChar == '#')
+	{
+		return TokinizeCompilerDirective(String, ErrorInfo);
+	}
+	if(FirstChar == '/')
+	{
+		char SecondChar = PeekCAhead(String, 1);
+		if(SecondChar == '/')
+		{
+			while(AdvanceC(String, ErrorInfo) != '\n');
+			return GetNextToken(String, ErrorInfo);
+		}
+	}
 	return TokinizeSpecialCharacter(String, ErrorInfo);
 }
 
@@ -209,11 +251,11 @@ void InitializeLexer()
 	AddKeyword("<=",  T_LEQ);
 	AddKeyword("!=",  T_NEQ);
 	AddKeyword("==",  T_EQEQ);
+	AddKeyword("||",  T_LOR);
+	AddKeyword("&&",  T_LAND);
 	AddKeyword("->",  T_ARR);
 	AddKeyword("++",  T_PPLUS);
 	AddKeyword("--",  T_MMIN);
-	AddKeyword("||",  T_LOR);
-	AddKeyword("&&",  T_LAND);
 	AddKeyword("<<",  T_SLEFT);
 	AddKeyword(">>",  T_SRIGHT);
 	AddKeyword("+=",  T_PEQ);
@@ -225,5 +267,6 @@ void InitializeLexer()
 	AddKeyword("^=",  T_XOREQ);
 	AddKeyword("|=",  T_OREQ);
 	AddKeyword("::",  T_CONST);
+	AddKeyword("#shadow", T_SHADOW);
 }
 

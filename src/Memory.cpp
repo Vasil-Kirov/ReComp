@@ -32,11 +32,13 @@ InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
 }
 
 
-void
+// @Note: I just want to initialize this before everything else
+b32
 InitializeMemory()
 {
 	InitAPMem(&MemoryAllocators[PERM_INDEX], PERM_SIZE, PERM_CHUNK);
 	InitAPMem(&MemoryAllocators[STR_INDEX],  STR_SIZE,  STR_CHUNK);
+	return true;
 }
 
 void *

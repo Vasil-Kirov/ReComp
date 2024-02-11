@@ -1,10 +1,14 @@
-#include "Log.h"
 #include "Memory.h"
+static b32 _MemoryInitializer = InitializeMemory();
+
+#include "Log.h"
 #include "String.h"
 #include "Platform.h"
 #include "Lexer.h"
 #include "Errors.h"
 #include "Parser.h"
+#include "Semantics.h"
+#include "Type.h"
 
 #include "Memory.cpp"
 #include "String.cpp"
@@ -12,7 +16,8 @@
 #include "Lexer.cpp"
 #include "Errors.cpp"
 #include "Parser.cpp"
-
+#include "Semantics.cpp"
+#include "Type.cpp"
 
 #if defined(_WIN32)
 #include "Win32.cpp"
@@ -23,7 +28,6 @@
 int
 main(int ArgCount, char *Args[])
 {
-	InitializeMemory();
 	InitializeLogger();
 	InitializeLexer();
 
@@ -41,16 +45,8 @@ main(int ArgCount, char *Args[])
 	ErrorInfo.Character = 1;
 
 	token *Tokens = StringToTokens(FileData, ErrorInfo);
-	size_t TokenCount = ArrLen(Tokens);
-	for(int I = 0; I < TokenCount; ++I)
-	{
-		printf("[%s]", GetTokenName(Tokens[I].Type));
-		if(I + 1 != TokenCount)
-			printf(", ");
-	}
-	putchar('\n');
-
 	node **Nodes = ParseTokens(Tokens);
+	Analyze(Nodes);
 	
 	int f = 0;
 

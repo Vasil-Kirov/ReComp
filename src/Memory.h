@@ -10,7 +10,7 @@ enum AllocIndex
 	STR_INDEX = 1
 };
 
-void
+b32
 InitializeMemory();
 
 void *

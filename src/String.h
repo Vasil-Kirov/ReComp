@@ -6,12 +6,12 @@ struct string
 	const char *Data;
 	size_t Size;
 
-	bool operator==(const string& B)
+	bool operator==(const string& B) const
 	{
 		if(this->Size != B.Size)
 			return false;
 
-		return strncmp(this->Data, B.Data, this->Size) == 0;
+		return memcmp(this->Data, B.Data, B.Size) == 0;
 	}
 
 };
@@ -22,6 +22,7 @@ struct string_builder
 	size_t Size;
 };
 
+#define STR_LIT(LIT) MakeString(LIT, sizeof(LIT) - 1)
 
 string MakeString(string_builder Builder);
 string MakeString(const char *CString, size_t Size);

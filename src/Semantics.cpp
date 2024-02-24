@@ -308,13 +308,16 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			u32 PromotionIdx = -1;
 			if(Promotion == LeftType)
 			{
-				Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Promotion);
 				PromotionIdx = Left;
+				if(!IsUntyped(RightType))
+					Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Right, PromotionIdx);
+
 			}
 			else if(Promotion == RightType)
 			{
-				Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left,   NULL, Promotion);
 				PromotionIdx = Right;
+				if(!IsUntyped(LeftType))
+					Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left, NULL, Left, PromotionIdx);
 			}
 			else
 				Assert(false);
@@ -364,7 +367,7 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 	if(Node->Decl.Expression)
 	{
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
-		if(Type != NULL)
+		if(Type != INVALID_TYPE)
 		{
 			const type *TypePointer     = GetType(Type);
 			const type *ExprTypePointer = GetType(ExprType);
@@ -386,6 +389,27 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 			RaiseError(*Node->ErrorInfo, "Expected either type or expression in variable declaration");
 		}
 	}
+	const type *TypePtr = GetType(Type);
+	if(IsUntyped(TypePtr))
+	{
+		// @TODO: This being signed integer could result in some problems
+		// like:
+		// Foo := 0xFF_FF_FF_FF;
+		// Bar := $i32 Foo;
+		if(TypePtr->Basic.Flags & BasicFlag_Integer)
+		{
+			Type = Basic_i64;
+		}
+		else if(TypePtr->Basic.Flags & BasicFlag_Float)
+		{
+			Type = Basic_f64;
+		}
+		else
+		{
+			Assert(false);
+		}
+	}
+	Node->Decl.TypeIndex = Type;
 	AddVariable(Checker, Node->ErrorInfo, Type, ID->ID.Name, Node->Decl.IsShadow, Node->Decl.IsConst);
 	return Type;
 }

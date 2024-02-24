@@ -24,12 +24,15 @@ struct string_builder
 
 #define STR_LIT(LIT) MakeString(LIT, sizeof(LIT) - 1)
 
+string_builder MakeBuilder();
+
 string MakeString(string_builder Builder);
 string MakeString(const char *CString, size_t Size);
 string MakeString(const char *CString);
 
 void PushBuilder(string_builder *Builder, const char *Data);
 void PushBuilder(string_builder *Builder, char C);
+void PushBuilderFormated(string_builder *Builder, const char *Format, ...);
 
 size_t CStrLen(const char *CString);
 

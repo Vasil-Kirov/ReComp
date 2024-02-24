@@ -11,6 +11,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.h"
 #include "IR.h"
 #include "Threading.h"
+#include "backend/WASM.h"
 
 #include "Memory.cpp"
 #include "String.cpp"
@@ -22,6 +23,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.cpp"
 #include "IR.cpp"
 #include "Threading.cpp"
+#include "backend/WASM.cpp"
 
 #if defined(_WIN32)
 #include "Win32.cpp"
@@ -51,8 +53,9 @@ main(int ArgCount, char *Args[])
 	token *Tokens = StringToTokens(FileData, ErrorInfo);
 	node **Nodes = ParseTokens(Tokens);
 	Analyze(Nodes);
-	
-	int f = 0;
+	ir IR = BuildIR(Nodes);
+	string Dissasembly = Dissasemble(&IR.Functions[0]);
+	LDEBUG("%s", Dissasembly.Data);
 
 	return 0;
 }

@@ -37,8 +37,9 @@ struct node
 		} Binary;
 		struct {
 			node *Expression;
-			node *NodeType;    // @Note: This is written by the parser
-			const type *Type;  // This is written by the semantics checker, either one can be NULL
+			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser
+			u32 FromType;
+			u32 ToType;
 		} Cast;
 		struct {
 			const string *S;
@@ -51,6 +52,7 @@ struct node
 			node *ID;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
+			u32 TypeIndex; // Set by semantic analyzer, used by ir generator
 			b32 IsConst;
 			b32 IsShadow;
 		} Decl;
@@ -80,7 +82,7 @@ node **ParseTokens(token *Tokens);
 node *ParseNode(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
-node *MakeCast(const error_info *ErrorInfo, node *Expression, node *NodeType, const type *Type);
+node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo
 

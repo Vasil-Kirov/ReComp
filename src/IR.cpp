@@ -1,4 +1,15 @@
 #include "IR.h"
+#include "Type.h"
+
+inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
+{
+	instruction Result;
+	Result.BigRegister = Val;
+	Result.Op = Op;
+	Result.Type = Type;
+	Result.Result = Builder->LastRegister++;
+	return Result;
+}
 
 inline instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder)
 {
@@ -11,10 +22,11 @@ inline instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_build
 	return Result;
 }
 
-void AddInstruction(block_builder *Builder, instruction I)
+u32 PushInstruction(block_builder *Builder, instruction I)
 {
 	ArrPush(Builder->CurrentBlock->Code, I);
 	Builder->CurrentBlock->InstructionCount++;
+	return I.Result;
 }
 
 basic_block *AllocateBlock(block_builder *Builder)
@@ -23,64 +35,87 @@ basic_block *AllocateBlock(block_builder *Builder)
 	Block.Code = ArrCreate(instruction);
 	Block.InstructionCount = 0;
 
-	function *Function = Builder->Function;
-	ArrPush(Function->Blocks, Block);
-	return &Function->Blocks[Function->BlockCount++];
+	ArrPush(Builder->Function->Blocks, Block);
+	return &Builder->Function->Blocks[Builder->Function->BlockCount++];
 }
 
-void PushIRLocal(function *Function, const string *Name, u32 Register)
+void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type)
 {
 	ir_local Local;
 	Local.Register = Register;
 	Local.Name = Name;
+	Local.Type = Type;
 	Function->Locals[Function->LocalCount++] = Local;
 }
 
-u32 GetIRLocal(function *Function, const string *Name)
+const ir_local *GetIRLocal(function *Function, const string *Name)
 {
 	for(int I = 0; I < Function->LocalCount; ++I)
 	{
 		if(*Function->Locals[I].Name == *Name)
 		{
-			return Function->Locals[I].Register;
+			return &Function->Locals[I];
 		}
 	}
 	Assert(false);
 	return NULL;
 }
 
-u32 BuildIRFromAtom(block_builder *Builder, node *Node)
+u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
+	u32 Result = -1;
 	switch(Node->Type)
 	{
 		case AST_ID:
 		{
-			return GetIRLocal(Builder->Function, Node->ID.Name);
+			const ir_local *Local = GetIRLocal(Builder->Function, Node->ID.Name);
+			Result = Local->Register;
+			if(!IsLHS)
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, Local->Register, Local->Type, Builder));
+		} break;
+		case AST_NUMBER:
+		{
+			u32 Type = Node->Number.IsFloat ? Basic_UntypedFloat : Basic_UntypedInteger;
+			instruction I = Instruction(OP_CONST, Node->Number.Bytes, Type, Builder);
+			Result = PushInstruction(Builder, I);
+		} break;
+		case AST_CAST:
+		{
+			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+			instruction I = Instruction(OP_CAST, Expression, Node->Cast.ToType, Builder);
+			Result = PushInstruction(Builder, I);
 		} break;
 		default:
 		{
 			Assert(false);
 		} break;
 	}
+	return Result;
 }
 
-u32 BuildIRFromUnary(block_builder *Builder, node *Node)
+u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 {
+	u32 Result = -1;
 	switch(Node->Type)
 	{
 		default:
 		{
-			return BuildIRFromAtom(Builder, Node);
+			Result = BuildIRFromAtom(Builder, Node, IsLHS);
 		} break;
 	}
+	return Result;
 }
 
-u32 BuildIRFromExpression(block_builder *Builder, node *Node)
+u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 {
 	if(Node->Type == AST_BINARY)
 	{
-		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left);
-		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right);
+		b32 IsLeftLHS = false;
+		if(Node->Binary.Op == T_EQ)
+			IsLeftLHS = true;
+		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left, IsLeftLHS);
+		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsLHS);
+
 		instruction I;
 		switch((int)Node->Binary.Op)
 		{
@@ -104,15 +139,19 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node)
 			{
 				I = Instruction(OP_DIV, Left, Right, Node->Binary.ExpressionType, Builder);
 			} break;
+			case '=':
+			{
+				I = Instruction(OP_STORE, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
 			default:
 			{
 				Assert(false);
 			} break;
 		};
-		AddInstruction(Builder, I);
+		PushInstruction(Builder, I);
 		return I.Result;
 	}
-	return BuildIRFromUnary(Builder, Node);
+	return BuildIRFromUnary(Builder, Node, IsLHS);
 }
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
@@ -121,8 +160,10 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 	{
 		case AST_DECL:
 		{
-			u32 LocalRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-			PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister);
+			u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
+			u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+			PushInstruction(Builder, Instruction(OP_STORE, LocalRegister, ExpressionRegister, Node->Decl.TypeIndex, Builder));
+			PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
 		} break;
 		default:
 		{
@@ -152,6 +193,7 @@ function BuildFunctionIR(node **Body, const string *Name)
 		{
 			BuildIRFunctionLevel(&Builder, Body[I]);
 		}
+		Function.LastRegister = Builder.LastRegister;
 		VFree(Function.Locals);
 	}
 	return Function;
@@ -193,6 +235,85 @@ ir BuildIR(node **Nodes)
 	return IR;
 }
 
+void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
+{
+	for(int I = 0; I < Block->InstructionCount; ++I)
+	{
+		instruction Instr = Block->Code[I];
+		const type *Type = NULL;
+		if(Instr.Type != INVALID_TYPE)
+			Type = GetType(Instr.Type);
 
+		PushBuilder(Builder, '\t');
+		switch(Instr.Op)
+		{
+			case OP_NOP:
+			{
+				PushBuilder(Builder, "NOP");
+			} break;
+			case OP_CONST:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %d", Instr.Result, GetTypeName(Type), Instr.BigRegister);
+			} break;
+			case OP_ADD:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %%%d + %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Left, Instr.Right);
+			} break;
+			case OP_SUB:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %%%d - %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Left, Instr.Right);
+			} break;
+			case OP_MUL:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %%%d * %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Left, Instr.Right);
+			} break;
+			case OP_DIV:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %%%d / %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Left, Instr.Right);
+			} break;
+			case OP_MOD:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %%%d % %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Left, Instr.Right);
+			} break;
+			case OP_LOAD:
+			{
+				PushBuilderFormated(Builder, "%%%d = LOAD %s %%%d", Instr.Result, GetTypeName(Type),
+						Instr.BigRegister);
+			} break;
+			case OP_STORE:
+			{
+				PushBuilderFormated(Builder, "%%%d = STORE %s %%%d in %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Right, Instr.Left);
+			} break;
+			case OP_CAST:
+			{
+				PushBuilderFormated(Builder, "%%%d = CAST %s %%%d", Instr.Result, GetTypeName(Type),
+						Instr.BigRegister);
+			} break;
+			case OP_ALLOC:
+			{
+				PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
+			} break;
+		}
+		PushBuilder(Builder, '\n');
+	}
+	PushBuilder(Builder, '\n');
+}
+
+string Dissasemble(function *Fn)
+{
+	string_builder Builder = MakeBuilder();
+	PushBuilderFormated(&Builder, "\nfn %s:\n", Fn->Name->Data);
+	for(int I = 0; I < Fn->BlockCount; ++I)
+	{
+		DissasembleBasicBlock(&Builder, &Fn->Blocks[I]);
+	}
+	return MakeString(Builder);
+}
 
 

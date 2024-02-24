@@ -1,6 +1,20 @@
 #include "Windows.h"
 #include "Platform.h"
 
+void PlatformWriteFile(const char *Path, u8 *Data, u32 Size)
+{
+    HANDLE File = CreateFile(Path, FILE_GENERIC_WRITE , 0, 0,
+			OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+			0);
+	// NOTE(Vasko): FILE_GENERIC_WRITE should do that by itself
+	// but it doesn't
+	SetFilePointer(File, 0, 0, FILE_END);
+    
+    DWORD BytesWritten;
+    WriteFile(File, Data, Size, &BytesWritten, 0);
+	CloseHandle(File);
+}
+
 string ReadEntireFile(string Path)
 {
 	HANDLE File = CreateFileA(Path.Data, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);

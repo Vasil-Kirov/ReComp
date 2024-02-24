@@ -4,6 +4,8 @@
 // @Note: heavily inspired by the Odin type system
 
 struct type;
+#define INVALID_TYPE UINT32_MAX
+
 
 enum type_kind
 {
@@ -106,4 +108,6 @@ u32 AddType(type *Type);
 inline const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
+int GetBasicTypeSize(const type *Type);
+b32 IsUntyped(const type *Type);
 

@@ -50,6 +50,10 @@ const type **InitializeTypeTable()
 
 const type **TypeTable = InitializeTypeTable();
 
+b32 IsUntyped(const type *Type)
+{
+	return (Type->Kind & TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
+}
 inline const type *GetType(u32 TypeIdx)
 {
 	return TypeTable[TypeIdx];

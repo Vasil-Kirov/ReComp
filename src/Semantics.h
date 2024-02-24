@@ -3,8 +3,6 @@
 #include "Parser.h"
 #include "Type.h"
 
-#define INVALID_TYPE UINT32_MAX
-
 struct local
 {
 	const string *Name;

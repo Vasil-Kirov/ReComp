@@ -57,6 +57,18 @@ void PushBuilder(string_builder *Builder, char C)
 	Builder->Size++;
 }
 
+void PushBuilderFormated(string_builder *Builder, const char *Format, ...)
+{
+	char ToPush[4096] = {0};
+	va_list Args;
+	va_start(Args, Format);
+	
+	vsnprintf_s(ToPush, 4096, Format, Args);
+	
+	va_end(Args);
+	PushBuilder(Builder, ToPush);
+}
+
 string MakeString(const char *CString, size_t Size)
 {
 	string Result;

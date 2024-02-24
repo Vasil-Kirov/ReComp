@@ -8,13 +8,15 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
-node *MakeCast(const error_info *ErrorInfo, node *Expression, node *NodeType, const type *Type)
+node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_CAST;
 	Result->Cast.Expression = Expression;
-	Result->Cast.NodeType = NodeType;
-	Result->Cast.Type = Type;
+	Result->Cast.TypeNode = TypeNode;
+	Result->Cast.FromType = FromType;
+	Result->Cast.ToType = ToType;
+
 	return Result;
 }
 

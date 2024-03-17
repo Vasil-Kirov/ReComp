@@ -1,5 +1,6 @@
 #pragma once
 #include "Parser.h"
+#include "optimizers/reallocator.h"
 
 enum op
 {
@@ -49,6 +50,7 @@ struct function
 	basic_block *Blocks;
 	u32 BlockCount;
 	ir_local *Locals;
+	life_span *Spans;
 	u32 LocalCount;
 	u32 LastRegister;
 };
@@ -62,7 +64,7 @@ struct block_builder
 
 struct ir
 {
-	function *Functions;
+	function *Functions; // Dynamic Array
 };
 
 ir BuildIR(node **Nodes);

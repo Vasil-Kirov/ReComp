@@ -1,5 +1,7 @@
 #include "Memory.h"
 #include "Threading.h"
+#include "String.h"
+#include "Log.h"
 
 typedef struct _ap_memory
 {
@@ -23,6 +25,14 @@ void
 InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
 {
 	Memory->Start = PlatformReserveMemory(Size);
+	if(Memory->Start == NULL)
+	{
+		string E;
+		E.Data = "Couldn't allocate memory!";
+		E.Size = sizeof("Couldn't allocate memory!") - 1;
+		PlatformOutputString(E, LOG_FATAL);
+		exit(1);
+	}
 	PlatformAllocateReserved(Memory->Start, ChunkSize);
 	
 	Memory->End = (u8 *)Memory->Start + ChunkSize; 

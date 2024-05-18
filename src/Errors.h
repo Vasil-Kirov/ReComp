@@ -6,7 +6,7 @@
 
 struct error_info
 {
-	string *Data;
+	const string *Data;
 	const char *FileName;
 	i64 Line;
 	i64 Character;

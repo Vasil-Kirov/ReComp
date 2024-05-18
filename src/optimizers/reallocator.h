@@ -11,16 +11,29 @@ struct register_list
 struct life_span
 {
 	u32 VirtualRegister;
-	int StartPoint;
-	int EndPoint;
-	int SpillAt;
-	int Register;
+	u32 Type;
+	u32 StartPoint;
+	u32 EndPoint;
 };
 
 struct register_tracker
 {
-	life_span **Registers;
+	u32 *Registers;
 	u32 UsedRegisters;
+};
+
+struct out_life_span
+{
+	u32 VirtualRegister;
+	u32 Type;
+	int Register;
+	int SpillAt;
+};
+
+struct reg_allocation
+{
+	out_life_span *Spans;
+	int Count;
 };
 
 void AllocateRegisters(ir *IR, register_list List);

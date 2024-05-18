@@ -17,6 +17,7 @@ enum node_type
 	AST_BASICTYPE,
 	AST_PTRTYPE,
 	AST_FN,
+	AST_RETURN,
 	
 	AST_CAST,
 };
@@ -60,6 +61,7 @@ struct node
 			node **Args;
 			node *ReturnType; // @Nullable
 			node **Body; // @Nullable // @Note: Dynamic array
+			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
 		} Fn; // Used for fn type and fn declaration as it's the same thing
 		struct {
 			node *ID;
@@ -67,6 +69,10 @@ struct node
 		struct {
 			node *Pointed;
 		} PointerType;
+		struct {
+			node *Expression;
+			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
+		} Return;
 	};
 	const error_info *ErrorInfo;
 };
@@ -84,5 +90,6 @@ node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 
+// @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo
 

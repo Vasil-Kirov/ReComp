@@ -93,4 +93,17 @@ string MakeString(const char *CString)
 	return MakeString(CString, CStrLen(CString));
 }
 
+void string_builder::operator+=(const string& B)
+{
+	PushBuilder(this, B.Data);
+}
 
+void string_builder::operator+=(const char *String)
+{
+	PushBuilder(this, String);
+}
+
+void string_builder::operator+=(char C)
+{
+	PushBuilder(this, C);
+}

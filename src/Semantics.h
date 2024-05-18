@@ -27,7 +27,7 @@ struct locals_for_next_scope
 };
 
 void Analyze(const node **Nodes);
-void AnalyzeNode(checker *Checker, node *Node);
+u32 AnalyzeNode(checker *Checker, node *Node);
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, b32 IsShadow,
 		b32 IsConst);
 

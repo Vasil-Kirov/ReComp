@@ -54,9 +54,17 @@ char AdvanceC(string *String, error_info *Error)
 		RaiseError(*Error, "Unexpected end of file"); 
 	}
 	char Result = *String->Data;
+	if(Result == '\n')
+	{
+		Error->Line++;
+		Error->Character = 1;
+	}
+	else
+	{
+		Error->Character++;
+	}
 	String->Data++;
 	String->Size--;
-	Error->Character++;
 	return Result;
 }
 
@@ -71,12 +79,6 @@ char PeekCAhead(string *String, int Depth)
 char PeekC(string *String)
 {
 	return *String->Data;
-}
-
-void NewLine(error_info *ErrorInfo)
-{
-	ErrorInfo->Line++;
-	ErrorInfo->Character = 0;
 }
 
 token *StringToTokens(string String, error_info ErrorInfo)
@@ -194,8 +196,6 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 {
 	while(isspace(PeekC(String)))
 	{
-		if(PeekC(String) == '\n')
-			NewLine(ErrorInfo);
 		AdvanceC(String, ErrorInfo);
 		if(String->Size == 0)
 		{
@@ -268,5 +268,6 @@ void InitializeLexer()
 	AddKeyword("|=",  T_OREQ);
 	AddKeyword("::",  T_CONST);
 	AddKeyword("#shadow", T_SHADOW);
+	AddKeyword("return", T_RETURN);
 }
 

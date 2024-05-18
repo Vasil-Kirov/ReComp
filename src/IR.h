@@ -1,6 +1,5 @@
 #pragma once
 #include "Parser.h"
-#include "optimizers/reallocator.h"
 
 enum op
 {
@@ -15,6 +14,7 @@ enum op
 	OP_ALLOC,
 	OP_STORE,
 	OP_CAST, // @TODO: Actual casting, this is just for dissasembly
+	OP_RET,
 };
 
 struct instruction
@@ -44,15 +44,18 @@ struct ir_local
 	u32 Type;
 };
 
+struct reg_allocation;
+
 struct function
 {
 	const string *Name;
 	basic_block *Blocks;
 	u32 BlockCount;
 	ir_local *Locals;
-	life_span *Spans;
+	reg_allocation *Allocated;
 	u32 LocalCount;
 	u32 LastRegister;
+	u32 Type;
 };
 
 struct block_builder

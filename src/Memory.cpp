@@ -59,7 +59,7 @@ AllocateMemory(u64 Size, i8 Index)
 
 	void *Result = MemoryAllocators[Index].Current;
 	MemoryAllocators[Index].Current = (char *)MemoryAllocators[Index].Current + Size;
-	while((char *)MemoryAllocators[Index].Current > (char *)MemoryAllocators[Index].End)
+	while((char *)MemoryAllocators[Index].Current >= (char *)MemoryAllocators[Index].End)
 	{
 		if(MemoryAllocators[Index].ChunkIndex * MemoryAllocators[Index].ChunkSize > MemoryAllocators[Index].MaxSize)
 		{

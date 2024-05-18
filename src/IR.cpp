@@ -1,4 +1,5 @@
 #include "IR.h"
+#include "Parser.h"
 #include "Type.h"
 
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
@@ -8,6 +9,17 @@ inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 	Result.Op = Op;
 	Result.Type = Type;
 	Result.Result = Builder->LastRegister++;
+	return Result;
+}
+
+inline instruction InstructionStore(u32 Left, u32 Right, u32 Type)
+{
+	instruction Result;
+	Result.Left = Left;
+	Result.Right = Right;
+	Result.Op = OP_STORE;
+	Result.Type = Type;
+	Result.Result = Left;
 	return Result;
 }
 
@@ -81,8 +93,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_CAST:
 		{
-			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
-			instruction I = Instruction(OP_CAST, Expression, Node->Cast.ToType, Builder);
+			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, false);
+			instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
 			Result = PushInstruction(Builder, I);
 		} break;
 		default:
@@ -110,11 +122,15 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 {
 	if(Node->Type == AST_BINARY)
 	{
-		b32 IsLeftLHS = false;
+		b32 IsLeftLHS = IsLHS;
+		b32 IsRightLHS = IsLHS;
 		if(Node->Binary.Op == T_EQ)
+		{
 			IsLeftLHS = true;
+			IsRightLHS = false;
+		}
 		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left, IsLeftLHS);
-		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsLHS);
+		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsRightLHS);
 
 		instruction I;
 		switch((int)Node->Binary.Op)
@@ -141,7 +157,12 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 			} break;
 			case '=':
 			{
-				I = Instruction(OP_STORE, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = InstructionStore(Left, Right, Node->Binary.ExpressionType);
+				if(!IsLHS)
+				{
+					PushInstruction(Builder, I);
+					I = Instruction(OP_LOAD, I.Result, I.Type, Builder);
+				}
 			} break;
 			default:
 			{
@@ -162,8 +183,13 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
 			u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
-			PushInstruction(Builder, Instruction(OP_STORE, LocalRegister, ExpressionRegister, Node->Decl.TypeIndex, Builder));
+			PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
 			PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+		} break;
+		case AST_RETURN:
+		{
+			u32 Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
+			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Node->Return.TypeIdx, Builder));
 		} break;
 		default:
 		{
@@ -210,7 +236,10 @@ function GlobalLevelIR(node *Node)
 				Assert(Node->Decl.ID->Type == AST_ID);
 				Assert(Node->Decl.IsConst);
 				const string *Name = Node->Decl.ID->ID.Name;
-				return BuildFunctionIR(Node->Decl.Expression->Fn.Body, Name);
+
+				function Fn = BuildFunctionIR(Node->Decl.Expression->Fn.Body, Name);
+				Fn.Type = Node->Decl.Expression->Fn.TypeIdx;
+				return Fn;
 			}
 		} break;
 		default:
@@ -287,18 +316,22 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			} break;
 			case OP_STORE:
 			{
-				PushBuilderFormated(Builder, "%%%d = STORE %s %%%d in %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Right, Instr.Left);
+				PushBuilderFormated(Builder, "%%%d = STORE %s %%%d", Instr.Result, GetTypeName(Type),
+						Instr.Right);
 			} break;
 			case OP_CAST:
 			{
-				PushBuilderFormated(Builder, "%%%d = CAST %s %%%d", Instr.Result, GetTypeName(Type),
-						Instr.BigRegister);
+				const type *FromType = GetType(Instr.Right);
+				PushBuilderFormated(Builder, "%%%d = CAST %s to %s %%%d", Instr.Result, GetTypeName(FromType), GetTypeName(Type), Instr.Left);
 			} break;
 			case OP_ALLOC:
 			{
 				PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
 			} break;
+			case OP_RET:
+			{
+				PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
+			}
 		}
 		PushBuilder(Builder, '\n');
 	}

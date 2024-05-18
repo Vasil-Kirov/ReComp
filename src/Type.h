@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic.h"
+#include "String.h"
 
 // @Note: heavily inspired by the Odin type system
 
@@ -105,9 +106,10 @@ u32 AddType(type *Type);
 
 // @Note: I don't know if I need this but I'm wondering if later on accessing a global variable could
 // have some problems with threading, shouldn't hurt to have it for now
-inline const type *GetType(u32 TypeIdx);
+const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
 int GetBasicTypeSize(const type *Type);
+int GetTypeSize(const type *Type);
 b32 IsUntyped(const type *Type);
 

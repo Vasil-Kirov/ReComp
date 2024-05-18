@@ -20,6 +20,15 @@ node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u3
 	return Result;
 }
 
+node *MakeReturn(const error_info *ErrorInfo, node *Expression)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_RETURN;
+	Result->Return.Expression = Expression;
+
+	return Result;
+}
+
 node *MakeFunction(error_info *ErrorInfo, node **Args, node *ReturnType, node **Body)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -245,7 +254,7 @@ node **Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
-	token FnToken = EatToken(Parser, T_FN);
+	EatToken(Parser, T_FN);
 	EatToken(Parser, '(');
 	node **Args = Delimited(Parser, ',', ParseFunctionArgument);
 	EatToken(Parser, ')');
@@ -324,8 +333,6 @@ node *ParseOperand(parser *Parser)
 node *ParseUnary(parser *Parser)
 {
 	token Token = PeekToken(Parser);
-
-	node *Current = NULL;
 
 	b32 UnaryProcessing = true;
 	while(UnaryProcessing)
@@ -528,7 +535,12 @@ node *ParseNode(parser *Parser)
 					Result = ParseExpression(Parser);
 				} break;
 			}
-
+		} break;
+		case T_RETURN:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeReturn(ErrorInfo, ParseExpression(Parser));
 		} break;
 		case T_ENDSCOPE:
 		{

@@ -4,7 +4,7 @@ void FillLifeSpans(life_span *Spans, basic_block *Blocks, u32 BlockCount)
 {
 	for(int BlockIndex = 0; BlockIndex < BlockCount; ++BlockIndex)
 	{
-		basic_block *Block = &Blocks[I];
+		basic_block *Block = &Blocks[BlockIndex];
 		for(int InstructionIndex = 0; InstructionIndex < Block->InstructionCount; ++InstructionIndex)
 		{
 			instruction *I = &Block->Code[InstructionIndex];
@@ -12,18 +12,14 @@ void FillLifeSpans(life_span *Spans, basic_block *Blocks, u32 BlockCount)
 			{
 				Assert(Spans[I->Result].StartPoint == -1);
 				Spans[I->Result].VirtualRegister = I->Result;
-				Spans[I->Result].StartPoint = InstructionIndex;
-				Spans[I->Result].EndPoint = InstructionIndex;
+				Spans[I->Result].StartPoint      = InstructionIndex;
+				Spans[I->Result].EndPoint        = InstructionIndex;
+				Spans[I->Result].Type            = I->Type;
 			}
 			else if(I->Op == OP_LOAD)
 			{
-				Assert(Spans[I->Result].EndPoint == -1);
-				Spans[I->Result].EndPoint = InstructionIndex;
-			}
-			else if(I->Op == OP_STORE)
-			{
-				Assert(Spans[I->Result].EndPoint == -1);
-				Spans[I->Result].EndPoint = InstructionIndex;
+				// @TODO: I DONT WANT TO THINK ABOUT THIS RIGHT NOW
+				Spans[I->BigRegister].EndPoint = InstructionIndex;
 			}
 		}
 	}
@@ -33,16 +29,16 @@ int CompareLifeSpans(void const *AIn, void const *BIn)
 {
 	life_span *A = (life_span *)AIn;
 	life_span *B = (life_span *)BIn;
-	return A->StartPoint - B->StartPoint;
+	return A->StartPoint > B->StartPoint;
 }
 
-u32 GetFirstRegister(register_tracker *Tracker, life_span *Span, u32 RegisterCount)
+u32 GetFirstRegister(register_tracker *Tracker, int Index, u32 RegisterCount)
 {
 	for(int I = 0; I < RegisterCount; ++I)
 	{
-		if(Tracker->Registers[I] == NULL)
+		if(Tracker->Registers[I] == -1)
 		{
-			Tracker->Registers[I] = Span;
+			Tracker->Registers[I] = Index;
 			Tracker->UsedRegisters++;
 			return I;
 		}
@@ -50,29 +46,29 @@ u32 GetFirstRegister(register_tracker *Tracker, life_span *Span, u32 RegisterCou
 	return -1;
 }
 
-u32 FindSpillingRegister(register_tracker *Tracker, u32 RegisterCount)
+u32 FindSpillingRegister(life_span *Spans, register_tracker *Tracker, u32 RegisterCount)
 {
 	Assert(Tracker->UsedRegisters >= RegisterCount);
 	u32 Latest = 0;
 	for(int I = 0; I < RegisterCount; ++I)
 	{
 		Assert(Tracker->Registers[I]);
-		if(Tracker->Registers[I]->EndPoint > Tracker->Register[Latest]->EndPoint)
+		if(Spans[Tracker->Registers[I]].EndPoint > Spans[Tracker->Registers[Latest]].EndPoint)
 		{
 			Latest = I;
 		}
 	}
-	return I;
+	return Latest;
 }
 
-void ExpireOldIntervals(life_span *New, register_tracker *Tracker, register_list List)
+void ExpireOldIntervals(life_span *Spans, int Index, register_tracker *Tracker, register_list List)
 {
 	for(int I = 0; I < List.RegisterCount; ++I)
 	{
-		if(Tracker->Registers[I]->EndPoint >= New->StartPoint)
+		if(Spans[Tracker->Registers[I]].EndPoint >= Spans[Index].StartPoint)
 			continue;
 
-		Tracker->Registers[I] = NULL;
+		Tracker->Registers[I] = -1;
 		Tracker->UsedRegisters--;
 	}
 }
@@ -80,7 +76,9 @@ void ExpireOldIntervals(life_span *New, register_tracker *Tracker, register_list
 void AllocateFunctionRegisters(function *Function, register_list List)
 {
 	register_tracker Tracker = {};
-	Tracker.Registers = (life_span **)VAlloc(List.RegisterCount * sizeof(life_span *));
+	Tracker.Registers = (u32 *)VAlloc(List.RegisterCount * sizeof(u32));
+
+	out_life_span *Result = (out_life_span *)AllocateMemory(Function->LastRegister * sizeof(out_life_span));
 
 	life_span *Spans = (life_span *)VAlloc(Function->LastRegister * sizeof(life_span));
 	memset(Spans, 0xFF, sizeof(life_span) * Function->LastRegister);
@@ -95,27 +93,33 @@ void AllocateFunctionRegisters(function *Function, register_list List)
 			break;
 
 		SpanCount = I + 1;
+		Result[I].Type = Span->Type;
 
 		// @Note: release all registers that aren't refrenced again
-		ExpireOldIntervals(Span, &Tracker, List);
+		ExpireOldIntervals(Spans, I, &Tracker, List);
 		// @Note: if we have an available register we just take it, otherwise we spill the
 		// register whose endpoint is the highest
 		if(Tracker.UsedRegisters < List.RegisterCount)
 		{
-			u32 Register = GetFirstRegister(&Tracker, Span, List.RegisterCount);
+			u32 Register = GetFirstRegister(&Tracker, I, List.RegisterCount);
 			Assert(Register != -1);
-			Span->Register = Register;
+			Result[I].Register = Register;
 		}
 		else
 		{
-			u32 ToSpill = FindSpillingRegister(Tracker, List.RegisterCount);
-			Tracker.Registers[ToSpill]->SpillAt = Span->StartPoint;
+			u32 ToSpill = FindSpillingRegister(Spans, &Tracker, List.RegisterCount);
+			Result[Tracker.Registers[ToSpill]].SpillAt = Span->StartPoint;
 
-			Tracker->Registers[ToSpill] = Span;
-			Span->Register = ToSpill;
+			Tracker.Registers[ToSpill] = I;
+			Result[I].Register = ToSpill;
 		}
 	}
-	Function->Spans = Spans;
+	VFree(Tracker.Registers);
+	VFree(Spans);
+
+	Function->Allocated = NewType(reg_allocation);
+	Function->Allocated->Spans = Result;
+	Function->Allocated->Count = SpanCount;
 }
 
 void AllocateRegisters(ir *IR, register_list List)
@@ -123,7 +127,7 @@ void AllocateRegisters(ir *IR, register_list List)
 	auto FnCount = ArrLen(IR->Functions);
 	for(int I = 0; I < FnCount; ++I)
 	{
-		AllocateFunctionRegisters(IR->Functions[I], List);
+		AllocateFunctionRegisters(&IR->Functions[I], List);
 	}
 }
 

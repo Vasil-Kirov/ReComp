@@ -1,10 +1,12 @@
 
-x :: fn(arg: type, arg2: i32) -> i32 {
+main :: fn(arg: type, arg2: i32) -> i32 {
 	y: i32 = 10;
 	z: i16 = 10;
-	d := y = z = 3;
-	x :: z + y;
-	#shadow x := 0;
+	//d := y = z = 3;
+	x :: z / y;
+	// @TODO: Shadowing
+	//#shadow x := 0;
+	return x;
 };
 
 // 1. 2 * 3

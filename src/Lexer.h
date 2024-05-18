@@ -40,6 +40,7 @@ enum token_type
 	T_FN    = -28,
 	T_CONST = -29,
 	T_SHADOW= -30,
+	T_RETURN= -31,
 };
 
 struct token

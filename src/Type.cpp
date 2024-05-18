@@ -1,6 +1,8 @@
 #include "Type.h"
 #include "String.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean,                             4, STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
@@ -25,6 +27,8 @@ const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
 	{TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
 };
+#pragma clang diagnostic pop
+
 static const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
 const type *BasicBool      = &BasicTypes[Basic_bool];
@@ -72,10 +76,18 @@ u32 AddType(type *Type)
 	return Result;
 }
 
+// @TODO: Non basic type size calculation and arch dependant type sizes
 int GetBasicTypeSize(const type *Type)
 {
 	if(Type->Basic.Size != -1)
 		return Type->Basic.Size;
+	Assert(false);
+}
+
+int GetTypeSize(const type *Type)
+{
+	if(Type->Kind == TypeKind_Basic)
+		return GetBasicTypeSize(Type);
 	Assert(false);
 }
 
@@ -118,6 +130,7 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 			else
 				*PotentialPromotion = Right;
 		}
+		else return false;
 	}
 	int LeftSize  = GetBasicTypeSize(Left);
 	int RightSize = GetBasicTypeSize(Right);
@@ -132,6 +145,7 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 				return false;
 			*PotentialPromotion = Right;
 		}
+		else return false;
 	}
 	else if(LeftSize > RightSize)
 	{
@@ -142,6 +156,7 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 				return false;
 			*PotentialPromotion = Left;
 		}
+		else return false;
 	}
 	return true;
 }

@@ -22,7 +22,7 @@ typedef double f64;
 #define Assert(expression) if(!(expression)) { LERROR("--- COMPILER BUG ---\nFile: %s\nFunction %s\nLine: %d",\
 		__FILE__, __FUNCTION__, __LINE__); __builtin_trap(); }
 #else 
-#define Assert(expression)
+#define Assert(expression) {}
 #endif
 
 #define BIT(x) (1 << (x))

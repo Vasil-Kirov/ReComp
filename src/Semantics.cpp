@@ -1,4 +1,6 @@
 #include "Semantics.h"
+#include "Parser.h"
+#include "Type.h"
 extern const type BasicTypes[];
 extern const int  BasicTypesCount;
 
@@ -106,7 +108,6 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 	{
 		case AST_ID:
 		{
-			b32 Found = true;
 			return !IsVariableConst(Checker, LHS->ID.Name);
 		} break;
 		default:
@@ -187,8 +188,11 @@ void PopScope(checker *Checker)
 	}
 }
 
-void AnalyzeBody(checker *Checker, node **Body)
+void AnalyzeBody(checker *Checker, node **Body, u32 FunctionTypeIdx)
 {
+	const type *FunctionType = GetType(FunctionTypeIdx);
+	const type *ReturnType = GetType(FunctionType->Function.Return);
+	u32 ReturnTypeIdx = INVALID_TYPE;
 	Checker->CurrentDepth++;
 	for(int I = 0; I < LocalNextCount; ++I)
 	{
@@ -197,48 +201,82 @@ void AnalyzeBody(checker *Checker, node **Body)
 	}
 	LocalNextCount = 0;
 
+	// @TODO: This is hacky, do a proper check on all paths, probably somewhere else
+	b32 FoundCorrectReturn = false;
 	int BodyCount = ArrLen(Body);
 	for(int I = 0; I < BodyCount; ++I)
 	{
-		AnalyzeNode(Checker, Body[I]);
+		ReturnTypeIdx = AnalyzeNode(Checker, Body[I]);
+		if(ReturnTypeIdx != INVALID_TYPE)
+		{
+			if(FunctionType->Function.Return != ReturnTypeIdx)
+			{
+				const type *TryingToReturnType = GetType(ReturnTypeIdx);
+				const type *Promotion = NULL;
+				if(FunctionType->Function.Return == INVALID_TYPE)
+				{
+					RaiseError(*Body[I]->ErrorInfo, "Trying to return a value in a function with no return type");
+				}
+				else if(!IsTypeCompatible(ReturnType, TryingToReturnType, &Promotion, true))
+				{
+FunctionReturnTypeError:
+					RaiseError(*Body[I]->ErrorInfo, "Function return type is incorrect:\nExpected %s\nGot: %s",
+							GetTypeName(ReturnType), GetTypeName(TryingToReturnType));
+				}
+				if(Promotion)
+				{
+					// @Note: No promotion on return
+					goto FunctionReturnTypeError;
+				}
+			}
+			else
+			{
+				FoundCorrectReturn = true;
+			}
+		}
+	}
+	if(!FoundCorrectReturn)
+	{
+		RaiseError(*Body[0]->ErrorInfo, "Function with type of %s does not return a value", GetTypeName(ReturnType));
 	}
 	PopScope(Checker);
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
 {
+	u32 Result = INVALID_TYPE;
 	switch(Expr->Type)
 	{
 		case AST_ID:
 		{
-			u32 Type = GetVariable(Checker, Expr->ID.Name);
-			if(Type == INVALID_TYPE)
+			Result = GetVariable(Checker, Expr->ID.Name);
+			if(Result == INVALID_TYPE)
 			{
 				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
-			return Type;
 		} break;
 		case AST_FN:
 		{
-			u32 Result = CreateFunctionType(Checker, Expr);
+			Result = CreateFunctionType(Checker, Expr);
+			Expr->Fn.TypeIdx = Result;
 			if(Expr->Fn.Body)
 			{
-				AnalyzeBody(Checker, Expr->Fn.Body);
+				AnalyzeBody(Checker, Expr->Fn.Body, Result);
 			}
-			return Result;
 		} break;
 		case AST_NUMBER:
 		{
 			if(Expr->Number.IsFloat)
-				return Basic_UntypedFloat;
-			return Basic_UntypedInteger;
+				Result = Basic_UntypedFloat;
+			else
+				Result = Basic_UntypedInteger;
 		} break;
 		default:
 		{
 			Assert(false);
-			return INVALID_TYPE;
 		} break;
 	}
+	return Result;
 }
 
 u32 AnalyzeUnary(checker *Checker, node *Expr)
@@ -323,6 +361,9 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 				Assert(false);
 
 			Expr->Binary.ExpressionType = PromotionIdx;
+			// @TODO: Is this a hack? Could checking for bool mess something up?
+			if(Result != Basic_bool)
+				Result = PromotionIdx;
 		}
 		return Result;
 	}
@@ -371,10 +412,18 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 		{
 			const type *TypePointer     = GetType(Type);
 			const type *ExprTypePointer = GetType(ExprType);
-			if(!IsTypeCompatible(TypePointer, ExprTypePointer, NULL, true))
+			const type *Promotion = NULL;
+			if(!IsTypeCompatible(TypePointer, ExprTypePointer, &Promotion, true))
 			{
+DECL_TYPE_ERROR:
 				RaiseError(*Node->ErrorInfo, "Cannot assign expression of type %s to variable of type %s",
 						GetTypeName(ExprTypePointer), GetTypeName(TypePointer));
+			}
+			if(Promotion && !IsUntyped(ExprTypePointer))
+			{
+				if(Promotion != TypePointer)
+					goto DECL_TYPE_ERROR;
+				Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
 			}
 		}
 		else
@@ -414,13 +463,18 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 	return Type;
 }
 
-void AnalyzeNode(checker *Checker, node *Node)
+// Only returns a type when it finds a return statement
+u32 AnalyzeNode(checker *Checker, node *Node)
 {
+	u32 Result = INVALID_TYPE;
 	switch(Node->Type)
 	{
 		case AST_DECL:
 		{
-			const type *Type = GetType(AnalyzeDeclerations(Checker, Node));
+			u32 TypeIdx = AnalyzeDeclerations(Checker, Node);
+			const type *Type = GetType(TypeIdx);
+			if(Type->Kind == TypeKind_Function)
+				Node->Fn.TypeIdx = TypeIdx;
 			if(Checker->CurrentDepth == 0 && !Node->Decl.IsConst && Type->Kind == TypeKind_Function)
 			{
 				RaiseError(*Node->ErrorInfo, "Global function declaration needs to be constant\n"
@@ -428,11 +482,17 @@ void AnalyzeNode(checker *Checker, node *Node)
 						"FunctionName :: fn(Argument: i32) -> i32");
 			}
 		} break;
+		case AST_RETURN:
+		{
+			Result = AnalyzeExpression(Checker, Node->Return.Expression);
+			Node->Return.TypeIdx = Result;
+		} break;
 		default:
 		{
 			AnalyzeExpression(Checker, Node);
 		} break;
 	}
+	return Result;
 }
 
 void Analyze(node **Nodes)

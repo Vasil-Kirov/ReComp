@@ -1,6 +1,11 @@
 #include "Windows.h"
 #include "Platform.h"
 
+b32 PlatformDeleteFile(const char *Path)
+{
+	return DeleteFileA(Path);
+}
+
 void PlatformWriteFile(const char *Path, u8 *Data, u32 Size)
 {
     HANDLE File = CreateFile(Path, FILE_GENERIC_WRITE , 0, 0,

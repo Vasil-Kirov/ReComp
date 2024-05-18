@@ -11,8 +11,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.h"
 #include "IR.h"
 #include "Threading.h"
-#include "backend/WASM.h"
-#include "optimizers/reallocator.h"
+#include "backend/LLVMFileOutput.h"
+#include "backend/LLVMFileCast.h"
 
 #include "Memory.cpp"
 #include "String.cpp"
@@ -24,8 +24,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.cpp"
 #include "IR.cpp"
 #include "Threading.cpp"
-#include "backend/WASM.cpp"
-#include "optimizers/reallocator.cpp"
+#include "backend/LLVMFileOutput.cpp"
+#include "backend/LLVMFileCast.cpp"
 
 #if defined(_WIN32)
 #include "Win32.cpp"
@@ -59,13 +59,7 @@ main(int ArgCount, char *Args[])
 	string Dissasembly = Dissasemble(&IR.Functions[0]);
 	LDEBUG("%s", Dissasembly.Data);
 
-	int X86Registers[] = {Register_A, Register_B, Register_C, Register_D};
-
-	register_list RegisterList;
-	RegisterList.Registers = X86Registers;
-	RegisterList.RegisterCount = ARR_LEN(X86Registers);
-	AllocateRegisters(&IR, RegisterList);
-	x86Generate(&IR);
+	LLVMFileOutput(&IR);
 
 	return 0;
 }

@@ -20,6 +20,9 @@ struct string_builder
 {
 	char *Data;
 	size_t Size;
+	void operator+=(const string& B);
+	void operator+=(const char *String);
+	void operator+=(char C);
 };
 
 #define STR_LIT(LIT) MakeString(LIT, sizeof(LIT) - 1)

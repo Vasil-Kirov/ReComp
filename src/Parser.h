@@ -1,4 +1,5 @@
 #pragma once
+#include "Dynamic.h"
 #include "Lexer.h"
 struct type;
 
@@ -38,6 +39,10 @@ struct node
 		} Binary;
 		struct {
 			node *Expression;
+			dynamic<node *>Body;
+		} If;
+		struct {
+			node *Expression;
 			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser
 			u32 FromType;
 			u32 ToType;
@@ -60,7 +65,7 @@ struct node
 		struct {
 			node **Args;
 			node *ReturnType; // @Nullable
-			node **Body; // @Nullable // @Note: Dynamic array
+			dynamic<node *>Body; // @Note: call IsValid to check if the function has a body
 			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
 		} Fn; // Used for fn type and fn declaration as it's the same thing
 		struct {

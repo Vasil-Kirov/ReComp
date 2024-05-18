@@ -188,7 +188,7 @@ void PopScope(checker *Checker)
 	}
 }
 
-void AnalyzeBody(checker *Checker, node **Body, u32 FunctionTypeIdx)
+void AnalyzeBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTypeIdx)
 {
 	const type *FunctionType = GetType(FunctionTypeIdx);
 	const type *ReturnType = GetType(FunctionType->Function.Return);
@@ -203,8 +203,7 @@ void AnalyzeBody(checker *Checker, node **Body, u32 FunctionTypeIdx)
 
 	// @TODO: This is hacky, do a proper check on all paths, probably somewhere else
 	b32 FoundCorrectReturn = false;
-	int BodyCount = ArrLen(Body);
-	for(int I = 0; I < BodyCount; ++I)
+	for(int I = 0; I < Body.Count; ++I)
 	{
 		ReturnTypeIdx = AnalyzeNode(Checker, Body[I]);
 		if(ReturnTypeIdx != INVALID_TYPE)
@@ -225,9 +224,15 @@ FunctionReturnTypeError:
 				}
 				if(Promotion)
 				{
-					// @Note: No promotion on return
-					goto FunctionReturnTypeError;
+					if(TryingToReturnType != Promotion && TryingToReturnType->Kind == TypeKind_Basic && TryingToReturnType->Basic.Flags & BasicFlag_Untyped)
+					{}
+					else
+					{
+						// @Note: No promotion on return
+						goto FunctionReturnTypeError;
+					}
 				}
+				FoundCorrectReturn = true;
 			}
 			else
 			{
@@ -259,7 +264,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		{
 			Result = CreateFunctionType(Checker, Expr);
 			Expr->Fn.TypeIdx = Result;
-			if(Expr->Fn.Body)
+			if(Expr->Fn.Body.IsValid())
 			{
 				AnalyzeBody(Checker, Expr->Fn.Body, Result);
 			}
@@ -463,6 +468,27 @@ DECL_TYPE_ERROR:
 	return Type;
 }
 
+void AnalyzeIf(checker *Checker, node *Node)
+{
+	u32 ExprTypeIdx = AnalyzeExpression(Checker, Node->If.Expression);
+	const type *ExprType = GetType(ExprTypeIdx);
+	if(ExprType->Kind != TypeKind_Basic && ExprType->Kind != TypeKind_Pointer)
+	{
+		RaiseError(*Node->ErrorInfo, "If statement expression cannot be evaluated to a boolean. It has a type of %s",
+				GetTypeName(ExprType));
+	}
+	if(ExprType->Kind != TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
+	{
+		Node->If.Expression = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
+	}
+	Checker->CurrentDepth++;
+	for(int Idx = 0; Idx < Node->If.Body.Count; ++Idx)
+	{
+		AnalyzeNode(Checker, Node->If.Body[Idx]);
+	}
+	PopScope(Checker);
+}
+
 // Only returns a type when it finds a return statement
 u32 AnalyzeNode(checker *Checker, node *Node)
 {
@@ -481,6 +507,10 @@ u32 AnalyzeNode(checker *Checker, node *Node)
 						"To declare a function do it like this:\n\t"
 						"FunctionName :: fn(Argument: i32) -> i32");
 			}
+		} break;
+		case AST_IF:
+		{
+			AnalyzeIf(Checker, Node);
 		} break;
 		case AST_RETURN:
 		{

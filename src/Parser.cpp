@@ -1,10 +1,21 @@
 #include "Parser.h"
+#include "Lexer.h"
 #include "Memory.h"
 
 node *AllocateNode(const error_info *ErrorInfo)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
 	Result->ErrorInfo = ErrorInfo;
+	return Result;
+}
+
+// @NOTE: The body is not initialized here and it's the job of the caller to do it
+node *MakeIf(const error_info *ErrorInfo, node *Expression)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_IF;
+	Result->If.Expression = Expression;
+	
 	return Result;
 }
 
@@ -29,13 +40,13 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(error_info *ErrorInfo, node **Args, node *ReturnType, node **Body)
+node *MakeFunction(error_info *ErrorInfo, node **Args, node *ReturnType)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_FN;
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
-	Result->Fn.Body = Body;
+	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
 }
 
@@ -266,15 +277,14 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(ErrorInfo, Args, ReturnType, NULL);
+	return MakeFunction(ErrorInfo, Args, ReturnType);
 }
 
-node **ParseBody(parser *Parser)
+void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 {
 	b32 WasInBody = Parser->IsInBody;
 	Parser->IsInBody = true;
 
-	node **Body = ArrCreate(node *);
 	EatToken(Parser, T_STARTSCOPE);
 	while(true)
 	{
@@ -284,11 +294,10 @@ node **ParseBody(parser *Parser)
 			EatToken(Parser, T_ENDSCOPE);
 			break;
 		}
-		ArrPush(Body, Node);
+		OutBody.Push(Node);
 	}
 
 	Parser->IsInBody = WasInBody;
-	return Body;
 }
 
 node *ParseOperand(parser *Parser)
@@ -302,7 +311,7 @@ node *ParseOperand(parser *Parser)
 			Result = ParseFunctionType(Parser);
 			if((int)PeekToken(Parser).Type == T_STARTSCOPE)
 			{
-				Result->Fn.Body = ParseBody(Parser);
+				ParseBody(Parser, Result->Fn.Body);
 			}
 		} break;
 		case T_ID:
@@ -541,6 +550,23 @@ node *ParseNode(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 			Result = MakeReturn(ErrorInfo, ParseExpression(Parser));
+		} break;
+		case T_IF:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *IfExpression = ParseExpression(Parser);
+			Result = MakeIf(ErrorInfo, IfExpression);
+			
+			if(PeekToken(Parser).Type == T_STARTSCOPE)
+			{
+				ParseBody(Parser, Result->If.Body);
+			}
+			else
+			{
+				Result->If.Body.Push(ParseNode(Parser));
+			}
+			ExpectSemicolon = false;
 		} break;
 		case T_ENDSCOPE:
 		{

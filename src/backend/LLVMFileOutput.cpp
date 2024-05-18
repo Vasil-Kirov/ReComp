@@ -103,6 +103,19 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 				PushBuilderFormated(Builder, "%%%d = ", Instr.Result);
 				LLVMCast(Builder, Left, LeftPrefix, FromType, Type);
 			} break;
+			case OP_IF:
+			{
+				u32 Result = Instr.Result;
+				char ResultPrefix = '%';
+				auto ResultConst = ConstMap.find(Result);
+				if(ResultConst != ConstMap.end())
+				{
+					Result = ResultConst->second;
+					ResultPrefix = ' ';
+				}
+
+				PushBuilderFormated(Builder, "br i1 %c%d, label block_%d, label block_%d ", ResultPrefix, Result, Instr.Left, Instr.Right);
+			} break;
 			case OP_RET:
 			{
 				if(Type)
@@ -132,7 +145,7 @@ string LLVMFileDumpFunction(function Fn)
 	Builder += '\n';
 	for(int i = 0; i < Fn.BlockCount; ++i)
 	{
-		PushBuilderFormated(&Builder, "block_%d: \n", i);
+		PushBuilderFormated(&Builder, "block_%d: \n", Fn.Blocks[i].ID);
 		LLVMFileDumpBlock(&Builder, Fn.Blocks[i]);
 	}
 	Builder += '}';

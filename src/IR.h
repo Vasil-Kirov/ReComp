@@ -15,6 +15,7 @@ enum op
 	OP_STORE,
 	OP_CAST, // @TODO: Actual casting, this is just for dissasembly
 	OP_RET,
+	OP_IF,
 };
 
 struct instruction
@@ -35,6 +36,8 @@ struct basic_block
 {
 	instruction *Code;
 	u32 InstructionCount;
+	u32 ID;
+	b32 HasTerminator;
 };
 
 struct ir_local

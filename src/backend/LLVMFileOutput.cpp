@@ -180,7 +180,8 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 		}
-		PushBuilder(Builder, '\n');
+		if(Instr.Op != OP_CONST && Instr.Op != OP_NOP)
+			PushBuilder(Builder, '\n');
 	}
 }
 
@@ -196,7 +197,7 @@ string LLVMFileDumpFunction(function Fn)
 	Builder += '\n';
 	for(int i = 0; i < Fn.BlockCount; ++i)
 	{
-		PushBuilderFormated(&Builder, "block_%d: \n", Fn.Blocks[i].ID);
+		PushBuilderFormated(&Builder, "block_%d:\n\n", Fn.Blocks[i].ID);
 		LLVMFileDumpBlock(&Builder, Fn.Blocks[i]);
 	}
 	Builder += '}';

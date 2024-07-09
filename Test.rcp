@@ -2,15 +2,21 @@
 main :: fn(arg: type, arg2: i32) -> i32 {
 	y: i32 = 4;
 
-	if y == 10 {
-		return 10;
-	} else if y == 3 {
-		return 12;
-	} else {
-		return 13;
+	for i: i32 = 0; i <= 10; i = i + 1 {
+		y = i;
 	}
 
-	return 20;
+	return y;
+
+	// if y == 10 {
+	// 	return 10;
+	// } else if y == 3 {
+	// 	return 12;
+	// } else {
+	// 	return 13;
+	// }
+
+	// return 20;
 };
 
 

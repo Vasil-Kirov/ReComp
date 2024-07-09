@@ -1,4 +1,6 @@
 #include "Parser.h"
+#include "Dynamic.h"
+#include "Errors.h"
 #include "Lexer.h"
 #include "Memory.h"
 
@@ -16,6 +18,17 @@ node *MakeIf(const error_info *ErrorInfo, node *Expression)
 	Result->Type = AST_IF;
 	Result->If.Expression = Expression;
 	
+	return Result;
+}
+
+node *MakeFor(const error_info *ErrorInfo, node *ForInit, node *ForExpr, node *ForIncr)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_FOR;
+	Result->For.Init = ForInit;
+	Result->For.Expr = ForExpr;
+	Result->For.Incr = ForIncr;
+
 	return Result;
 }
 
@@ -473,6 +486,9 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 
 	ERROR_INFO;
 	token ID = GetToken(Parser);
+	if(ID.Type != T_ID)
+		RaiseError(*ErrorInfo, "Expected decleration!");
+
 	node *IDNode = MakeID(ErrorInfo, ID.ID);
 	token Decl = GetToken(Parser);
 	switch(Decl.Type)
@@ -487,7 +503,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 		} break;
 		default:
 		{
-			Assert(false);
+			RaiseError(*ErrorInfo, "Expected decleration!");
 		} break;
 	}
 
@@ -503,6 +519,18 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 	}
 	node *Expression = ParseExpression(Parser);
 	return MakeDecl(ErrorInfo, IDNode, Expression, MaybeTypeNode, IsConst, IsShadow);
+}
+
+void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
+{
+	if(PeekToken(Parser).Type == T_STARTSCOPE)
+	{
+		ParseBody(Parser, OutBody);
+	}
+	else
+	{
+		OutBody.Push(ParseNode(Parser));
+	}
 }
 
 node *ParseNode(parser *Parser)
@@ -557,29 +585,37 @@ node *ParseNode(parser *Parser)
 			GetToken(Parser);
 			node *IfExpression = ParseExpression(Parser);
 			Result = MakeIf(ErrorInfo, IfExpression);
+			ParseMaybeBody(Parser, Result->If.Body);
 			
-			if(PeekToken(Parser).Type == T_STARTSCOPE)
-			{
-				ParseBody(Parser, Result->If.Body);
-			}
-			else
-			{
-				Result->If.Body.Push(ParseNode(Parser));
-			}
-
 			if(PeekToken(Parser).Type == T_ELSE)
 			{
 				GetToken(Parser);
-				if(PeekToken(Parser).Type == T_STARTSCOPE)
-				{
-					ParseBody(Parser, Result->If.Else);
-				}
-				else
-				{
-					Result->If.Else.Push(ParseNode(Parser));
-				}
+				ParseMaybeBody(Parser, Result->If.Body);
 			}
 
+			ExpectSemicolon = false;
+		} break;
+		case T_FOR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *ForInit = NULL;
+			node *ForExpr = NULL;
+			node *ForIncr = NULL;
+			if(PeekToken(Parser).Type != ';')
+				ForInit = ParseDeclaration(Parser, false);
+			EatToken(Parser, ';');
+
+			if(PeekToken(Parser).Type != ';')
+				ForExpr = ParseExpression(Parser);
+			EatToken(Parser, ';');
+
+			if(PeekToken(Parser).Type != ';')
+				ForIncr = ParseExpression(Parser);
+
+			Result = MakeFor(ErrorInfo, ForInit, ForExpr, ForIncr);
+			ParseMaybeBody(Parser, Result->For.Body);
+			
 			ExpectSemicolon = false;
 		} break;
 		case T_ENDSCOPE:

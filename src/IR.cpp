@@ -65,6 +65,7 @@ basic_block *AllocateBlock(block_builder *Builder)
 	return &Builder->Function->Blocks[Builder->Function->BlockCount++];
 }
 
+// @TODO: no? like why no scope tracking
 void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type)
 {
 	ir_local Local;
@@ -197,6 +198,15 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 	return BuildIRFromUnary(Builder, Node, IsLHS);
 }
 
+void BuildIRFromDecleration(block_builder *Builder, node *Node)
+{
+	Assert(Node->Type == AST_DECL);
+	u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
+	u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+	PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
+	PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+}
+
 void Terminate(block_builder *Builder, basic_block *GoTo)
 {
 	Builder->CurrentBlock->HasTerminator = true;
@@ -211,10 +221,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 	{
 		case AST_DECL:
 		{
-			u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-			u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
-			PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
-			PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+			BuildIRFromDecleration(Builder, Node);
 		} break;
 		case AST_RETURN:
 		{
@@ -242,6 +249,36 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				PushInstruction(Builder, Instruction(OP_JMP, EndBlock->ID, Basic_type, Builder));
 				Terminate(Builder, EndBlock);
 			}
+		} break;
+		case AST_FOR:
+		{
+			basic_block *Cond  = AllocateBlock(Builder);
+			basic_block *Then  = AllocateBlock(Builder);
+			basic_block *Incr  = AllocateBlock(Builder);
+			basic_block *End   = AllocateBlock(Builder);
+
+			if(Node->For.Init)
+				BuildIRFromDecleration(Builder, Node->For.Init);
+			PushInstruction(Builder, Instruction(OP_JMP, Cond->ID, Basic_type, Builder));
+			Terminate(Builder, Cond);
+
+			if(Node->For.Expr)
+			{
+				u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr);
+				PushInstruction(Builder, Instruction(OP_IF, Then->ID, End->ID, CondExpr, Basic_bool));
+			}
+			else
+			{
+				PushInstruction(Builder, Instruction(OP_JMP, Then->ID, Basic_type, Builder));
+			}
+			Terminate(Builder, Then);
+			BuildIRBody(Node->For.Body, Builder, Incr);
+
+			if(Node->For.Incr)
+				BuildIRFromExpression(Builder, Node->For.Incr);
+
+			PushInstruction(Builder, Instruction(OP_JMP, Cond->ID, Basic_type, Builder));
+			Terminate(Builder, End);
 		} break;
 		default:
 		{
@@ -400,7 +437,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			} break;
 			case OP_IF:
 			{
-				PushBuilderFormated(Builder, "IF %%%d goto %d, after goto %d", Instr.Result, Instr.Left, Instr.Right);
+				PushBuilderFormated(Builder, "IF %%%d goto %d, else goto %d", Instr.Result, Instr.Left, Instr.Right);
 			} break;
 			case OP_JMP:
 			{

@@ -79,7 +79,7 @@ b32 IsVariableConst(checker *Checker, const string *ID)
 	int FirstAtRightDepth = -1;
 	for(int I = 0; I < Checker->LocalCount; ++I)
 	{
-		if(Checker->CurrentDepth == Checker->Locals[I].Depth)
+		if(Checker->CurrentDepth >= Checker->Locals[I].Depth)
 		{
 			FirstAtRightDepth = I;
 			break;
@@ -498,6 +498,17 @@ DECL_TYPE_ERROR:
 	return Type;
 }
 
+void AnalyzeInnerBody(checker *Checker, dynamic<node *> &Body)
+{
+	Assert(Body.IsValid());
+	Checker->CurrentDepth++;
+	for(int Idx = 0; Idx < Body.Count; ++Idx)
+	{
+		AnalyzeNode(Checker, Body[Idx]);
+	}
+	PopScope(Checker);
+}
+
 void AnalyzeIf(checker *Checker, node *Node)
 {
 	u32 ExprTypeIdx = AnalyzeExpression(Checker, Node->If.Expression);
@@ -511,19 +522,24 @@ void AnalyzeIf(checker *Checker, node *Node)
 	{
 		Node->If.Expression = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
 	}
-	Checker->CurrentDepth++;
-	for(int Idx = 0; Idx < Node->If.Body.Count; ++Idx)
-	{
-		AnalyzeNode(Checker, Node->If.Body[Idx]);
-	}
+	AnalyzeInnerBody(Checker, Node->If.Body);
 	if(Node->If.Else.IsValid())
 	{
-		for(int Idx = 0; Idx < Node->If.Else.Count; ++Idx)
-		{
-			AnalyzeNode(Checker, Node->If.Else[Idx]);
-		}
+		AnalyzeInnerBody(Checker, Node->If.Else);
 	}
+}
 
+void AnalyzeFor(checker *Checker, node *Node)
+{
+	Checker->CurrentDepth++;
+	if(Node->For.Init)
+		AnalyzeDeclerations(Checker, Node->For.Init);
+	if(Node->For.Expr)
+		AnalyzeExpression(Checker, Node->For.Expr);
+	if(Node->For.Incr)
+		AnalyzeExpression(Checker, Node->For.Incr);
+
+	AnalyzeInnerBody(Checker, Node->For.Body);
 	PopScope(Checker);
 }
 
@@ -549,6 +565,10 @@ u32 AnalyzeNode(checker *Checker, node *Node)
 		case AST_IF:
 		{
 			AnalyzeIf(Checker, Node);
+		} break;
+		case AST_FOR:
+		{
+			AnalyzeFor(Checker, Node);
 		} break;
 		case AST_RETURN:
 		{

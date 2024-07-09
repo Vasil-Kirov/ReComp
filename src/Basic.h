@@ -20,7 +20,7 @@ typedef double f64;
 
 #if defined(DEBUG)
 #define Assert(expression) if(!(expression)) { LERROR("--- COMPILER BUG ---\nFile: %s\nFunction %s\nLine: %d",\
-		__FILE__, __FUNCTION__, __LINE__); __builtin_trap(); }
+		__FILE__, __FUNCTION__, __LINE__); __debugbreak(); __builtin_trap(); }
 #else 
 #define Assert(expression) {}
 #endif

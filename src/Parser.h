@@ -10,6 +10,7 @@ enum node_type
 	AST_BINARY,
 	AST_UNARY,
 	AST_IF,
+	AST_FOR,
 	AST_FUNCTION,
 	AST_ID,
 	AST_STRING,
@@ -42,6 +43,12 @@ struct node
 			dynamic<node *>Body;
 			dynamic<node *>Else;
 		} If;
+		struct {
+			node *Init; // @Nullable
+			node *Expr; // @Nullable
+			node *Incr; // @Nullable
+			dynamic<node *>Body;
+		} For;
 		struct {
 			node *Expression;
 			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser

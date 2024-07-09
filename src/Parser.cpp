@@ -566,6 +566,20 @@ node *ParseNode(parser *Parser)
 			{
 				Result->If.Body.Push(ParseNode(Parser));
 			}
+
+			if(PeekToken(Parser).Type == T_ELSE)
+			{
+				GetToken(Parser);
+				if(PeekToken(Parser).Type == T_STARTSCOPE)
+				{
+					ParseBody(Parser, Result->If.Else);
+				}
+				else
+				{
+					Result->If.Else.Push(ParseNode(Parser));
+				}
+			}
+
 			ExpectSemicolon = false;
 		} break;
 		case T_ENDSCOPE:

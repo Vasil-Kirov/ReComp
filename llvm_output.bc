@@ -2,16 +2,28 @@ define i32 @main() {
 block_0: 
 
 %1 = alloca i32
-store i32  10, ptr %1
+store i32  4, ptr %1
+%2 = load i32, ptr %1
 
-%3 = alloca i16
-store i16  10, ptr %3
-%4 = load i16, ptr %3
-%5 = sext i16 %4 to i32
-%6 = load i32, ptr %1
-%7 = sdiv i32 %5, %6
-%8 = alloca i32
-store i32 %7, ptr %8
-%9 = load i32, ptr %8
-ret i32 %9
+%4 = icmp eq i32 %2,  10
+br i1 %4, label %block_1, label %block_2 
+block_1: 
+
+ret i32  10
+block_2: 
+%7 = load i32, ptr %1
+
+%9 = icmp eq i32 %7,  3
+br i1 %9, label %block_4, label %block_5 
+block_3: 
+
+ret i32  20
+block_4: 
+
+ret i32  12
+block_5: 
+
+ret i32  13
+block_6: 
+br label %block_3
 }

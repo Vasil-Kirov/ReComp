@@ -17,6 +17,7 @@ struct checker
 	local *Locals;
 	u32 LocalCount;
 	u32 CurrentDepth;
+	u32 CurrentFnReturnTypeIdx;
 };
 
 struct locals_for_next_scope

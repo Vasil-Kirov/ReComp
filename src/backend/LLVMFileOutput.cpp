@@ -8,6 +8,18 @@ const char *GetLLVMTypeChar(const type *Type)
 {
 	if(Type->Kind == TypeKind_Basic && Type->Basic.Flags & BasicFlag_Boolean)
 		return "i8";
+#if 0
+	else if(IsUntyped(Type))
+	{
+		i32 RegisterSize = GetRegisterTypeSize();
+		string_builder Builder = MakeBuilder();
+		if(Type->Basic.Flags & BasicFlag_Float)
+			PushBuilderFormated(&Builder, "f%d", RegisterSize);
+		else
+			PushBuilderFormated(&Builder, "i%d", RegisterSize);
+		return MakeString(Builder).Data;
+	}
+#endif
 	return GetTypeName(Type);
 }
 
@@ -114,7 +126,11 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 					ResultPrefix = ' ';
 				}
 
-				PushBuilderFormated(Builder, "br i1 %c%d, label block_%d, label block_%d ", ResultPrefix, Result, Instr.Left, Instr.Right);
+				PushBuilderFormated(Builder, "br i1 %c%d, label %%block_%d, label %%block_%d ", ResultPrefix, Result, Instr.Left, Instr.Right);
+			} break;
+			case OP_JMP:
+			{
+				PushBuilderFormated(Builder, "br label %%block_%d", Instr.BigRegister);
 			} break;
 			case OP_RET:
 			{
@@ -127,7 +143,42 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 					*Builder += "ret";
 				}
 			} break;
-			//Assert(false);
+			case OP_NEQ:
+			{
+				PushBuilderFormated(Builder, "%%%d = icmp ne %s %c%d, %c%d",
+						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+			} break;
+			case OP_GEQ:
+			{
+				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp uge %s %c%d, %c%d",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp sge %s %c%d, %c%d",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+			} break;
+			case OP_LEQ:
+			{
+				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp ule %s %c%d, %c%d",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp sle %s %c%d, %c%d",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+			} break;
+			case OP_EQEQ:
+			{
+				PushBuilderFormated(Builder, "%%%d = icmp eq %s %c%d, %c%d",
+						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+			} break;
 		}
 		PushBuilder(Builder, '\n');
 	}

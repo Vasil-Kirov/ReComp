@@ -16,6 +16,11 @@ enum op
 	OP_CAST, // @TODO: Actual casting, this is just for dissasembly
 	OP_RET,
 	OP_IF,
+	OP_JMP,
+	OP_NEQ,
+	OP_GEQ,
+	OP_LEQ,
+	OP_EQEQ,
 };
 
 struct instruction

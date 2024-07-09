@@ -18,12 +18,21 @@ string GetErrorSegment(error_info ErrorInfo)
 	string_builder Builder = MakeBuilder();
 	string Code = *ErrorInfo.Data;
 	i64 Line = 1;
-	while(Line + 1 < ErrorInfo.Line)
+	while(Line != ErrorInfo.Line)
 	{
 		if(Code.Data[0] == '\n')
 			Line++;
 		AdvanceString(&Code);
 	}
+	char c = ' ';
+	do {
+		c = Code.Data[0];
+		PushBuilder(&Builder, c);
+
+		AdvanceString(&Code);
+	} while(c != '\n' && c != 0);
+	return MakeString(Builder);
+#if 0
 	i64 Character = 1;
 	while(Character + 7 < ErrorInfo.Character)
 	{
@@ -62,6 +71,7 @@ string GetErrorSegment(error_info ErrorInfo)
 		AdvanceString(&Code);
 	}
 	return MakeString(Builder);
+#endif
 }
 
 void

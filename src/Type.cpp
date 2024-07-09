@@ -76,6 +76,12 @@ u32 AddType(type *Type)
 	return Result;
 }
 
+i32 GetRegisterTypeSize()
+{
+	// @TODO: Other platforsm :|
+	return 64;
+}
+
 // @TODO: Non basic type size calculation and arch dependant type sizes
 int GetBasicTypeSize(const type *Type)
 {

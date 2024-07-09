@@ -112,4 +112,6 @@ const char *GetTypeName(const type *Type);
 int GetBasicTypeSize(const type *Type);
 int GetTypeSize(const type *Type);
 b32 IsUntyped(const type *Type);
+b32 TypesMustMatch(const type *Left, const type *Right);
+i32 GetRegisterTypeSize();
 

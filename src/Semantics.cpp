@@ -122,7 +122,7 @@ u32 GetVariable(checker *Checker, const string *ID)
 	int FirstAtRightDepth = -1;
 	for(int I = 0; I < Checker->LocalCount; ++I)
 	{
-		if(Checker->CurrentDepth == Checker->Locals[I].Depth)
+		if(Checker->CurrentDepth >= Checker->Locals[I].Depth)
 		{
 			FirstAtRightDepth = I;
 			break;
@@ -266,7 +266,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Expr->Fn.TypeIdx = Result;
 			if(Expr->Fn.Body.IsValid())
 			{
+				const type *Type = GetType(Result);
+				u32 Save = Checker->CurrentFnReturnTypeIdx;
+				Checker->CurrentFnReturnTypeIdx = Type->Function.Return;
 				AnalyzeBody(Checker, Expr->Fn.Body, Result);
+				Checker->CurrentFnReturnTypeIdx = Save;
 			}
 		} break;
 		case AST_NUMBER:
@@ -293,6 +297,37 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 			return AnalyzeAtom(Checker, Expr);
 		} break;
 	}
+}
+
+typedef struct {
+	u32 From;
+	u32 To;
+	const type *FromT;
+	const type *ToT;
+} promotion_description;
+
+promotion_description PromoteType(const type *Promotion, const type *Left, const type *Right, u32 LeftIdx, u32 RightIdx)
+{
+	Assert(Promotion);
+	promotion_description Result = {};
+	if(Promotion == Left)
+	{
+		Result.From  = RightIdx;
+		Result.FromT = Right;
+		Result.To = LeftIdx;
+		Result.ToT = Left;
+
+	}
+	else if(Promotion == Right)
+	{
+		Result.From = LeftIdx;
+		Result.FromT = Left;
+		Result.To = RightIdx;
+		Result.ToT = Right;
+	}
+	else
+		Assert(false);
+	return Result;
 }
 
 u32 AnalyzeExpression(checker *Checker, node *Expr)
@@ -348,27 +383,22 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 		if(Promotion)
 		{
-			u32 PromotionIdx = -1;
-			if(Promotion == LeftType)
-			{
-				PromotionIdx = Left;
-				if(!IsUntyped(RightType))
-					Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Right, PromotionIdx);
+			promotion_description Promote = PromoteType(Promotion, LeftType, RightType, Left, Right);
 
-			}
-			else if(Promotion == RightType)
+			if(!IsUntyped(Promote.FromT))
 			{
-				PromotionIdx = Right;
-				if(!IsUntyped(LeftType))
-					Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left, NULL, Left, PromotionIdx);
+				if(Promote.FromT == LeftType)
+					Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left, NULL, Promote.From, Promote.To);
+				else
+					Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Promote.From, Promote.To);
 			}
-			else
-				Assert(false);
 
-			Expr->Binary.ExpressionType = PromotionIdx;
-			// @TODO: Is this a hack? Could checking for bool mess something up?
 			if(Result != Basic_bool)
-				Result = PromotionIdx;
+			{
+				Expr->Binary.ExpressionType = Promote.To;
+				// @TODO: Is this a hack? Could checking for bool mess something up?
+				Result = Promote.To;
+			}
 		}
 		return Result;
 	}
@@ -486,6 +516,14 @@ void AnalyzeIf(checker *Checker, node *Node)
 	{
 		AnalyzeNode(Checker, Node->If.Body[Idx]);
 	}
+	if(Node->If.Else.IsValid())
+	{
+		for(int Idx = 0; Idx < Node->If.Else.Count; ++Idx)
+		{
+			AnalyzeNode(Checker, Node->If.Else[Idx]);
+		}
+	}
+
 	PopScope(Checker);
 }
 
@@ -515,7 +553,27 @@ u32 AnalyzeNode(checker *Checker, node *Node)
 		case AST_RETURN:
 		{
 			Result = AnalyzeExpression(Checker, Node->Return.Expression);
-			Node->Return.TypeIdx = Result;
+			const type *Type = GetType(Result);
+			const type *Return = GetType(Checker->CurrentFnReturnTypeIdx);
+			const type *Promotion = NULL;
+			if(!IsTypeCompatible(Return, Type, &Promotion, true))
+			{
+RetErr:
+				RaiseError(*Node->ErrorInfo, "Type of return expression does not match function return type!\n"
+						"Expected: %s\n"
+						"Got: %s",
+						GetTypeName(Return),
+						GetTypeName(Type));
+			}
+			if(Promotion)
+			{
+				promotion_description Promote = PromoteType(Promotion, Return, Type, Checker->CurrentFnReturnTypeIdx, Result);
+				if(Promote.To == Result)
+					goto RetErr;
+				if(!IsUntyped(Type))
+					Node->Return.Expression = MakeCast(Node->ErrorInfo, Node->Return.Expression, NULL, Promote.From, Promote.To);
+			}
+			Node->Return.TypeIdx = Checker->CurrentFnReturnTypeIdx;
 		} break;
 		default:
 		{
@@ -531,6 +589,7 @@ void Analyze(node **Nodes)
 	Checker.Locals = (local *)AllocateVirtualMemory(MB(1) * sizeof(local));
 	Checker.LocalCount = 0;
 	Checker.CurrentDepth = 0;
+	Checker.CurrentFnReturnTypeIdx = INVALID_TYPE;
 
 	int NodeCount = ArrLen(Nodes);
 	for(int I = 0; I < NodeCount; ++I)

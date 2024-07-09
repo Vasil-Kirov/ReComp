@@ -319,6 +319,27 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+
+		// @NOTE: This allows to cast as a prefix AND postfix, should it be allowed?
+		case T_AUTOCAST:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = Result;
+			if(Expr == NULL)
+				Expr = ParseExpression(Parser);
+			Result = MakeCast(ErrorInfo, Expr, NULL, 0, 0);
+		} break;
+		case T_CAST:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Type = ParseType(Parser);
+			node *Expr = Result;
+			if(Expr == NULL)
+				Expr = ParseExpression(Parser);
+			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
+		} break;
 		case T_FN:
 		{
 			Result = ParseFunctionType(Parser);

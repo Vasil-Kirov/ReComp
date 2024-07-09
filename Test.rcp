@@ -1,12 +1,12 @@
 
 main :: fn(arg: type, arg2: i32) -> i32 {
-	y: i32 = 4;
+	y := 4;
 
 	for i: i32 = 0; i <= 10; i = i + 1 {
-		y = i;
+		y = y + i;
 	}
 
-	return y;
+	return @i32 y;
 
 	// if y == 10 {
 	// 	return 10;

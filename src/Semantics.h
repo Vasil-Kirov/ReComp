@@ -31,4 +31,5 @@ void Analyze(const node **Nodes);
 u32 AnalyzeNode(checker *Checker, node *Node);
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, b32 IsShadow,
 		b32 IsConst);
+u32 AnalyzeExpression(checker *Checker, node *Expr);
 

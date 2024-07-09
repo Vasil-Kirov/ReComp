@@ -248,6 +248,7 @@ void InitializeLexer()
 	AddKeyword("else",T_ELSE);
 	AddKeyword("for", T_FOR);
 	AddKeyword("fn",  T_FN);
+	AddKeyword("@@",  T_AUTOCAST);
 	AddKeyword(">=",  T_GEQ);
 	AddKeyword("<=",  T_LEQ);
 	AddKeyword("!=",  T_NEQ);

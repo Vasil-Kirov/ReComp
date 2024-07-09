@@ -197,7 +197,7 @@ string LLVMFileDumpFunction(function Fn)
 	Builder += '\n';
 	for(int i = 0; i < Fn.BlockCount; ++i)
 	{
-		PushBuilderFormated(&Builder, "block_%d:\n\n", Fn.Blocks[i].ID);
+		PushBuilderFormated(&Builder, "\nblock_%d:\n", Fn.Blocks[i].ID);
 		LLVMFileDumpBlock(&Builder, Fn.Blocks[i]);
 	}
 	Builder += '}';

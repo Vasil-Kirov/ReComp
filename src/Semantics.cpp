@@ -252,6 +252,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 	u32 Result = INVALID_TYPE;
 	switch(Expr->Type)
 	{
+		case AST_CAST:
+		{
+			// @TODO: auto cast
+			Assert(Expr->Cast.TypeNode);
+			u32 To = GetTypeFromTypeNode(Checker, Expr->Cast.TypeNode);
+			u32 From = AnalyzeExpression(Checker, Expr->Cast.Expression);
+			Assert(To != INVALID_TYPE && From != INVALID_TYPE);
+			const type *ToType = GetType(To);
+			const type *FromType = GetType(From);
+			if(!IsCastValid(FromType, ToType))
+			{
+				RaiseError(*Expr->ErrorInfo, "Cannot cast %s to %s", GetTypeName(FromType), GetTypeName(ToType));
+			}
+			Expr->Cast.FromType = From;
+			Expr->Cast.ToType = To;
+			Result = To;
+		} break;
 		case AST_ID:
 		{
 			Result = GetVariable(Checker, Expr->ID.Name);

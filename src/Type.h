@@ -42,7 +42,8 @@ enum basic_kind
 	Basic_int,
 	Basic_uint,
 
-	Basic_type
+	Basic_type,
+	Basic_auto,
 };
 
 enum basic_flags
@@ -114,4 +115,5 @@ int GetTypeSize(const type *Type);
 b32 IsUntyped(const type *Type);
 b32 TypesMustMatch(const type *Left, const type *Right);
 i32 GetRegisterTypeSize();
+b32 IsCastValid(const type *From, const type *To);
 

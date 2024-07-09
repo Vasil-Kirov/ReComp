@@ -26,6 +26,8 @@ const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
 	{TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
 	{TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
+
+	{TypeKind_Basic, {Basic_auto, 0,                                              -1, STR_LIT("auto")}},
 };
 #pragma clang diagnostic pop
 
@@ -63,8 +65,6 @@ inline const type *GetType(u32 TypeIdx)
 	return TypeTable[TypeIdx];
 }
 
-// @Note: Does this really need to lock and unlock mutex, it's like 2 instructions
-// I guess there is a chance that the function gets called at the same time by 2 threads
 u32 AddType(type *Type)
 {
 	LockMutex();
@@ -87,6 +87,8 @@ int GetBasicTypeSize(const type *Type)
 {
 	if(Type->Basic.Size != -1)
 		return Type->Basic.Size;
+	else if(Type->Basic.Kind == Basic_int || Type->Basic.Kind == Basic_uint)
+		return GetRegisterTypeSize() / 8;
 	Assert(false);
 }
 
@@ -164,6 +166,24 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 		}
 		else return false;
 	}
+	return true;
+}
+
+b32 IsCastValid(const type *From, const type *To)
+{
+	if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
+	{
+		return GetTypeSize(To) == GetRegisterTypeSize() / 8;
+	}
+
+	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Pointer)
+	{
+		return GetTypeSize(From) == GetRegisterTypeSize() / 8;
+	}
+
+	if(From->Kind != To->Kind)
+		return false;
+
 	return true;
 }
 

@@ -60,9 +60,16 @@ b32 IsUntyped(const type *Type)
 {
 	return (Type->Kind & TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
 }
+
 inline const type *GetType(u32 TypeIdx)
 {
 	return TypeTable[TypeIdx];
+}
+
+u32 GetReturnType(const type *Type)
+{
+	Assert(Type->Kind == TypeKind_Function);
+	return Type->Function.Return;
 }
 
 u32 AddType(type *Type)
@@ -76,7 +83,7 @@ u32 AddType(type *Type)
 	return Result;
 }
 
-i32 GetRegisterTypeSize()
+int GetRegisterTypeSize()
 {
 	// @TODO: Other platforsm :|
 	return 64;
@@ -97,6 +104,11 @@ int GetTypeSize(const type *Type)
 	if(Type->Kind == TypeKind_Basic)
 		return GetBasicTypeSize(Type);
 	Assert(false);
+}
+
+b32 IsCallable(const type *Type)
+{
+	return Type->Kind == TypeKind_Function;
 }
 
 b32 CheckMissmatch(int LeftFlags, int RightFlags, basic_flags Flag)
@@ -237,6 +249,29 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 	}
 
 
+	return false;
+}
+
+b32 IsCastRedundant(const type *From, const type *To)
+{
+	if(From->Kind == To->Kind)
+	{
+		switch(From->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				return From->Basic.Kind == To->Basic.Kind;
+			} break;
+			case TypeKind_Pointer:
+			{
+				return IsCastRedundant(From->Pointer.Pointed, To->Pointer.Pointed);
+			} break;
+			default:
+			{
+				Assert(false);
+			} break;
+		}
+	}
 	return false;
 }
 

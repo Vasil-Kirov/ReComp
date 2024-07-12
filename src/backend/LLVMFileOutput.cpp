@@ -2,6 +2,7 @@
 #include "../Type.h"
 #include "../Platform.h"
 #include "LLVMFileCast.h"
+#include <stdlib.h>
 #include <unordered_map>
 
 const char *GetLLVMTypeChar(const type *Type)
@@ -28,30 +29,60 @@ string GetLLVMType(const type *Type)
 	return MakeString(GetLLVMTypeChar(Type));
 }
 
-void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
+void FindConst(std::unordered_map<u32, u64> &Map, char &OutPrefix, u32 &InOutVal)
 {
+	if(Map.find(InOutVal) != Map.end())
+	{
+		InOutVal = Map[InOutVal];
+		OutPrefix = ' ';
+	}
+	else
+	{
+		OutPrefix = '%';
+	}
+}
 
+constexpr int MAX_VAR_LEN = 64;
+
+void LLVMGetRegister(i32 Val, std::unordered_map<u32, u64> &ConstMap, const function &CurrentFn, char *OutBuff, char &Prefix)
+{
+	if(Val >= 0)
+	{
+		u32 OutVal = (u32) Val;
+		FindConst(ConstMap, Prefix, OutVal);
+		_itoa_s(OutVal, OutBuff, MAX_VAR_LEN, 10);
+	}
+	else
+	{
+		Prefix = '%';
+		int LocalIndex = -(Val + 1);
+		auto& Args = CurrentFn.FnNode->Fn.Args;
+		// Probably a big register instruction... this is so scuffed
+		if(LocalIndex >= Args.Count)
+			return;
+		const string *Name = Args[LocalIndex]->Decl.ID->ID.Name;
+		Assert(Name->Size < 64);
+		memcpy(OutBuff, Name->Data, Name->Size);
+	}
+}
+
+void LLVMFileDumpBlock(string_builder *Builder, basic_block Block, const function &CurrentFn)
+{
 	std::unordered_map<u32, u64> ConstMap{};
+
 	for(u32 i = 0; i < Block.InstructionCount; ++i)
 	{
 		instruction Instr = Block.Code[i];
 		const type *Type = GetType(Instr.Type);
-		Assert(Type->Kind == TypeKind_Basic);
-		u32 Left = Instr.Left;
-		u32 Right = Instr.Right;
+		i32 LeftInt = Instr.Left;
+		i32 RightInt = Instr.Right;
 
-		char LeftPrefix = '%';
-		char RightPrefix = '%';
-		if(ConstMap.find(Left) != ConstMap.end())
-		{
-			Left = ConstMap[Left];
-			LeftPrefix = ' ';
-		}
-		if(ConstMap.find(Right) != ConstMap.end())
-		{
-			Right = ConstMap[Right];
-			RightPrefix = ' ';
-		}
+		char LeftPrefix, RightPrefix;
+		char Left[MAX_VAR_LEN] = {};
+		char Right[MAX_VAR_LEN] = {};
+
+		LLVMGetRegister(LeftInt,  ConstMap, CurrentFn, Left,  LeftPrefix);
+		LLVMGetRegister(RightInt, ConstMap, CurrentFn, Right, RightPrefix);
 
 		switch(Instr.Op)
 		{
@@ -65,14 +96,14 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 				const char *op = "add";
 				if(Type->Basic.Flags & BasicFlag_Float)
 					op = "fadd";
-				PushBuilderFormated(Builder, "%%%d = %s %s %c%d, %c%d", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				PushBuilderFormated(Builder, "%%%d = %s %s %c%s, %c%s", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 			case OP_SUB:
 			{
 				const char *op = "sub";
 				if(Type->Basic.Flags & BasicFlag_Float)
 					op = "fsub";
-				PushBuilderFormated(Builder, "%%%d = sub %s %c%d, %c%d", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				PushBuilderFormated(Builder, "%%%d = sub %s %c%s, %c%s", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 			case OP_DIV:
 			{
@@ -81,11 +112,11 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 					op = "udiv";
 				if(Type->Basic.Flags & BasicFlag_Float)
 					op = "fdiv";
-				PushBuilderFormated(Builder, "%%%d = %s %s %c%d, %c%d", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				PushBuilderFormated(Builder, "%%%d = %s %s %c%s, %c%s", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 			case OP_MUL:
 			{
-				PushBuilderFormated(Builder, "%%%d = mul %s %c%d, %c%d", Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				PushBuilderFormated(Builder, "%%%d = mul %s %c%s, %c%s", Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 			case OP_MOD:
 			{
@@ -94,11 +125,37 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 					op = "urem";
 				if(Type->Basic.Flags & BasicFlag_Float)
 					op = "frem";
-				PushBuilderFormated(Builder, "%%%d = %s %s %c%d, %c%d", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				PushBuilderFormated(Builder, "%%%d = %s %s %c%s, %c%s", Instr.Result, op, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+			} break;
+			case OP_CALL:
+			{
+				call_info *CallInfo = (call_info *)Instr.BigRegister;
+				Assert(CallInfo->FnName);
+				PushBuilderFormated(Builder, "%%%d = call %s @%s(", Instr.Result,
+						GetLLVMTypeChar(GetType(GetReturnType(Type))),
+						CallInfo->FnName->Data);
+
+				for(int Idx = 0; Idx < Type->Function.ArgCount; ++Idx)
+				{
+					const type *ArgType = GetType(Type->Function.Args[Idx]);
+					char Prefix;
+					i32 Val = CallInfo->Args[Idx];
+					char BUFF[MAX_VAR_LEN] = {};
+					LLVMGetRegister(Val, ConstMap, CurrentFn, BUFF, Prefix);
+
+					PushBuilderFormated(Builder, "%s %c%s", GetLLVMTypeChar(ArgType), Prefix, BUFF);
+					if(Idx + 1 != Type->Function.ArgCount)
+					{
+						PushBuilder(Builder, ',');
+						PushBuilder(Builder, ' ');
+					}
+				}
+
+				PushBuilder(Builder, ')');
 			} break;
 			case OP_LOAD:
 			{
-				PushBuilderFormated(Builder, "%%%d = load %s, ptr %%%llu", Instr.Result, GetLLVMTypeChar(Type), Instr.BigRegister);
+				PushBuilderFormated(Builder, "%%%d = load %s, ptr %%%s", Instr.Result, GetLLVMTypeChar(Type), Right);
 			} break;
 			case OP_ALLOC:
 			{
@@ -107,7 +164,7 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 			case OP_STORE:
 			{
 				Assert(LeftPrefix == '%');
-				PushBuilderFormated(Builder, "store %s %c%d, ptr %%%d", GetLLVMTypeChar(Type), RightPrefix, Right, Left);
+				PushBuilderFormated(Builder, "store %s %c%s, ptr %%%s", GetLLVMTypeChar(Type), RightPrefix, Right, Left);
 			} break;
 			case OP_CAST:
 			{
@@ -136,7 +193,7 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 			{
 				if(Type)
 				{
-					PushBuilderFormated(Builder, "ret %s %c%d", GetLLVMTypeChar(Type), LeftPrefix, Left);
+					PushBuilderFormated(Builder, "ret %s %c%s", GetLLVMTypeChar(Type), LeftPrefix, Left);
 				}
 				else
 				{
@@ -145,19 +202,19 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 			} break;
 			case OP_NEQ:
 			{
-				PushBuilderFormated(Builder, "%%%d = icmp ne %s %c%d, %c%d",
+				PushBuilderFormated(Builder, "%%%d = icmp ne %s %c%s, %c%s",
 						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 			case OP_GEQ:
 			{
 				if(Type->Basic.Flags & BasicFlag_Unsigned)
 				{
-					PushBuilderFormated(Builder, "%%%d = icmp uge %s %c%d, %c%d",
+					PushBuilderFormated(Builder, "%%%d = icmp uge %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 				}
 				else
 				{
-					PushBuilderFormated(Builder, "%%%d = icmp sge %s %c%d, %c%d",
+					PushBuilderFormated(Builder, "%%%d = icmp sge %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 				}
 			} break;
@@ -165,18 +222,18 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 			{
 				if(Type->Basic.Flags & BasicFlag_Unsigned)
 				{
-					PushBuilderFormated(Builder, "%%%d = icmp ule %s %c%d, %c%d",
+					PushBuilderFormated(Builder, "%%%d = icmp ule %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 				}
 				else
 				{
-					PushBuilderFormated(Builder, "%%%d = icmp sle %s %c%d, %c%d",
+					PushBuilderFormated(Builder, "%%%d = icmp sle %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 				}
 			} break;
 			case OP_EQEQ:
 			{
-				PushBuilderFormated(Builder, "%%%d = icmp eq %s %c%d, %c%d",
+				PushBuilderFormated(Builder, "%%%d = icmp eq %s %c%s, %c%s",
 						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
 		}
@@ -185,22 +242,36 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block)
 	}
 }
 
+void LLVMFileWriteFunctionSignature(string_builder *Builder, const function &Fn)
+{
+	const type *FnType = GetType(Fn.Type);
+	const type *RetType = GetType(FnType->Function.Return);
+	PushBuilderFormated(Builder, "\ndefine %s @%s(", GetLLVMTypeChar(RetType), Fn.Name->Data);
+	auto& Args = Fn.FnNode->Fn.Args;
+	ForArray(Idx, Args)
+	{
+		const auto& Arg = Args[Idx];
+		const string *Name = Arg->Decl.ID->ID.Name;
+		const type *Type = GetType(FnType->Function.Args[Idx]);
+
+		PushBuilderFormated(Builder, " %s %%%s", GetLLVMTypeChar(Type), Name->Data);
+		if(Idx + 1 != Args.Count)
+			PushBuilder(Builder, ',');
+	}
+	PushBuilder(Builder, " ) {\n");
+}
 
 string LLVMFileDumpFunction(function Fn)
 {
 	string_builder Builder = MakeBuilder();
-	const type *Type = GetType(GetType(Fn.Type)->Function.Return);
-	// @TODO: args
-	PushBuilderFormated(&Builder, "define %s @%s() ", GetLLVMTypeChar(Type), Fn.Name->Data);
-
-	Builder += '{';
-	Builder += '\n';
+	LLVMFileWriteFunctionSignature(&Builder, Fn);
 	for(int i = 0; i < Fn.BlockCount; ++i)
 	{
 		PushBuilderFormated(&Builder, "\nblock_%d:\n", Fn.Blocks[i].ID);
-		LLVMFileDumpBlock(&Builder, Fn.Blocks[i]);
+		LLVMFileDumpBlock(&Builder, Fn.Blocks[i], Fn);
 	}
 	Builder += '}';
+	Builder += '\n';
 
 	return MakeString(Builder);
 }

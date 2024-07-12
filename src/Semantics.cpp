@@ -1,6 +1,8 @@
 #include "Semantics.h"
+#include "Dynamic.h"
 #include "Parser.h"
 #include "Type.h"
+#include "Memory.h"
 extern const type BasicTypes[];
 extern const int  BasicTypesCount;
 
@@ -24,6 +26,11 @@ void RaiseBinaryTypeError(const error_info *ErrorInfo, const type *Left, const t
 {
 	RaiseError(*ErrorInfo, "Incompatible types in binary expression: %s and %s",
 			GetTypeName(Left), GetTypeName(Right));
+}
+
+void AddFunctionToModule(checker *Checker, node *FnNode, u32 Type)
+{
+	AddVariable(Checker, FnNode->ErrorInfo, Type, FnNode->Fn.Name, FnNode, SymbolFlag_Public | SymbolFlag_Function);
 }
 
 u32 FindType(checker *Checker, const string *Name)
@@ -74,32 +81,16 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 	}
 }
 
-b32 IsVariableConst(checker *Checker, const string *ID)
+const symbol *FindSymbol(checker *Checker, const string *ID)
 {
-	int FirstAtRightDepth = -1;
-	for(int I = 0; I < Checker->LocalCount; ++I)
+	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
+	for(int I = 0; I < Checker->SymbolCount; ++I)
 	{
-		if(Checker->CurrentDepth >= Checker->Locals[I].Depth)
-		{
-			FirstAtRightDepth = I;
-			break;
-		}
+		const symbol *Local = &Checker->Symbols[I];
+		if(Hash == Local->Hash && *ID == *Local->Name)
+			return Local;
 	}
-
-	const local *Found = NULL;
-	if(FirstAtRightDepth != -1)
-	{
-		u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
-		for(int I = FirstAtRightDepth; I < Checker->LocalCount; ++I)
-		{
-			const local *Local = &Checker->Locals[I];
-			if(Hash == Local->Hash && *ID == *Local->Name)
-				Found = Local;
-		}
-	}
-
-	// @Note: can never get here since the variable has already been checked
-	return Found->IsConst;
+	return NULL;
 }
 
 b32 IsLHSAssignable(checker *Checker, node *LHS)
@@ -108,7 +99,12 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 	{
 		case AST_ID:
 		{
-			return !IsVariableConst(Checker, LHS->ID.Name);
+			const symbol *Sym = FindSymbol(Checker, LHS->ID.Name);
+			if(Sym == NULL)
+			{
+				RaiseError(*LHS->ErrorInfo, "Undeclared identifier %s", LHS->ID.Name->Data);
+			}
+			return (Sym->Flags & SymbolFlag_Const) == 0;
 		} break;
 		default:
 		{
@@ -119,33 +115,10 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 
 u32 GetVariable(checker *Checker, const string *ID)
 {
-	int FirstAtRightDepth = -1;
-	for(int I = 0; I < Checker->LocalCount; ++I)
-	{
-		if(Checker->CurrentDepth >= Checker->Locals[I].Depth)
-		{
-			FirstAtRightDepth = I;
-			break;
-		}
-	}
-	if(FirstAtRightDepth == -1)
-		return INVALID_TYPE;
-
 	// @Note: find the last instance of the variable (for shadowing)
-	u32 Found = INVALID_TYPE;
-	const local *Locals = Checker->Locals;
-	u32 LocalCount = Checker->LocalCount;
-	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
-	for(int I = FirstAtRightDepth; I < LocalCount; ++I)
-	{
-		const local *Local = &Locals[I];
-		if(Hash == Local->Hash && *ID == *Local->Name)
-			Found = Local->Type;
-	}
-
-	return Found;
+	const symbol *Symbol = FindSymbol(Checker, ID);
+	return Symbol ? Symbol->Type : INVALID_TYPE;
 }
-
 
 const int MAX_ARGS = 512;
 locals_for_next_scope LocalsNextScope[MAX_ARGS];
@@ -157,7 +130,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	NewType->Kind = TypeKind_Function;
 	function_type Function;
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
-	Function.ArgCount = ArrLen(FnNode->Fn.Args);
+	Function.ArgCount = FnNode->Fn.Args.Count;
 	Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
 	for(int I = 0; I < Function.ArgCount; ++I)
@@ -178,73 +151,37 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 void PopScope(checker *Checker)
 {
 	Checker->CurrentDepth--;
-	for(int I = 0; I < Checker->LocalCount; ++I)
+	for(int I = 0; I < Checker->SymbolCount; ++I)
 	{
-		if(Checker->Locals[I].Depth > Checker->CurrentDepth)
+		if(Checker->Symbols[I].Depth > Checker->CurrentDepth)
 		{
-			Checker->LocalCount = I;
+			Checker->SymbolCount = I;
 			break;
 		}
 	}
 }
 
-void AnalyzeBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTypeIdx)
+void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTypeIdx)
 {
-	const type *FunctionType = GetType(FunctionTypeIdx);
-	const type *ReturnType = GetType(FunctionType->Function.Return);
-	u32 ReturnTypeIdx = INVALID_TYPE;
+	u32 Save = Checker->CurrentFnReturnTypeIdx;
+	Checker->CurrentFnReturnTypeIdx = GetType(FunctionTypeIdx)->Function.Return;
+
 	Checker->CurrentDepth++;
 	for(int I = 0; I < LocalNextCount; ++I)
 	{
 		locals_for_next_scope Local = LocalsNextScope[I];
-		AddVariable(Checker, Local.ErrorInfo, Local.Type, Local.ID, false, true);
+		u32 flags = SymbolFlag_Const;
+		AddVariable(Checker, Local.ErrorInfo, Local.Type, Local.ID, NULL, flags);
 	}
 	LocalNextCount = 0;
 
-	// @TODO: This is hacky, do a proper check on all paths, probably somewhere else
-	b32 FoundCorrectReturn = false;
-	for(int I = 0; I < Body.Count; ++I)
+	ForArray(Idx, Body)
 	{
-		ReturnTypeIdx = AnalyzeNode(Checker, Body[I]);
-		if(ReturnTypeIdx != INVALID_TYPE)
-		{
-			if(FunctionType->Function.Return != ReturnTypeIdx)
-			{
-				const type *TryingToReturnType = GetType(ReturnTypeIdx);
-				const type *Promotion = NULL;
-				if(FunctionType->Function.Return == INVALID_TYPE)
-				{
-					RaiseError(*Body[I]->ErrorInfo, "Trying to return a value in a function with no return type");
-				}
-				else if(!IsTypeCompatible(ReturnType, TryingToReturnType, &Promotion, true))
-				{
-FunctionReturnTypeError:
-					RaiseError(*Body[I]->ErrorInfo, "Function return type is incorrect:\nExpected %s\nGot: %s",
-							GetTypeName(ReturnType), GetTypeName(TryingToReturnType));
-				}
-				if(Promotion)
-				{
-					if(TryingToReturnType != Promotion && TryingToReturnType->Kind == TypeKind_Basic && TryingToReturnType->Basic.Flags & BasicFlag_Untyped)
-					{}
-					else
-					{
-						// @Note: No promotion on return
-						goto FunctionReturnTypeError;
-					}
-				}
-				FoundCorrectReturn = true;
-			}
-			else
-			{
-				FoundCorrectReturn = true;
-			}
-		}
+		AnalyzeNode(Checker, Body[Idx]);
 	}
-	if(!FoundCorrectReturn)
-	{
-		RaiseError(*Body[0]->ErrorInfo, "Function with type of %s does not return a value", GetTypeName(ReturnType));
-	}
+
 	PopScope(Checker);
+	Checker->CurrentFnReturnTypeIdx = Save;
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -252,6 +189,45 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 	u32 Result = INVALID_TYPE;
 	switch(Expr->Type)
 	{
+		case AST_CALL:
+		{
+			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
+			const type *CallType = GetType(CallTypeIdx);
+			if(!IsCallable(CallType))
+			{
+				RaiseError(*Expr->ErrorInfo, "Trying to call a non function type \"%s\"", GetTypeName(CallType));
+			}
+			if(Expr->Call.Fn->Type == AST_ID)
+			{
+				node *ID = Expr->Call.Fn;
+				const symbol *Sym = FindSymbol(Checker, ID->ID.Name);
+				if(!Sym)
+				{
+					RaiseError(*ID->ErrorInfo, "Undeclared identifier %s", Sym->Name->Data);
+				}
+
+				if(Sym->Flags & SymbolFlag_Function)
+				{
+					Expr->Call.SymName = Sym->Name;
+				}
+			}
+
+			ForArray(Idx, Expr->Call.Args)
+			{
+				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+				const type *ExpectType = GetType(CallType->Function.Args[Idx]);
+				const type *ExprType = GetType(ExprTypeIdx);
+				const type *PromotionType = NULL;
+				if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
+				{
+					RaiseError(*Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
+							Idx, GetTypeName(ExpectType), GetTypeName(ExprType));
+				}
+			}
+
+			Expr->Call.Type = CallTypeIdx;
+			Result = GetReturnType(CallType);
+		} break;
 		case AST_CAST:
 		{
 			// @TODO: auto cast
@@ -265,9 +241,18 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				RaiseError(*Expr->ErrorInfo, "Cannot cast %s to %s", GetTypeName(FromType), GetTypeName(ToType));
 			}
+			if(IsCastRedundant(FromType, ToType))
+			{
+				RaiseError(*Expr->ErrorInfo, "Redundant cast");
+			}
 			Expr->Cast.FromType = From;
 			Expr->Cast.ToType = To;
 			Result = To;
+
+			if(IsUntyped(FromType))
+			{
+				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
+			}
 		} break;
 		case AST_ID:
 		{
@@ -275,19 +260,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Result == INVALID_TYPE)
 			{
 				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
-			}
-		} break;
-		case AST_FN:
-		{
-			Result = CreateFunctionType(Checker, Expr);
-			Expr->Fn.TypeIdx = Result;
-			if(Expr->Fn.Body.IsValid())
-			{
-				const type *Type = GetType(Result);
-				u32 Save = Checker->CurrentFnReturnTypeIdx;
-				Checker->CurrentFnReturnTypeIdx = Type->Function.Return;
-				AnalyzeBody(Checker, Expr->Fn.Body, Result);
-				Checker->CurrentFnReturnTypeIdx = Save;
 			}
 		} break;
 		case AST_NUMBER:
@@ -315,13 +287,6 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 		} break;
 	}
 }
-
-typedef struct {
-	u32 From;
-	u32 To;
-	const type *FromT;
-	const type *ToT;
-} promotion_description;
 
 promotion_description PromoteType(const type *Promotion, const type *Left, const type *Right, u32 LeftIdx, u32 RightIdx)
 {
@@ -425,15 +390,14 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 	}
 }
 
-void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, b32 IsShadow,
-		b32 IsConst)
+void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags)
 {
 	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
-	if(!IsShadow)
+	if((Flags & SymbolFlag_Shadow) == 0)
 	{
-		for(int I = 0; I < Checker->LocalCount; ++I)
+		for(int I = 0; I < Checker->SymbolCount; ++I)
 		{
-			if(Hash == Checker->Locals[I].Hash && *ID == *Checker->Locals[I].Name)
+			if(Hash == Checker->Symbols[I].Hash && *ID == *Checker->Symbols[I].Name)
 			{
 				RaiseError(*ErrorInfo,
 						"Redeclaration of variable %s.\n"
@@ -442,14 +406,14 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 			}
 		}
 	}
-	local Local;
-	Local.Hash    = Hash;
-	Local.Depth   = Checker->CurrentDepth;
-	Local.Name    = ID;
-	Local.Type    = Type;
-	Local.IsConst = IsConst;
+	symbol Symbol;
+	Symbol.Hash    = Hash;
+	Symbol.Depth   = Checker->CurrentDepth;
+	Symbol.Name    = ID;
+	Symbol.Type    = Type;
+	Symbol.Flags   = Flags;
 
-	Checker->Locals[Checker->LocalCount++] = Local;
+	Checker->Symbols[Checker->SymbolCount++] = Symbol;
 }
 
 const u32 AnalyzeDeclerations(checker *Checker, node *Node)
@@ -511,7 +475,8 @@ DECL_TYPE_ERROR:
 		}
 	}
 	Node->Decl.TypeIndex = Type;
-	AddVariable(Checker, Node->ErrorInfo, Type, ID->ID.Name, Node->Decl.IsShadow, Node->Decl.IsConst);
+	u32 Flags = (Node->Decl.IsShadow) ? SymbolFlag_Shadow : 0 | (Node->Decl.IsConst) ? SymbolFlag_Const : 0;
+	AddVariable(Checker, Node->ErrorInfo, Type, ID->ID.Name, Node, Flags);
 	return Type;
 }
 
@@ -560,10 +525,33 @@ void AnalyzeFor(checker *Checker, node *Node)
 	PopScope(Checker);
 }
 
-// Only returns a type when it finds a return statement
-u32 AnalyzeNode(checker *Checker, node *Node)
+u32 AnalyzeGlobal(checker *Checker, node *Node)
 {
 	u32 Result = INVALID_TYPE;
+	switch(Node->Type)
+	{
+		case AST_FN:
+		{
+			// @TODO: check fn return
+			Result = CreateFunctionType(Checker, Node);
+
+			Node->Fn.TypeIdx = Result;
+
+			AddFunctionToModule(Checker, Node, Result);
+
+			AnalyzeFunctionBody(Checker, Node->Fn.Body, Result);
+
+		} break;
+		default:
+		{
+			Assert(false);
+		} break;
+	}
+	return Result;
+}
+
+void AnalyzeNode(checker *Checker, node *Node)
+{
 	switch(Node->Type)
 	{
 		case AST_DECL:
@@ -572,12 +560,6 @@ u32 AnalyzeNode(checker *Checker, node *Node)
 			const type *Type = GetType(TypeIdx);
 			if(Type->Kind == TypeKind_Function)
 				Node->Fn.TypeIdx = TypeIdx;
-			if(Checker->CurrentDepth == 0 && !Node->Decl.IsConst && Type->Kind == TypeKind_Function)
-			{
-				RaiseError(*Node->ErrorInfo, "Global function declaration needs to be constant\n"
-						"To declare a function do it like this:\n\t"
-						"FunctionName :: fn(Argument: i32) -> i32");
-			}
 		} break;
 		case AST_IF:
 		{
@@ -589,7 +571,7 @@ u32 AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_RETURN:
 		{
-			Result = AnalyzeExpression(Checker, Node->Return.Expression);
+			u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
 			const type *Type = GetType(Result);
 			const type *Return = GetType(Checker->CurrentFnReturnTypeIdx);
 			const type *Promotion = NULL;
@@ -617,24 +599,24 @@ RetErr:
 			AnalyzeExpression(Checker, Node);
 		} break;
 	}
-	return Result;
 }
 
 void Analyze(node **Nodes)
 {
+	// @NOTE: Too much?
 	checker Checker;
-	Checker.Locals = (local *)AllocateVirtualMemory(MB(1) * sizeof(local));
-	Checker.LocalCount = 0;
+	Checker.Symbols = (symbol *)AllocateVirtualMemory(MB(1) * sizeof(symbol));
+	Checker.SymbolCount = 0;
 	Checker.CurrentDepth = 0;
 	Checker.CurrentFnReturnTypeIdx = INVALID_TYPE;
 
 	int NodeCount = ArrLen(Nodes);
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		AnalyzeNode(&Checker, Nodes[I]);
+		AnalyzeGlobal(&Checker, Nodes[I]);
 	}
 
-	FreeVirtualMemory(Checker.Locals);
+	FreeVirtualMemory(Checker.Symbols);
 }
 
 // @Note: Stolen from wikipedia implementations of murmur3

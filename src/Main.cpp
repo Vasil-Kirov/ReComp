@@ -56,7 +56,7 @@ main(int ArgCount, char *Args[])
 	node **Nodes = ParseTokens(Tokens);
 	Analyze(Nodes);
 	ir IR = BuildIR(Nodes);
-	string Dissasembly = Dissasemble(&IR.Functions[0]);
+	string Dissasembly = Dissasemble(IR.Functions, ArrLen(IR.Functions));
 	LDEBUG("%s", Dissasembly.Data);
 
 	LLVMFileOutput(&IR);

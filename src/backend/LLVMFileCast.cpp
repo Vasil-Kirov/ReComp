@@ -1,62 +1,62 @@
 #include "LLVMFileCast.h"
 
 void
-LLVMCastWriteTrunc(string_builder *Builder, u32 Value, char Prefix, const type *From, const type *To)
+LLVMCastWriteTrunc(string_builder *Builder, const char *Value, char Prefix, const type *From, const type *To)
 {
 	if(To->Basic.Flags & BasicFlag_Float)
 	{
-		PushBuilderFormated(Builder, "fptrunc %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+		PushBuilderFormated(Builder, "fptrunc %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 	}
 	else
 	{
-		PushBuilderFormated(Builder, "trunc %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+		PushBuilderFormated(Builder, "trunc %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 	}
 }
 
 void
-LLVMCastWriteExt(string_builder *Builder, u32 Value, char Prefix, const type *From, const type *To)
+LLVMCastWriteExt(string_builder *Builder, const char *Value, char Prefix, const type *From, const type *To)
 {
 	// float
 	if(To->Basic.Flags & BasicFlag_Float)
 	{
-		PushBuilderFormated(Builder, "fpext %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+		PushBuilderFormated(Builder, "fpext %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 	}
 	// from is unsigned, zero ext
 	else if(From->Basic.Flags & BasicFlag_Unsigned)
 	{
-		PushBuilderFormated(Builder, "zext %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+		PushBuilderFormated(Builder, "zext %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 	}
 	// from is signed, sign ext
 	else
 	{
-		PushBuilderFormated(Builder, "sext %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+		PushBuilderFormated(Builder, "sext %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 	}
 }
 
 // @NOTE: Assumes one is float and other isn't
 void
-LLVMCastWriteFloatInt(string_builder *Builder, u32 Value, char Prefix, const type *From, const type *To)
+LLVMCastWriteFloatInt(string_builder *Builder, const char *Value, char Prefix, const type *From, const type *To)
 {
 	if(From->Basic.Flags & BasicFlag_Float)
 	{
 		if(To->Basic.Flags & BasicFlag_Unsigned)
 		{
-			PushBuilderFormated(Builder, "fptoui %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+			PushBuilderFormated(Builder, "fptoui %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 		}
 		else
 		{
-			PushBuilderFormated(Builder, "fptosi %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+			PushBuilderFormated(Builder, "fptosi %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 		}
 	}
 	else if(To->Basic.Flags & BasicFlag_Float)
 	{
 		if(From->Basic.Flags & BasicFlag_Unsigned)
 		{
-			PushBuilderFormated(Builder, "uitofp %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+			PushBuilderFormated(Builder, "uitofp %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 		}
 		else
 		{
-			PushBuilderFormated(Builder, "sitofp %s %c%d to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
+			PushBuilderFormated(Builder, "sitofp %s %c%s to %s", GetLLVMTypeChar(From), Prefix, Value, GetLLVMTypeChar(To));
 		}
 	}
 	else
@@ -66,7 +66,7 @@ LLVMCastWriteFloatInt(string_builder *Builder, u32 Value, char Prefix, const typ
 }
 
 void
-LLVMCast(string_builder *Builder, u32 Value, char Prefix, const type *From, const type *To)
+LLVMCast(string_builder *Builder, const char *Value, char Prefix, const type *From, const type *To)
 {
 	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Basic)
 	{

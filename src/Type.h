@@ -102,7 +102,6 @@ struct type
 	};
 };
 
-b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);
 u32 AddType(type *Type);
 
 // @Note: I don't know if I need this but I'm wondering if later on accessing a global variable could
@@ -110,10 +109,16 @@ u32 AddType(type *Type);
 const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
+
+u32 GetReturnType(const type *Type);
+
 int GetBasicTypeSize(const type *Type);
 int GetTypeSize(const type *Type);
-b32 IsUntyped(const type *Type);
-b32 TypesMustMatch(const type *Left, const type *Right);
-i32 GetRegisterTypeSize();
-b32 IsCastValid(const type *From, const type *To);
+int GetRegisterTypeSize();
 
+b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);
+b32 TypesMustMatch(const type *Left, const type *Right);
+b32 IsUntyped(const type *Type);
+b32 IsCastValid(const type *From, const type *To);
+b32 IsCallable(const type *Type);
+b32 IsCastRedundant(const type *From, const type *To);

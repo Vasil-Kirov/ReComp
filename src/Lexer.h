@@ -9,6 +9,8 @@ enum token_type
 	T_DECL  = ':',
 	T_STARTSCOPE = '{',
 	T_ENDSCOPE   = '}',
+	T_OPENPAREN  = '(',
+	T_CLOSEPAREN = ')',
 	T_CAST  = '@',
 	T_EQ    = '=',
 	T_EOF   = -1,

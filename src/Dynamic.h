@@ -40,3 +40,24 @@ struct dynamic {
 	b32 IsValid() { return Data != NULL; }
 };
 
+template <typename T>
+struct slice {
+	T *Data;
+	size_t Count;
+
+	T operator[](size_t Index)
+	{
+		Assert(Index < Count);
+		return Data[Index];
+	}
+	b32 IsValid() { return Data != NULL; }
+};
+
+template <typename T>
+slice<T> SliceFromArray(dynamic<T> Array)
+{
+	return {Array.Data, Array.Count};
+}
+
+#define ForArray(_Index, _Array) for(int _Index = 0; _Index < (_Array).Count; ++_Index)
+

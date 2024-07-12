@@ -1,6 +1,9 @@
 #include "IR.h"
+#include "Memory.h"
 #include "Parser.h"
 #include "Type.h"
+#include "vlib.h"
+#include "Log.h"
 
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 {
@@ -84,6 +87,7 @@ const ir_local *GetIRLocal(function *Function, const string *Name)
 			return &Function->Locals[I];
 		}
 	}
+	LDEBUG("%s\n", Name->Data);
 	Assert(false);
 	return NULL;
 }
@@ -93,12 +97,34 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 	u32 Result = -1;
 	switch(Node->Type)
 	{
+		case AST_CALL:
+		{
+			Assert(!IsLHS);
+			call_info *CallInfo = NewType(call_info);
+
+			if(Node->Call.SymName == NULL)
+				CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
+			else
+				CallInfo->FnName = Node->Call.SymName;
+
+			dynamic<u32> Args{};
+			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
+			{
+				Args.Push(BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS));
+			}
+
+			CallInfo->Args = SliceFromArray(Args);
+
+			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, Node->Call.Type, Builder));
+		} break;
 		case AST_ID:
 		{
 			const ir_local *Local = GetIRLocal(Builder->Function, Node->ID.Name);
 			Result = Local->Register;
-			if(!IsLHS)
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, Local->Register, Local->Type, Builder));
+
+			// Do not load arguments, LLVM treats them as values rather than ptrs
+			if(!IsLHS && (i32)Local->Register >= 0)
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
 		case AST_NUMBER:
 		{
@@ -176,7 +202,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 				if(!IsLHS)
 				{
 					PushInstruction(Builder, I);
-					I = Instruction(OP_LOAD, I.Result, I.Type, Builder);
+					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
 				}
 			} break;
 			case T_NEQ:
@@ -301,12 +327,14 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block *The
 	Builder->CurrentBlock = Then;
 }
 
-function BuildFunctionIR(dynamic<node *> &Body, const string *Name)
+function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node)
 {
 	function Function;
 	Function.Blocks = NULL;
 	Function.BlockCount = 0;
 	Function.Name = Name;
+	Function.Type = TypeIdx;
+	Function.FnNode = Node;
 	if(Body.IsValid())
 	{
 		Function.Blocks = ArrCreate(basic_block);
@@ -317,39 +345,42 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name)
 		Builder.CurrentBlock = AllocateBlock(&Builder);
 		Builder.LastRegister = 0;
 
-		for(int I = 0; I < Body.Count; ++I)
+		const type *FnType = GetType(TypeIdx);
+
+		// @NOTE: Push arguments as negative value registers so in the LLVM backend we can recognize them...
+		ForArray(Idx, Args)
 		{
-			BuildIRFunctionLevel(&Builder, Body[I]);
+			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, -(Idx + 1), FnType->Function.Args[Idx]);
+		}
+
+		ForArray(Idx, Body)
+		{
+			BuildIRFunctionLevel(&Builder, Body[Idx]);
 		}
 		Function.LastRegister = Builder.LastRegister;
 		VFree(Function.Locals);
+		Function.Locals = NULL;
 	}
 	return Function;
 }
 
 function GlobalLevelIR(node *Node)
 {
+	function Result = {};
 	switch(Node->Type)
 	{
-		case AST_DECL:
+		case AST_FN:
 		{
-			if(Node->Decl.Expression->Type == AST_FN)
-			{
-				Assert(Node->Decl.ID->Type == AST_ID);
-				Assert(Node->Decl.IsConst);
-				const string *Name = Node->Decl.ID->ID.Name;
+			Assert(Node->Fn.Name);
 
-				function Fn = BuildFunctionIR(Node->Decl.Expression->Fn.Body, Name);
-				Fn.Type = Node->Decl.Expression->Fn.TypeIdx;
-				return Fn;
-			}
+			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node);
 		} break;
 		default:
 		{
 			Assert(false);
 		} break;
 	}
-	return {};
+	return Result;
 }
 
 ir BuildIR(node **Nodes)
@@ -435,6 +466,11 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			{
 				PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
 			} break;
+			case OP_CALL:
+			{
+				call_info *CallInfo = (call_info *)Instr.BigRegister;
+				PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
+			} break;
 			case OP_IF:
 			{
 				PushBuilderFormated(Builder, "IF %%%d goto %d, else goto %d", Instr.Result, Instr.Left, Instr.Right);
@@ -467,14 +503,19 @@ INSIDE_EQ:
 	PushBuilder(Builder, '\n');
 }
 
-string Dissasemble(function *Fn)
+string Dissasemble(function *Functions, u32 FunctionCount)
 {
 	string_builder Builder = MakeBuilder();
-	PushBuilderFormated(&Builder, "\nfn %s:\n", Fn->Name->Data);
-	for(int I = 0; I < Fn->BlockCount; ++I)
+	for(int FnIdx = 0; FnIdx < FunctionCount; ++FnIdx)
 	{
-		PushBuilderFormated(&Builder, "\nblock_%d:\n", I);
-		DissasembleBasicBlock(&Builder, &Fn->Blocks[I]);
+		function *Fn = Functions + FnIdx;
+		PushBuilderFormated(&Builder, "\nfn %s:{\n", Fn->Name->Data);
+		for(int I = 0; I < Fn->BlockCount; ++I)
+		{
+			PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
+			DissasembleBasicBlock(&Builder, &Fn->Blocks[I]);
+		}
+		PushBuilder(&Builder, "}\n");
 	}
 	return MakeString(Builder);
 }

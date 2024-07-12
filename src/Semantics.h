@@ -3,19 +3,28 @@
 #include "Parser.h"
 #include "Type.h"
 
-struct local
+enum SymbolFlag
+{
+	SymbolFlag_Private = 0b0000,
+	SymbolFlag_Public  = 0b0001,
+	SymbolFlag_Const   = 0b0010,
+	SymbolFlag_Shadow  = 0b0100,
+	SymbolFlag_Function= 0b1000,
+};
+
+struct symbol
 {
 	const string *Name;
 	u32 Type;
 	u32 Hash;
 	u32 Depth;
-	b32 IsConst;
+	u32 Flags;
 };
 
 struct checker
 {
-	local *Locals;
-	u32 LocalCount;
+	symbol *Symbols;
+	u32 SymbolCount;
 	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;
 };
@@ -27,9 +36,18 @@ struct locals_for_next_scope
 	u32 Type;
 };
 
+void AddFunctionToModule(checker *Checker, node *FnNode);
+node *FindFunction(checker *Checker, string *Name);
 void Analyze(const node **Nodes);
-u32 AnalyzeNode(checker *Checker, node *Node);
-void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, b32 IsShadow,
-		b32 IsConst);
+void AnalyzeNode(checker *Checker, node *Node);
+void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags);
 u32 AnalyzeExpression(checker *Checker, node *Expr);
+typedef struct {
+	u32 From;
+	u32 To;
+	const type *FromT;
+	const type *ToT;
+} promotion_description;
+
+promotion_description PromoteType(const type *Promotion, const type *Left, const type *Right, u32 LeftIdx, u32 RightIdx);
 

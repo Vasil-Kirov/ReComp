@@ -1,12 +1,16 @@
 
-main :: fn(arg: type, arg2: i32) -> i32 {
-	y := 4;
+get_one :: fn(x: i32) -> i32 {
+	return x + 1;
+}
+
+main :: fn(arg: i32, arg2: i32) -> i32 {
+	y := @i32 4;
 
 	for i: i32 = 0; i <= 10; i = i + 1 {
-		y = y + i;
+		y = y + get_one(1);
 	}
 
-	return @i32 y;
+	return y;
 
 	// if y == 10 {
 	// 	return 10;
@@ -17,7 +21,7 @@ main :: fn(arg: type, arg2: i32) -> i32 {
 	// }
 
 	// return 20;
-};
+}
 
 
 

@@ -1,33 +1,41 @@
-define i32 @main() {
-block_0: 
 
+define i32 @get_one( i32 %x ) {
+
+block_0:
+%1 = add i32 %x,  1
+ret i32 %1
+}
+
+define i32 @main( i32 %arg, i32 %arg2 ) {
+
+block_0:
 %1 = alloca i32
-store i32  10, ptr %1
-%2 = load i32, ptr %1
+store i32  4, ptr %1
+%3 = alloca i32
+store i32  0, ptr %3
+br label %block_1
 
-ret i32 %2
-br i1 %4, label %block_1, label %block_2 
-block_1: 
+block_1:
+%5 = load i32, ptr %3
+%7 = icmp sle i32 %5,  10
+br i1 %7, label %block_2, label %block_4 
 
-%6 = sext untyped integer  10 to i32
-ret i32 %6
-block_2: 
+block_2:
 %8 = load i32, ptr %1
-
-ret i32 %8
-br i1 %10, label %block_4, label %block_5 
-block_3: 
-
-%19 = sext untyped integer  20 to i32
-ret i32 %19
-block_4: 
-
-%12 = sext untyped integer  12 to i32
-ret i32 %12
-block_5: 
-
-%15 = sext untyped integer  13 to i32
-ret i32 %15
-block_6: 
+%10 = call i32 @get_one(i32  1)
+%11 = add i32 %8, %10
+store i32 %11, ptr %1
+%12 = load i32, ptr %1
 br label %block_3
+
+block_3:
+%14 = load i32, ptr %3
+%16 = add i32 %14,  1
+store i32 %16, ptr %3
+%17 = load i32, ptr %3
+br label %block_1
+
+block_4:
+%19 = load i32, ptr %1
+ret i32 %19
 }

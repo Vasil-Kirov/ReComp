@@ -21,6 +21,7 @@ enum op
 	OP_GEQ,
 	OP_LEQ,
 	OP_EQEQ,
+	OP_CALL,
 };
 
 struct instruction
@@ -35,6 +36,14 @@ struct instruction
 	u32 Result;
 	u32 Type;
 	op Op;
+};
+
+struct call_info
+{
+	u32 Operand;
+	const string *FnName; // Nullable
+	slice<u32> Args;
+	slice<u32> ArgTypes;
 };
 
 struct basic_block
@@ -61,6 +70,7 @@ struct function
 	u32 BlockCount;
 	ir_local *Locals;
 	reg_allocation *Allocated;
+	node *FnNode;
 	u32 LocalCount;
 	u32 LastRegister;
 	u32 Type;

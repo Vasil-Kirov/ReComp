@@ -3,11 +3,23 @@
 #include "Errors.h"
 #include "Lexer.h"
 #include "Memory.h"
+#include "Type.h"
 
 node *AllocateNode(const error_info *ErrorInfo)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
 	Result->ErrorInfo = ErrorInfo;
+	return Result;
+}
+
+node *MakeCall(const error_info *ErrorInfo, node *Operand, slice<node *> Args)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_CALL;
+	Result->Call.Fn = Operand;
+	Result->Call.Args = Args;
+	Result->Call.Type = INVALID_TYPE;
+
 	return Result;
 }
 
@@ -53,7 +65,7 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(error_info *ErrorInfo, node **Args, node *ReturnType)
+node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_FN;
@@ -176,8 +188,15 @@ node **ParseTokens(token *Tokens)
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
 	while(Parser.TokenIndex + 1 < TokenCount)
 	{
-		node *Node = ParseNode(&Parser);
-		ArrPush(Result, Node);
+		node *Node = ParseTopLevel(&Parser);
+		if(Node)
+		{
+			ArrPush(Result, Node);
+		}
+		else
+		{
+			break;
+		}
 	}
 	return Result;
 }
@@ -207,12 +226,6 @@ node *ParseNumber(parser *Parser)
 		Bytes = strtoul(Start, NULL, 10);
 	}
 	return MakeNumber(ErrorInfo, Bytes, IsFloat);
-}
-
-node *ParseAtom(parser *Parser, node *Operand)
-{
-	// @TODO: Implement
-	return Operand;
 }
 
 // @Todo: arrays and type types
@@ -256,21 +269,20 @@ node *ParseFunctionArgument(parser *Parser)
 	return MakeDecl(ErrorInfo, IDNode, NULL, Type, true, false);
 }
 
-node **Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
+slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
 {
-	node **Nodes = ArrCreate(node *);
+	dynamic<node *>Nodes{};
 	while(true)
 	{
-		node *Result = Fn(Parser);
-		ArrPush(Nodes, Result);
+		Nodes.Push(Fn(Parser));
 		if(PeekToken(Parser).Type != Deliminator)
 			break;
 		GetToken(Parser);
 	}
-	return Nodes;
+	return SliceFromArray(Nodes);
 }
 
-node **Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
+slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 {
 	return Delimited(Parser, (token_type)Deliminator, Fn);
 }
@@ -280,7 +292,9 @@ node *ParseFunctionType(parser *Parser)
 	ERROR_INFO;
 	EatToken(Parser, T_FN);
 	EatToken(Parser, '(');
-	node **Args = Delimited(Parser, ',', ParseFunctionArgument);
+	slice<node *> Args{};
+	if(PeekToken(Parser).Type != T_CLOSEPAREN)
+		Args = Delimited(Parser, ',', ParseFunctionArgument);
 	EatToken(Parser, ')');
 
 	node *ReturnType = NULL;
@@ -313,21 +327,61 @@ void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 	Parser->IsInBody = WasInBody;
 }
 
+node *ParseFunctionCall(parser *Parser, node *Operand)
+{
+	dynamic<node *> Args = {};
+	ERROR_INFO;
+	EatToken(Parser, T_OPENPAREN);
+	while(PeekToken(Parser).Type != T_CLOSEPAREN)
+	{
+		Args.Push(ParseExpression(Parser));
+		token Next = PeekToken(Parser);
+		if(Next.Type == ',')
+		{
+			GetToken(Parser);
+		}
+		else if(Next.Type != ')')
+		{
+			ERROR_INFO;
+			RaiseError(*ErrorInfo, "Improper argument formatting\nProper arguments example: call(arg1, arg2)");
+		}
+	}
+	EatToken(Parser, T_CLOSEPAREN);
+	return MakeCall(ErrorInfo, Operand, SliceFromArray(Args));
+}
+
+node *ParseAtom(parser *Parser, node *Operand)
+{
+	bool Loop = true;
+	while(Loop)
+	{
+		token FirstToken = PeekToken(Parser);
+		switch(FirstToken.Type)
+		{
+			case T_OPENPAREN:
+			{
+				Operand = ParseFunctionCall(Parser, Operand);
+			} break;
+			default:
+			{
+				Loop = false;
+			} break;
+		}
+	}
+	return Operand;
+}
+
 node *ParseOperand(parser *Parser)
 {
 	token Token = PeekToken(Parser);
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
-
-		// @NOTE: This allows to cast as a prefix AND postfix, should it be allowed?
 		case T_AUTOCAST:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Expr = Result;
-			if(Expr == NULL)
-				Expr = ParseExpression(Parser);
+			node *Expr = ParseExpression(Parser);
 			Result = MakeCast(ErrorInfo, Expr, NULL, 0, 0);
 		} break;
 		case T_CAST:
@@ -335,9 +389,7 @@ node *ParseOperand(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 			node *Type = ParseType(Parser);
-			node *Expr = Result;
-			if(Expr == NULL)
-				Expr = ParseExpression(Parser);
+			node *Expr = ParseExpression(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
 		} break;
 		case T_FN:
@@ -364,10 +416,11 @@ node *ParseOperand(parser *Parser)
 			GetToken(Parser);
 			Result = MakeASTString(ErrorInfo, Token.ID);
 		} break;
-		case '(':
+		case T_OPENPAREN:
 		{
 			GetToken(Parser);
 			Result = ParseExpression(Parser);
+			EatToken(Parser, T_CLOSEPAREN);
 		} break;
 	}
 	return Result;
@@ -654,6 +707,37 @@ node *ParseNode(parser *Parser)
 	}
 	if(ExpectSemicolon)
 		EatToken(Parser, ';');
+	return Result;
+}
+
+node *ParseTopLevel(parser *Parser)
+{
+	node *Result = NULL;
+	token StartToken = PeekToken(Parser);
+	switch(StartToken.Type)
+	{
+		case T_ID:
+		{
+			// @TODO: Globals, this only does functions
+			GetToken(Parser);
+			EatToken(Parser, T_CONST);
+			node *Fn = ParseFunctionType(Parser);
+			if(PeekToken(Parser).Type == T_STARTSCOPE)
+				ParseBody(Parser, Fn->Fn.Body);
+
+			Fn->Fn.Name = StartToken.ID;
+			Result = Fn;
+		} break;
+		case T_EOF:
+		{
+			return NULL;
+		} break;
+		default:
+		{
+			RaiseError(StartToken.ErrorInfo, "Unexpected Top Level declaration");
+		} break;
+	}
+
 	return Result;
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 #include "Dynamic.h"
 #include "Lexer.h"
+#include "String.h"
 struct type;
 
 enum node_type
@@ -19,6 +20,7 @@ enum node_type
 	AST_BASICTYPE,
 	AST_PTRTYPE,
 	AST_FN,
+	AST_CALL,
 	AST_RETURN,
 	
 	AST_CAST,
@@ -71,11 +73,18 @@ struct node
 			b32 IsShadow;
 		} Decl;
 		struct {
-			node **Args;
+			const string *Name;
+			slice<node *> Args;
 			node *ReturnType; // @Nullable
-			dynamic<node *>Body; // @Note: call IsValid to check if the function has a body
+			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
 			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
 		} Fn; // Used for fn type and fn declaration as it's the same thing
+		struct {
+			node *Fn;
+			slice<node *> Args;
+			const string *SymName; // Set by semantic analyzer if not calling a function pointer
+			u32 Type; // Set by semantic analyzer
+		} Call;
 		struct {
 			node *ID;
 		} BasicType;
@@ -102,6 +111,7 @@ node *ParseNode(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
+node *ParseTopLevel(parser *Parser);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

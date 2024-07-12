@@ -111,6 +111,7 @@ node *ParseNode(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
+node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
 node *ParseTopLevel(parser *Parser);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY

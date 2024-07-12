@@ -13,6 +13,8 @@ enum token_type
 	T_CLOSEPAREN = ')',
 	T_CAST  = '@',
 	T_EQ    = '=',
+	T_LESS  = '<',
+	T_GREAT = '>',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,

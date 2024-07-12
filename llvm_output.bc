@@ -23,7 +23,7 @@ br i1 %7, label %block_2, label %block_4
 block_2:
 %8 = load i32, ptr %1
 %10 = call i32 @get_one(i32  1)
-%11 = add i32 %8, %10
+%11 = mul i32 %8, %10
 store i32 %11, ptr %1
 %12 = load i32, ptr %1
 br label %block_3

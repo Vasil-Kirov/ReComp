@@ -6,8 +6,8 @@ get_one :: fn(x: i32) -> i32 {
 main :: fn(arg: i32, arg2: i32) -> i32 {
 	y := @i32 4;
 
-	for i: i32 = 0; i <= 10; i = i + 1 {
-		y = y + get_one(1);
+	for i: i32 = 0; i <= 10; i += 1 {
+		y *= get_one(1);
 	}
 
 	return y;

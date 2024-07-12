@@ -75,7 +75,7 @@ node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType)
 	return Result;
 }
 
-node *MakeBinary(error_info *ErrorInfo, node *Left, node *Right, token_type Op)
+node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_BINARY;

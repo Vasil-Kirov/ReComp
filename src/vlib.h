@@ -409,9 +409,19 @@ VLibCompareTimers(timer_group A, timer_group B)
 	printf("%s wins with a time of %lldus\n%s has %lldus, they lost by %lldus", Winner->Name, WinnerTimer, Loser->Name, LoserTimer, LoserTimer - WinnerTimer);
 }
 
+i64
+VLibGetTimeTaken(timer_group *G)
+{
+	return G->End - G->Start;
+}
+
 #ifndef VLIB_NO_SHORT_NAMES
+
 #define ClockNs VLibClockNs 
 #define ClockUs VLibClockUs 
 #define ClockMs VLibClockMs 
 #define ClockS  VLibClockS 
+
+#define TimeTaken VLibGetTimeTaken
+
 #endif

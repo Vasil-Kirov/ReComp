@@ -312,6 +312,16 @@ promotion_description PromoteType(const type *Promotion, const type *Left, const
 	return Result;
 }
 
+void OverwriteOpEqExpression(node *Expr, char Op)
+{
+	u32 Type = Expr->Binary.ExpressionType;
+	node *NewOp = MakeBinary(Expr->ErrorInfo, Expr->Binary.Left, Expr->Binary.Right, (token_type)Op);
+	node *NewEq = MakeBinary(Expr->ErrorInfo, Expr->Binary.Left, NewOp, (token_type)'=');
+	NewOp->Binary.ExpressionType = Type;
+	NewEq->Binary.ExpressionType = Type;
+	memcpy(Expr, NewEq, sizeof(node));
+}
+
 u32 AnalyzeExpression(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_BINARY)
@@ -333,6 +343,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		{
 			case T_PEQ:
 			case T_MEQ:
+			case T_TEQ:
 			case T_DEQ:
 			case T_MODEQ:
 			case T_ANDEQ:
@@ -349,6 +360,8 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 				}
 			} break;
 
+			case T_LESS:
+			case T_GREAT:
 			case T_NEQ:
 			case T_GEQ:
 			case T_LEQ:
@@ -361,6 +374,45 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			default:
 			{
 			} break;
+		}
+
+
+		switch(Expr->Binary.Op)
+		{
+			case T_PEQ:
+			{
+				OverwriteOpEqExpression(Expr, '+');
+			} break;
+			case T_MEQ:
+			{
+				OverwriteOpEqExpression(Expr, '-');
+			} break;
+			case T_TEQ:
+			{
+				OverwriteOpEqExpression(Expr, '*');
+			} break;
+			case T_DEQ:
+			{
+				OverwriteOpEqExpression(Expr, '/');
+			} break;
+			case T_MODEQ:
+			{
+				OverwriteOpEqExpression(Expr, '%');
+			} break;
+			case T_ANDEQ:
+			{
+				OverwriteOpEqExpression(Expr, '&');
+			} break;
+			case T_XOREQ:
+			{
+				OverwriteOpEqExpression(Expr, '^');
+			} break;
+			case T_OREQ:
+			{
+				OverwriteOpEqExpression(Expr, '|');
+			} break;
+
+			default: {} break;
 		}
 
 		if(Promotion)

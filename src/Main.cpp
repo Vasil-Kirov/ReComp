@@ -1,4 +1,6 @@
+#include "Basic.h"
 #include "Memory.h"
+#include "vlib.h"
 static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Log.h"
@@ -36,6 +38,9 @@ static b32 _MemoryInitializer = InitializeMemory();
 int
 main(int ArgCount, char *Args[])
 {
+	InitVLib();
+
+	auto InitTimer = VLibStartTimer("Init");
 	InitializeLogger();
 	InitializeLexer();
 
@@ -51,15 +56,41 @@ main(int ArgCount, char *Args[])
 	ErrorInfo.FileName = Args[1];
 	ErrorInfo.Line = 1;
 	ErrorInfo.Character = 1;
+	VLibStopTimer(&InitTimer);
 
+	auto ParseTimer = VLibStartTimer("Parsing");
 	token *Tokens = StringToTokens(FileData, ErrorInfo);
 	node **Nodes = ParseTokens(Tokens);
+	VLibStopTimer(&ParseTimer);
+
+	auto TypeCheckTimer = VLibStartTimer("Type Checking");
 	Analyze(Nodes);
+	VLibStopTimer(&TypeCheckTimer);
+
+	auto IRBuildTimer = VLibStartTimer("Intermediate Representation Generation");
 	ir IR = BuildIR(Nodes);
+	VLibStopTimer(&IRBuildTimer);
+	
+#if 0
 	string Dissasembly = Dissasemble(IR.Functions, ArrLen(IR.Functions));
 	LDEBUG("%s", Dissasembly.Data);
+#endif
 
+	auto LLVMTimer = VLibStartTimer("LLVM Code Generation");
 	LLVMFileOutput(&IR);
+	VLibStopTimer(&LLVMTimer);
+
+	timer_group Timers[] = {InitTimer, ParseTimer, TypeCheckTimer, IRBuildTimer, LLVMTimer};
+
+	LDEBUG("Compiling Finished...");
+	FOR_ARRAY(Timers, ARR_LEN(Timers))
+	{
+	}
+	LDEBUG("Initialization:            %lldms", TimeTaken(&InitTimer)      / 1000);
+	LDEBUG("Parsing:                   %lldms", TimeTaken(&ParseTimer)     / 1000);
+	LDEBUG("Type Checking:             %lldms", TimeTaken(&TypeCheckTimer) / 1000);
+	LDEBUG("Intermediate Generation:   %lldms", TimeTaken(&IRBuildTimer)   / 1000);
+	LDEBUG("LLVM Code Generation:      %lldms", TimeTaken(&LLVMTimer)      / 1000);
 
 	return 0;
 }

@@ -34,6 +34,15 @@ void AddFunctionToModule(checker *Checker, node *FnNode, u32 Type)
 	AddVariable(Checker, FnNode->ErrorInfo, Type, FnNode->Fn.Name, FnNode, SymbolFlag_Public | SymbolFlag_Function);
 }
 
+void FillUntypedStack(checker *Checker, u32 Type)
+{
+	while(!Checker->UntypedStack.IsEmpty())
+	{
+		u32 *ToGiveType = Checker->UntypedStack.Pop();
+		*ToGiveType = Type;
+	}
+}
+
 u32 FindType(checker *Checker, const string *Name)
 {
 	for(int I = 0; I < TypeCount; ++I)
@@ -198,20 +207,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				RaiseError(*Expr->ErrorInfo, "Trying to call a non function type \"%s\"", GetTypeName(CallType));
 			}
-			if(Expr->Call.Fn->Type == AST_ID)
-			{
-				node *ID = Expr->Call.Fn;
-				const symbol *Sym = FindSymbol(Checker, ID->ID.Name);
-				if(!Sym)
-				{
-					RaiseError(*ID->ErrorInfo, "Undeclared identifier %s", Sym->Name->Data);
-				}
-
-				if(Sym->Flags & SymbolFlag_Function)
-				{
-					Expr->Call.SymName = Sym->Name;
-				}
-			}
 
 			ForArray(Idx, Expr->Call.Args)
 			{
@@ -254,6 +249,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
+			else
+			{
+				FillUntypedStack(Checker, To);
+			}
 		} break;
 		case AST_ID:
 		{
@@ -266,6 +265,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_CONSTANT:
 		{
 			Result = GetConstantType(Expr->Constant.Value);
+			Expr->Constant.Type = Result;
+			Checker->UntypedStack.Push(&Expr->Constant.Type);
 		} break;
 		default:
 		{
@@ -424,6 +425,10 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 				else
 					Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Promote.From, Promote.To);
 			}
+			else
+			{
+				FillUntypedStack(Checker, Promote.To);
+			}
 
 			if(Result != Basic_bool)
 			{
@@ -485,11 +490,18 @@ DECL_TYPE_ERROR:
 				RaiseError(*Node->ErrorInfo, "Cannot assign expression of type %s to variable of type %s",
 						GetTypeName(ExprTypePointer), GetTypeName(TypePointer));
 			}
-			if(Promotion && !IsUntyped(ExprTypePointer))
+			if(Promotion)
 			{
-				if(Promotion != TypePointer)
-					goto DECL_TYPE_ERROR;
-				Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
+				if(!IsUntyped(ExprTypePointer))
+				{
+					if(Promotion != TypePointer)
+						goto DECL_TYPE_ERROR;
+					Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
+				}
+				else
+				{
+					FillUntypedStack(Checker, Type);
+				}
 			}
 		}
 		else
@@ -523,6 +535,8 @@ DECL_TYPE_ERROR:
 		{
 			Assert(false);
 		}
+
+		FillUntypedStack(Checker, Type);
 	}
 	Node->Decl.TypeIndex = Type;
 	u32 Flags = (Node->Decl.IsShadow) ? SymbolFlag_Shadow : 0 | (Node->Decl.IsConst) ? SymbolFlag_Const : 0;
@@ -641,6 +655,10 @@ RetErr:
 					goto RetErr;
 				if(!IsUntyped(Type))
 					Node->Return.Expression = MakeCast(Node->ErrorInfo, Node->Return.Expression, NULL, Promote.From, Promote.To);
+				else
+				{
+					FillUntypedStack(Checker, Promote.To);
+				}
 			}
 			Node->Return.TypeIdx = Checker->CurrentFnReturnTypeIdx;
 		} break;
@@ -654,7 +672,7 @@ RetErr:
 void Analyze(node **Nodes)
 {
 	// @NOTE: Too much?
-	checker Checker;
+	checker Checker = {};
 	Checker.Symbols = (symbol *)AllocateVirtualMemory(MB(1) * sizeof(symbol));
 	Checker.SymbolCount = 0;
 	Checker.CurrentDepth = 0;

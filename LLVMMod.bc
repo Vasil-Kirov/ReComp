@@ -1,0 +1,47 @@
+; ModuleID = 'main'
+source_filename = "main"
+
+define i32 @get_one(i32 %0) {
+block_0:
+  %1 = add i32 %0, 1
+  ret i32 %1
+}
+
+define i32 @_fltused(i32 %0) {
+block_0:
+  ret i32 0
+}
+
+define i32 @main(i32 %0, i32 %1) {
+block_0:
+  %2 = alloca double, align 8
+  store double 4.000000e+00, ptr %2, align 8
+  %3 = alloca double, align 8
+  store double 0x3FB99999A0000000, ptr %3, align 8
+  br label %block_1
+
+block_1:                                          ; preds = %block_3, %block_0
+  %4 = load double, ptr %3, align 8
+  %5 = fcmp olt double %4, 1.000000e+01
+  br i1 %5, label %block_2, label %block_4
+
+block_2:                                          ; preds = %block_1
+  %6 = load double, ptr %2, align 8
+  %7 = load double, ptr %3, align 8
+  %8 = fadd double %6, %7
+  store double %8, ptr %2, align 8
+  %9 = load double, ptr %2, align 8
+  br label %block_3
+
+block_3:                                          ; preds = %block_2
+  %10 = load double, ptr %3, align 8
+  %11 = fadd double %10, 0x3FB99999A0000000
+  store double %11, ptr %3, align 8
+  %12 = load double, ptr %3, align 8
+  br label %block_1
+
+block_4:                                          ; preds = %block_1
+  %13 = load double, ptr %2, align 8
+  %14 = fptosi double %13 to i32
+  ret i32 %14
+}

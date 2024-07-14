@@ -101,7 +101,27 @@ u32 GetConstantType(const const_value &Value)
 	{
 		case ct::Integer:
 		{
-			if(Value.Int.IsSigned)
+			return Basic_UntypedInteger;
+		} break;
+		case ct::Float:
+		{
+			return Basic_UntypedFloat;
+		} break;
+		case ct::String:
+		{
+			return Basic_string;
+		} break;
+	}
+}
+
+u32 GetConstantTypedType(const const_value *Value)
+{
+	using ct = const_type;
+	switch(Value->Type)
+	{
+		case ct::Integer:
+		{
+			if(Value->Int.IsSigned)
 			{
 				return Basic_i64;
 			}

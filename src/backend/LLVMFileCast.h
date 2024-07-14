@@ -1,6 +1,6 @@
 #pragma once
-#include "../String.h"
-#include "../Type.h"
+#include <VString.h>
+#include <Type.h>
 
 void
 LLVMCast(string_builder *Builder, const char *Value, char Prefix, const type *From, const type *To);

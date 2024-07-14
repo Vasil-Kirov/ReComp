@@ -43,7 +43,6 @@ struct instruction
 struct call_info
 {
 	u32 Operand;
-	const string *FnName; // Nullable
 	slice<u32> Args;
 	slice<u32> ArgTypes;
 };
@@ -61,6 +60,7 @@ struct ir_local
 	const string *Name;
 	u32 Register;
 	u32 Type;
+	b32 IsArg;
 };
 
 struct reg_allocation;
@@ -87,7 +87,7 @@ struct block_builder
 
 struct ir
 {
-	function *Functions; // Dynamic Array
+	dynamic<function>Functions;
 };
 
 ir BuildIR(node **Nodes);

@@ -1,6 +1,6 @@
 #pragma once
 #include "Basic.h"
-#include "String.h"
+#include "VString.h"
 #include "Errors.h"
 
 enum token_type

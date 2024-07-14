@@ -4,7 +4,7 @@
 static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Log.h"
-#include "String.h"
+#include "VString.h"
 #include "Platform.h"
 #include "Lexer.h"
 #include "Errors.h"
@@ -13,12 +13,20 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.h"
 #include "IR.h"
 #include "Threading.h"
+#if 0
 #include "backend/LLVMFileOutput.h"
 #include "backend/LLVMFileCast.h"
+#else
+
+#include "backend/LLVMC/LLVMBase.h"
+#include "backend/LLVMC/LLVMType.h"
+#include "backend/LLVMC/LLVMValue.h"
+
+#endif
 #include "ConstVal.h"
 
 #include "Memory.cpp"
-#include "String.cpp"
+#include "VString.cpp"
 #include "Log.cpp"
 #include "Lexer.cpp"
 #include "Errors.cpp"
@@ -31,6 +39,10 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
 #else
+
+#include "backend/LLVMC/LLVMBase.cpp"
+#include "backend/LLVMC/LLVMType.cpp"
+#include "backend/LLVMC/LLVMValue.cpp"
 
 #endif
 #include "ConstVal.cpp"
@@ -78,24 +90,26 @@ main(int ArgCount, char *Args[])
 	VLibStopTimer(&IRBuildTimer);
 	
 #if 0
-	string Dissasembly = Dissasemble(IR.Functions, ArrLen(IR.Functions));
+	string Dissasembly = Dissasemble(IR.Functions);
 	LDEBUG("%s", Dissasembly.Data);
 #endif
 
 	auto LLVMTimer = VLibStartTimer("LLVM Code Generation");
+	RCGenerateCode(&IR);
 	VLibStopTimer(&LLVMTimer);
 
-	timer_group Timers[] = {InitTimer, ParseTimer, TypeCheckTimer, IRBuildTimer, LLVMTimer};
+	auto LinkTimer = VLibStartTimer("Linking");
+	system("LINK.EXE /nologo /ENTRY:mainCRTStartup /defaultlib:libcmt /OUT:a.exe out.obj");
+	VLibStopTimer(&LinkTimer);
+
 
 	LDEBUG("Compiling Finished...");
-	FOR_ARRAY(Timers, ARR_LEN(Timers))
-	{
-	}
 	LDEBUG("Initialization:            %lldms", TimeTaken(&InitTimer)      / 1000);
 	LDEBUG("Parsing:                   %lldms", TimeTaken(&ParseTimer)     / 1000);
 	LDEBUG("Type Checking:             %lldms", TimeTaken(&TypeCheckTimer) / 1000);
 	LDEBUG("Intermediate Generation:   %lldms", TimeTaken(&IRBuildTimer)   / 1000);
 	LDEBUG("LLVM Code Generation:      %lldms", TimeTaken(&LLVMTimer)      / 1000);
+	LDEBUG("Linking:                   %lldms", TimeTaken(&LinkTimer)      / 1000);
 
 	return 0;
 }

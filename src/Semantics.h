@@ -2,6 +2,7 @@
 #include "Basic.h"
 #include "Parser.h"
 #include "Type.h"
+#include "Stack.h"
 
 enum SymbolFlag
 {
@@ -24,6 +25,7 @@ struct symbol
 struct checker
 {
 	symbol *Symbols;
+	stack<u32 *> UntypedStack;
 	u32 SymbolCount;
 	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;

@@ -1,5 +1,5 @@
 #include "Type.h"
-#include "String.h"
+#include "VString.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
@@ -63,6 +63,12 @@ b32 IsUntyped(const type *Type)
 
 inline const type *GetType(u32 TypeIdx)
 {
+	// Bad?
+#if defined(DEBUG)
+	if(TypeIdx == INVALID_TYPE)
+		return NULL;
+#endif
+
 	return TypeTable[TypeIdx];
 }
 
@@ -216,7 +222,7 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		} break;
 		case TypeKind_Pointer:
 		{
-			return TypesMustMatch(Left->Pointer.Pointed, Right->Pointer.Pointed);
+			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
 		default:
 		{
@@ -239,7 +245,7 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 		case TypeKind_Pointer:
 		{
-			return TypesMustMatch(Left->Pointer.Pointed, Right->Pointer.Pointed);
+			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
 		default:
 		{
@@ -264,7 +270,7 @@ b32 IsCastRedundant(const type *From, const type *To)
 			} break;
 			case TypeKind_Pointer:
 			{
-				return IsCastRedundant(From->Pointer.Pointed, To->Pointer.Pointed);
+				return IsCastRedundant(GetType(From->Pointer.Pointed), GetType(To->Pointer.Pointed));
 			} break;
 			default:
 			{

@@ -149,7 +149,6 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 	const char *End  = String->Data;
 
 	string Number = MakeString(Start, End - Start);
-	LDEBUG("Found Number: %.*s", Number.Size, Number.Data);
 	return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
 }
 

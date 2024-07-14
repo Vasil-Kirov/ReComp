@@ -69,12 +69,13 @@ basic_block *AllocateBlock(block_builder *Builder)
 }
 
 // @TODO: no? like why no scope tracking
-void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type)
+void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, b32 IsArg = false)
 {
 	ir_local Local;
 	Local.Register = Register;
-	Local.Name = Name;
-	Local.Type = Type;
+	Local.Name  = Name;
+	Local.Type  = Type;
+	Local.IsArg = IsArg;
 	Function->Locals[Function->LocalCount++] = Local;
 }
 
@@ -102,10 +103,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
-			if(Node->Call.SymName == NULL)
-				CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
-			else
-				CallInfo->FnName = Node->Call.SymName;
+			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
 
 			dynamic<u32> Args{};
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
@@ -123,14 +121,13 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Result = Local->Register;
 
 			// Do not load arguments, LLVM treats them as values rather than ptrs
-			if(!IsLHS && (i32)Local->Register >= 0)
+			if(!IsLHS && !Local->IsArg)
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
 		case AST_CONSTANT:
 		{
-			u32 Type = GetConstantType(Node->Constant.Value);
 			instruction I;
-			I = Instruction(OP_CONST, (u64)&Node->Constant.Value, Type, Builder);
+			I = Instruction(OP_CONST, (u64)&Node->Constant.Value, Node->Constant.Type, Builder);
 
 			Result = PushInstruction(Builder, I);
 		} break;
@@ -361,8 +358,10 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		// @NOTE: Push arguments as negative value registers so in the LLVM backend we can recognize them...
 		ForArray(Idx, Args)
 		{
-			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, -(Idx + 1), FnType->Function.Args[Idx]);
+			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, Idx, FnType->Function.Args[Idx], true);
 		}
+
+		Builder.LastRegister = Args.Count;
 
 		ForArray(Idx, Body)
 		{
@@ -396,14 +395,13 @@ function GlobalLevelIR(node *Node)
 
 ir BuildIR(node **Nodes)
 {
-	ir IR;
-	IR.Functions = ArrCreate(function);
+	ir IR = {};
 	u32 NodeCount = ArrLen(Nodes);
 	for(int I = 0; I < NodeCount; ++I)
 	{
 		function MaybeFunction = GlobalLevelIR(Nodes[I]);
 		if(MaybeFunction.Name)
-			ArrPush(IR.Functions, MaybeFunction);
+			IR.Functions.Push(MaybeFunction);
 	}
 	return IR;
 }
@@ -480,7 +478,8 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			case OP_CALL:
 			{
 				call_info *CallInfo = (call_info *)Instr.BigRegister;
-				PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
+				//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
+				PushBuilderFormated(Builder, "%%%d = CALL %d", Instr.Result, CallInfo->Operand);
 			} break;
 			case OP_IF:
 			{
@@ -516,17 +515,17 @@ INSIDE_EQ:
 	PushBuilder(Builder, '\n');
 }
 
-string Dissasemble(function *Functions, u32 FunctionCount)
+string Dissasemble(slice<function> Functions)
 {
 	string_builder Builder = MakeBuilder();
-	for(int FnIdx = 0; FnIdx < FunctionCount; ++FnIdx)
+	ForArray(FnIdx, Functions)
 	{
-		function *Fn = Functions + FnIdx;
-		PushBuilderFormated(&Builder, "\nfn %s:{\n", Fn->Name->Data);
-		for(int I = 0; I < Fn->BlockCount; ++I)
+		function Fn = Functions[FnIdx];
+		PushBuilderFormated(&Builder, "\nfn %s:{\n", Fn.Name->Data);
+		for(int I = 0; I < Fn.BlockCount; ++I)
 		{
 			PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
-			DissasembleBasicBlock(&Builder, &Fn->Blocks[I]);
+			DissasembleBasicBlock(&Builder, &Fn.Blocks[I]);
 		}
 		PushBuilder(&Builder, "}\n");
 	}

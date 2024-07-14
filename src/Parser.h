@@ -2,7 +2,7 @@
 #include "ConstVal.h"
 #include "Dynamic.h"
 #include "Lexer.h"
-#include "String.h"
+#include "VString.h"
 struct type;
 
 enum node_type
@@ -59,6 +59,7 @@ struct node
 		} Cast;
 		struct {
 			const_value Value;
+			u32 Type;
 		} Constant;
 		struct {
 			node *ID;

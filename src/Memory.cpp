@@ -1,6 +1,6 @@
 #include "Memory.h"
 #include "Threading.h"
-#include "String.h"
+#include "VString.h"
 #include "Log.h"
 
 typedef struct _ap_memory

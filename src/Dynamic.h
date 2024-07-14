@@ -1,7 +1,5 @@
 #pragma once
-#include "vlib.h"
-
-
+#include "Basic.h"
 
 // Dynamic array that doesn't need / use constructors and destructors
 #include <cstddef>
@@ -27,7 +25,7 @@ struct dynamic {
 			Data = NewData;
 		}
 	}
-	T operator[](size_t Index)
+	T operator[](size_t Index) const
 	{
 		Assert(Index < Count);
 		return Data[Index];
@@ -45,7 +43,7 @@ struct slice {
 	T *Data;
 	size_t Count;
 
-	T operator[](size_t Index)
+	T operator[](size_t Index) const
 	{
 		Assert(Index < Count);
 		return Data[Index];

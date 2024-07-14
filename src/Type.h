@@ -1,6 +1,7 @@
 #pragma once
 #include "Basic.h"
-#include "String.h"
+#include "VString.h"
+#include "Dynamic.h"
 
 // @Note: heavily inspired by the Odin type system
 
@@ -59,6 +60,11 @@ enum basic_flags
 	BasicFlag_Numeric = BasicFlag_Integer | BasicFlag_Float,
 };
 
+enum struct_flags
+{
+	StructFlag_Packed = BIT(0),
+};
+
 struct basic_type
 {
 	basic_kind Kind;
@@ -75,7 +81,9 @@ struct struct_member
 
 struct struct_type
 {
-	struct_member *Members;
+	slice<struct_member> Members;
+	string Name;
+	u32 Flags;
 };
 
 struct function_type
@@ -87,7 +95,7 @@ struct function_type
 
 struct pointer
 {
-	const type *Pointed;
+	u32 Pointed;
 };
 
 struct type
@@ -122,3 +130,4 @@ b32 IsUntyped(const type *Type);
 b32 IsCastValid(const type *From, const type *To);
 b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);
+

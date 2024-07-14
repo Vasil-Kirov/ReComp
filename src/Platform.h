@@ -1,6 +1,6 @@
 #pragma once
 #include "Basic.h"
-#include "String.h"
+#include "VString.h"
 #include "Log.h"
 
 

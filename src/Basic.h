@@ -1,4 +1,6 @@
 #pragma once
+#include <windows.h>
+#include <dbghelp.h>
 #include <stdint.h>
 #include "vlib.h"
 
@@ -20,7 +22,7 @@ typedef double f64;
 
 #if defined(DEBUG)
 #define Assert(expression) if(!(expression)) { LERROR("--- COMPILER BUG ---\nFile: %s\nFunction %s\nLine: %d",\
-		__FILE__, __FUNCTION__, __LINE__); __debugbreak(); __builtin_trap(); }
+		__FILE__, __FUNCTION__, __LINE__); PrintStacktrace(); __debugbreak(); __builtin_trap(); }
 #else 
 #define Assert(expression) {}
 #endif
@@ -31,4 +33,26 @@ typedef double f64;
 
 #define FOR_ARRAY(ARR, LEN) for(auto It = ARR; It < ARR + LEN; ++It)
 
+
+static void PrintStacktrace()
+{
+	printf("\nStack Trace:\n");
+
+	void *stack[128];
+	HANDLE process = GetCurrentProcess();
+	SymInitialize(process, NULL, TRUE);
+
+	int frames = CaptureStackBackTrace(1, 128, stack, NULL);
+
+	SYMBOL_INFO *symbol = (SYMBOL_INFO *)VAlloc(sizeof(SYMBOL_INFO) + 256);
+	symbol->MaxNameLen = 255;
+	symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+	for(int i = 0; i < frames; ++i)
+	{
+		SymFromAddr(process, (DWORD64)stack[i], 0, symbol);
+		printf("\t%s\n", symbol->Name);
+	}
+
+	VFree(symbol);
+}
 

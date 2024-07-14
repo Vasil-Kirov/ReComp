@@ -2,7 +2,7 @@
 #ifndef _ERRORS_H
 #define _ERRORS_H
 #include "Basic.h"
-#include "String.h"
+#include "VString.h"
 
 struct error_info
 {

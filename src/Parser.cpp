@@ -381,7 +381,7 @@ node *ParseOperand(parser *Parser)
 			GetToken(Parser);
 			Result = MakeID(ErrorInfo, Token.ID);
 		} break;
-		case T_CONST:
+		case T_VAL:
 		{
 			Result = ParseNumber(Parser);
 		} break;

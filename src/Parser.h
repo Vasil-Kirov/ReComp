@@ -1,4 +1,5 @@
 #pragma once
+#include "ConstVal.h"
 #include "Dynamic.h"
 #include "Lexer.h"
 #include "String.h"
@@ -7,14 +8,13 @@ struct type;
 enum node_type
 {
 	AST_INVALID,
-	AST_NUMBER,
+	AST_CONSTANT,
 	AST_BINARY,
 	AST_UNARY,
 	AST_IF,
 	AST_FOR,
 	AST_FUNCTION,
 	AST_ID,
-	AST_STRING,
 	AST_DECL,
 	
 	AST_BASICTYPE,
@@ -58,12 +58,8 @@ struct node
 			u32 ToType;
 		} Cast;
 		struct {
-			const string *S;
-		} String;
-		struct {
-			u64 Bytes;
-			b32 IsFloat;
-		} Number;
+			const_value Value;
+		} Constant;
 		struct {
 			node *ID;
 			node *Expression; // NULL in fn args

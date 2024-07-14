@@ -15,6 +15,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Threading.h"
 #include "backend/LLVMFileOutput.h"
 #include "backend/LLVMFileCast.h"
+#include "ConstVal.h"
 
 #include "Memory.cpp"
 #include "String.cpp"
@@ -26,8 +27,13 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.cpp"
 #include "IR.cpp"
 #include "Threading.cpp"
+#if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
+#else
+
+#endif
+#include "ConstVal.cpp"
 
 #if defined(_WIN32)
 #include "Win32.cpp"
@@ -77,7 +83,6 @@ main(int ArgCount, char *Args[])
 #endif
 
 	auto LLVMTimer = VLibStartTimer("LLVM Code Generation");
-	LLVMFileOutput(&IR);
 	VLibStopTimer(&LLVMTimer);
 
 	timer_group Timers[] = {InitTimer, ParseTimer, TypeCheckTimer, IRBuildTimer, LLVMTimer};
@@ -97,19 +102,19 @@ main(int ArgCount, char *Args[])
 
 const char* GetTokenName(token_type Token) {
     switch (Token) {
-        case T_EOF:   return "Token End of File";
-        case T_ID:    return "Token Identifier";
-        case T_IF:    return "Token If";
-        case T_FOR:   return "Token For";
-        case T_NUM:   return "Token Number";
-        case T_STR:   return "Token String";
-        case T_NEQ:   return "Token Not Equal";
-        case T_GEQ:   return "Token Greater or Equal";
-        case T_LEQ:   return "Token Less or Equal";
-        case T_EQEQ:  return "Token Equal Equal";
-        case T_ARR:   return "Token Arrow";
-        case T_PPLUS: return "Token Plus Plus";
-        case T_MMIN:  return "Token Minus Minus";
+        case T_EOF:   return "End of File";
+        case T_ID:    return "Identifier";
+        case T_IF:    return "if";
+        case T_FOR:   return "for";
+        case T_VAL:   return "Number";
+        case T_STR:   return "String";
+        case T_NEQ:   return "!=";
+        case T_GEQ:   return ">=";
+        case T_LEQ:   return "<=";
+        case T_EQEQ:  return "==";
+        case T_ARR:   return "->";
+        case T_PPLUS: return "++";
+        case T_MMIN:  return "--";
         default:
 		{
 			char *C = AllocateString(2);

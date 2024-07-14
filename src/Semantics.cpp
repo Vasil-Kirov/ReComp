@@ -1,4 +1,5 @@
 #include "Semantics.h"
+#include "ConstVal.h"
 #include "Dynamic.h"
 #include "Parser.h"
 #include "Type.h"
@@ -262,12 +263,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
 		} break;
-		case AST_NUMBER:
+		case AST_CONSTANT:
 		{
-			if(Expr->Number.IsFloat)
-				Result = Basic_UntypedFloat;
-			else
-				Result = Basic_UntypedInteger;
+			Result = GetConstantType(Expr->Constant.Value);
 		} break;
 		default:
 		{

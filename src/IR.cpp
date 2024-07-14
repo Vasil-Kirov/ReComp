@@ -126,10 +126,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(!IsLHS && (i32)Local->Register >= 0)
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
-		case AST_NUMBER:
+		case AST_CONSTANT:
 		{
-			u32 Type = Node->Number.IsFloat ? Basic_UntypedFloat : Basic_UntypedInteger;
-			instruction I = Instruction(OP_CONST, Node->Number.Bytes, Type, Builder);
+			u32 Type = GetConstantType(Node->Constant.Value);
+			instruction I;
+			I = Instruction(OP_CONST, (u64)&Node->Constant.Value, Type, Builder);
+
 			Result = PushInstruction(Builder, I);
 		} break;
 		case AST_CAST:
@@ -205,6 +207,14 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
 				}
 			} break;
+			case T_GREAT:
+			{
+				I = Instruction(OP_GREAT, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case T_LESS:
+			{
+				I = Instruction(OP_LESS, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
 			case T_NEQ:
 			case T_GEQ:
 			case T_LEQ:
@@ -215,6 +225,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 			} break;
 			default:
 			{
+				LDEBUG("%c", (char)Node->Binary.Op);
 				Assert(false);
 			} break;
 		};
@@ -479,24 +490,26 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			{
 				PushBuilderFormated(Builder, "JMP %d", Instr.BigRegister);
 			} break;
-			case OP_NEQ:
+
+#define CASE_OP(op, str) \
+			case op: \
+			op_str = str; \
+			goto INSIDE_EQ; \
+
 			const char *op_str;
-			op_str = "!=";
-			goto INSIDE_EQ;
-			case OP_GEQ:
-			op_str = ">=";
-			goto INSIDE_EQ;
-			case OP_LEQ:
-			op_str = "<=";
-			goto INSIDE_EQ;
-			case OP_EQEQ:
-			op_str = "==";
+			CASE_OP(OP_NEQ,   "!=")
+			CASE_OP(OP_GREAT, ">")
+			CASE_OP(OP_GEQ,   ">=")
+			CASE_OP(OP_LESS,  "<")
+			CASE_OP(OP_LEQ,   "<=")
+			CASE_OP(OP_EQEQ,  "==")
 			goto INSIDE_EQ;
 			{
 INSIDE_EQ:
 				PushBuilderFormated(Builder, "%%%d = CMP %%%d %s %%%d", Instr.Result, Instr.Left, op_str, Instr.Right);
 
 			} break;
+#undef CASE_OP
 		}
 		PushBuilder(Builder, '\n');
 	}

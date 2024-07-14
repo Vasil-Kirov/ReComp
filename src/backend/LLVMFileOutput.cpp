@@ -7,8 +7,18 @@
 
 const char *GetLLVMTypeChar(const type *Type)
 {
-	if(Type->Kind == TypeKind_Basic && Type->Basic.Flags & BasicFlag_Boolean)
-		return "i8";
+	if(Type->Kind == TypeKind_Basic)
+	{
+		if(Type->Basic.Flags & BasicFlag_Boolean)
+			return "i8";
+		else if(Type->Basic.Flags & BasicFlag_Float)
+		{
+			if(Type->Basic.Kind == Basic_f32)
+				return "float";
+			else
+				return "double";
+		}
+	}
 #if 0
 	else if(IsUntyped(Type))
 	{
@@ -44,13 +54,20 @@ void FindConst(std::unordered_map<u32, u64> &Map, char &OutPrefix, u32 &InOutVal
 
 constexpr int MAX_VAR_LEN = 64;
 
-void LLVMGetRegister(i32 Val, std::unordered_map<u32, u64> &ConstMap, const function &CurrentFn, char *OutBuff, char &Prefix)
+void LLVMGetRegister(const type *Type, i32 Val, std::unordered_map<u32, u64> &ConstMap, const function &CurrentFn, char *OutBuff, char &Prefix)
 {
 	if(Val >= 0)
 	{
 		u32 OutVal = (u32) Val;
 		FindConst(ConstMap, Prefix, OutVal);
-		_itoa_s(OutVal, OutBuff, MAX_VAR_LEN, 10);
+		if(Prefix == ' ' && Type->Kind == TypeKind_Basic && Type->Basic.Flags & BasicFlag_Float)
+		{
+
+		}
+		else
+		{
+			_itoa_s(OutVal, OutBuff, MAX_VAR_LEN, 10);
+		}
 	}
 	else
 	{
@@ -205,9 +222,32 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block, const functio
 				PushBuilderFormated(Builder, "%%%d = icmp ne %s %c%s, %c%s",
 						Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 			} break;
+			case OP_GREAT:
+			{
+				if(Type->Basic.Flags & BasicFlag_Float)
+				{
+					PushBuilderFormated(Builder, "%%%d = fcmp ogt %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else if(Type->Basic.Flags & BasicFlag_Unsigned)
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp ugt %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp sgt %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+			} break;
 			case OP_GEQ:
 			{
-				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				if(Type->Basic.Flags & BasicFlag_Float)
+				{
+					PushBuilderFormated(Builder, "%%%d = fcmp oge %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else if(Type->Basic.Flags & BasicFlag_Unsigned)
 				{
 					PushBuilderFormated(Builder, "%%%d = icmp uge %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
@@ -218,9 +258,32 @@ void LLVMFileDumpBlock(string_builder *Builder, basic_block Block, const functio
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
 				}
 			} break;
+			case OP_LESS:
+			{
+				if(Type->Basic.Flags & BasicFlag_Float)
+				{
+					PushBuilderFormated(Builder, "%%%d = fcmp olt %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else if(Type->Basic.Flags & BasicFlag_Unsigned)
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp ult %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else
+				{
+					PushBuilderFormated(Builder, "%%%d = icmp slt %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+			} break;
 			case OP_LEQ:
 			{
-				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				if(Type->Basic.Flags & BasicFlag_Float)
+				{
+					PushBuilderFormated(Builder, "%%%d = fcmp ole %s %c%s, %c%s",
+							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);
+				}
+				else if(Type->Basic.Flags & BasicFlag_Unsigned)
 				{
 					PushBuilderFormated(Builder, "%%%d = icmp ule %s %c%s, %c%s",
 							Instr.Result, GetLLVMTypeChar(Type), LeftPrefix, Left, RightPrefix, Right);

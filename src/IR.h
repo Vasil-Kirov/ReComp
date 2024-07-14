@@ -17,6 +17,8 @@ enum op
 	OP_RET,
 	OP_IF,
 	OP_JMP,
+	OP_GREAT,
+	OP_LESS,
 	OP_NEQ,
 	OP_GEQ,
 	OP_LEQ,

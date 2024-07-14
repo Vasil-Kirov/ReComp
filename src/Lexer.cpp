@@ -36,6 +36,7 @@ b32 IsNumCharacter(char C, b32 *FoundDot)
 		if(*FoundDot)
 			return false;
 		*FoundDot = true;
+		return true;
 	}
 	return C == '-' || isdigit(C);
 }
@@ -148,7 +149,8 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 	const char *End  = String->Data;
 
 	string Number = MakeString(Start, End - Start);
-	return MakeToken(T_NUM, StartErrorInfo, MakeStringPointer(Number));
+	LDEBUG("Found Number: %.*s", Number.Size, Number.Data);
+	return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
 }
 
 token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)

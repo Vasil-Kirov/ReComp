@@ -121,20 +121,11 @@ node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeTyp
 	return Result;
 }
 
-node *MakeASTString(error_info *ErrorInfo, const string *String)
+node *MakeConstant(error_info *ErrorInfo, const_value Value)
 {
 	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_STRING;
-	Result->String.S = String;
-	return Result;
-}
-
-node *MakeNumber(error_info *ErrorInfo, u64 Number, b32 IsFloat)
-{
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_NUMBER;
-	Result->Number.Bytes = Number;
-	Result->Number.IsFloat = IsFloat;
+	Result->Type = AST_CONSTANT;
+	Result->Constant.Value = Value;
 	return Result;
 }
 
@@ -207,25 +198,9 @@ node *ParseNumber(parser *Parser)
 	token NumberToken = GetToken(Parser);
 	const string *NumberString = NumberToken.ID;
 
-	b32 IsFloat = false;
-	for(int I = 0; I < NumberString->Size; ++I)
-	{
-		if(NumberString->Data[I] == '.')
-			IsFloat = true;
-	}
+	const_value Value = MakeConstValue(NumberString);
 
-	u64 Bytes = 0;
-	const char *Start = NumberToken.ID->Data;
-	if(IsFloat)
-	{
-		f64 Typed = strtod(Start, NULL);
-		Bytes = *(u64 *)&Typed;
-	}
-	else
-	{
-		Bytes = strtoul(Start, NULL, 10);
-	}
-	return MakeNumber(ErrorInfo, Bytes, IsFloat);
+	return MakeConstant(ErrorInfo, Value);
 }
 
 // @Todo: arrays and type types
@@ -406,7 +381,7 @@ node *ParseOperand(parser *Parser)
 			GetToken(Parser);
 			Result = MakeID(ErrorInfo, Token.ID);
 		} break;
-		case T_NUM:
+		case T_CONST:
 		{
 			Result = ParseNumber(Parser);
 		} break;
@@ -414,7 +389,8 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeASTString(ErrorInfo, Token.ID);
+			const_value Value = MakeConstString(Token.ID);
+			Result = MakeConstant(ErrorInfo, Value);
 		} break;
 		case T_OPENPAREN:
 		{

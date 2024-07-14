@@ -20,7 +20,7 @@ enum token_type
 	T_IF    = -3,
 	T_ELSE  = -4,
 	T_FOR   = -5,
-	T_NUM   = -6,
+	T_VAL   = -6,
 	T_STR   = -7,
 	T_NEQ   = -8,
 	T_GEQ   = -9,

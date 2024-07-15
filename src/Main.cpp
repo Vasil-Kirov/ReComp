@@ -89,8 +89,8 @@ main(int ArgCount, char *Args[])
 	ir IR = BuildIR(Nodes);
 	VLibStopTimer(&IRBuildTimer);
 	
-#if 0
-	string Dissasembly = Dissasemble(IR.Functions);
+#if 1
+	string Dissasembly = Dissasemble(SliceFromArray(IR.Functions));
 	LDEBUG("%s", Dissasembly.Data);
 #endif
 

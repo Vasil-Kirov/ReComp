@@ -126,6 +126,9 @@ b32 CheckMissmatch(int LeftFlags, int RightFlags, basic_flags Flag)
 
 b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
 {
+	if(Left->Basic.Kind == Basic_string && Right->Basic.Kind == Basic_string)
+		return true;
+
 	int LeftFlags = Left->Basic.Flags;
 	int RightFlags = Right->Basic.Flags;
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_TypeID))

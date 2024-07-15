@@ -141,7 +141,11 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	function_type Function;
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
 	Function.ArgCount = FnNode->Fn.Args.Count;
-	Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
+	Function.Args = NULL;
+	Function.Flags = FnNode->Fn.Flags;
+
+	if(Function.ArgCount > 0)
+		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
@@ -266,7 +270,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		{
 			Result = GetConstantType(Expr->Constant.Value);
 			Expr->Constant.Type = Result;
-			Checker->UntypedStack.Push(&Expr->Constant.Type);
+			if(Expr->Constant.Value.Type != const_type::String)
+				Checker->UntypedStack.Push(&Expr->Constant.Type);
 		} break;
 		default:
 		{

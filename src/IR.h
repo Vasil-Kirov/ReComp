@@ -55,7 +55,7 @@ struct basic_block
 	b32 HasTerminator;
 };
 
-struct ir_local
+struct ir_symbol
 {
 	const string *Name;
 	u32 Register;
@@ -70,9 +70,10 @@ struct function
 	const string *Name;
 	basic_block *Blocks;
 	u32 BlockCount;
-	ir_local *Locals;
+	ir_symbol *Locals;
 	reg_allocation *Allocated;
 	node *FnNode;
+	slice<ir_symbol> ModuleSymbols;
 	u32 LocalCount;
 	u32 LastRegister;
 	u32 Type;
@@ -91,7 +92,7 @@ struct ir
 };
 
 ir BuildIR(node **Nodes);
-string Dissasemble(function *Fn);
+string Dissasemble(slice<function> Fn);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);

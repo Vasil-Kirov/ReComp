@@ -271,6 +271,7 @@ void InitializeLexer()
 	AddKeyword("|=",  T_OREQ);
 	AddKeyword("::",  T_CONST);
 	AddKeyword("#shadow", T_SHADOW);
+	AddKeyword("#cdecl",  T_CDECL);
 	AddKeyword("return", T_RETURN);
 }
 

@@ -26,7 +26,12 @@ LLVMValueRef value_map::Get(u32 Register)
 	return NULL;
 }
 
+void value_map::LockBottom()
+{
+	Bottom = Data.Count;
+}
+
 void value_map::Clear()
 {
-	Data.Count = 0;
+	Data.Count = Bottom;
 }

@@ -48,6 +48,7 @@ enum token_type
 	T_SHADOW= -31,
 	T_RETURN= -32,
 	T_AUTOCAST= -34,
+	T_CDECL = -34,
 };
 
 struct token

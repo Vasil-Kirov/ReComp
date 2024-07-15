@@ -1,7 +1,9 @@
 #include "IR.h"
+#include "Dynamic.h"
 #include "Memory.h"
 #include "Parser.h"
 #include "Type.h"
+#include "VString.h"
 #include "vlib.h"
 #include "Log.h"
 
@@ -71,7 +73,7 @@ basic_block *AllocateBlock(block_builder *Builder)
 // @TODO: no? like why no scope tracking
 void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, b32 IsArg = false)
 {
-	ir_local Local;
+	ir_symbol Local;
 	Local.Register = Register;
 	Local.Name  = Name;
 	Local.Type  = Type;
@@ -79,18 +81,23 @@ void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type,
 	Function->Locals[Function->LocalCount++] = Local;
 }
 
-const ir_local *GetIRLocal(function *Function, const string *Name)
+// @TODO: This is bad
+const ir_symbol *GetIRLocal(function *Function, const string *Name)
 {
+	ir_symbol *Found = NULL;
 	for(int I = 0; I < Function->LocalCount; ++I)
 	{
 		if(*Function->Locals[I].Name == *Name)
 		{
-			return &Function->Locals[I];
+			Found = &Function->Locals[I];
 		}
 	}
-	LDEBUG("%s\n", Name->Data);
-	Assert(false);
-	return NULL;
+	if(!Found)
+	{
+		LDEBUG("%s\n", Name->Data);
+		Assert(false);
+	}
+	return Found;
 }
 
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
@@ -117,7 +124,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_ID:
 		{
-			const ir_local *Local = GetIRLocal(Builder->Function, Node->ID.Name);
+			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
 			Result = Local->Register;
 
 			// Do not load arguments, LLVM treats them as values rather than ptrs
@@ -335,7 +342,8 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block *The
 	Builder->CurrentBlock = Then;
 }
 
-function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node)
+function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
+		slice<ir_symbol> ModuleSymbols)
 {
 	function Function;
 	Function.Blocks = NULL;
@@ -343,10 +351,11 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	Function.Name = Name;
 	Function.Type = TypeIdx;
 	Function.FnNode = Node;
+	Function.ModuleSymbols = ModuleSymbols;
 	if(Body.IsValid())
 	{
 		Function.Blocks = ArrCreate(basic_block);
-		Function.Locals = (ir_local *)VAlloc(MB(1) * sizeof(ir_local));
+		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
 		Function.LocalCount = 0;
 		block_builder Builder;
 		Builder.Function = &Function;
@@ -355,13 +364,19 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 		const type *FnType = GetType(TypeIdx);
 
-		// @NOTE: Push arguments as negative value registers so in the LLVM backend we can recognize them...
-		ForArray(Idx, Args)
+		ForArray(Idx, ModuleSymbols)
 		{
-			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, Idx, FnType->Function.Args[Idx], true);
+			PushIRLocal(&Function, ModuleSymbols[Idx].Name, ModuleSymbols[Idx].Register,
+					ModuleSymbols[Idx].Type, true);
 		}
 
-		Builder.LastRegister = Args.Count;
+		ForArray(Idx, Args)
+		{
+			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, Idx + ModuleSymbols.Count,
+					FnType->Function.Args[Idx], true);
+		}
+
+		Builder.LastRegister = Args.Count + ModuleSymbols.Count;
 
 		ForArray(Idx, Body)
 		{
@@ -374,7 +389,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	return Function;
 }
 
-function GlobalLevelIR(node *Node)
+function GlobalLevelIR(node *Node, slice<ir_symbol> ModuleSymbols)
 {
 	function Result = {};
 	switch(Node->Type)
@@ -383,7 +398,7 @@ function GlobalLevelIR(node *Node)
 		{
 			Assert(Node->Fn.Name);
 
-			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node);
+			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, ModuleSymbols);
 		} break;
 		default:
 		{
@@ -397,9 +412,24 @@ ir BuildIR(node **Nodes)
 {
 	ir IR = {};
 	u32 NodeCount = ArrLen(Nodes);
+
+	dynamic<ir_symbol> ModuleSymbols = {};
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		function MaybeFunction = GlobalLevelIR(Nodes[I]);
+		if(Nodes[I]->Type == AST_FN)
+		{
+			ir_symbol Sym = {};
+			Sym.Type = Nodes[I]->Fn.TypeIdx;
+			Sym.Name = Nodes[I]->Fn.Name;
+			Sym.Register = ModuleSymbols.Count;
+			ModuleSymbols.Push(Sym);
+		}
+	}
+
+	slice<ir_symbol> ModuleSymbolsSlice = SliceFromArray(ModuleSymbols);
+	for(int I = 0; I < NodeCount; ++I)
+	{
+		function MaybeFunction = GlobalLevelIR(Nodes[I], ModuleSymbolsSlice);
 		if(MaybeFunction.Name)
 			IR.Functions.Push(MaybeFunction);
 	}
@@ -425,7 +455,33 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			} break;
 			case OP_CONST:
 			{
-				PushBuilderFormated(Builder, "%%%d = %s %d", Instr.Result, GetTypeName(Type), Instr.BigRegister);
+				const_value *Val = (const_value *)Instr.BigRegister;
+				using ct = const_type;
+				switch(Val->Type)
+				{
+					case ct::String:
+					{
+						PushBuilderFormated(Builder, "%%%d = %s \"%.*s\"", Instr.Result, GetTypeName(Type),
+								Val->String->Size, Val->String->Data);
+					} break;
+					case ct::Integer:
+					{
+						if(Val->Int.IsSigned)
+						{
+							PushBuilderFormated(Builder, "%%%d = %s %lld", Instr.Result, GetTypeName(Type),
+									Val->Int.Signed);
+						}
+						else
+						{
+							PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type),
+									Val->Int.Unsigned);
+						}
+					} break;
+					case ct::Float:
+					{
+						PushBuilderFormated(Builder, "%%%d = %s %f", Instr.Result, GetTypeName(Type), Val->Float);
+					} break;
+				}
 			} break;
 			case OP_ADD:
 			{
@@ -521,13 +577,31 @@ string Dissasemble(slice<function> Functions)
 	ForArray(FnIdx, Functions)
 	{
 		function Fn = Functions[FnIdx];
-		PushBuilderFormated(&Builder, "\nfn %s:{\n", Fn.Name->Data);
-		for(int I = 0; I < Fn.BlockCount; ++I)
+		const type *FnType = GetType(Fn.Type);
+		PushBuilderFormated(&Builder, "\nfn %s(", Fn.Name->Data);
+		for(int I = 0; I < FnType->Function.ArgCount; ++I)
 		{
-			PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
-			DissasembleBasicBlock(&Builder, &Fn.Blocks[I]);
+			const type *ArgType = GetType(FnType->Function.Args[I]);
+			PushBuilderFormated(&Builder, "%s %%%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
+			if(I + 1 != FnType->Function.ArgCount)
+				PushBuilder(&Builder, ", ");
 		}
-		PushBuilder(&Builder, "}\n");
+		PushBuilder(&Builder, ')');
+
+		if(Fn.BlockCount != 0)
+		{
+			PushBuilder(&Builder, " {\n");
+			for(int I = 0; I < Fn.BlockCount; ++I)
+			{
+				PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
+				DissasembleBasicBlock(&Builder, &Fn.Blocks[I]);
+			}
+			PushBuilder(&Builder, "}\n");
+		}
+		else
+		{
+			PushBuilder(&Builder, ";\n");
+		}
 	}
 	return MakeString(Builder);
 }

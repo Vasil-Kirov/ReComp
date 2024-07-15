@@ -65,12 +65,13 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType)
+node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_FN;
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
+	Result->Fn.Flags = Flags;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
 }
@@ -136,6 +137,7 @@ token GetToken(parser *Parser)
 	{
 		RaiseError(Token.ErrorInfo, "Unexpected End of File");
 	}
+	Parser->Current = &Parser->Tokens[Parser->TokenIndex];
 	return Token;
 }
 
@@ -173,6 +175,7 @@ node **ParseTokens(token *Tokens)
 	parser Parser;
 	Parser.Tokens = Tokens;
 	Parser.TokenIndex = 0;
+	Parser.Current = Tokens;
 	Parser.IsInBody = false;
 
 	size_t TokenCount = ArrLen(Tokens);
@@ -265,7 +268,13 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
+	u32 Flags = 0;
 	EatToken(Parser, T_FN);
+	if(Parser->Current->Type == T_CDECL)
+	{
+		GetToken(Parser);
+		Flags |= FunctionFlag_Cdecl;
+	}
 	EatToken(Parser, '(');
 	slice<node *> Args{};
 	if(PeekToken(Parser).Type != T_CLOSEPAREN)
@@ -279,7 +288,7 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(ErrorInfo, Args, ReturnType);
+	return MakeFunction(ErrorInfo, Args, ReturnType, Flags);
 }
 
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)
@@ -700,6 +709,8 @@ node *ParseTopLevel(parser *Parser)
 			node *Fn = ParseFunctionType(Parser);
 			if(PeekToken(Parser).Type == T_STARTSCOPE)
 				ParseBody(Parser, Fn->Fn.Body);
+			else
+				EatToken(Parser, ';');
 
 			Fn->Fn.Name = StartToken.ID;
 			Result = Fn;

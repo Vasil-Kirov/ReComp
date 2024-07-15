@@ -58,7 +58,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
                 case Basic_f64:
                     return LLVMDoubleTypeInContext(Context);
                 case Basic_string:
-                    return LLVMPointerType(LLVMInt8TypeInContext(Context), 0); // Assuming string is a pointer to i8
+                    return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
                 default:
                     return NULL;
             }
@@ -119,12 +119,17 @@ void LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
 
-	LLVMTypeRef ReturnType = ConvertToLLVMType(Context, Type->Function.Return);
+	LLVMTypeRef ReturnType;
+	if(Type->Function.Return != INVALID_TYPE)
+		ReturnType = ConvertToLLVMType(Context, Type->Function.Return);
+	else
+		ReturnType = LLVMVoidTypeInContext(Context);
+
 	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc(Type->Function.ArgCount * sizeof(LLVMTypeRef));
 	for (int i = 0; i < Type->Function.ArgCount; ++i) {
 		ArgTypes[i] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}
-	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, Type->Function.ArgCount, 0);
+	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, Type->Function.ArgCount, false);
 	LLVMMapType(TypeID, FuncType);
 	VFree(ArgTypes);
 

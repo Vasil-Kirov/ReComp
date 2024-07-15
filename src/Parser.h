@@ -5,6 +5,11 @@
 #include "VString.h"
 struct type;
 
+enum function_flags
+{
+	FunctionFlag_Cdecl = BIT(1),
+};
+
 enum node_type
 {
 	AST_INVALID,
@@ -75,6 +80,7 @@ struct node
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
 			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
+			u32 Flags;
 		} Fn; // Used for fn type and fn declaration as it's the same thing
 		struct {
 			node *Fn;
@@ -99,6 +105,7 @@ struct node
 struct parser
 {
 	token *Tokens;
+	token *Current;
 	u64 TokenIndex;
 	b32 IsInBody;
 };

@@ -90,6 +90,7 @@ struct function_type
 {
 	u32 Return;
 	u32 *Args;
+	u32 Flags;
 	int ArgCount;
 };
 

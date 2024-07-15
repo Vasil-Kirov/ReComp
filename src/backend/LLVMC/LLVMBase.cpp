@@ -76,6 +76,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
 			}
+			else if(Type->Basic.Flags & BasicFlag_String)
+			{
+				Value = LLVMBuildGlobalStringPtr(gen->bld, Val->String->Data, "");
+			}
 			else
 			{
 				Assert(false);
@@ -222,7 +226,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 
 			LLVMValueRef Operand = gen->map.Get(CallInfo->Operand);
-			LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
+			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
+			gen->map.Add(I.Result, Result);
 		} break;
 	}
 }
@@ -239,7 +244,7 @@ void RCGenerateFunction(generator *gen, function fn)
 
 	for(int Idx = 0; Idx < FnType->Function.ArgCount; ++Idx)
 	{
-		gen->map.Add(Idx, LLVMGetParam(gen->fn, Idx));
+		gen->map.Add(gen->map.Data.Count, LLVMGetParam(gen->fn, Idx));
 	}
 
 	for(u32 Idx = 0; Idx < fn.BlockCount; ++Idx)
@@ -269,19 +274,25 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	dynamic<LLVMValueRef> Functions = {};
 	ForArray(Idx, IR->Functions)
 	{
-		Functions.Push(RCGenerateFunctionSignature(&Gen, IR->Functions[Idx]));
+		LLVMValueRef Fn = RCGenerateFunctionSignature(&Gen, IR->Functions[Idx]);
+		Functions.Push(Fn);
+		Gen.map.Add(Idx, Fn);
 	}
+	Gen.map.LockBottom();
 	ForArray(Idx, IR->Functions)
 	{
-		Gen.fn = Functions[Idx];
-		RCGenerateFunction(&Gen, IR->Functions[Idx]);
-		Gen.map.Clear();
+		if(IR->Functions[Idx].BlockCount != 0)
+		{
+			Gen.fn = Functions[Idx];
+			RCGenerateFunction(&Gen, IR->Functions[Idx]);
+			Gen.map.Clear();
+		}
 	}
 	char *Error = NULL;
 
 	if(LLVMVerifyModule(Gen.mod, LLVMReturnStatusAction, &Error))
 	{
-		LERROR("Couldn't Print LLVM: %s", Error);
+		LERROR("Couldn't Verify LLVM Module: %s", Error);
 		LLVMDisposeMessage(Error);
 	}
 

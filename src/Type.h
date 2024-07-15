@@ -17,6 +17,7 @@ enum type_kind
 	TypeKind_Function,
 	TypeKind_Struct,
 	TypeKind_Pointer,
+	TypeKind_Array,
 };
 
 enum basic_kind
@@ -101,6 +102,12 @@ struct pointer
 	u32 Pointed;
 };
 
+struct array
+{
+	u32 Type;
+	u32 MemberCount;
+};
+
 struct type
 {
 	type_kind Kind;
@@ -110,6 +117,7 @@ struct type
 		struct_type Struct;
 		function_type Function;
 		pointer Pointer;
+		array Array;
 	};
 };
 

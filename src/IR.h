@@ -24,6 +24,8 @@ enum op
 	OP_LEQ,
 	OP_EQEQ,
 	OP_CALL,
+	OP_INDEX,
+	OP_ARRAYLIST,
 };
 
 struct instruction

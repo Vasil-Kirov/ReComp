@@ -145,6 +145,25 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, Node->Call.Type, Builder));
 		} break;
+		case AST_ARRAYLIST:
+		{
+			u32 *Registers = (u32 *)VAlloc((Node->ArrayList.Expressions.Count + 1) * sizeof(u32));
+			ForArray(Idx, Node->ArrayList.Expressions)
+			{
+				u32 Register = BuildIRFromExpression(Builder, Node->ArrayList.Expressions[Idx], IsLHS);
+				Registers[Idx] = Register;
+			}
+			Registers[Node->ArrayList.Expressions.Count] = -1;
+			instruction I = Instruction(OP_ARRAYLIST, (u64)Registers, Node->ArrayList.Type, Builder);
+			Result = PushInstruction(Builder, I);
+		} break;
+		case AST_INDEX:
+		{
+			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, IsLHS);
+			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, IsLHS);
+			u32 Location = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
+			Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Location, Node->Index.IndexedType, Builder));
+		} break;
 		case AST_CONSTANT:
 		{
 			instruction I;
@@ -154,7 +173,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_CAST:
 		{
-			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, false);
+			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
 			instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
 			Result = PushInstruction(Builder, I);
 		} break;
@@ -533,7 +552,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			case OP_LOAD:
 			{
 				PushBuilderFormated(Builder, "%%%d = LOAD %s %%%d", Instr.Result, GetTypeName(Type),
-						Instr.BigRegister);
+						Instr.Right);
 			} break;
 			case OP_STORE:
 			{
@@ -566,6 +585,14 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			case OP_JMP:
 			{
 				PushBuilderFormated(Builder, "JMP %d", Instr.BigRegister);
+			} break;
+			case OP_INDEX:
+			{
+				PushBuilderFormated(Builder, "%%%d = %%%d[%%%d]", Instr.Result, Instr.Left, Instr.Right);
+			} break;
+			case OP_ARRAYLIST:
+			{
+				PushBuilderFormated(Builder, "%%%d = ARRAYLIST (cba)", Instr.Result);
 			} break;
 
 #define CASE_OP(op, str) \

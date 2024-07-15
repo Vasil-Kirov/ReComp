@@ -251,6 +251,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(IsUntyped(FromType))
 			{
+				FillUntypedStack(Checker, To);
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
 			else
@@ -265,6 +266,97 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
+		} break;
+		case AST_ARRAYLIST:
+		{
+			if(Expr->ArrayList.Expressions.Count == 0)
+			{
+				RaiseError(*Expr->ErrorInfo, "Empty initializer lists are not supported yet");
+			}
+
+			u32 ListType = INVALID_TYPE;
+			node **First = NULL;
+			b32 ShouldRunTyping = false;
+			ForArray(Idx, Expr->ArrayList.Expressions)
+			{
+				u32 ExprType = AnalyzeExpression(Checker, Expr->ArrayList.Expressions[Idx]);
+				const type *Type = GetType(ExprType);
+				if(IsUntyped(Type))
+				{
+					ShouldRunTyping = true;
+				}
+				if(ListType == INVALID_TYPE)
+				{
+					// @NOTE: Kinda bad, accessing the .Data
+					ListType = ExprType;
+					First = &Expr->ArrayList.Expressions.Data[Idx];
+				}
+				else
+				{
+					// @NOTE: Kinda bad, accessing the .Data
+					node **ListMemberNode = &Expr->ArrayList.Expressions.Data[Idx];
+					ListType = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ListType, ExprType, First, ListMemberNode);
+				}
+			}
+			const type *Type = GetType(ListType);
+			if(IsUntyped(Type))
+			{
+				if(Type->Basic.Flags & BasicFlag_Integer)
+					ListType = Basic_i64;
+				else if(Type->Basic.Flags & BasicFlag_Float)
+					ListType = Basic_f64;
+				else
+					Assert(false);
+			}
+
+			if(ShouldRunTyping)
+			{
+				FillUntypedStack(Checker, ListType);
+			}
+
+			type *ArrayType = NewType(type);
+			ArrayType->Kind = TypeKind_Array;
+			ArrayType->Array.Type = ListType;
+			ArrayType->Array.MemberCount = Expr->ArrayList.Expressions.Count;
+
+			Result = AddType(ArrayType);
+			Expr->ArrayList.Type = Result;
+
+		} break;
+		case AST_INDEX:
+		{
+			u32 OperandTypeIdx = AnalyzeExpression(Checker, Expr->Index.Operand);
+			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Index.Expression);
+			const type *ExprType = GetType(ExprTypeIdx);
+			const type *OperandType = GetType(OperandTypeIdx);
+			if(ExprType->Kind != TypeKind_Basic || (ExprType->Basic.Flags & BasicFlag_Integer) == 0)
+			{
+				RaiseError(*Expr->ErrorInfo, "Indexing expression needs to be of an integer type");
+			}
+
+			switch(OperandType->Kind)
+			{
+				case TypeKind_Pointer:
+				{
+					Result = OperandType->Pointer.Pointed;
+				} break;
+				case TypeKind_Array:
+				{
+					Result = OperandType->Array.Type;
+				} break;
+				default:
+				{
+					RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
+				} break;
+			}
+
+			if(IsUntyped(ExprType))
+			{
+				FillUntypedStack(Checker, Basic_uint);
+			}
+
+			Expr->Index.OperandType = OperandTypeIdx;
+			Expr->Index.IndexedType = Result;
 		} break;
 		case AST_CONSTANT:
 		{
@@ -326,6 +418,39 @@ void OverwriteOpEqExpression(node *Expr, char Op)
 	memcpy(Expr, NewEq, sizeof(node));
 }
 
+u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode)
+{
+	u32 Result = Left;
+
+	const type *LeftType  = GetType(Left);
+	const type *RightType = GetType(Right);
+	const type *Promotion = NULL;
+	if(!IsTypeCompatible(LeftType, RightType, &Promotion, false))
+	{
+		RaiseError(*ErrorInfo, "Incompatible types.\nLeft: %s\nRight: %s",
+				GetTypeName(LeftType), GetTypeName(RightType));
+	}
+	if(Promotion)
+	{
+		promotion_description Promote = PromoteType(Promotion, LeftType, RightType, Left, Right);
+
+		if(!IsUntyped(Promote.FromT))
+		{
+			if(Promote.FromT == LeftType)
+				*LeftNode  = MakeCast(ErrorInfo, *LeftNode, NULL, Promote.From, Promote.To);
+			else
+				*RightNode = MakeCast(ErrorInfo, *RightNode, NULL, Promote.From, Promote.To);
+		}
+		else
+		{
+			FillUntypedStack(Checker, Promote.To);
+		}
+		Result = Promote.To;
+	}
+
+	return Result;
+}
+
 u32 AnalyzeExpression(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_BINARY)
@@ -334,13 +459,8 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		u32 Right = AnalyzeExpression(Checker, Expr->Binary.Right);
 		Expr->Binary.ExpressionType = Left;
 
-		const type *LeftType  = GetType(Left);
-		const type *RightType = GetType(Right);
-		const type *Promotion = NULL;
-		if(!IsTypeCompatible(LeftType, RightType, &Promotion, false))
-		{
-			RaiseBinaryTypeError(Expr->ErrorInfo, LeftType, RightType);
-		}
+		// @TODO: Check how type checking and casting here works with +=, -=, etc... substitution
+		u32 Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
 
 		u32 Result = Left;
 		switch(Expr->Binary.Op)
@@ -357,7 +477,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			{
 				if(!IsLHSAssignable(Checker, Expr->Binary.Left))
 					RaiseError(*Expr->ErrorInfo, "Left-hand side of assignment is not assignable");
-				if(Promotion == RightType)
+				if(Promoted == Right)
 				{
 					RaiseError(*Expr->ErrorInfo, "Incompatible types in assignment expression!\n"
 							"Right-hand side doesn't fit in the left-hand side");
@@ -419,28 +539,12 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			default: {} break;
 		}
 
-		if(Promotion)
+
+		if(Result != Basic_bool)
 		{
-			promotion_description Promote = PromoteType(Promotion, LeftType, RightType, Left, Right);
-
-			if(!IsUntyped(Promote.FromT))
-			{
-				if(Promote.FromT == LeftType)
-					Expr->Binary.Left = MakeCast(Expr->ErrorInfo, Expr->Binary.Left, NULL, Promote.From, Promote.To);
-				else
-					Expr->Binary.Right = MakeCast(Expr->ErrorInfo, Expr->Binary.Right, NULL, Promote.From, Promote.To);
-			}
-			else
-			{
-				FillUntypedStack(Checker, Promote.To);
-			}
-
-			if(Result != Basic_bool)
-			{
-				Expr->Binary.ExpressionType = Promote.To;
-				// @TODO: Is this a hack? Could checking for bool mess something up?
-				Result = Promote.To;
-			}
+			Expr->Binary.ExpressionType = Promoted;
+			// @TODO: Is this a hack? Could checking for bool mess something up?
+			Result = Promoted;
 		}
 		return Result;
 	}

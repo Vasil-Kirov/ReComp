@@ -1,5 +1,6 @@
 #include "LLVMType.h"
 #include "LLVMBase.h"
+#include "Type.h"
 #include "llvm-c/Core.h"
 
 dynamic<LLVMTypeEntry> LLVMTypeMap;
@@ -34,6 +35,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
     switch (CustomType->Kind) {
         case TypeKind_Basic:
+		{
             switch (CustomType->Basic.Kind) {
                 case Basic_bool:
                     return LLVMInt1TypeInContext(Context);
@@ -57,6 +59,10 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
                     return LLVMFloatTypeInContext(Context);
                 case Basic_f64:
                     return LLVMDoubleTypeInContext(Context);
+				case Basic_int:
+					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
+				case Basic_uint:
+					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
                 case Basic_string:
 					return LLVMFindMapType(TypeID);
                 case Basic_cstring:
@@ -64,22 +70,34 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
                 default:
                     return NULL;
             }
+		} break;
 
-        case TypeKind_Function: {
-			return LLVMFindMapType(TypeID);
-        }
+		case TypeKind_Array:
+		{
+			return LLVMArrayType(ConvertToLLVMType(Context, CustomType->Array.Type), CustomType->Array.MemberCount);
+		} break;
 
-        case TypeKind_Struct: {
+        case TypeKind_Function:
+		{
 			return LLVMFindMapType(TypeID);
-        }
+        } break;
+
+        case TypeKind_Struct:
+		{
+			return LLVMFindMapType(TypeID);
+        } break;
 
         case TypeKind_Pointer:
+		{
             return LLVMPointerType(ConvertToLLVMType(Context, CustomType->Pointer.Pointed), 0);
+		} break;
 
         case TypeKind_Invalid:
         default:
             return NULL;
     }
+	Assert(false);
+	return NULL;
 }
 
 void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID)

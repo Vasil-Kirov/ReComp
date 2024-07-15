@@ -1,6 +1,7 @@
 #include "LLVMBase.h"
 #include "ConstVal.h"
 #include "IR.h"
+#include "Memory.h"
 #include "Log.h"
 #include "LLVMType.h"
 #include "Dynamic.h"
@@ -16,6 +17,12 @@
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
 	return LLVMBuildGlobalStringPtr(gen->bld, String->Data, "");
+}
+
+void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef OutArray[2])
+{
+	OutArray[0] = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), 0, false);
+	OutArray[1] = Index;
 }
 
 void RCGenerateInstruction(generator *gen, instruction I)
@@ -166,6 +173,40 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				gen->map.Add(I.Result, Val);
 			}
 		} break;
+		case OP_ARRAYLIST:
+		{
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			u32 *Registers = (u32 *)I.BigRegister;
+			LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "_array_list");
+
+			int Idx = 0;
+			while(Registers[Idx] != -1)
+			{
+				LLVMValueRef Member = gen->map.Get(Registers[Idx]);
+				LLVMValueRef Index = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), Idx, false);
+
+				LLVMValueRef Indexes[2];
+				LLVMGetProperArrayIndex(gen, Index, Indexes);
+
+				LLVMValueRef Location = LLVMBuildGEP2(gen->bld, LLVMType, Val, Indexes, 2, "");
+				LLVMBuildStore(gen->bld, Member, Location);
+
+				Idx++;
+			}
+
+			gen->map.Add(I.Result, Val);
+		} break;
+		case OP_INDEX:
+		{
+			LLVMValueRef Operand = gen->map.Get(I.Left);
+			LLVMValueRef Index = gen->map.Get(I.Right);
+			LLVMTypeRef  LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+
+			LLVMValueRef Indexes[2];
+			LLVMGetProperArrayIndex(gen, Index, Indexes);
+			LLVMValueRef Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, Indexes, 2, "");
+			gen->map.Add(I.Result, Val);
+		} break;
 		case OP_STORE:
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Result);
@@ -294,16 +335,21 @@ LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
 
 void RCGenerateCompilerTypes(generator *gen)
 {
-	type U8Ptr = {.Kind = TypeKind_Pointer, .Pointer = {.Pointed = Basic_u8}};
-	u32 U8PtrID = AddType(&U8Ptr);
+	type *U8Ptr = NewType(type);
+	U8Ptr->Kind = TypeKind_Pointer;
+	U8Ptr->Pointer = {.Pointed = Basic_u8};
+	u32 U8PtrID = AddType(U8Ptr);
 	struct_member DataMember = {STR_LIT("data"), U8PtrID};
 	struct_member SizeMember = {STR_LIT("size"), Basic_i32};
-	type StringType = {.Kind = TypeKind_Struct, .Struct = {
+	type *StringType = NewType(type);
+
+	StringType->Kind = TypeKind_Struct;
+	StringType->Struct = {
 		.Members = SliceFromConst({DataMember, SizeMember}),
 		.Name = STR_LIT("string"),
 		.Flags = 0,
-	}};
-	u32 String = AddType(&StringType);
+	};
+	u32 String = AddType(StringType);
 	LLVMCreateOpaqueStringStructType(gen->ctx, String);
 	LLVMDefineStructType(gen->ctx, String);
 }

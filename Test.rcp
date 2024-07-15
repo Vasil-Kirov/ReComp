@@ -2,9 +2,8 @@
 printf :: fn #cdecl(fmt: cstring);
 
 main :: fn(arg: i32, arg2: i32) -> i32 {
-	my_str := "Hello World!";
-	printf(@cstring my_str);
-	return 0;
+	x := {1, 2, @i32 3};
+	return x[1];
 
 }
 

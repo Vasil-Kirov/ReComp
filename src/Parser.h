@@ -25,10 +25,12 @@ enum node_type
 	AST_BASICTYPE,
 	AST_PTRTYPE,
 	AST_FN,
+
 	AST_CALL,
 	AST_RETURN,
-	
 	AST_CAST,
+	AST_ARRAYLIST,
+	AST_INDEX,
 };
 
 struct node
@@ -57,11 +59,21 @@ struct node
 			dynamic<node *>Body;
 		} For;
 		struct {
+			node *Operand;
+			node *Expression;
+			u32 OperandType; // Set by semantic analyzer
+			u32 IndexedType; // Set by semantic analyzer
+		} Index;
+		struct {
 			node *Expression;
 			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser
 			u32 FromType;
 			u32 ToType;
 		} Cast;
+		struct {
+			slice<node *> Expressions;
+			u32 Type; // Set by semantic analyzer
+		} ArrayList;
 		struct {
 			const_value Value;
 			u32 Type;
@@ -70,7 +82,7 @@ struct node
 			node *ID;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
-			u32 TypeIndex; // Set by semantic analyzer, used by ir generator
+			u32 TypeIndex; // Set by semantic analyzer
 			b32 IsConst;
 			b32 IsShadow;
 		} Decl;
@@ -79,7 +91,7 @@ struct node
 			slice<node *> Args;
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
-			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
+			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
 		} Fn; // Used for fn type and fn declaration as it's the same thing
 		struct {

@@ -12,6 +12,25 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_INDEX;
+	Result->Index.Expression = Expression;
+	Result->Index.Operand = Operand;
+
+	return Result;
+}
+
+node *MakeArrayList(const error_info *ErrorInfo, slice<node *> Expressions)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_ARRAYLIST;
+	Result->ArrayList.Expressions = Expressions;
+
+	return Result;
+}
+
 node *MakeCall(const error_info *ErrorInfo, node *Operand, slice<node *> Args)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -313,8 +332,13 @@ void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 
 node *ParseFunctionCall(parser *Parser, node *Operand)
 {
-	dynamic<node *> Args = {};
 	ERROR_INFO;
+	if(Operand == NULL)
+	{
+		RaiseError(*ErrorInfo, "Trying to call an invalid expression as a function");
+	}
+
+	dynamic<node *> Args = {};
 	EatToken(Parser, T_OPENPAREN);
 	while(PeekToken(Parser).Type != T_CLOSEPAREN)
 	{
@@ -334,6 +358,21 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 	return MakeCall(ErrorInfo, Operand, SliceFromArray(Args));
 }
 
+node *ParseIndex(parser *Parser, node *Operand)
+{
+	ERROR_INFO;
+	if(Operand == NULL)
+	{
+		RaiseError(*ErrorInfo, "Trying to index an invalid expression");
+	}
+
+	EatToken(Parser, T_OPENBRACKET);
+	node *IndexExpression = ParseExpression(Parser);
+	EatToken(Parser, T_CLOSEBRACKET);
+
+	return MakeIndex(ErrorInfo, Operand, IndexExpression);
+}
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -345,6 +384,10 @@ node *ParseAtom(parser *Parser, node *Operand)
 			case T_OPENPAREN:
 			{
 				Operand = ParseFunctionCall(Parser, Operand);
+			} break;
+			case T_OPENBRACKET:
+			{
+				Operand = ParseIndex(Parser, Operand);
 			} break;
 			default:
 			{
@@ -389,6 +432,21 @@ node *ParseOperand(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 			Result = MakeID(ErrorInfo, Token.ID);
+		} break;
+		case T_STARTSCOPE:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			if(Parser->Current->Type == T_ENDSCOPE)
+			{
+				Result = MakeArrayList(ErrorInfo, ZeroSlice<node *>());
+			}
+			else
+			{
+				slice<node *> Items = Delimited(Parser, ',', ParseExpression);
+				Result = MakeArrayList(ErrorInfo, Items);
+			}
+			EatToken(Parser, T_ENDSCOPE);
 		} break;
 		case T_VAL:
 		{

@@ -11,6 +11,8 @@ enum token_type
 	T_ENDSCOPE   = '}',
 	T_OPENPAREN  = '(',
 	T_CLOSEPAREN = ')',
+	T_OPENBRACKET  = '[',
+	T_CLOSEBRACKET = ']',
 	T_CAST  = '@',
 	T_EQ    = '=',
 	T_LESS  = '<',

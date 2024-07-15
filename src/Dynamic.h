@@ -59,6 +59,12 @@ slice<T> SliceFromArray(dynamic<T> Array)
 }
 
 template <typename T>
+slice<T> ZeroSlice()
+{
+	return {NULL, 0};
+}
+
+template <typename T>
 slice<T> SliceFromConst(std::initializer_list<T> List)
 {
 	size_t Size = List.size();

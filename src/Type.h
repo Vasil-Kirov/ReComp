@@ -23,6 +23,7 @@ enum basic_kind
 {
 	Basic_bool,
 	Basic_string,
+	Basic_cstring,
 
 	Basic_u8,
 	Basic_u16,
@@ -53,9 +54,10 @@ enum basic_flags
 	BasicFlag_Integer = BIT(1),
 	BasicFlag_Float   = BIT(2),
 	BasicFlag_String  = BIT(3),
-	BasicFlag_Untyped = BIT(4),
-	BasicFlag_Unsigned= BIT(5),
-	BasicFlag_TypeID  = BIT(6),
+	BasicFlag_CString = BIT(4),
+	BasicFlag_Untyped = BIT(5),
+	BasicFlag_Unsigned= BIT(6),
+	BasicFlag_TypeID  = BIT(7),
 
 	BasicFlag_Numeric = BasicFlag_Integer | BasicFlag_Float,
 };
@@ -131,4 +133,5 @@ b32 IsUntyped(const type *Type);
 b32 IsCastValid(const type *From, const type *To);
 b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);
+b32 ShouldCopyType(const type *Type);
 

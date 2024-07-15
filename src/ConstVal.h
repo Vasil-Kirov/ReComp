@@ -8,6 +8,11 @@ enum class const_type
 	String,
 };
 
+enum const_string_flags
+{
+	ConstString_CSTR = BIT(1),
+};
+
 struct const_integer
 {
 	b32 IsSigned;
@@ -17,13 +22,19 @@ struct const_integer
 	};
 };
 
+struct const_string
+{
+	const string *Data;
+	int Flags;
+};
+
 struct const_value
 {
 	const_type Type;
 	union {
 		const_integer Int;
 		f64 Float;
-		const string *String;
+		const_string String;
 	};
 };
 

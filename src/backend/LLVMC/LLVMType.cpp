@@ -58,6 +58,8 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
                 case Basic_f64:
                     return LLVMDoubleTypeInContext(Context);
                 case Basic_string:
+					return LLVMFindMapType(TypeID);
+                case Basic_cstring:
                     return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
                 default:
                     return NULL;
@@ -80,6 +82,17 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
     }
 }
 
+void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID)
+{
+	const type *Type = GetType(TypeID);
+	Assert(Context);
+	Assert(TypeID != INVALID_TYPE);
+	Assert(Type);
+	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
+	LLVMMapType(Basic_string, Opaque);
+	LLVMMapType(TypeID, Opaque);
+}
+
 void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
@@ -92,15 +105,13 @@ void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
 
 void LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 {
-	if(LLVMFindMapType(TypeID) != NULL)
-		return;
-
 	const type *Type = GetType(TypeID);
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
 
 	LLVMTypeRef Opaque = LLVMFindMapType(TypeID);
+	Assert(Opaque);
 
 	auto MemberCount = Type->Struct.Members.Count;
 	LLVMTypeRef *MemberTypes = (LLVMTypeRef *)VAlloc(MemberCount * sizeof(LLVMTypeRef));

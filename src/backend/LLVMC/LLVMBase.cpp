@@ -13,6 +13,11 @@
 #include "llvm-c/Analysis.h"
 #include <stdio.h>
 
+LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
+{
+	return LLVMBuildGlobalStringPtr(gen->bld, String->Data, "");
+}
+
 void RCGenerateInstruction(generator *gen, instruction I)
 {
 #define LLVM_BIN_OP(CAPITAL_OP, Op) \
@@ -78,7 +83,19 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(Type->Basic.Flags & BasicFlag_String)
 			{
-				Value = LLVMBuildGlobalStringPtr(gen->bld, Val->String->Data, "");
+				LLVMTypeRef IntType = ConvertToLLVMType(gen->ctx, Basic_i32);
+				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
+				LLVMValueRef Size    = LLVMConstInt(IntType, Val->String.Data->Size, false);
+				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
+
+				LLVMValueRef StringPtr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "String");
+				LLVMValueRef SizePtr   = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 1, "Size");
+				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
+				LLVMBuildStore(gen->bld, Size,    SizePtr);
+			}
+			else if(Type->Basic.Flags & BasicFlag_CString)
+			{
+				Value = RCGetStringConstPtr(gen, Val->String.Data);
 			}
 			else
 			{
@@ -132,11 +149,22 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			u32 FromType = I.Right;
 			u32 ToType = I.Type;
-			LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
-			LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
-			LLVMValueRef Value = gen->map.Get(I.Left);
-			LLVMValueRef Val = LLVMBuildCast(gen->bld, Op, Value, LLVMToType, "");
-			gen->map.Add(I.Result, Val);
+			if(FromType == Basic_string && ToType == Basic_cstring)
+			{
+				LLVMValueRef Value = gen->map.Get(I.Left);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, FromType);
+				LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "_cstringptr");
+				LLVMValueRef Val = LLVMBuildLoad2(gen->bld, ConvertToLLVMType(gen->ctx, Basic_cstring), Ptr, "_cstring");
+				gen->map.Add(I.Result, Val);
+			}
+			else
+			{
+				LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
+				LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
+				LLVMValueRef Value = gen->map.Get(I.Left);
+				LLVMValueRef Val = LLVMBuildCast(gen->bld, Op, Value, LLVMToType, "");
+				gen->map.Add(I.Result, Val);
+			}
 		} break;
 		case OP_STORE:
 		{
@@ -264,12 +292,30 @@ LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
 	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen->ctx, Function.Type));
 }
 
+void RCGenerateCompilerTypes(generator *gen)
+{
+	type U8Ptr = {.Kind = TypeKind_Pointer, .Pointer = {.Pointed = Basic_u8}};
+	u32 U8PtrID = AddType(&U8Ptr);
+	struct_member DataMember = {STR_LIT("data"), U8PtrID};
+	struct_member SizeMember = {STR_LIT("size"), Basic_i32};
+	type StringType = {.Kind = TypeKind_Struct, .Struct = {
+		.Members = SliceFromConst({DataMember, SizeMember}),
+		.Name = STR_LIT("string"),
+		.Flags = 0,
+	}};
+	u32 String = AddType(&StringType);
+	LLVMCreateOpaqueStringStructType(gen->ctx, String);
+	LLVMDefineStructType(gen->ctx, String);
+}
+
 void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 {
 	generator Gen = {};
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(Name, Gen.ctx);
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
+
+	RCGenerateCompilerTypes(&Gen);
 
 	dynamic<LLVMValueRef> Functions = {};
 	ForArray(Idx, IR->Functions)
@@ -290,11 +336,13 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	}
 	char *Error = NULL;
 
+#if 1
 	if(LLVMVerifyModule(Gen.mod, LLVMReturnStatusAction, &Error))
 	{
 		LERROR("Couldn't Verify LLVM Module: %s", Error);
 		LLVMDisposeMessage(Error);
 	}
+#endif
 
 	if(LLVMPrintModuleToFile(Gen.mod, "LLVMMod.bc", &Error))
 	{

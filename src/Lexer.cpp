@@ -173,7 +173,7 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 	return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 }
 
-token TokinizeString(string *String, error_info *ErrorInfo)
+token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 {
 	error_info StartErrorInfo = *ErrorInfo;
 	AdvanceC(String, ErrorInfo);
@@ -190,7 +190,10 @@ token TokinizeString(string *String, error_info *ErrorInfo)
 	const char *End = String->Data;
 	AdvanceC(String, ErrorInfo);
 	string Tokinized = MakeString(Start, End - Start);
-	return MakeToken(T_STR, StartErrorInfo, MakeStringPointer(Tokinized));
+	if(CString)
+		return MakeToken(T_CSTR, StartErrorInfo, MakeStringPointer(Tokinized));
+	else
+		return MakeToken(T_STR, StartErrorInfo,  MakeStringPointer(Tokinized));
 }
 
 token GetNextToken(string *String, error_info *ErrorInfo)
@@ -206,6 +209,14 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 
 	char FirstChar = PeekC(String);
 
+	if(FirstChar == 'c' && String->Size > 1)
+	{
+		if(String->Data[1] == '"')
+		{
+			AdvanceC(String, ErrorInfo);
+			return TokinizeString(String, ErrorInfo, true);
+		}
+	}
 	if(IsIDCharacter(FirstChar))
 	{
 		return TokinizeIdentifier(String, ErrorInfo);
@@ -216,7 +227,7 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	}
 	if(FirstChar == '"')
 	{
-		return TokinizeString(String, ErrorInfo);
+		return TokinizeString(String, ErrorInfo, false);
 	}
 	if(FirstChar == '#')
 	{

@@ -1,4 +1,5 @@
 #include "Type.h"
+#include "Dynamic.h"
 #include "VString.h"
 
 #pragma clang diagnostic push
@@ -6,6 +7,7 @@
 const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean,                             4, STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
+	{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
 	{TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
 	{TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
@@ -29,7 +31,8 @@ const type BasicTypes[] = {
 
 	{TypeKind_Basic, {Basic_auto, 0,                                              -1, STR_LIT("auto")}},
 };
-#pragma clang diagnostic pop
+
+//#pragma clang diagnostic pop
 
 static const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
@@ -39,7 +42,7 @@ const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
 const type *BasicInt       = &BasicTypes[Basic_int];
 const type *BasicUint      = &BasicTypes[Basic_uint];
 const type *BasicF32       = &BasicTypes[Basic_f32];
-
+const type *BasicU8        = &BasicTypes[Basic_u8];
 
 u32 TypeCount = 0;
 const size_t MAX_TYPES = MB(1);
@@ -129,12 +132,18 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 	if(Left->Basic.Kind == Basic_string && Right->Basic.Kind == Basic_string)
 		return true;
 
+	if(Left->Basic.Kind == Basic_cstring && Right->Basic.Kind == Basic_cstring)
+		return true;
+
 	int LeftFlags = Left->Basic.Flags;
 	int RightFlags = Right->Basic.Flags;
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_TypeID))
 		return false;
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_String))
+		return false;
+
+	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_CString))
 		return false;
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Unsigned))
@@ -204,6 +213,14 @@ b32 IsCastValid(const type *From, const type *To)
 
 	if(From->Kind != To->Kind)
 		return false;
+
+	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Basic)
+	{
+		if(From->Basic.Kind == Basic_string && To->Basic.Kind == Basic_cstring)
+		{
+			return true;
+		}
+	}
 
 	return true;
 }
@@ -282,6 +299,20 @@ b32 IsCastRedundant(const type *From, const type *To)
 		}
 	}
 	return false;
+}
+
+b32 ShouldCopyType(const type *Type)
+{
+	if(Type->Kind != TypeKind_Basic && Type->Kind != TypeKind_Pointer)
+	{
+		return false;
+	}
+	else
+	{
+		if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
+			return false;
+	}
+	return true;
 }
 
 const char *GetTypeName(const type *Type)

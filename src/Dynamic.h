@@ -3,6 +3,7 @@
 
 // Dynamic array that doesn't need / use constructors and destructors
 #include <cstddef>
+#include <initializer_list>
 template <typename T>
 struct dynamic {
 	T *Data;
@@ -55,6 +56,18 @@ template <typename T>
 slice<T> SliceFromArray(dynamic<T> Array)
 {
 	return {Array.Data, Array.Count};
+}
+
+template <typename T>
+slice<T> SliceFromConst(std::initializer_list<T> List)
+{
+	size_t Size = List.size();
+	T *Data = (T *)VAlloc(Size * sizeof(T));
+	memcpy(Data, List.begin(), Size * sizeof(T));
+	slice<T> Result;
+	Result.Data = Data;
+	Result.Count = Size;
+	return Result;
 }
 
 #define ForArray(_Index, _Array) for(int _Index = 0; _Index < (_Array).Count; ++_Index)

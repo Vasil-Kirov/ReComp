@@ -49,6 +49,7 @@ enum token_type
 	T_RETURN= -32,
 	T_AUTOCAST= -34,
 	T_CDECL = -34,
+	T_CSTR  = -35,
 };
 
 struct token

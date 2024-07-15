@@ -394,6 +394,14 @@ node *ParseOperand(parser *Parser)
 		{
 			Result = ParseNumber(Parser);
 		} break;
+		case T_CSTR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			const_value Value = MakeConstString(Token.ID);
+			Value.String.Flags = ConstString_CSTR;
+			Result = MakeConstant(ErrorInfo, Value);
+		} break;
 		case T_STR:
 		{
 			ERROR_INFO;

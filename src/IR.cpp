@@ -105,6 +105,29 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 	u32 Result = -1;
 	switch(Node->Type)
 	{
+		case AST_ID:
+		{
+			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
+			Result = Local->Register;
+
+			b32 ShouldLoad = true;
+			if(IsLHS || Local->IsArg)
+				ShouldLoad = false;
+
+			const type *Type = GetType(Local->Type);
+			if(Type->Kind != TypeKind_Basic && Type->Kind != TypeKind_Pointer)
+			{
+				ShouldLoad = false;
+			}
+			else
+			{
+				if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
+					ShouldLoad = false;
+			}
+			
+			if(ShouldLoad)
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
+		} break;
 		case AST_CALL:
 		{
 			Assert(!IsLHS);
@@ -121,15 +144,6 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			CallInfo->Args = SliceFromArray(Args);
 
 			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, Node->Call.Type, Builder));
-		} break;
-		case AST_ID:
-		{
-			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
-			Result = Local->Register;
-
-			// Do not load arguments, LLVM treats them as values rather than ptrs
-			if(!IsLHS && !Local->IsArg)
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
 		case AST_CONSTANT:
 		{
@@ -243,9 +257,17 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
 	u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-	u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
-	PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
-	PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+	const type *Type = GetType(Node->Decl.TypeIndex);
+	if(ShouldCopyType(Type))
+	{
+		u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+		PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
+		PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+	}
+	else
+	{
+		PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, ExpressionRegister, Node->Decl.TypeIndex);
+	}
 }
 
 void Terminate(block_builder *Builder, basic_block *GoTo)
@@ -462,7 +484,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 					case ct::String:
 					{
 						PushBuilderFormated(Builder, "%%%d = %s \"%.*s\"", Instr.Result, GetTypeName(Type),
-								Val->String->Size, Val->String->Data);
+								Val->String.Data->Size, Val->String.Data->Data);
 					} break;
 					case ct::Integer:
 					{

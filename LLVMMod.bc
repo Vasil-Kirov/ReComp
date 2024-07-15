@@ -1,12 +1,21 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
+%string = type { ptr, i32 }
+
 @0 = private unnamed_addr constant [13 x i8] c"Hello World!\00", align 1
 
 declare void @printf(ptr)
 
 define i32 @main(i32 %0, i32 %1) {
 block_0:
-  call void @printf(ptr @0)
+  %2 = alloca %string, align 8
+  %String = getelementptr inbounds %string, ptr %2, i32 0, i32 0
+  %Size = getelementptr inbounds %string, ptr %2, i32 0, i32 1
+  store ptr @0, ptr %String, align 8
+  store i32 12, ptr %Size, align 4
+  %_cstringptr = getelementptr inbounds %string, ptr %2, i32 0, i32 0
+  %_cstring = load ptr, ptr %_cstringptr, align 8
+  call void @printf(ptr %_cstring)
   ret i32 0
 }

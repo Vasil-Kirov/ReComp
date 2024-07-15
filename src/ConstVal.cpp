@@ -6,7 +6,7 @@ const_value MakeConstString(const string *String)
 {
 	const_value Result = {};
 	Result.Type = const_type::String;
-	Result.String = String;
+	Result.String.Data = String;
 
 	return Result;
 }
@@ -109,7 +109,10 @@ u32 GetConstantType(const const_value &Value)
 		} break;
 		case ct::String:
 		{
-			return Basic_string;
+			if(Value.String.Flags & ConstString_CSTR)
+				return Basic_cstring;
+			else
+				return Basic_string;
 		} break;
 	}
 }

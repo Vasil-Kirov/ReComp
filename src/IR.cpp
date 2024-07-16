@@ -159,8 +159,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_INDEX:
 		{
-			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, IsLHS);
-			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, IsLHS);
+			b32 ShouldNotLoad = IsLHS;
+			if(GetType(Node->Index.OperandType)->Kind == TypeKind_Pointer)
+				ShouldNotLoad = false;
+
+			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, ShouldNotLoad);
+			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, false);
 			u32 Location = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
 			if(IsLHS)
 				Result = Location;

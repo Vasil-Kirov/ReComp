@@ -201,10 +201,19 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Operand = gen->map.Get(I.Left);
 			LLVMValueRef Index = gen->map.Get(I.Right);
 			LLVMTypeRef  LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			const type *Type = GetType(I.Type);
 
-			LLVMValueRef Indexes[2];
-			LLVMGetProperArrayIndex(gen, Index, Indexes);
-			LLVMValueRef Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, Indexes, 2, "");
+			LLVMValueRef Val;
+			if(Type->Kind == TypeKind_Array)
+			{
+				LLVMValueRef Indexes[2];
+				LLVMGetProperArrayIndex(gen, Index, Indexes);
+				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, Indexes, 2, "");
+			}
+			else
+			{
+				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
+			}
 			gen->map.Add(I.Result, Val);
 		} break;
 		case OP_STORE:

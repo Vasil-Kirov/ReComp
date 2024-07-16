@@ -95,6 +95,15 @@ node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType, 
 	return Result;
 }
 
+node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_UNARY;
+	Result->Unary.Operand = Operand;
+	Result->Unary.Op = Op;
+	return Result;
+}
+
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -264,6 +273,12 @@ node *ParseType(parser *Parser)
 		{
 			case T_ID:
 			{
+				if(Result)
+				{
+					Loop = false;
+					break;
+				}
+
 				ERROR_INFO;
 				token IDToken = GetToken(Parser);
 				node *ID = MakeID(ErrorInfo, IDToken.ID);
@@ -276,11 +291,18 @@ node *ParseType(parser *Parser)
 			case T_PTR:
 			{
 				ERROR_INFO;
+				if(Result == NULL)
+					RaiseError(*ErrorInfo, "Expected type name before pointer");
 				GetToken(Parser);
-				Result = MakePointerType(ErrorInfo, ParseType(Parser));
+				Result = MakePointerType(ErrorInfo, Result);
 			} break;
 			case T_FN:
 			{
+				if(Result)
+				{
+					Loop = false;
+					break;
+				}
 				Result = ParseFunctionType(Parser);
 			} break;
 			default:
@@ -521,20 +543,21 @@ node *ParseUnary(parser *Parser)
 {
 	token Token = PeekToken(Parser);
 
-	b32 UnaryProcessing = true;
-	while(UnaryProcessing)
+	node *Result = NULL;
+	ERROR_INFO;
+	switch(Token.Type)
 	{
-		switch((int)Token.Type)
+		case T_ADDROF:
+		case T_PTR:
 		{
-			default:
-			{
-				UnaryProcessing = false;
-			} break;
-		}
+			GetToken(Parser);
+			Result = MakeUnary(ErrorInfo, ParseUnary(Parser), Token.Type);
+			return Result;
+		} break;
+		default: break;
 	}
 
 	node *Operand = ParseOperand(Parser);
-
 	node *Atom = ParseAtom(Parser, Operand);
 	if(!Atom)
 	{

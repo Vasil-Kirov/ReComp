@@ -193,6 +193,27 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 	u32 Result = -1;
 	switch(Node->Type)
 	{
+		case AST_UNARY:
+		{
+			switch(Node->Unary.Op)
+			{
+				case T_PTR:
+				{
+					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
+					if(!IsLHS)
+					{
+						instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
+						Result = PushInstruction(Builder, I);
+					}
+				} break;
+				case T_ADDROF:
+				{
+					Assert(!IsLHS);
+					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, true);
+				} break;
+				default: unreachable;
+			}
+		} break;
 		default:
 		{
 			Result = BuildIRFromAtom(Builder, Node, IsLHS);

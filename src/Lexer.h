@@ -6,6 +6,7 @@
 enum token_type
 {
 	T_PTR   = '*',
+	T_ADDROF= '&',
 	T_DECL  = ':',
 	T_STARTSCOPE = '{',
 	T_ENDSCOPE   = '}',

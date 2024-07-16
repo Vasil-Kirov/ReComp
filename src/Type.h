@@ -128,6 +128,7 @@ u32 AddType(type *Type);
 const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
+const char *GetTypeName(u32 TypeIdx);
 
 u32 GetReturnType(const type *Type);
 
@@ -142,4 +143,5 @@ b32 IsCastValid(const type *From, const type *To);
 b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);
 b32 ShouldCopyType(const type *Type);
+u32 GetPointerTo(u32 Type);
 

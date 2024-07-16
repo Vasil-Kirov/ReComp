@@ -1,6 +1,7 @@
 #include "Semantics.h"
 #include "ConstVal.h"
 #include "Dynamic.h"
+#include "Errors.h"
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
@@ -146,6 +147,12 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		case AST_INDEX:
 		{
 			return IsLHSAssignable(Checker, LHS->Index.Operand);
+		} break;
+		case AST_UNARY:
+		{
+			if(LHS->Unary.Op != T_PTR)
+				return false;
+			return IsLHSAssignable(Checker, LHS->Unary.Operand);
 		} break;
 		default:
 		{
@@ -408,6 +415,34 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 {
 	switch(Expr->Type)
 	{
+		case AST_UNARY:
+		{
+			switch(Expr->Unary.Op)
+			{
+				case T_PTR:
+				{
+					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					const type *Pointer = GetType(PointerIdx);
+					if(Pointer->Kind != TypeKind_Pointer)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
+					}
+					Expr->Unary.Type = Pointer->Pointer.Pointed;
+					return Pointer->Pointer.Pointed;
+				} break;
+				case T_ADDROF:
+				{
+					u32 Pointed = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					if(!IsLHSAssignable(Checker, Expr->Unary.Operand))
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot take address of operand");
+					}
+					Expr->Unary.Type = GetPointerTo(Pointed);
+					return Expr->Unary.Type;
+				} break;
+				default: unreachable;
+			}
+		} break;
 		default:
 		{
 			return AnalyzeAtom(Checker, Expr);

@@ -342,6 +342,12 @@ b32 ShouldCopyType(const type *Type)
 	return true;
 }
 
+const char *GetTypeName(u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	return GetTypeName(Type);
+}
+
 const char *GetTypeName(const type *Type)
 {
 	switch (Type->Kind)
@@ -356,10 +362,25 @@ const char *GetTypeName(const type *Type)
 			PushBuilderFormated(&Builder, "%s[%d]", GetTypeName(GetType(Type->Array.Type)), Type->Array.MemberCount);
 			return MakeString(Builder).Data;
 		} break;
+		case TypeKind_Pointer:
+		{
+			string_builder Builder = MakeBuilder();
+			PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
+			return MakeString(Builder).Data;
+		} break;
 		default:
 		{
 			return "(Error! Unkown type name)";
 		} break;
 	}
+}
+
+// @TODO: Maybe try to find it first... idk
+u32 GetPointerTo(u32 TypeIdx)
+{
+	type *New = NewType(type);
+	New->Kind = TypeKind_Pointer;
+	New->Pointer.Pointed = TypeIdx;
+	return AddType(New);
 }
 

@@ -5,20 +5,14 @@ declare void @printf(ptr)
 
 define i32 @main(i32 %0, i32 %1) {
 block_0:
-  %_array_list = alloca [3 x i32], align 4
-  %2 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 0
-  store i32 1, ptr %2, align 4
-  %3 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 1
-  store i32 2, ptr %3, align 4
-  %4 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 2
-  store i32 3, ptr %4, align 4
-  %5 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 0
-  %6 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 1
-  store i32 2, ptr %6, align 4
-  %7 = load i32, ptr %6, align 4
-  store i32 %7, ptr %5, align 4
-  %8 = load i32, ptr %5, align 4
-  %9 = getelementptr [3 x i32], ptr %_array_list, i64 0, i64 0
-  %10 = load i32, ptr %9, align 4
-  ret i32 %10
+  %2 = alloca i64, align 8
+  store i64 1, ptr %2, align 4
+  %3 = alloca ptr, align 8
+  store ptr %2, ptr %3, align 8
+  %4 = load ptr, ptr %3, align 8
+  store i64 100, ptr %4, align 4
+  %5 = load i64, ptr %4, align 4
+  %6 = load i64, ptr %2, align 4
+  %7 = trunc i64 %6 to i32
+  ret i32 %7
 }

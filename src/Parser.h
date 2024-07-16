@@ -43,6 +43,11 @@ struct node
 			const string *Name;
 		} ID;
 		struct {
+			node *Operand;
+			token_type Op;
+			u32 Type; // Set by semantic analyzer
+		} Unary;
+		struct {
 			node *Left;
 			node *Right;
 			u32 ExpressionType;

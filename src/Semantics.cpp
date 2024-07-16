@@ -83,6 +83,33 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			}
 			return Type;
 		} break;
+		case AST_ARRAYTYPE:
+		{
+			uint Size = 0;
+			if(TypeNode->ArrayType.Expression)
+			{
+				node *Expr = TypeNode->ArrayType.Expression;
+				if(Expr->Type != AST_CONSTANT || Expr->Constant.Value.Type != const_type::Integer)
+				{
+					RaiseError(*Expr->ErrorInfo, "Expected constant integer for array type size");
+				}
+				if(Expr->Constant.Value.Int.IsSigned && Expr->Constant.Value.Int.Signed <= 0)
+				{
+					RaiseError(*Expr->ErrorInfo, "Expected positive integer for array type size");
+				}
+				if(Expr->Constant.Value.Int.IsSigned && Expr->Constant.Value.Int.Unsigned >= MB(1))
+				{
+					RaiseError(*Expr->ErrorInfo, "Value given for array type size is too big, cannot reliably allocate it on the stack");
+				}
+				Size = Expr->Constant.Value.Int.Unsigned;
+			}
+
+			type *ArrayType = NewType(type);
+			ArrayType->Kind = TypeKind_Array;
+			ArrayType->Array.Type = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type);
+			ArrayType->Array.MemberCount = Size;
+			return AddType(ArrayType);
+		} break;
 		default:
 		{
 			RaiseError(*TypeNode->ErrorInfo, "Expected valid type!");
@@ -115,6 +142,10 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				RaiseError(*LHS->ErrorInfo, "Undeclared identifier %s", LHS->ID.Name->Data);
 			}
 			return (Sym->Flags & SymbolFlag_Const) == 0;
+		} break;
+		case AST_INDEX:
+		{
+			return IsLHSAssignable(Checker, LHS->Index.Operand);
 		} break;
 		default:
 		{
@@ -477,7 +508,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			{
 				if(!IsLHSAssignable(Checker, Expr->Binary.Left))
 					RaiseError(*Expr->ErrorInfo, "Left-hand side of assignment is not assignable");
-				if(Promoted == Right)
+				if(Promoted == Right && Promoted != Left)
 				{
 					RaiseError(*Expr->ErrorInfo, "Incompatible types in assignment expression!\n"
 							"Right-hand side doesn't fit in the left-hand side");
@@ -603,9 +634,16 @@ DECL_TYPE_ERROR:
 			{
 				if(!IsUntyped(ExprTypePointer))
 				{
-					if(Promotion != TypePointer)
+					if(Promotion != TypePointer && TypePointer->Kind != TypeKind_Array)
 						goto DECL_TYPE_ERROR;
-					Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
+					if(TypePointer->Kind == TypeKind_Array)
+					{
+						Type = PromoteType(Promotion, TypePointer, ExprTypePointer, Type, ExprType).To;
+					}
+					else
+					{
+						Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
+					}
 				}
 				else
 				{

@@ -24,6 +24,7 @@ enum node_type
 	
 	AST_BASICTYPE,
 	AST_PTRTYPE,
+	AST_ARRAYTYPE,
 	AST_FN,
 
 	AST_CALL,
@@ -103,6 +104,10 @@ struct node
 		struct {
 			node *ID;
 		} BasicType;
+		struct {
+			node *Type;
+			node *Expression;
+		} ArrayType;
 		struct {
 			node *Pointed;
 		} PointerType;

@@ -121,6 +121,15 @@ node *MakePointerType(error_info *ErrorInfo, node *Pointed)
 	return Result;
 }
 
+node *MakeArrayType(const error_info *ErrorInfo, node *ID, node *Expression)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_ARRAYTYPE;
+	Result->ArrayType.Type = ID;
+	Result->ArrayType.Expression = Expression;
+	return Result;
+}
+
 node *MakeBasicType(error_info *ErrorInfo, node *ID)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -225,35 +234,66 @@ node *ParseNumber(parser *Parser)
 	return MakeConstant(ErrorInfo, Value);
 }
 
-// @Todo: arrays and type types
+node *ParseArrayType(parser *Parser, node *ID)
+{
+	if(ID == NULL)
+	{
+		RaiseError(Parser->Current->ErrorInfo, "Expected type before [] for declaring an array");
+	}
+
+	EatToken(Parser, T_OPENBRACKET);
+	node *Expression = NULL;
+	if(Parser->Current->Type != T_CLOSEBRACKET)
+	{
+		Expression = ParseExpression(Parser);
+	}
+
+	EatToken(Parser, T_CLOSEBRACKET);
+	return MakeArrayType(ID->ErrorInfo, ID, Expression);
+}
+
+// @Todo: type types
 node *ParseType(parser *Parser)
 {
-	token FirstToken = PeekToken(Parser);
-	switch(FirstToken.Type)
+	token ErrorToken = PeekToken(Parser);
+	node *Result = NULL;
+	bool Loop = true;
+	while(Loop)
 	{
-		case T_ID:
+		switch(Parser->Current->Type)
 		{
-			ERROR_INFO;
-			GetToken(Parser);
-			node *ID = MakeID(ErrorInfo, FirstToken.ID);
-			return MakeBasicType(ErrorInfo, ID);
-		} break;
-		case T_PTR:
-		{
-			ERROR_INFO;
-			GetToken(Parser);
-			return MakePointerType(ErrorInfo, ParseType(Parser));
-		} break;
-		case T_FN:
-		{
-			return ParseFunctionType(Parser);
-		} break;
-		default:
-		{
-			RaiseError(FirstToken.ErrorInfo, "Expected a type. Found %s", GetTokenName(FirstToken.Type));
-		} break;
+			case T_ID:
+			{
+				ERROR_INFO;
+				token IDToken = GetToken(Parser);
+				node *ID = MakeID(ErrorInfo, IDToken.ID);
+				Result = MakeBasicType(ErrorInfo, ID);
+			} break;
+			case T_OPENBRACKET:
+			{
+				Result = ParseArrayType(Parser, Result);
+			} break;
+			case T_PTR:
+			{
+				ERROR_INFO;
+				GetToken(Parser);
+				Result = MakePointerType(ErrorInfo, ParseType(Parser));
+			} break;
+			case T_FN:
+			{
+				Result = ParseFunctionType(Parser);
+			} break;
+			default:
+			{
+				Loop = false;
+			} break;
+		}
 	}
-	return NULL; // @Note: Unreachable
+	if(Result == NULL)
+	{
+		RaiseError(ErrorToken.ErrorInfo, "Expected a type. Found %s", GetTokenName(ErrorToken.Type));
+	}
+	return Result;
 }
 
 node *ParseFunctionArgument(parser *Parser)

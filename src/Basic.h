@@ -19,6 +19,7 @@ typedef wchar_t wchar;
 typedef u32 b32;
 typedef float f32;
 typedef double f64;
+typedef unsigned int uint;
 
 #if defined(DEBUG)
 #define Assert(expression) if(!(expression)) { LERROR("--- COMPILER BUG ---\nFile: %s\nFunction %s\nLine: %d",\

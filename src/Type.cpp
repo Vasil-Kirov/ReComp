@@ -1,5 +1,5 @@
 #include "Type.h"
-#include "Dynamic.h"
+#include "Memory.h"
 #include "VString.h"
 
 #pragma clang diagnostic push
@@ -267,6 +267,33 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		{
 			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
+		case TypeKind_Array:
+		{
+			if(!IsAssignment)
+				return false;
+
+			const type *Type = GetType(Right->Array.Type);
+			if(IsUntyped(Type))
+			{
+				*PotentialPromotion = Left;
+			}
+			else if(Left->Array.Type != Right->Array.Type)
+				return false;
+
+			if(Left->Array.MemberCount == 0)
+			{
+				if(Right->Array.MemberCount == 0)
+					return false;
+
+				if(*PotentialPromotion != NULL)
+					return false;
+
+				*PotentialPromotion = Right;
+				return true;
+			}
+			
+			return Left->Array.MemberCount == Right->Array.MemberCount;
+		} break;
 		default:
 		{
 			Assert(false);
@@ -323,9 +350,15 @@ const char *GetTypeName(const type *Type)
 		{
 			return Type->Basic.Name.Data;
 		} break;
+		case TypeKind_Array:
+		{
+			string_builder Builder = MakeBuilder();
+			PushBuilderFormated(&Builder, "%s[%d]", GetTypeName(GetType(Type->Array.Type)), Type->Array.MemberCount);
+			return MakeString(Builder).Data;
+		} break;
 		default:
 		{
-			return "Error! Unkown type name";
+			return "(Error! Unkown type name)";
 		} break;
 	}
 }

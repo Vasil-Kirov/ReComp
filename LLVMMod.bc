@@ -1,22 +1,82 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-declare void @printf(ptr)
+@0 = private unnamed_addr constant [9 x i8] c"sum: %d\0A\00", align 1
 
-define i32 @main(i32 %0, i32 %1) {
+declare void @printf(ptr, i64)
+
+declare ptr @malloc(i64)
+
+declare void @free(ptr)
+
+define i32 @main() {
 block_0:
+  %0 = call ptr @malloc(i64 100)
+  %1 = alloca ptr, align 8
+  store ptr %0, ptr %1, align 8
   %2 = alloca i64, align 8
-  store i64 1, ptr %2, align 4
-  %3 = alloca ptr, align 8
-  store ptr %2, ptr %3, align 8
-  %4 = alloca i64, align 8
-  store i64 0, ptr %4, align 4
-  %5 = load ptr, ptr %3, align 8
-  %6 = load i64, ptr %4, align 4
-  %7 = getelementptr ptr, ptr %5, i64 %6
-  store i64 100, ptr %7, align 4
-  %8 = load i64, ptr %7, align 4
-  %9 = load i64, ptr %2, align 4
-  %10 = trunc i64 %9 to i32
-  ret i32 %10
+  store i64 0, ptr %2, align 4
+  br label %block_1
+
+block_1:                                          ; preds = %block_3, %block_0
+  %3 = load i64, ptr %2, align 4
+  %4 = icmp slt i64 %3, 100
+  br i1 %4, label %block_2, label %block_4
+
+block_2:                                          ; preds = %block_1
+  %5 = load ptr, ptr %1, align 8
+  %6 = load i64, ptr %2, align 4
+  %7 = getelementptr i8, ptr %5, i64 %6
+  %8 = load i64, ptr %2, align 4
+  %9 = trunc i64 %8 to i8
+  store i8 %9, ptr %7, align 1
+  %10 = load i8, ptr %7, align 1
+  br label %block_3
+
+block_3:                                          ; preds = %block_2
+  %11 = load i64, ptr %2, align 4
+  %12 = add i64 %11, 1
+  store i64 %12, ptr %2, align 4
+  %13 = load i64, ptr %2, align 4
+  br label %block_1
+
+block_4:                                          ; preds = %block_1
+  %14 = alloca i64, align 8
+  store i64 0, ptr %14, align 4
+  %15 = alloca i64, align 8
+  store i64 0, ptr %15, align 4
+  br label %block_5
+
+block_5:                                          ; preds = %block_7, %block_4
+  %16 = load i64, ptr %15, align 4
+  %17 = icmp slt i64 %16, 100
+  br i1 %17, label %block_6, label %block_8
+
+block_6:                                          ; preds = %block_5
+  %18 = load i64, ptr %14, align 4
+  %19 = load ptr, ptr %1, align 8
+  %20 = load i64, ptr %15, align 4
+  %21 = getelementptr i8, ptr %19, i64 %20
+  %22 = load i8, ptr %21, align 1
+  %23 = sext i8 %22 to i64
+  %24 = add i64 %18, %23
+  store i64 %24, ptr %14, align 4
+  %25 = load i64, ptr %14, align 4
+  %26 = load i64, ptr %14, align 4
+  call void @printf(ptr @0, i64 %26)
+  br label %block_7
+
+block_7:                                          ; preds = %block_6
+  %27 = load i64, ptr %15, align 4
+  %28 = add i64 %27, 1
+  store i64 %28, ptr %15, align 4
+  %29 = load i64, ptr %15, align 4
+  br label %block_5
+
+block_8:                                          ; preds = %block_5
+  %30 = load ptr, ptr %1, align 8
+  call void @free(ptr %30)
+  %31 = load i64, ptr %14, align 4
+  %32 = trunc i64 %31 to i32
+  ret i32 %32
 }

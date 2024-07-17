@@ -84,6 +84,11 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			}
 			return Type;
 		} break;
+		case AST_PTRTYPE:
+		{
+			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed);
+			return GetPointerTo(Pointed);
+		} break;
 		case AST_ARRAYTYPE:
 		{
 			uint Size = 0;
@@ -261,6 +266,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					RaiseError(*Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
 							Idx, GetTypeName(ExpectType), GetTypeName(ExprType));
 				}
+				if(IsUntyped(ExprType))
+				{
+					FillUntypedStack(Checker, CallType->Function.Args[Idx]);
+				}
 			}
 
 			Expr->Call.Type = CallTypeIdx;
@@ -292,9 +301,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				FillUntypedStack(Checker, To);
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
-			else
+			else if(GetTypeSize(FromType) == GetTypeSize(ToType))
 			{
-				FillUntypedStack(Checker, To);
+				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
 		} break;
 		case AST_ID:
@@ -401,7 +410,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Result = GetConstantType(Expr->Constant.Value);
 			Expr->Constant.Type = Result;
 			if(Expr->Constant.Value.Type != const_type::String)
+			{
 				Checker->UntypedStack.Push(&Expr->Constant.Type);
+			}
 		} break;
 		default:
 		{

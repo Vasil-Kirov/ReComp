@@ -1,4 +1,5 @@
 #include "LLVMBase.h"
+#include "Basic.h"
 #include "ConstVal.h"
 #include "IR.h"
 #include "Memory.h"
@@ -12,7 +13,6 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/TargetMachine.h"
 #include "llvm-c/Analysis.h"
-#include <stdio.h>
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
@@ -210,9 +210,14 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMGetProperArrayIndex(gen, Index, Indexes);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, Indexes, 2, "");
 			}
+			else if(Type->Kind == TypeKind_Pointer)
+			{
+				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
+				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
+			}
 			else
 			{
-				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
+				unreachable;
 			}
 			gen->map.Add(I.Result, Val);
 		} break;
@@ -313,8 +318,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 void RCGenerateFunction(generator *gen, function fn)
 {
 	const type *FnType = GetType(fn.Type);
-	gen->blocks = (rc_block *)VAlloc(fn.BlockCount * sizeof(rc_block));
-	for(u32 Idx = 0; Idx < fn.BlockCount; ++Idx)
+	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
+	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
 		gen->blocks[Idx] = RCCreateBlock(gen, Block.ID, false);
@@ -325,11 +330,11 @@ void RCGenerateFunction(generator *gen, function fn)
 		gen->map.Add(gen->map.Data.Count, LLVMGetParam(gen->fn, Idx));
 	}
 
-	for(u32 Idx = 0; Idx < fn.BlockCount; ++Idx)
+	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
 		RCSetBlock(gen, gen->blocks[Idx]);
-		for(u32 InstrIdx = 0; InstrIdx < Block.InstructionCount; ++InstrIdx)
+		ForArray(InstrIdx, Block.Code)
 		{
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);
 		}
@@ -382,7 +387,7 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	Gen.map.LockBottom();
 	ForArray(Idx, IR->Functions)
 	{
-		if(IR->Functions[Idx].BlockCount != 0)
+		if(IR->Functions[Idx].Blocks.Count != 0)
 		{
 			Gen.fn = Functions[Idx];
 			RCGenerateFunction(&Gen, IR->Functions[Idx]);

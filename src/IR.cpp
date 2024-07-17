@@ -52,22 +52,18 @@ inline instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_build
 
 u32 PushInstruction(block_builder *Builder, instruction I)
 {
-	Assert(!Builder->CurrentBlock->HasTerminator);
-	ArrPush(Builder->CurrentBlock->Code, I);
-	Builder->CurrentBlock->InstructionCount++;
+	Assert(!Builder->CurrentBlock.HasTerminator);
+	Builder->CurrentBlock.Code.Push(I);
 	return I.Result;
 }
 
-basic_block *AllocateBlock(block_builder *Builder)
+basic_block AllocateBlock(block_builder *Builder)
 {
-	basic_block Block;
-	Block.Code = ArrCreate(instruction);
-	Block.InstructionCount = 0;
-	Block.ID = Builder->Function->BlockCount;
+	basic_block Block = {};
+	Block.ID = Builder->LastBlock++;
 	Block.HasTerminator = false;
 
-	ArrPush(Builder->Function->Blocks, Block);
-	return &Builder->Function->Blocks[Builder->Function->BlockCount++];
+	return Block;
 }
 
 // @TODO: no? like why no scope tracking
@@ -317,13 +313,14 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 	}
 }
 
-void Terminate(block_builder *Builder, basic_block *GoTo)
+void Terminate(block_builder *Builder, basic_block GoTo)
 {
-	Builder->CurrentBlock->HasTerminator = true;
+	Builder->CurrentBlock.HasTerminator = true;
+	Builder->Function->Blocks.Push(Builder->CurrentBlock);
 	Builder->CurrentBlock = GoTo;
 }
 
-void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block *Then);
+void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block Then);
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
@@ -337,15 +334,15 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			u32 Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
 			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Node->Return.TypeIdx, Builder));
-			Builder->CurrentBlock->HasTerminator = true;
+			Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_IF:
 		{
 			u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
-			basic_block *ThenBlock = AllocateBlock(Builder);
-			basic_block *ElseBlock = AllocateBlock(Builder);
-			basic_block *EndBlock  = AllocateBlock(Builder);
-			PushInstruction(Builder, Instruction(OP_IF, ThenBlock->ID, ElseBlock->ID, IfExpression, Basic_bool));
+			basic_block ThenBlock = AllocateBlock(Builder);
+			basic_block ElseBlock = AllocateBlock(Builder);
+			basic_block EndBlock  = AllocateBlock(Builder);
+			PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, IfExpression, Basic_bool));
 			Terminate(Builder, ThenBlock);
 			BuildIRBody(Node->If.Body, Builder, EndBlock);
 
@@ -356,30 +353,30 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 			}
 			else
 			{
-				PushInstruction(Builder, Instruction(OP_JMP, EndBlock->ID, Basic_type, Builder));
+				PushInstruction(Builder, Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
 				Terminate(Builder, EndBlock);
 			}
 		} break;
 		case AST_FOR:
 		{
-			basic_block *Cond  = AllocateBlock(Builder);
-			basic_block *Then  = AllocateBlock(Builder);
-			basic_block *Incr  = AllocateBlock(Builder);
-			basic_block *End   = AllocateBlock(Builder);
+			basic_block Cond  = AllocateBlock(Builder);
+			basic_block Then  = AllocateBlock(Builder);
+			basic_block Incr  = AllocateBlock(Builder);
+			basic_block End   = AllocateBlock(Builder);
 
 			if(Node->For.Init)
 				BuildIRFromDecleration(Builder, Node->For.Init);
-			PushInstruction(Builder, Instruction(OP_JMP, Cond->ID, Basic_type, Builder));
+			PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 			Terminate(Builder, Cond);
 
 			if(Node->For.Expr)
 			{
 				u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr);
-				PushInstruction(Builder, Instruction(OP_IF, Then->ID, End->ID, CondExpr, Basic_bool));
+				PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
 			}
 			else
 			{
-				PushInstruction(Builder, Instruction(OP_JMP, Then->ID, Basic_type, Builder));
+				PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
 			}
 			Terminate(Builder, Then);
 			BuildIRBody(Node->For.Body, Builder, Incr);
@@ -387,7 +384,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 			if(Node->For.Incr)
 				BuildIRFromExpression(Builder, Node->For.Incr);
 
-			PushInstruction(Builder, Instruction(OP_JMP, Cond->ID, Basic_type, Builder));
+			PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 			Terminate(Builder, End);
 		} break;
 		default:
@@ -397,39 +394,35 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 	}
 }
 
-void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block *Then)
+void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then)
 {
 	for(int Idx = 0; Idx < Body.Count; ++Idx)
 	{
 		BuildIRFunctionLevel(Builder, Body[Idx]);
 	}
-	if(!Builder->CurrentBlock->HasTerminator)
+	if(!Builder->CurrentBlock.HasTerminator)
 	{
-		PushInstruction(Builder, Instruction(OP_JMP, Then->ID, Basic_type, Builder));
-		Terminate(Builder, Then);
+		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
 	}
+	Terminate(Builder, Then);
 	Builder->CurrentBlock = Then;
 }
 
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<ir_symbol> ModuleSymbols)
 {
-	function Function;
-	Function.Blocks = NULL;
-	Function.BlockCount = 0;
+	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
 	Function.FnNode = Node;
 	Function.ModuleSymbols = ModuleSymbols;
 	if(Body.IsValid())
 	{
-		Function.Blocks = ArrCreate(basic_block);
 		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
 		Function.LocalCount = 0;
-		block_builder Builder;
+		block_builder Builder = {};
 		Builder.Function = &Function;
 		Builder.CurrentBlock = AllocateBlock(&Builder);
-		Builder.LastRegister = 0;
 
 		const type *FnType = GetType(TypeIdx);
 
@@ -451,6 +444,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		{
 			BuildIRFunctionLevel(&Builder, Body[Idx]);
 		}
+		Terminate(&Builder, {});
 		Function.LastRegister = Builder.LastRegister;
 		VFree(Function.Locals);
 		Function.Locals = NULL;
@@ -507,7 +501,7 @@ ir BuildIR(node **Nodes)
 
 void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 {
-	for(int I = 0; I < Block->InstructionCount; ++I)
+	ForArray(I, Block->Code)
 	{
 		instruction Instr = Block->Code[I];
 		const type *Type = NULL;
@@ -665,13 +659,13 @@ string Dissasemble(slice<function> Functions)
 		}
 		PushBuilder(&Builder, ')');
 
-		if(Fn.BlockCount != 0)
+		if(Fn.Blocks.Count != 0)
 		{
 			PushBuilder(&Builder, " {\n");
-			for(int I = 0; I < Fn.BlockCount; ++I)
+			ForArray(I, Fn.Blocks)
 			{
 				PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
-				DissasembleBasicBlock(&Builder, &Fn.Blocks[I]);
+				DissasembleBasicBlock(&Builder, Fn.Blocks.GetPtr(I));
 			}
 			PushBuilder(&Builder, "}\n");
 		}

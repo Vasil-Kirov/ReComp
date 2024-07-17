@@ -4,12 +4,15 @@
 // Dynamic array that doesn't need / use constructors and destructors
 #include <cstddef>
 #include <initializer_list>
+
+// Putting this in the class deletes the default copy constructor
+const short INIT_CAPACITY = 8;
+
 template <typename T>
 struct dynamic {
 	T *Data;
 	size_t Count;
 	size_t Capacity;
-	const short INIT_CAPACITY = 8;
 	void EnsureCapacity()
 	{
 		if(!Data)
@@ -25,6 +28,11 @@ struct dynamic {
 			VFree(Data);
 			Data = NewData;
 		}
+	}
+	T *GetPtr(size_t Index) const
+	{
+		Assert(Index < Count);
+		return Data + Index;
 	}
 	T operator[](size_t Index) const
 	{

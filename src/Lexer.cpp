@@ -1,4 +1,5 @@
 #include "Lexer.h"
+#include "VString.h"
 
 keyword *KeywordTable = NULL;
 
@@ -173,23 +174,50 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 	return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 }
 
+char GetEscapedChar(char ToEscape)
+{
+	switch (ToEscape)
+	{
+		case 'n':
+		return '\n';
+		case '\\':
+		return '\\';
+		case 't':
+		return '\t';
+	}
+	return ToEscape;
+}
+
 token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 {
 	error_info StartErrorInfo = *ErrorInfo;
 	AdvanceC(String, ErrorInfo);
-	const char *Start = String->Data;
+
+	string_builder Builder = MakeBuilder();
 	while(PeekC(String) != '"')
 	{
 		char Next = AdvanceC(String, ErrorInfo);
 		if(Next == '\\')
 		{
-			// @TODO: Escaped characters, for now we just skip it
-			AdvanceC(String, ErrorInfo);
+			char ToEscape = AdvanceC(String, ErrorInfo);
+			char Escaped = GetEscapedChar(ToEscape);
+			if(Escaped == ToEscape)
+			{
+				PushBuilder(&Builder, Next);
+				PushBuilder(&Builder, ToEscape);
+			}
+			else
+			{
+				PushBuilder(&Builder, Escaped);
+			}
+		}
+		else
+		{
+			PushBuilder(&Builder, Next);
 		}
 	}
-	const char *End = String->Data;
 	AdvanceC(String, ErrorInfo);
-	string Tokinized = MakeString(Start, End - Start);
+	string Tokinized = MakeString(Builder);
 	if(CString)
 		return MakeToken(T_CSTR, StartErrorInfo, MakeStringPointer(Tokinized));
 	else

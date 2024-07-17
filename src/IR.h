@@ -51,8 +51,7 @@ struct call_info
 
 struct basic_block
 {
-	instruction *Code;
-	u32 InstructionCount;
+	dynamic<instruction> Code;
 	u32 ID;
 	b32 HasTerminator;
 };
@@ -70,8 +69,7 @@ struct reg_allocation;
 struct function
 {
 	const string *Name;
-	basic_block *Blocks;
-	u32 BlockCount;
+	dynamic<basic_block> Blocks;
 	ir_symbol *Locals;
 	reg_allocation *Allocated;
 	node *FnNode;
@@ -83,9 +81,10 @@ struct function
 
 struct block_builder
 {
-	basic_block *CurrentBlock;
+	basic_block CurrentBlock;
 	function *Function;
 	u32 LastRegister;
+	u32 LastBlock;
 };
 
 struct ir

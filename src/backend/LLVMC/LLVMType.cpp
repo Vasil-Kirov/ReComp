@@ -79,7 +79,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
         case TypeKind_Function:
 		{
-			return LLVMFindMapType(TypeID);
+			return LLVMCreateFunctionType(Context, TypeID);
         } break;
 
         case TypeKind_Struct:
@@ -141,12 +141,15 @@ void LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 	VFree(MemberTypes);
 }
 
-void LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
+LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
+	LLVMTypeRef Found = LLVMFindMapType(TypeID);
+	if(Found)
+		return Found;
 
 	LLVMTypeRef ReturnType;
 	if(Type->Function.Return != INVALID_TYPE)
@@ -162,6 +165,7 @@ void LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	LLVMMapType(TypeID, FuncType);
 	VFree(ArgTypes);
 
+	return FuncType;
 }
 
 LLVMOpcode RCCastTrunc(const type *From, const type *To)

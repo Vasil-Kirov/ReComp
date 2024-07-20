@@ -1,8 +1,8 @@
 
 struct Foo {
 	x: i32,
-	arr: i32[100],
-	bar: i32[4],
+	arr: [100]i32,
+	bar: [4]i32,
 }
 
 

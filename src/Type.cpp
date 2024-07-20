@@ -131,7 +131,14 @@ b32 HasBasicFlag(const type *Type, u32 FlagMask)
 
 b32 IsCallable(const type *Type)
 {
-	return Type->Kind == TypeKind_Function;
+	if(Type->Kind == TypeKind_Function)
+		return true;
+	if(Type->Kind == TypeKind_Pointer)
+	{
+		const type *Pointed = GetType(Type->Pointer.Pointed);
+		return Pointed->Kind == TypeKind_Function;
+	}
+	return false;
 }
 
 b32 CheckMissmatch(int LeftFlags, int RightFlags, basic_flags Flag)
@@ -273,6 +280,17 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		*PotentialPromotion = Left;
 		return true;
 	}
+	if(Left->Kind == TypeKind_Function || Right->Kind == TypeKind_Function)
+	{
+		if(Left->Kind == TypeKind_Pointer)
+		{
+			Left = GetType(Left->Pointer.Pointed);
+		}
+		else if(Right->Kind == TypeKind_Pointer)
+		{
+			Right = GetType(Right->Pointer.Pointed);
+		}
+	}
 
 	if(Left->Kind != Right->Kind)
 		return false;
@@ -320,6 +338,27 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 				return false;
 
 			return Left->Struct.Name == Right->Struct.Name;
+		} break;
+		case TypeKind_Function:
+		{
+			if(Left->Function.ArgCount != Right->Function.ArgCount)
+				return false;
+
+			const type *LeftReturn = GetType(Left->Function.Return);
+			const type *RightReturn = GetType(Right->Function.Return);
+			if((LeftReturn == NULL) != (RightReturn == NULL))
+				return false;
+			if(!TypesMustMatch(LeftReturn, RightReturn))
+				return false;
+
+			for(int Idx = 0; Idx < Left->Function.ArgCount; ++Idx)
+			{
+				const type *LeftArg  = GetType(Left->Function.Args[Idx]);
+				const type *RightArg = GetType(Left->Function.Args[Idx]);
+				if(!TypesMustMatch(LeftArg, RightArg))
+					return false;
+			}
+			return true;
 		} break;
 		default:
 		{
@@ -398,6 +437,21 @@ const char *GetTypeName(const type *Type)
 		case TypeKind_Struct:
 		{
 			return Type->Struct.Name.Data;
+		} break;
+		case TypeKind_Function:
+		{
+			string_builder Builder = MakeBuilder();
+			PushBuilder(&Builder, "fn(");
+			for(int i = 0; i < Type->Function.ArgCount; ++i)
+			{
+				PushBuilderFormated(&Builder, "%s", GetTypeName(Type->Function.Args[i]));
+				if(i + 1 != Type->Function.ArgCount)
+					PushBuilder(&Builder, ", ");
+			}
+			PushBuilder(&Builder, ')');
+			if(Type->Function.Return != INVALID_TYPE)
+				PushBuilderFormated(&Builder, " -> %s", GetTypeName(Type->Function.Return));
+			return MakeString(Builder).Data;
 		} break;
 		default:
 		{

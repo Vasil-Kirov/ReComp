@@ -146,6 +146,24 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			ArrayType->Array.MemberCount = Size;
 			return AddType(ArrayType);
 		} break;
+		case AST_FN:
+		{
+			type *FnType = NewType(type);
+			FnType->Kind = TypeKind_Function;
+			if(TypeNode->Fn.ReturnType)
+				FnType->Function.Return = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnType);
+			else
+				FnType->Function.Return = INVALID_TYPE;
+			FnType->Function.Flags = TypeNode->Fn.Flags;
+			FnType->Function.ArgCount = TypeNode->Fn.Args.Count;
+			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
+			ForArray(Idx, TypeNode->Fn.Args)
+			{
+				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Decl.Type);
+			}
+			
+			return AddType(FnType);
+		} break;
 		default:
 		{
 			RaiseError(*TypeNode->ErrorInfo, "Expected valid type!");
@@ -300,6 +318,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(!IsCallable(CallType))
 			{
 				RaiseError(*Expr->ErrorInfo, "Trying to call a non function type \"%s\"", GetTypeName(CallType));
+			}
+			if(CallType->Kind == TypeKind_Pointer)
+				CallType = GetType(CallType->Pointer.Pointed);
+			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
+			{
+				RaiseError(*Expr->ErrorInfo, "Incorrect number of arguments, needed %d got %d",
+						CallType->Function.ArgCount, Expr->Call.Args.Count);
 			}
 
 			ForArray(Idx, Expr->Call.Args)
@@ -822,6 +847,15 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 	Symbol.Type    = Type;
 	Symbol.Flags   = Flags;
 
+	if((Flags & SymbolFlag_Function) == 0)
+	{
+		const type *Ptr = GetType(Type);
+		if(Ptr->Kind == TypeKind_Function)
+		{
+			Symbol.Type = GetPointerTo(Type);
+		}
+	}
+
 	Checker->Symbols[Checker->SymbolCount++] = Symbol;
 }
 
@@ -960,6 +994,50 @@ void AnalyzeFor(checker *Checker, node *Node)
 	PopScope(Checker);
 }
 
+u32 FixPotentialFunctionPointer(u32 Type)
+{
+	const type *Ptr = GetType(Type);
+	switch(Ptr->Kind)
+	{
+		case TypeKind_Function:
+		{
+			return GetPointerTo(Type);
+		} break;
+		case TypeKind_Pointer:
+		{
+			u32 NewPointed = FixPotentialFunctionPointer(Ptr->Pointer.Pointed);
+			if(NewPointed != Ptr->Pointer.Pointed)
+			{
+				type *Pointer = NewType(type);
+				Pointer->Kind = TypeKind_Pointer;
+				Pointer->Pointer.Pointed = NewPointed;
+				return AddType(Pointer);
+			}
+			else
+			{
+				return Type;
+			}
+		} break;
+		case TypeKind_Array:
+		{
+			u32 NewArrayType = FixPotentialFunctionPointer(Ptr->Array.Type);
+			if(NewArrayType != Ptr->Array.Type)
+			{
+				type *Pointer = NewType(type);
+				Pointer->Kind = TypeKind_Array;
+				Pointer->Array.Type = NewArrayType;
+				Pointer->Array.MemberCount = Ptr->Array.MemberCount;
+				return AddType(Pointer);
+			}
+			else
+			{
+				return Type;
+			}
+		} break;
+		default: return Type;
+	}
+}
+
 u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	if(FindType(Checker, Node->StructDecl.Name) != INVALID_TYPE)
@@ -975,6 +1053,9 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 	ForArray(Idx, Node->StructDecl.Members)
 	{
 		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Decl.Type);
+		Type = FixPotentialFunctionPointer(Type);
+
+
 		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Decl.ID;
 		Members.Data[Idx].Type = Type;
 	}

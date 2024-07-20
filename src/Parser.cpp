@@ -276,14 +276,8 @@ node *ParseNumber(parser *Parser)
 	return MakeConstant(ErrorInfo, Value);
 }
 
-node *ParseArrayType(parser *Parser, node *ID)
+node *ParseArrayType(parser *Parser)
 {
-	if(ID == NULL)
-	{
-		RaiseError(Parser->Current->ErrorInfo, "Expected type before [] for declaring an array");
-	}
-
-	EatToken(Parser, T_OPENBRACKET);
 	node *Expression = NULL;
 	if(Parser->Current->Type != T_CLOSEBRACKET)
 	{
@@ -291,6 +285,12 @@ node *ParseArrayType(parser *Parser, node *ID)
 	}
 
 	EatToken(Parser, T_CLOSEBRACKET);
+	node *ID = ParseType(Parser);
+	if(ID == NULL)
+	{
+		RaiseError(Parser->Current->ErrorInfo, "Expected type after [] for declaring an array");
+	}
+
 	return MakeArrayType(ID->ErrorInfo, ID, Expression);
 }
 
@@ -299,50 +299,37 @@ node *ParseType(parser *Parser)
 {
 	token ErrorToken = PeekToken(Parser);
 	node *Result = NULL;
-	bool Loop = true;
-	while(Loop)
+	switch(Parser->Current->Type)
 	{
-		switch(Parser->Current->Type)
+		case T_ID:
 		{
-			case T_ID:
-			{
-				if(Result)
-				{
-					Loop = false;
-					break;
-				}
+			ERROR_INFO;
+			token IDToken = GetToken(Parser);
+			node *ID = MakeID(ErrorInfo, IDToken.ID);
+			Result = MakeBasicType(ErrorInfo, ID);
+		} break;
+		case T_OPENBRACKET:
+		{
+			GetToken(Parser);
+			Result = ParseArrayType(Parser);
+		} break;
+		case T_PTR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Pointed = ParseType(Parser);
+			if(Pointed == NULL)
+				RaiseError(*ErrorInfo, "Missing type of pointer");
 
-				ERROR_INFO;
-				token IDToken = GetToken(Parser);
-				node *ID = MakeID(ErrorInfo, IDToken.ID);
-				Result = MakeBasicType(ErrorInfo, ID);
-			} break;
-			case T_OPENBRACKET:
-			{
-				Result = ParseArrayType(Parser, Result);
-			} break;
-			case T_PTR:
-			{
-				ERROR_INFO;
-				if(Result == NULL)
-					RaiseError(*ErrorInfo, "Expected type name before pointer");
-				GetToken(Parser);
-				Result = MakePointerType(ErrorInfo, Result);
-			} break;
-			case T_FN:
-			{
-				if(Result)
-				{
-					Loop = false;
-					break;
-				}
-				Result = ParseFunctionType(Parser);
-			} break;
-			default:
-			{
-				Loop = false;
-			} break;
-		}
+			Result = MakePointerType(ErrorInfo, Pointed);
+		} break;
+		case T_FN:
+		{
+			Result = ParseFunctionType(Parser);
+		} break;
+		default:
+		{
+		} break;
 	}
 	if(Result == NULL)
 	{

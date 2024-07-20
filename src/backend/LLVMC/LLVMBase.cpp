@@ -335,7 +335,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_CALL:
 		{
 			call_info *CallInfo = (call_info *)I.BigRegister;
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			u32 CallType = I.Type;
+			const type *Type = GetType(I.Type);
+			if(Type->Kind == TypeKind_Pointer)
+				CallType = Type->Pointer.Pointed;
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, CallType);
 			Assert(CallInfo);
 			Assert(LLVMType);
 

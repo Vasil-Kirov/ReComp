@@ -316,6 +316,9 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 		case TypeKind_Struct:
 		{
+			if(!IsAssignment)
+				return false;
+
 			return Left->Struct.Name == Right->Struct.Name;
 		} break;
 		default:

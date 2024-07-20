@@ -1,6 +1,7 @@
 #include "Type.h"
 #include "Memory.h"
 #include "VString.h"
+#include "Basic.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
@@ -44,7 +45,7 @@ const type *BasicUint      = &BasicTypes[Basic_uint];
 const type *BasicF32       = &BasicTypes[Basic_f32];
 const type *BasicU8        = &BasicTypes[Basic_u8];
 
-u32 TypeCount = 0;
+uint TypeCount = 0;
 const size_t MAX_TYPES = MB(1);
 const type **InitializeTypeTable()
 {
@@ -61,7 +62,7 @@ const type **TypeTable = InitializeTypeTable();
 
 b32 IsUntyped(const type *Type)
 {
-	return (Type->Kind & TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
+	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
 }
 
 inline const type *GetType(u32 TypeIdx)
@@ -73,6 +74,11 @@ inline const type *GetType(u32 TypeIdx)
 #endif
 
 	return TypeTable[TypeIdx];
+}
+
+uint GetTypeCount()
+{
+	return TypeCount;
 }
 
 u32 GetReturnType(const type *Type)
@@ -108,11 +114,19 @@ int GetBasicTypeSize(const type *Type)
 	Assert(false);
 }
 
+// In bytes
 int GetTypeSize(const type *Type)
 {
 	if(Type->Kind == TypeKind_Basic)
 		return GetBasicTypeSize(Type);
+	else if(Type->Kind == TypeKind_Pointer)
+		return GetRegisterTypeSize() / 8;
 	Assert(false);
+}
+
+b32 HasBasicFlag(const type *Type, u32 FlagMask)
+{
+	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & FlagMask);
 }
 
 b32 IsCallable(const type *Type)
@@ -156,7 +170,7 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Float))
 	{
-		if(IsAssignment)
+		if(IsAssignment && (RightFlags & BasicFlag_Float))
 			return false;
 		// @Note: Only promote when one is an integer and the other is float
 		if(!CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Integer))
@@ -254,6 +268,12 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
 {
+	if(Left->Kind == TypeKind_Pointer && HasBasicFlag(Right, BasicFlag_Integer))
+	{
+		*PotentialPromotion = Left;
+		return true;
+	}
+
 	if(Left->Kind != Right->Kind)
 		return false;
 
@@ -293,6 +313,10 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 			}
 			
 			return Left->Array.MemberCount == Right->Array.MemberCount;
+		} break;
+		case TypeKind_Struct:
+		{
+			return Left->Struct.Name == Right->Struct.Name;
 		} break;
 		default:
 		{
@@ -367,6 +391,10 @@ const char *GetTypeName(const type *Type)
 			string_builder Builder = MakeBuilder();
 			PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
 			return MakeString(Builder).Data;
+		} break;
+		case TypeKind_Struct:
+		{
+			return Type->Struct.Name.Data;
 		} break;
 		default:
 		{

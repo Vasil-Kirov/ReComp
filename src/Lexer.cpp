@@ -312,5 +312,6 @@ void InitializeLexer()
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#cdecl",  T_CDECL);
 	AddKeyword("return", T_RETURN);
+	AddKeyword("struct", T_STRUCT);
 }
 

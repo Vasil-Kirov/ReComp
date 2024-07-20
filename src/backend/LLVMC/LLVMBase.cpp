@@ -106,7 +106,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else
 			{
-				Assert(false);
+				LDEBUG("%d", Type->Kind);
+				unreachable;
 			}
 			gen->map.Add(I.Result, Value);
 
@@ -199,24 +200,30 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_INDEX:
 		{
 			LLVMValueRef Operand = gen->map.Get(I.Left);
-			LLVMValueRef Index = gen->map.Get(I.Right);
 			LLVMTypeRef  LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 			const type *Type = GetType(I.Type);
 
 			LLVMValueRef Val;
 			if(Type->Kind == TypeKind_Array)
 			{
+				LLVMValueRef Index = gen->map.Get(I.Right);
 				LLVMValueRef Indexes[2];
 				LLVMGetProperArrayIndex(gen, Index, Indexes);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, Indexes, 2, "");
 			}
 			else if(Type->Kind == TypeKind_Pointer)
 			{
+				LLVMValueRef Index = gen->map.Get(I.Right);
 				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
+			else if(Type->Kind == TypeKind_Struct)
+			{
+				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
+			}
 			else
 			{
+				LDEBUG("%d", Type->Kind);
 				unreachable;
 			}
 			gen->map.Add(I.Result, Val);
@@ -225,8 +232,17 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Result);
 			LLVMValueRef Value = gen->map.Get(I.Right);
-			LLVMValueRef NewValue = LLVMBuildStore(gen->bld, Value, Pointer);
-			gen->map.Add(I.Result, NewValue);
+			const type *Type = GetType(I.Type);
+			if(Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Array)
+			{
+				LLVMValueRef NewValue = LLVMBuildStore(gen->bld, Value, Pointer);
+				gen->map.Add(I.Result, NewValue);
+			}
+			else
+			{
+				LLVMValueRef Size = LLVMSizeOf(ConvertToLLVMType(gen->ctx, I.Type));
+				LLVMBuildMemCpy(gen->bld, Pointer, 4, Value, 4, Size);
+			}
 		} break;
 		case OP_LOAD:
 		{
@@ -245,8 +261,15 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_RET:
 		{
-			LLVMValueRef Value = gen->map.Get(I.Left);
-			LLVMBuildRet(gen->bld, Value);
+			if(I.Left != -1)
+			{
+				LLVMValueRef Value = gen->map.Get(I.Left);
+				LLVMBuildRet(gen->bld, Value);
+			}
+			else
+			{
+				LLVMBuildRetVoid(gen->bld);
+			}
 		} break;
 		case OP_IF:
 		{
@@ -347,6 +370,24 @@ LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
 	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen->ctx, Function.Type));
 }
 
+void RCGenerateStruct(generator *gen, u32 Type)
+{
+	LLVMCreateOpaqueStringStructType(gen->ctx, Type);
+	LLVMDefineStructType(gen->ctx, Type);
+}
+
+void RCGenerateComplexTypes(generator *gen)
+{
+	uint TypeCount = GetTypeCount();
+	for(uint Index = 0; Index < TypeCount; ++Index)
+	{
+		if(GetType(Index)->Kind == TypeKind_Struct)
+		{
+			RCGenerateStruct(gen, Index);
+		}
+	}
+}
+
 void RCGenerateCompilerTypes(generator *gen)
 {
 	type *U8Ptr = NewType(type);
@@ -375,6 +416,7 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	Gen.mod = LLVMModuleCreateWithNameInContext(Name, Gen.ctx);
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
 
+	RCGenerateComplexTypes(&Gen);
 	RCGenerateCompilerTypes(&Gen);
 
 	dynamic<LLVMValueRef> Functions = {};

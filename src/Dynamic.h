@@ -61,6 +61,23 @@ struct slice {
 };
 
 template <typename T>
+struct array {
+	T *Data;
+	size_t Count;
+	array(size_t _Count)
+	{
+		Count = _Count;
+		Data = (T *)VAlloc(Count * sizeof(T));
+	}
+};
+
+template <typename T>
+slice<T> SliceFromArray(array<T> Array)
+{
+	return {Array.Data, Array.Count};
+}
+
+template <typename T>
 slice<T> SliceFromArray(dynamic<T> Array)
 {
 	return {Array.Data, Array.Count};

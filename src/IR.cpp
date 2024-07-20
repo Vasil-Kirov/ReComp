@@ -1,4 +1,5 @@
 #include "IR.h"
+#include "ConstVal.h"
 #include "Dynamic.h"
 #include "Memory.h"
 #include "Parser.h"
@@ -143,6 +144,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_ARRAYLIST:
 		{
+			Assert(!IsLHS);
 			u32 *Registers = (u32 *)VAlloc((Node->ArrayList.Expressions.Count + 1) * sizeof(u32));
 			ForArray(Idx, Node->ArrayList.Expressions)
 			{
@@ -152,6 +154,24 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Registers[Node->ArrayList.Expressions.Count] = -1;
 			instruction I = Instruction(OP_ARRAYLIST, (u64)Registers, Node->ArrayList.Type, Builder);
 			Result = PushInstruction(Builder, I);
+		} break;
+		case AST_STRUCTLIST:
+		{
+			Assert(!IsLHS);
+			const type *StructType = GetType(Node->StructList.Type);
+
+			u32 Alloc = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->StructList.Type, Builder));
+
+			ForArray(Idx, Node->StructList.Expressions)
+			{
+				u32 Expr = BuildIRFromExpression(Builder, Node->StructList.Expressions[Idx], false);
+				u32 Location = PushInstruction(Builder,
+						Instruction(OP_INDEX, Alloc, Idx, Node->StructList.Type, Builder));
+				PushInstruction(Builder,
+						InstructionStore(Location, Expr, StructType->Struct.Members[Idx].Type));
+			}
+
+			Result = Alloc;
 		} break;
 		case AST_INDEX:
 		{
@@ -166,6 +186,23 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				Result = Location;
 			else
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Location, Node->Index.IndexedType, Builder));
+		} break;
+		case AST_SELECTOR:
+		{
+			u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
+
+			Result = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
+
+			const type *Type = GetType(Node->Selector.Type);
+			u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
+			const type *MemberType = GetType(MemberTypeIdx);
+			if(MemberType->Kind != TypeKind_Array && MemberType->Kind != TypeKind_Struct)
+			{
+				Result = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, Result, Type->Struct.Members[Node->Selector.Index].Type, Builder));
+			}
+
 		} break;
 		case AST_CONSTANT:
 		{
@@ -305,11 +342,11 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 	{
 		u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
 		PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
-		PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, LocalRegister, Node->Decl.TypeIndex);
+		PushIRLocal(Builder->Function, Node->Decl.ID, LocalRegister, Node->Decl.TypeIndex);
 	}
 	else
 	{
-		PushIRLocal(Builder->Function, Node->Decl.ID->ID.Name, ExpressionRegister, Node->Decl.TypeIndex);
+		PushIRLocal(Builder->Function, Node->Decl.ID, ExpressionRegister, Node->Decl.TypeIndex);
 	}
 }
 
@@ -332,7 +369,9 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_RETURN:
 		{
-			u32 Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
+			u32 Expression = -1;
+			if(Node->Return.Expression)
+					Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
 			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Node->Return.TypeIdx, Builder));
 			Builder->CurrentBlock.HasTerminator = true;
 		} break;
@@ -434,7 +473,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 		ForArray(Idx, Args)
 		{
-			PushIRLocal(&Function, Args[Idx]->Decl.ID->ID.Name, Idx + ModuleSymbols.Count,
+			PushIRLocal(&Function, Args[Idx]->Decl.ID, Idx + ModuleSymbols.Count,
 					FnType->Function.Args[Idx], true);
 		}
 
@@ -462,6 +501,10 @@ function GlobalLevelIR(node *Node, slice<ir_symbol> ModuleSymbols)
 			Assert(Node->Fn.Name);
 
 			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, ModuleSymbols);
+		} break;
+		case AST_STRUCTDECL:
+		{
+			// do nothing
 		} break;
 		default:
 		{
@@ -592,7 +635,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			} break;
 			case OP_RET:
 			{
-				PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
+				if(Instr.Left != -1)
+					PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
+				else
+					PushBuilderFormated(Builder, "RET");
 			} break;
 			case OP_CALL:
 			{

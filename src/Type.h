@@ -11,13 +11,13 @@ struct type;
 
 enum type_kind
 {
-	TypeKind_Invalid,
+	TypeKind_Invalid ,
 
-	TypeKind_Basic,
+	TypeKind_Basic   ,
 	TypeKind_Function,
-	TypeKind_Struct,
-	TypeKind_Pointer,
-	TypeKind_Array,
+	TypeKind_Struct  ,
+	TypeKind_Pointer ,
+	TypeKind_Array   ,
 };
 
 enum basic_kind
@@ -102,7 +102,7 @@ struct pointer
 	u32 Pointed;
 };
 
-struct array
+struct array_type
 {
 	u32 Type;
 	u32 MemberCount;
@@ -117,7 +117,7 @@ struct type
 		struct_type Struct;
 		function_type Function;
 		pointer Pointer;
-		array Array;
+		array_type Array;
 	};
 };
 
@@ -143,5 +143,7 @@ b32 IsCastValid(const type *From, const type *To);
 b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);
 b32 ShouldCopyType(const type *Type);
+b32 HasBasicFlag(const type *Type, u32 FlagMask); // Checks if the type is basic too
 u32 GetPointerTo(u32 Type);
+uint GetTypeCount();
 

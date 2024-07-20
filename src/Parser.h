@@ -31,7 +31,10 @@ enum node_type
 	AST_RETURN,
 	AST_CAST,
 	AST_ARRAYLIST,
+	AST_STRUCTLIST,
 	AST_INDEX,
+	AST_STRUCTDECL,
+	AST_SELECTOR,
 };
 
 struct node
@@ -42,6 +45,22 @@ struct node
 		struct {
 			const string *Name;
 		} ID;
+		struct {
+			slice<const string *> Names;
+			slice<node *> Expressions;
+			const string *StructName;
+			u32 Type; // Set by semantic analyzer
+		} StructList;
+		struct {
+			const string *Name;
+			slice<node *> Members;
+		} StructDecl;
+		struct {
+			node *Operand;
+			const string *Member;
+			u32 Index;
+			u32 Type;
+		} Selector;
 		struct {
 			node *Operand;
 			token_type Op;
@@ -85,7 +104,7 @@ struct node
 			u32 Type;
 		} Constant;
 		struct {
-			node *ID;
+			const string *ID;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
 			u32 TypeIndex; // Set by semantic analyzer
@@ -138,7 +157,9 @@ node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
+node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
 node *ParseTopLevel(parser *Parser);
+node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

@@ -12,6 +12,38 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_SELECTOR;
+	Result->Selector.Operand = Operand;
+	Result->Selector.Member = Member;
+
+	return Result;
+}
+
+node *MakeStructList(const error_info *ErrorInfo, slice<const string *> Names, slice<node *> Expressions,
+		const string *StructName)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_STRUCTLIST;
+	Result->StructList.StructName = StructName;
+	Result->StructList.Names = Names;
+	Result->StructList.Expressions = Expressions;
+
+	return Result;
+}
+
+node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_STRUCTDECL;
+	Result->StructDecl.Name = Name;
+	Result->StructDecl.Members = Members;
+
+	return Result;
+}
+
 node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -147,7 +179,7 @@ node *MakeBasicType(error_info *ErrorInfo, node *ID)
 	return Result;
 }
 
-node *MakeDecl(error_info *ErrorInfo, node *ID, node *Expression, node *MaybeType, b32 IsConst, b32 IsShadow)
+node *MakeDecl(error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, b32 IsConst, b32 IsShadow)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_DECL;
@@ -194,7 +226,7 @@ token EatToken(parser *Parser, token_type Type)
 	token Token = PeekToken(Parser);
 	if(Token.Type != Type)
 	{
-		RaiseError(Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot %s", GetTokenName(Type), GetTokenName(Token.Type));
+		RaiseError(Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
 	}
 	GetToken(Parser);
 	return Token;
@@ -323,9 +355,8 @@ node *ParseFunctionArgument(parser *Parser)
 	ERROR_INFO;
 	token ID = EatToken(Parser, T_ID);
 	EatToken(Parser, ':');
-	node *IDNode = MakeID(ErrorInfo, ID.ID);
 	node *Type   = ParseType(Parser);
-	return MakeDecl(ErrorInfo, IDNode, NULL, Type, true, false);
+	return MakeDecl(ErrorInfo, ID.ID, NULL, Type, true, false);
 }
 
 slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
@@ -333,7 +364,9 @@ slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(pars
 	dynamic<node *>Nodes{};
 	while(true)
 	{
-		Nodes.Push(Fn(Parser));
+		node *Node = Fn(Parser);
+		if(Node)
+			Nodes.Push(Node);
 		if(PeekToken(Parser).Type != Deliminator)
 			break;
 		GetToken(Parser);
@@ -435,6 +468,23 @@ node *ParseIndex(parser *Parser, node *Operand)
 	return MakeIndex(ErrorInfo, Operand, IndexExpression);
 }
 
+node *ParseSelectors(parser *Parser, node *Operand)
+{
+	ERROR_INFO;
+	EatToken(Parser, T_DOT);
+	while(true)
+	{
+		token ID = EatToken(Parser, T_ID);
+		Operand = MakeSelector(ErrorInfo, Operand, ID.ID);
+		if(Parser->Current->Type != T_DOT)
+			break;
+		ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo;
+		EatToken(Parser, T_DOT);
+	}
+
+	return Operand;
+}
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -451,6 +501,10 @@ node *ParseAtom(parser *Parser, node *Operand)
 			{
 				Operand = ParseIndex(Parser, Operand);
 			} break;
+			case T_DOT:
+			{
+				Operand = ParseSelectors(Parser, Operand);
+			} break;
 			default:
 			{
 				Loop = false;
@@ -458,6 +512,44 @@ node *ParseAtom(parser *Parser, node *Operand)
 		}
 	}
 	return Operand;
+}
+
+node *ParseStructList(parser *Parser, const string *Name, const error_info *ErrorInfo)
+{
+	EatToken(Parser, T_STARTSCOPE);
+	dynamic<const string *> FieldNames = {};
+	dynamic<node *> FieldExpressions = {};
+	while(Parser->Current->Type != T_ENDSCOPE)
+	{
+		token FieldNameT = GetToken(Parser);
+		if(FieldNameT.Type != T_ID)
+		{
+			RaiseError(FieldNameT.ErrorInfo, "Expected name of field, got: %s. To initialize a struct the syntax is:\n"
+					"\tStructName { field_name1 = value, field_name2 = value };",
+					GetTokenName(FieldNameT.Type));
+		}
+		EatToken(Parser, T_EQ);
+		node *Expression = ParseExpression(Parser);
+		if(Parser->Current->Type == T_COMMA)
+		{
+			GetToken(Parser);
+		}
+		else
+		{
+			if(Parser->Current->Type != T_ENDSCOPE)
+			{
+				RaiseError(Parser->Current->ErrorInfo,
+						"Expected ',' to continue struct list or '}' to close it, got: %s",
+						GetTokenName(FieldNameT.Type));
+			}
+		}
+
+		FieldNames.Push(FieldNameT.ID);
+		FieldExpressions.Push(Expression);
+	}
+	EatToken(Parser, T_ENDSCOPE);
+
+	return MakeStructList(ErrorInfo, SliceFromArray(FieldNames), SliceFromArray(FieldExpressions), Name);
 }
 
 node *ParseOperand(parser *Parser)
@@ -493,7 +585,10 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeID(ErrorInfo, Token.ID);
+			if(Parser->Current->Type == T_STARTSCOPE)
+				Result = ParseStructList(Parser, Token.ID, ErrorInfo);
+			else
+				Result = MakeID(ErrorInfo, Token.ID);
 		} break;
 		case T_STARTSCOPE:
 		{
@@ -677,7 +772,6 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 	if(ID.Type != T_ID)
 		RaiseError(*ErrorInfo, "Expected decleration!");
 
-	node *IDNode = MakeID(ErrorInfo, ID.ID);
 	token Decl = GetToken(Parser);
 	switch(Decl.Type)
 	{
@@ -697,16 +791,22 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 
 	token MaybeType = PeekToken(Parser);
 	node *MaybeTypeNode = NULL;
+	b32 HasExpression = true;
 	if(!IsConst)
 	{
 		if(MaybeType.Type != T_EQ)
 		{
 			MaybeTypeNode = ParseType(Parser);
 		}
-		EatToken(Parser, T_EQ);
+		if(Parser->Current->Type != T_EQ)
+			HasExpression = false;
+		else
+			GetToken(Parser);
 	}
-	node *Expression = ParseExpression(Parser);
-	return MakeDecl(ErrorInfo, IDNode, Expression, MaybeTypeNode, IsConst, IsShadow);
+	node *Expression = NULL;
+	if(HasExpression)
+		Expression = ParseExpression(Parser);
+	return MakeDecl(ErrorInfo, ID.ID, Expression, MaybeTypeNode, IsConst, IsShadow);
 }
 
 void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
@@ -765,7 +865,10 @@ node *ParseNode(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeReturn(ErrorInfo, ParseExpression(Parser));
+			node *Expr = NULL;
+			if(Parser->Current->Type != ';')
+				Expr = ParseExpression(Parser);
+			Result = MakeReturn(ErrorInfo, Expr);
 		} break;
 		case T_IF:
 		{
@@ -798,7 +901,7 @@ node *ParseNode(parser *Parser)
 				ForExpr = ParseExpression(Parser);
 			EatToken(Parser, ';');
 
-			if(PeekToken(Parser).Type != ';')
+			if(PeekToken(Parser).Type != T_STARTSCOPE)
 				ForIncr = ParseExpression(Parser);
 
 			Result = MakeFor(ErrorInfo, ForInit, ForExpr, ForIncr);
@@ -843,6 +946,26 @@ node *ParseTopLevel(parser *Parser)
 
 			Fn->Fn.Name = StartToken.ID;
 			Result = Fn;
+		} break;
+		case T_STRUCT:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token NameT = GetToken(Parser);
+			if(NameT.Type != T_ID)
+			{
+				RaiseError(*ErrorInfo, "Expected struct name after `struct` keyword");
+			}
+			EatToken(Parser, T_STARTSCOPE);
+
+			auto ParseFn = [](parser *P) -> node* {
+				if(P->Current->Type == T_ENDSCOPE)
+					return NULL;
+				return ParseDeclaration(P, false);
+			};
+
+			Result = MakeStructDecl(ErrorInfo, NameT.ID, Delimited(Parser, ',', ParseFn));
+			EatToken(Parser, T_ENDSCOPE);
 		} break;
 		case T_EOF:
 		{

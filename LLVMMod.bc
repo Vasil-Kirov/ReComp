@@ -1,82 +1,67 @@
 ; ModuleID = 'main'
 source_filename = "main"
 
-@0 = private unnamed_addr constant [9 x i8] c"sum: %d\0A\00", align 1
+%Foo = type { [1 x i32] }
 
-declare void @printf(ptr, i64)
-
-declare ptr @malloc(i64)
-
-declare void @free(ptr)
-
-define i32 @main() {
+define void @memcpy(ptr %0, ptr %1, i64 %2) {
 block_0:
-  %0 = call ptr @malloc(i64 100)
-  %1 = alloca ptr, align 8
-  store ptr %0, ptr %1, align 8
-  %2 = alloca i64, align 8
-  store i64 0, ptr %2, align 4
+  %3 = alloca ptr, align 8
+  store ptr %0, ptr %3, align 8
+  %4 = alloca ptr, align 8
+  store ptr %1, ptr %4, align 8
+  %5 = alloca i64, align 8
+  store i64 %2, ptr %5, align 4
   br label %block_1
 
 block_1:                                          ; preds = %block_3, %block_0
-  %3 = load i64, ptr %2, align 4
-  %4 = icmp slt i64 %3, 100
-  br i1 %4, label %block_2, label %block_4
+  %6 = load i64, ptr %5, align 4
+  %7 = icmp ugt i64 %6, 0
+  br i1 %7, label %block_2, label %block_4
 
 block_2:                                          ; preds = %block_1
-  %5 = load ptr, ptr %1, align 8
-  %6 = load i64, ptr %2, align 4
-  %7 = getelementptr i8, ptr %5, i64 %6
-  %8 = load i64, ptr %2, align 4
-  %9 = trunc i64 %8 to i8
-  store i8 %9, ptr %7, align 1
-  %10 = load i8, ptr %7, align 1
+  %8 = load ptr, ptr %3, align 8
+  %9 = load ptr, ptr %4, align 8
+  %10 = load i8, ptr %9, align 1
+  store i8 %10, ptr %8, align 1
+  %11 = load i8, ptr %8, align 1
+  %12 = load ptr, ptr %3, align 8
+  %13 = getelementptr i8, ptr %12, i64 1
+  %14 = load i8, ptr %13, align 1
+  store i8 %14, ptr %3, align 1
+  %15 = load ptr, ptr %3, align 8
+  %16 = load ptr, ptr %4, align 8
+  %17 = getelementptr i8, ptr %16, i64 1
+  %18 = load i8, ptr %17, align 1
+  store i8 %18, ptr %4, align 1
+  %19 = load ptr, ptr %4, align 8
+  %20 = load i64, ptr %5, align 4
+  %21 = sub i64 %20, 1
+  store i64 %21, ptr %5, align 4
+  %22 = load i64, ptr %5, align 4
   br label %block_3
 
 block_3:                                          ; preds = %block_2
-  %11 = load i64, ptr %2, align 4
-  %12 = add i64 %11, 1
-  store i64 %12, ptr %2, align 4
-  %13 = load i64, ptr %2, align 4
   br label %block_1
 
 block_4:                                          ; preds = %block_1
-  %14 = alloca i64, align 8
-  store i64 0, ptr %14, align 4
-  %15 = alloca i64, align 8
-  store i64 0, ptr %15, align 4
-  br label %block_5
-
-block_5:                                          ; preds = %block_7, %block_4
-  %16 = load i64, ptr %15, align 4
-  %17 = icmp slt i64 %16, 100
-  br i1 %17, label %block_6, label %block_8
-
-block_6:                                          ; preds = %block_5
-  %18 = load i64, ptr %14, align 4
-  %19 = load ptr, ptr %1, align 8
-  %20 = load i64, ptr %15, align 4
-  %21 = getelementptr i8, ptr %19, i64 %20
-  %22 = load i8, ptr %21, align 1
-  %23 = sext i8 %22 to i64
-  %24 = add i64 %18, %23
-  store i64 %24, ptr %14, align 4
-  %25 = load i64, ptr %14, align 4
-  %26 = load i64, ptr %14, align 4
-  call void @printf(ptr @0, i64 %26)
-  br label %block_7
-
-block_7:                                          ; preds = %block_6
-  %27 = load i64, ptr %15, align 4
-  %28 = add i64 %27, 1
-  store i64 %28, ptr %15, align 4
-  %29 = load i64, ptr %15, align 4
-  br label %block_5
-
-block_8:                                          ; preds = %block_5
-  %30 = load ptr, ptr %1, align 8
-  call void @free(ptr %30)
-  %31 = load i64, ptr %14, align 4
-  %32 = trunc i64 %31 to i32
-  ret i32 %32
+  ret void
 }
+
+define i32 @main() {
+block_0:
+  %0 = alloca %Foo, align 8
+  %_array_list = alloca [1 x i32], align 4
+  %1 = getelementptr [1 x i32], ptr %_array_list, i64 0, i64 0
+  store i32 1, ptr %1, align 4
+  %2 = getelementptr inbounds %Foo, ptr %0, i32 0, i32 0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %2, ptr align 4 %_array_list, i64 ptrtoint (ptr getelementptr ([1 x i32], ptr null, i32 1) to i64), i1 false)
+  %3 = getelementptr inbounds %Foo, ptr %0, i32 0, i32 0
+  %4 = getelementptr [1 x i32], ptr %3, i64 0, i64 0
+  %5 = load i32, ptr %4, align 4
+  ret i32 %5
+}
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }

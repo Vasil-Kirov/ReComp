@@ -18,6 +18,8 @@ enum token_type
 	T_EQ    = '=',
 	T_LESS  = '<',
 	T_GREAT = '>',
+	T_COMMA = ',',
+	T_DOT   = '.',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,
@@ -53,6 +55,7 @@ enum token_type
 	T_AUTOCAST= -34,
 	T_CDECL = -34,
 	T_CSTR  = -35,
+	T_STRUCT= -36,
 };
 
 struct token

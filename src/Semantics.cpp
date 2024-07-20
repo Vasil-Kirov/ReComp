@@ -2,9 +2,11 @@
 #include "ConstVal.h"
 #include "Dynamic.h"
 #include "Errors.h"
+#include "Lexer.h"
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
+#include "Log.h"
 extern const type BasicTypes[];
 extern const int  BasicTypesCount;
 
@@ -37,6 +39,9 @@ void AddFunctionToModule(checker *Checker, node *FnNode, u32 Type)
 
 void FillUntypedStack(checker *Checker, u32 Type)
 {
+	const type *TypePtr = GetType(Type);
+	if(TypePtr->Kind == TypeKind_Pointer)
+		Type = Basic_i64;
 	while(!Checker->UntypedStack.IsEmpty())
 	{
 		u32 *ToGiveType = Checker->UntypedStack.Pop();
@@ -58,9 +63,15 @@ u32 FindType(checker *Checker, const string *Name)
 					return I;
 				}
 			} break;
+			case TypeKind_Struct:
+			{
+				if(*Name == Type->Struct.Name)
+				{
+					return I;
+				}
+			} break;
 			default:
 			{
-				Assert(false);
 			} break;
 		}
 	}
@@ -159,6 +170,10 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				return false;
 			return IsLHSAssignable(Checker, LHS->Unary.Operand);
 		} break;
+		case AST_SELECTOR:
+		{
+			return IsLHSAssignable(Checker, LHS->Selector.Operand);
+		} break;
 		default:
 		{
 			return false;
@@ -197,7 +212,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		locals_for_next_scope Arg;
 		Arg.Type = Function.Args[I];
 		Arg.ErrorInfo = FnNode->Fn.Args[I]->ErrorInfo;
-		Arg.ID = FnNode->Fn.Args[I]->Decl.ID->ID.Name;
+		Arg.ID = FnNode->Fn.Args[I]->Decl.ID;
 		LocalsNextScope[LocalNextCount++] = Arg;
 	}
 	
@@ -221,7 +236,8 @@ void PopScope(checker *Checker)
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTypeIdx)
 {
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
-	Checker->CurrentFnReturnTypeIdx = GetType(FunctionTypeIdx)->Function.Return;
+	const type *FunctionType = GetType(FunctionTypeIdx);
+	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Return;
 
 	Checker->CurrentDepth++;
 	for(int I = 0; I < LocalNextCount; ++I)
@@ -232,9 +248,21 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTy
 	}
 	LocalNextCount = 0;
 
+	b32 FoundReturn = false;
 	ForArray(Idx, Body)
 	{
+		if(Body[Idx]->Type == AST_RETURN)
+			FoundReturn = true;
 		AnalyzeNode(Checker, Body[Idx]);
+	}
+
+	if(!FoundReturn)
+	{
+		if(FunctionType->Function.Return != INVALID_TYPE)
+		{
+			RaiseError(*Body[Body.Count-1]->ErrorInfo, "Missing a return statement in function that returns a type");
+		}
+		Body.Push(MakeReturn(Body[Body.Count-1]->ErrorInfo, NULL));
 	}
 
 	PopScope(Checker);
@@ -269,6 +297,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				if(IsUntyped(ExprType))
 				{
 					FillUntypedStack(Checker, CallType->Function.Args[Idx]);
+				}
+				else if(PromotionType)
+				{
+					node *Arg = Expr->Call.Args[Idx];
+					Expr->Call.Args.Data[Idx] = MakeCast(Arg->ErrorInfo, Arg, NULL,
+							ExprTypeIdx, CallType->Function.Args[Idx]);
 				}
 			}
 
@@ -369,6 +403,58 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Result = AddType(ArrayType);
 			Expr->ArrayList.Type = Result;
 
+		} break;
+		case AST_STRUCTLIST:
+		{
+			u32 TypeIdx = FindType(Checker, Expr->StructList.StructName);
+			if(TypeIdx == INVALID_TYPE)
+			{
+				RaiseError(*Expr->ErrorInfo, "Undefined type for struct delcaration %s",
+						Expr->StructList.StructName->Data);
+			}
+			const type *Type = GetType(TypeIdx);
+			if(Type->Kind != TypeKind_Struct)
+			{
+				RaiseError(*Expr->ErrorInfo, "Non struct type %s used for struct delcaration",
+						Expr->StructList.StructName->Data);
+			}
+
+			ForArray(Idx, Expr->StructList.Names)
+			{
+				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->StructList.Expressions[Idx]);
+				u32 MemberTypeIdx = Type->Struct.Members[Idx].Type;
+
+				TypeCheckAndPromote(Checker, Expr->StructList.Expressions[Idx]->ErrorInfo,
+							MemberTypeIdx, ExprTypeIdx, NULL, &Expr->StructList.Expressions.Data[Idx]);
+			}
+			Expr->StructList.Type = TypeIdx;
+			Result = TypeIdx;
+		} break;
+		case AST_SELECTOR:
+		{
+			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
+			Expr->Selector.Type = TypeIdx;
+			const type *Type = GetType(TypeIdx);
+			if(Type->Kind != TypeKind_Struct)
+			{
+				RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a non struct type %s",
+						GetTypeName(Type));
+			}
+
+			Result = INVALID_TYPE;
+			ForArray(Idx, Type->Struct.Members)
+			{
+				if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
+				{
+					Expr->Selector.Index = Idx;
+					Result = Type->Struct.Members[Idx].Type;
+				}
+			}
+			if(Result == INVALID_TYPE)
+			{
+				RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
+						Expr->Selector.Member->Data, GetTypeName(Type));
+			}
 		} break;
 		case AST_INDEX:
 		{
@@ -485,7 +571,7 @@ promotion_description PromoteType(const type *Promotion, const type *Left, const
 	return Result;
 }
 
-void OverwriteOpEqExpression(node *Expr, char Op)
+node *OverwriteOpEqExpression(node *Expr, char Op)
 {
 	u32 Type = Expr->Binary.ExpressionType;
 	node *NewOp = MakeBinary(Expr->ErrorInfo, Expr->Binary.Left, Expr->Binary.Right, (token_type)Op);
@@ -493,16 +579,18 @@ void OverwriteOpEqExpression(node *Expr, char Op)
 	NewOp->Binary.ExpressionType = Type;
 	NewEq->Binary.ExpressionType = Type;
 	memcpy(Expr, NewEq, sizeof(node));
+	return NewOp;
 }
 
 u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode)
 {
 	u32 Result = Left;
 
+	b32 IsAssignment = LeftNode == NULL;
 	const type *LeftType  = GetType(Left);
 	const type *RightType = GetType(Right);
 	const type *Promotion = NULL;
-	if(!IsTypeCompatible(LeftType, RightType, &Promotion, false))
+	if(!IsTypeCompatible(LeftType, RightType, &Promotion, IsAssignment))
 	{
 		RaiseError(*ErrorInfo, "Incompatible types.\nLeft: %s\nRight: %s",
 				GetTypeName(LeftType), GetTypeName(RightType));
@@ -514,9 +602,14 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 		if(!IsUntyped(Promote.FromT))
 		{
 			if(Promote.FromT == LeftType)
+			{
+				Assert(!IsAssignment);
 				*LeftNode  = MakeCast(ErrorInfo, *LeftNode, NULL, Promote.From, Promote.To);
+			}
 			else
+			{
 				*RightNode = MakeCast(ErrorInfo, *RightNode, NULL, Promote.From, Promote.To);
+			}
 		}
 		else
 		{
@@ -536,10 +629,13 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		u32 Right = AnalyzeExpression(Checker, Expr->Binary.Right);
 		Expr->Binary.ExpressionType = Left;
 
+		const type *LeftType = GetType(Left);
+		const type *RightType = GetType(Right);
+
 		// @TODO: Check how type checking and casting here works with +=, -=, etc... substitution
 		u32 Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
 
-		u32 Result = Left;
+		u32 Result = Promoted;
 		switch(Expr->Binary.Op)
 		{
 			case T_PEQ:
@@ -578,15 +674,16 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		}
 
 
+		node *BinaryExpression = Expr;
 		switch(Expr->Binary.Op)
 		{
 			case T_PEQ:
 			{
-				OverwriteOpEqExpression(Expr, '+');
+				BinaryExpression = OverwriteOpEqExpression(Expr, '+');
 			} break;
 			case T_MEQ:
 			{
-				OverwriteOpEqExpression(Expr, '-');
+				BinaryExpression = OverwriteOpEqExpression(Expr, '-');
 			} break;
 			case T_TEQ:
 			{
@@ -617,12 +714,23 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		}
 
 
-		if(Result != Basic_bool)
+		if(LeftType->Kind == TypeKind_Pointer && HasBasicFlag(RightType, BasicFlag_Integer))
 		{
-			Expr->Binary.ExpressionType = Promoted;
-			// @TODO: Is this a hack? Could checking for bool mess something up?
-			Result = Promoted;
+			Assert(BinaryExpression->Type == AST_BINARY);
+			if(BinaryExpression->Binary.Op != '+' && BinaryExpression->Binary.Op != '-')
+			{
+				RaiseError(*BinaryExpression->ErrorInfo, "Invalid binary op between pointer and integer!\n"
+						"Only + and - are allowed, got `%s`", GetTokenName(BinaryExpression->Binary.Op));
+			}
+			node *OverwriteIndex = MakeIndex(BinaryExpression->ErrorInfo,
+					BinaryExpression->Binary.Left, BinaryExpression->Binary.Right);
+			OverwriteIndex->Index.OperandType = Left;
+			OverwriteIndex->Index.IndexedType = LeftType->Pointer.Pointed;
+
+			memcpy(BinaryExpression, OverwriteIndex, sizeof(node));
 		}
+
+		Expr->Binary.ExpressionType = Promoted;
 		return Result;
 	}
 	else
@@ -660,7 +768,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
-	const node *ID = Node->Decl.ID;
+	const string *ID = Node->Decl.ID;
 	u32 Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
 	if(Node->Decl.Expression)
 	{
@@ -733,7 +841,7 @@ DECL_TYPE_ERROR:
 	}
 	Node->Decl.TypeIndex = Type;
 	u32 Flags = (Node->Decl.IsShadow) ? SymbolFlag_Shadow : 0 | (Node->Decl.IsConst) ? SymbolFlag_Const : 0;
-	AddVariable(Checker, Node->ErrorInfo, Type, ID->ID.Name, Node, Flags);
+	AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Flags);
 	return Type;
 }
 
@@ -782,29 +890,40 @@ void AnalyzeFor(checker *Checker, node *Node)
 	PopScope(Checker);
 }
 
-u32 AnalyzeGlobal(checker *Checker, node *Node)
+u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
-	u32 Result = INVALID_TYPE;
-	switch(Node->Type)
+	if(FindType(Checker, Node->StructDecl.Name) != INVALID_TYPE)
 	{
-		case AST_FN:
-		{
-			// @TODO: check fn return
-			Result = CreateFunctionType(Checker, Node);
-
-			Node->Fn.TypeIdx = Result;
-
-			AddFunctionToModule(Checker, Node, Result);
-
-			AnalyzeFunctionBody(Checker, Node->Fn.Body, Result);
-
-		} break;
-		default:
-		{
-			Assert(false);
-		} break;
+		RaiseError(*Node->ErrorInfo, "Redefinition of struct %s", Node->StructDecl.Name->Data);
 	}
-	return Result;
+
+	type *New = NewType(type);
+	New->Kind = TypeKind_Struct;
+	New->Struct.Name = *Node->StructDecl.Name;
+
+	array<struct_member> Members {Node->StructDecl.Members.Count};
+	ForArray(Idx, Node->StructDecl.Members)
+	{
+		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Decl.Type);
+		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Decl.ID;
+		Members.Data[Idx].Type = Type;
+	}
+
+	ForArray(Idx, Node->StructDecl.Members)
+	{
+		for(uint j = Idx + 1; j < Node->StructDecl.Members.Count; ++j)
+		{
+			if(*Node->StructDecl.Members[Idx]->Decl.ID == *Node->StructDecl.Members[j]->Decl.ID)
+			{
+				RaiseError(*Node->ErrorInfo, "Invalid struct declaration, members #%d and #%d have the same name `%s`",
+						Idx, j, Node->StructDecl.Members[Idx]->Decl.ID->Data);
+			}
+		}
+	}
+
+	New->Struct.Members = SliceFromArray(Members);
+	New->Struct.Flags = 0; // not supported rn
+	return AddType(New);
 }
 
 void AnalyzeNode(checker *Checker, node *Node)
@@ -828,30 +947,41 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_RETURN:
 		{
-			u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
-			const type *Type = GetType(Result);
-			const type *Return = GetType(Checker->CurrentFnReturnTypeIdx);
-			const type *Promotion = NULL;
-			if(!IsTypeCompatible(Return, Type, &Promotion, true))
+			if(Node->Return.Expression)
 			{
-RetErr:
-				RaiseError(*Node->ErrorInfo, "Type of return expression does not match function return type!\n"
-						"Expected: %s\n"
-						"Got: %s",
-						GetTypeName(Return),
-						GetTypeName(Type));
-			}
-			if(Promotion)
-			{
-				promotion_description Promote = PromoteType(Promotion, Return, Type, Checker->CurrentFnReturnTypeIdx, Result);
-				if(Promote.To == Result)
-					goto RetErr;
-				if(!IsUntyped(Type))
-					Node->Return.Expression = MakeCast(Node->ErrorInfo, Node->Return.Expression, NULL, Promote.From, Promote.To);
-				else
+				if(Checker->CurrentFnReturnTypeIdx == INVALID_TYPE)
 				{
-					FillUntypedStack(Checker, Promote.To);
+					RaiseError(*Node->ErrorInfo, "Trying to return a value in a void function");
 				}
+				u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
+				const type *Type = GetType(Result);
+				const type *Return = GetType(Checker->CurrentFnReturnTypeIdx);
+				const type *Promotion = NULL;
+				if(!IsTypeCompatible(Return, Type, &Promotion, true))
+				{
+RetErr:
+					RaiseError(*Node->ErrorInfo, "Type of return expression does not match function return type!\n"
+							"Expected: %s\n"
+							"Got: %s",
+							GetTypeName(Return),
+							GetTypeName(Type));
+				}
+				if(Promotion)
+				{
+					promotion_description Promote = PromoteType(Promotion, Return, Type, Checker->CurrentFnReturnTypeIdx, Result);
+					if(Promote.To == Result)
+						goto RetErr;
+					if(!IsUntyped(Type))
+						Node->Return.Expression = MakeCast(Node->ErrorInfo, Node->Return.Expression, NULL, Promote.From, Promote.To);
+					else
+					{
+						FillUntypedStack(Checker, Promote.To);
+					}
+				}
+			}
+			else if(Checker->CurrentFnReturnTypeIdx != INVALID_TYPE)
+			{
+				RaiseError(*Node->ErrorInfo, "Function expects a return value, invalid empty return!");
 			}
 			Node->Return.TypeIdx = Checker->CurrentFnReturnTypeIdx;
 		} break;
@@ -874,7 +1004,30 @@ void Analyze(node **Nodes)
 	int NodeCount = ArrLen(Nodes);
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		AnalyzeGlobal(&Checker, Nodes[I]);
+		if(Nodes[I]->Type == AST_STRUCTDECL)
+		{
+			AnalyzeStructDeclaration(&Checker, Nodes[I]);
+		}
+	}
+
+	for(int I = 0; I < NodeCount; ++I)
+	{
+		if(Nodes[I]->Type == AST_FN)
+		{
+			node *Node = Nodes[I];
+			u32 FnType = CreateFunctionType(&Checker, Node);
+			Node->Fn.TypeIdx = FnType;
+			AddFunctionToModule(&Checker, Node, FnType);
+		}
+	}
+
+	for(int I = 0; I < NodeCount; ++I)
+	{
+		if(Nodes[I]->Type == AST_FN)
+		{
+			node *Node = Nodes[I];
+			AnalyzeFunctionBody(&Checker, Node->Fn.Body, Node->Fn.TypeIdx);
+		}
 	}
 
 	FreeVirtualMemory(Checker.Symbols);

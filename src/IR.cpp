@@ -181,11 +181,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, ShouldNotLoad);
 			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, false);
-			u32 Location = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
-			if(IsLHS)
-				Result = Location;
-			else
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Location, Node->Index.IndexedType, Builder));
+			Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
+			if(!IsLHS && !Node->Index.ForceNotLoad)
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
 		} break;
 		case AST_SELECTOR:
 		{

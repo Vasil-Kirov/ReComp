@@ -4,7 +4,7 @@
 //free   :: fn #cdecl(ptr: u8*);
 
 struct Foo {
-	data: i32[1],
+	data: i32[5],
 }
 
 memcpy :: fn(dst: u8*, src: u8*, num: uint)
@@ -21,10 +21,10 @@ memcpy :: fn(dst: u8*, src: u8*, num: uint)
 }
 
 main :: fn() -> i32 {
-	x := Foo { data = {@i32 1} };
+	x := Foo { data = {@i32 1, 2, 3, 4, 5} };
 
 
-	return x.data[0];
+	return x.data[3];
 
 }
 

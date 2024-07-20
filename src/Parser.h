@@ -88,6 +88,7 @@ struct node
 			node *Expression;
 			u32 OperandType; // Set by semantic analyzer
 			u32 IndexedType; // Set by semantic analyzer
+			b32 ForceNotLoad;
 		} Index;
 		struct {
 			node *Expression;

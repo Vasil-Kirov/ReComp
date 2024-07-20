@@ -50,6 +50,7 @@ node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression)
 	Result->Type = AST_INDEX;
 	Result->Index.Expression = Expression;
 	Result->Index.Operand = Operand;
+	Result->Index.ForceNotLoad = false;
 
 	return Result;
 }

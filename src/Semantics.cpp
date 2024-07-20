@@ -726,6 +726,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 					BinaryExpression->Binary.Left, BinaryExpression->Binary.Right);
 			OverwriteIndex->Index.OperandType = Left;
 			OverwriteIndex->Index.IndexedType = LeftType->Pointer.Pointed;
+			OverwriteIndex->Index.ForceNotLoad = true;
 
 			memcpy(BinaryExpression, OverwriteIndex, sizeof(node));
 		}

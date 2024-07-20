@@ -23,7 +23,7 @@ void PlatformWriteFile(const char *Path, u8 *Data, u32 Size)
 string ReadEntireFile(string Path)
 {
 	HANDLE File = CreateFileA(Path.Data, GENERIC_READ, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if(File == NULL) 
+	if(File == NULL || File == INVALID_HANDLE_VALUE) 
 	{
 		string Result = {};
 		return Result;

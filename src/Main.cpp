@@ -13,6 +13,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.h"
 #include "IR.h"
 #include "Threading.h"
+#include "Interpreter.h"
+#include "x64CodeWriter.h"
 #if 0
 #include "backend/LLVMFileOutput.h"
 #include "backend/LLVMFileCast.h"
@@ -35,6 +37,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Type.cpp"
 #include "IR.cpp"
 #include "Threading.cpp"
+#include "Interpreter.cpp"
+#include "x64CodeWriter.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -93,6 +97,33 @@ main(int ArgCount, char *Args[])
 	string Dissasembly = Dissasemble(SliceFromArray(IR.Functions));
 	LDEBUG("%s", Dissasembly.Data);
 #endif
+
+	auto kernel32 = LoadLibrary("kernel32");
+	auto user32   = LoadLibrary("user32");
+	auto ntdll    = LoadLibrary("ntdll");
+	auto msvcrt   = LoadLibrary("msvcrt");
+	HMODULE DLLs[] = {
+		kernel32,
+		user32,
+		ntdll,
+		msvcrt,
+	};
+
+	interpreter VM = MakeInterpreter(IR.GlobalSymbols, IR.MaxRegisters, DLLs, ARR_LEN(DLLs));
+	ForArray(Idx, IR.Functions)
+	{
+		if(IR.Functions[Idx].Blocks.Count != 0)
+		{
+			interpret_result Result = InterpretFunction(&VM, IR.Functions[Idx]);
+			const type *Type = GetType(Result.Result.Type);
+			if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_cstring)
+			{
+				printf("Interpreter got value: %s\n", (char *)Result.Result.ptr);
+			}
+			if(Result.ToFreeStackMemory)
+				VFree(Result.ToFreeStackMemory);
+		}
+	}
 
 	auto LLVMTimer = VLibStartTimer("LLVM Code Generation");
 	RCGenerateCode(&IR);

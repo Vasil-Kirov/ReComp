@@ -293,7 +293,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTy
 		AnalyzeNode(Checker, Body[Idx]);
 	}
 
-	if(!FoundReturn)
+	if(!FoundReturn && Body.Count != 0)
 	{
 		if(FunctionType->Function.Return != INVALID_TYPE)
 		{

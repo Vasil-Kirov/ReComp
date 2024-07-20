@@ -550,17 +550,25 @@ ir BuildIR(node **Nodes)
 			Sym.Type = Nodes[I]->Fn.TypeIdx;
 			Sym.Name = Nodes[I]->Fn.Name;
 			Sym.Register = ModuleSymbols.Count;
+			if(Nodes[I]->Fn.Body.Count == 0)
+				Sym.Flags = IRSymbol_ExternFn;
 			ModuleSymbols.Push(Sym);
 		}
 	}
 
+	IR.MaxRegisters = ModuleSymbols.Count;
 	slice<ir_symbol> ModuleSymbolsSlice = SliceFromArray(ModuleSymbols);
 	for(int I = 0; I < NodeCount; ++I)
 	{
 		function MaybeFunction = GlobalLevelIR(Nodes[I], ModuleSymbolsSlice);
+		if(MaybeFunction.LastRegister > IR.MaxRegisters)
+			IR.MaxRegisters = MaybeFunction.LastRegister;
+
 		if(MaybeFunction.Name)
 			IR.Functions.Push(MaybeFunction);
 	}
+
+	IR.GlobalSymbols = ModuleSymbolsSlice;
 	return IR;
 }
 

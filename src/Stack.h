@@ -12,10 +12,17 @@ struct stack
 		Data.Push(Val);
 	}
 
-	T Pop()
+	T& Peek()
 	{
 		Assert(Data.Count > 0);
-		T Result = Data[Data.Count - 1];
+		T& Result = Data.Data[Data.Count - 1];
+		return Result;
+	}
+
+
+	T Pop()
+	{
+		T Result = Peek();
 		Data.Count--;
 		return Result;
 	}

@@ -29,6 +29,11 @@ enum op
 	OP_MEMSET,
 };
 
+enum ir_symbol_flags
+{
+	IRSymbol_ExternFn = BIT(0),
+};
+
 struct instruction
 {
 	union {
@@ -47,7 +52,6 @@ struct call_info
 {
 	u32 Operand;
 	slice<u32> Args;
-	slice<u32> ArgTypes;
 };
 
 struct basic_block
@@ -63,6 +67,7 @@ struct ir_symbol
 	u32 Register;
 	u32 Type;
 	b32 IsArg;
+	u32 Flags;
 };
 
 struct reg_allocation;
@@ -91,6 +96,8 @@ struct block_builder
 struct ir
 {
 	dynamic<function>Functions;
+	slice<ir_symbol> GlobalSymbols;
+	u32 MaxRegisters;
 };
 
 ir BuildIR(node **Nodes);

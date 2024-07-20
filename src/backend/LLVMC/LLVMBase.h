@@ -2,6 +2,7 @@
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>
 #include "LLVMValue.h"
+#include "llvm-c/Target.h"
 #include <IR.h>
 
 struct rc_block
@@ -15,6 +16,7 @@ struct generator
 	LLVMContextRef ctx; // Context
 	LLVMModuleRef  mod; // Module
 	LLVMBuilderRef bld; // Builder
+	LLVMTargetDataRef data;
 	value_map map;
 	LLVMValueRef fn;
 	rc_block *blocks;

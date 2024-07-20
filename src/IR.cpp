@@ -18,6 +18,17 @@ inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 	return Result;
 }
 
+inline instruction InstructionMemset(u32 Ptr, u32 Type)
+{
+	instruction Result;
+	Result.Left  = 0;
+	Result.Right = Ptr;
+	Result.Op = OP_MEMSET;
+	Result.Type = Type;
+	Result.Result = Ptr;
+	return Result;
+}
+
 inline instruction InstructionStore(u32 Left, u32 Right, u32 Type)
 {
 	instruction Result;
@@ -145,15 +156,25 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		case AST_ARRAYLIST:
 		{
 			Assert(!IsLHS);
-			u32 *Registers = (u32 *)VAlloc((Node->ArrayList.Expressions.Count + 1) * sizeof(u32));
-			ForArray(Idx, Node->ArrayList.Expressions)
+			if(Node->ArrayList.IsEmpty)
 			{
-				u32 Register = BuildIRFromExpression(Builder, Node->ArrayList.Expressions[Idx], IsLHS);
-				Registers[Idx] = Register;
+				Result = PushInstruction(Builder,
+						Instruction(OP_ALLOC, -1, Node->ArrayList.Type, Builder));
+
+				PushInstruction(Builder, InstructionMemset(Result, Node->ArrayList.Type));
 			}
-			Registers[Node->ArrayList.Expressions.Count] = -1;
-			instruction I = Instruction(OP_ARRAYLIST, (u64)Registers, Node->ArrayList.Type, Builder);
-			Result = PushInstruction(Builder, I);
+			else
+			{
+				u32 *Registers = (u32 *)VAlloc((Node->ArrayList.Expressions.Count + 1) * sizeof(u32));
+				ForArray(Idx, Node->ArrayList.Expressions)
+				{
+					u32 Register = BuildIRFromExpression(Builder, Node->ArrayList.Expressions[Idx], IsLHS);
+					Registers[Idx] = Register;
+				}
+				Registers[Node->ArrayList.Expressions.Count] = -1;
+				instruction I = Instruction(OP_ARRAYLIST, (u64)Registers, Node->ArrayList.Type, Builder);
+				Result = PushInstruction(Builder, I);
+			}
 		} break;
 		case AST_STRUCTLIST:
 		{
@@ -659,6 +680,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			case OP_ARRAYLIST:
 			{
 				PushBuilderFormated(Builder, "%%%d = ARRAYLIST (cba)", Instr.Result);
+			} break;
+			case OP_MEMSET:
+			{
+				PushBuilderFormated(Builder, "MEMSET %%%d", Instr.Right);
 			} break;
 
 #define CASE_OP(op, str) \

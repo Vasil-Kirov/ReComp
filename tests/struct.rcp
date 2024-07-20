@@ -1,0 +1,11 @@
+
+struct Foo {
+	arr: i32[100];
+	bar: i64[4];
+}
+
+
+main :: fn() {
+	x := Foo { arr = {}, bar = {} };
+}
+

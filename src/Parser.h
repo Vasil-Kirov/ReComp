@@ -88,7 +88,7 @@ struct node
 			node *Expression;
 			u32 OperandType; // Set by semantic analyzer
 			u32 IndexedType; // Set by semantic analyzer
-			b32 ForceNotLoad;
+			b32 ForceNotLoad; // Set by semantic analyzer
 		} Index;
 		struct {
 			node *Expression;
@@ -98,7 +98,8 @@ struct node
 		} Cast;
 		struct {
 			slice<node *> Expressions;
-			u32 Type; // Set by semantic analyzer
+			u32 Type;    // Set by semantic analyzer
+			b32 IsEmpty; // Set by semantic analyzer
 		} ArrayList;
 		struct {
 			const_value Value;

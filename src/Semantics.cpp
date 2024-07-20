@@ -78,6 +78,25 @@ u32 FindType(checker *Checker, const string *Name)
 	return INVALID_TYPE;
 }
 
+void FixZeroSizedArrayList(u32 ArrayTypeIdx, const type *ArrayType, node *Expression)
+{
+	if(ArrayType->Kind == TypeKind_Array)
+	{
+		if(Expression->Type != AST_ARRAYLIST)
+		{
+			RaiseError(*Expression->ErrorInfo, "Invalid use of array size inference",
+					GetTypeName(ArrayType));
+		}
+		Assert(Expression->ArrayList.IsEmpty);
+		Expression->ArrayList.Type = ArrayTypeIdx;
+	}
+	else
+	{
+		RaiseError(*Expression->ErrorInfo, "Cannot assign array initializer to non array type %s",
+				GetTypeName(ArrayType));
+	}
+}
+
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 {
 	if(TypeNode == NULL)
@@ -352,56 +371,65 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		{
 			if(Expr->ArrayList.Expressions.Count == 0)
 			{
-				RaiseError(*Expr->ErrorInfo, "Empty initializer lists are not supported yet");
-			}
+				type *ArrayType = NewType(type);
+				ArrayType->Kind = TypeKind_Array;
+				ArrayType->Array.Type = Basic_UntypedInteger;
+				ArrayType->Array.MemberCount = 0;
 
-			u32 ListType = INVALID_TYPE;
-			node **First = NULL;
-			b32 ShouldRunTyping = false;
-			ForArray(Idx, Expr->ArrayList.Expressions)
+				Result = AddType(ArrayType);
+				Expr->ArrayList.Type = Result;
+				Expr->ArrayList.IsEmpty = true;
+			}
+			else
 			{
-				u32 ExprType = AnalyzeExpression(Checker, Expr->ArrayList.Expressions[Idx]);
-				const type *Type = GetType(ExprType);
+				u32 ListType = INVALID_TYPE;
+				node **First = NULL;
+				b32 ShouldRunTyping = false;
+				ForArray(Idx, Expr->ArrayList.Expressions)
+				{
+					u32 ExprType = AnalyzeExpression(Checker, Expr->ArrayList.Expressions[Idx]);
+					const type *Type = GetType(ExprType);
+					if(IsUntyped(Type))
+					{
+						ShouldRunTyping = true;
+					}
+					if(ListType == INVALID_TYPE)
+					{
+						// @NOTE: Kinda bad, accessing the .Data
+						ListType = ExprType;
+						First = &Expr->ArrayList.Expressions.Data[Idx];
+					}
+					else
+					{
+						// @NOTE: Kinda bad, accessing the .Data
+						node **ListMemberNode = &Expr->ArrayList.Expressions.Data[Idx];
+						ListType = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ListType, ExprType, First, ListMemberNode);
+					}
+				}
+				const type *Type = GetType(ListType);
 				if(IsUntyped(Type))
 				{
-					ShouldRunTyping = true;
+					if(Type->Basic.Flags & BasicFlag_Integer)
+						ListType = Basic_i64;
+					else if(Type->Basic.Flags & BasicFlag_Float)
+						ListType = Basic_f64;
+					else
+						Assert(false);
 				}
-				if(ListType == INVALID_TYPE)
+
+				if(ShouldRunTyping)
 				{
-					// @NOTE: Kinda bad, accessing the .Data
-					ListType = ExprType;
-					First = &Expr->ArrayList.Expressions.Data[Idx];
+					FillUntypedStack(Checker, ListType);
 				}
-				else
-				{
-					// @NOTE: Kinda bad, accessing the .Data
-					node **ListMemberNode = &Expr->ArrayList.Expressions.Data[Idx];
-					ListType = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ListType, ExprType, First, ListMemberNode);
-				}
-			}
-			const type *Type = GetType(ListType);
-			if(IsUntyped(Type))
-			{
-				if(Type->Basic.Flags & BasicFlag_Integer)
-					ListType = Basic_i64;
-				else if(Type->Basic.Flags & BasicFlag_Float)
-					ListType = Basic_f64;
-				else
-					Assert(false);
-			}
 
-			if(ShouldRunTyping)
-			{
-				FillUntypedStack(Checker, ListType);
+				type *ArrayType = NewType(type);
+				ArrayType->Kind = TypeKind_Array;
+				ArrayType->Array.Type = ListType;
+				ArrayType->Array.MemberCount = Expr->ArrayList.Expressions.Count;
+
+				Result = AddType(ArrayType);
+				Expr->ArrayList.Type = Result;
 			}
-
-			type *ArrayType = NewType(type);
-			ArrayType->Kind = TypeKind_Array;
-			ArrayType->Array.Type = ListType;
-			ArrayType->Array.MemberCount = Expr->ArrayList.Expressions.Count;
-
-			Result = AddType(ArrayType);
-			Expr->ArrayList.Type = Result;
 
 		} break;
 		case AST_STRUCTLIST:
@@ -424,8 +452,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->StructList.Expressions[Idx]);
 				u32 MemberTypeIdx = Type->Struct.Members[Idx].Type;
 
-				TypeCheckAndPromote(Checker, Expr->StructList.Expressions[Idx]->ErrorInfo,
+				const type *ExprType = GetType(ExprTypeIdx);
+				if(ExprType->Kind == TypeKind_Array && ExprType->Array.MemberCount == 0)
+				{
+					const type *MemberType = GetType(MemberTypeIdx);
+					FixZeroSizedArrayList(MemberTypeIdx, MemberType, Expr->StructList.Expressions[Idx]);
+				}
+				else
+				{
+					TypeCheckAndPromote(Checker, Expr->StructList.Expressions[Idx]->ErrorInfo,
 							MemberTypeIdx, ExprTypeIdx, NULL, &Expr->StructList.Expressions.Data[Idx]);
+				}
 			}
 			Expr->StructList.Type = TypeIdx;
 			Result = TypeIdx;
@@ -774,11 +811,17 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 	if(Node->Decl.Expression)
 	{
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
+		const type *ExprTypePointer = GetType(ExprType);
 		if(Type != INVALID_TYPE)
 		{
-			const type *TypePointer     = GetType(Type);
-			const type *ExprTypePointer = GetType(ExprType);
+			const type *TypePointer = GetType(Type);
 			const type *Promotion = NULL;
+			if(ExprTypePointer->Kind == TypeKind_Array && ExprTypePointer->Array.MemberCount == 0)
+			{
+				FixZeroSizedArrayList(Type, TypePointer, Node->Decl.Expression);
+				ExprType = Type;
+				ExprTypePointer = TypePointer;
+			}
 			if(!IsTypeCompatible(TypePointer, ExprTypePointer, &Promotion, true))
 			{
 DECL_TYPE_ERROR:
@@ -808,6 +851,10 @@ DECL_TYPE_ERROR:
 		}
 		else
 		{
+			if(ExprTypePointer->Kind == TypeKind_Array && ExprTypePointer->Array.MemberCount == 0)
+			{
+				RaiseError(*Node->ErrorInfo, "Cannot infer type of an empty initializer");
+			}
 			Type = ExprType;
 		}
 	}

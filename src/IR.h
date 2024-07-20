@@ -26,6 +26,7 @@ enum op
 	OP_CALL,
 	OP_INDEX,
 	OP_ARRAYLIST,
+	OP_MEMSET,
 };
 
 struct instruction

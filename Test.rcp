@@ -7,22 +7,8 @@ struct Foo {
 	data: i32[5],
 }
 
-memcpy :: fn(dst: u8*, src: u8*, num: uint)
-{
-	c0 := dst;
-	c1 := src;
-	size := num;
-	for ; size > 0 ; {
-		*c0 = *c1;
-		c0 += 1;
-		c1 += 1;
-		size -= 1;
-	}
-}
-
 main :: fn() -> i32 {
-	x := Foo { data = {@i32 1, 2, 3, 4, 5} };
-
+	x := Foo { data = {} };
 
 	return x.data[3];
 

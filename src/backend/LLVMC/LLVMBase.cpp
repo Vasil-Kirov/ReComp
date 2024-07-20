@@ -244,6 +244,16 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMBuildMemCpy(gen->bld, Pointer, 4, Value, 4, Size);
 			}
 		} break;
+		case OP_MEMSET:
+		{
+			LLVMValueRef Pointer = gen->map.Get(I.Result);
+			LLVMTypeRef Type = ConvertToLLVMType(gen->ctx, I.Type);
+			u64 Size = LLVMABISizeOfType(gen->data, Type);
+			u64 Alignment = LLVMABIAlignmentOfType(gen->data, Type);
+			LLVMValueRef ValueZero = LLVMConstInt(LLVMInt8TypeInContext(gen->ctx), 0, false);
+			LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+			LLVMBuildMemSet(gen->bld, Pointer, ValueZero, ValueSize, Alignment);
+		} break;
 		case OP_LOAD:
 		{
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
@@ -415,6 +425,8 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(Name, Gen.ctx);
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
+	Gen.data = LLVMCreateTargetDataLayout(Machine);
+	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
 	RCGenerateComplexTypes(&Gen);
 	RCGenerateCompilerTypes(&Gen);

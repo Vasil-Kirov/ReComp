@@ -240,8 +240,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else
 			{
-				LLVMValueRef Size = LLVMSizeOf(ConvertToLLVMType(gen->ctx, I.Type));
-				LLVMBuildMemCpy(gen->bld, Pointer, 4, Value, 4, Size);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				u64 Size = LLVMABISizeOfType(gen->data, LLVMType);
+				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+				uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
+				
+				LLVMBuildMemCpy(gen->bld, Pointer, Align, Value, Align, ValueSize);
 			}
 		} break;
 		case OP_MEMSET:

@@ -447,10 +447,31 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						Expr->StructList.StructName->Data);
 			}
 
+			uint *StructureIndexes = (uint *)VAlloc(sizeof(uint) * Expr->StructList.Expressions.Count);
+			ForArray(Idx, Expr->StructList.Expressions)
+			{
+				const string *Name = Expr->StructList.Names[Idx];
+				uint ToPut = -1;
+				ForArray(j, Type->Struct.Members)
+				{
+					if(*Name == Type->Struct.Members[j].ID)
+					{
+						ToPut = j;
+						break;
+					}
+				}
+				if(ToPut == -1)
+				{
+					RaiseError(*Expr->ErrorInfo, "`%s` is not a member of struct %s",
+							Name->Data, Expr->StructList.StructName->Data);
+				}
+				StructureIndexes[Idx] = ToPut;
+			}
+
 			ForArray(Idx, Expr->StructList.Names)
 			{
 				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->StructList.Expressions[Idx]);
-				u32 MemberTypeIdx = Type->Struct.Members[Idx].Type;
+				u32 MemberTypeIdx = Type->Struct.Members[StructureIndexes[Idx]].Type;
 
 				const type *ExprType = GetType(ExprTypeIdx);
 				if(ExprType->Kind == TypeKind_Array && ExprType->Array.MemberCount == 0)
@@ -465,6 +486,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 			}
 			Expr->StructList.Type = TypeIdx;
+			Expr->StructList.NameIndexes = {StructureIndexes, Expr->StructList.Expressions.Count};
 			Result = TypeIdx;
 		} break;
 		case AST_SELECTOR:

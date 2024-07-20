@@ -48,6 +48,7 @@ struct node
 		struct {
 			slice<const string *> Names;
 			slice<node *> Expressions;
+			slice<u32> NameIndexes; // Set by semantic analyzer
 			const string *StructName;
 			u32 Type; // Set by semantic analyzer
 		} StructList;

@@ -4,13 +4,14 @@
 //free   :: fn #cdecl(ptr: u8*);
 
 struct Foo {
+	x: i32,
 	data: i32[5],
 }
 
 main :: fn() -> i32 {
-	x := Foo { data = {} };
+	x := Foo { data = {}, x = 4};
 
-	return x.data[3];
+	return x.data[3] - x.x;
 
 }
 

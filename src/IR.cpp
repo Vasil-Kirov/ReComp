@@ -185,13 +185,16 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			ForArray(Idx, Node->StructList.Expressions)
 			{
+				u32 MemberIndex = Node->StructList.NameIndexes[Idx];
 				u32 Expr = BuildIRFromExpression(Builder, Node->StructList.Expressions[Idx], false);
 				u32 Location = PushInstruction(Builder,
-						Instruction(OP_INDEX, Alloc, Idx, Node->StructList.Type, Builder));
+						Instruction(OP_INDEX, Alloc, MemberIndex, Node->StructList.Type, Builder));
 				PushInstruction(Builder,
-						InstructionStore(Location, Expr, StructType->Struct.Members[Idx].Type));
+						InstructionStore(Location, Expr, StructType->Struct.Members[MemberIndex].Type));
 			}
 
+			VFree(Node->StructList.NameIndexes.Data);
+			Node->StructList.NameIndexes.Data = NULL;
 			Result = Alloc;
 		} break;
 		case AST_INDEX:

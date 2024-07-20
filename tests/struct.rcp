@@ -1,14 +1,15 @@
 
 struct Foo {
+	x: i32,
 	arr: i32[100],
 	bar: i32[4],
 }
 
 
 main :: fn() -> i32 {
-	x := Foo { arr = {}, bar = {} };
+	x := Foo { arr = {}, bar = {}, x = 2 };
 	x.bar[2] = 3;
 	x.arr[50] = 1;
-	return x.bar[2] - x.arr[50] - 2;
+	return x.bar[2] - x.arr[50] - x.x;
 }
 

@@ -111,17 +111,87 @@ int GetBasicTypeSize(const type *Type)
 		return Type->Basic.Size;
 	else if(Type->Basic.Kind == Basic_int || Type->Basic.Kind == Basic_uint)
 		return GetRegisterTypeSize() / 8;
-	Assert(false);
+	else
+		return GetRegisterTypeSize() / 8;
+	unreachable;
+}
+
+int GetStructSize(const type *Type)
+{
+	if(Type->Struct.Members.Count == 0)
+		return 0;
+	int Result = 0;
+	int MaxMemberSize = 0;
+	ForArray(Idx, Type->Struct.Members)
+	{
+		int MemberSize = GetTypeSize(GetType(Type->Struct.Members[Idx].Type));
+		if(MemberSize > MaxMemberSize)
+			MaxMemberSize = MemberSize;
+		Result += MemberSize;
+		if(Idx + 1 != Type->Struct.Members.Count)
+		{
+			int AlignSize = GetTypeSize(GetType(Type->Struct.Members[Idx+1].Type));
+			if(MemberSize < AlignSize)
+				Result += AlignSize - MemberSize;
+		}
+	}
+	Result += Result % MaxMemberSize;
+	return Result;
+}
+
+int GetStructMemberOffset(const type *Type, uint Member)
+{
+	if(Type->Struct.Members.Count == 0)
+		return 0;
+	int Result = 0;
+	for(int Idx = 0; Idx < Member; ++Idx)
+	{
+		int MemberSize = GetTypeSize(GetType(Type->Struct.Members[Idx].Type));
+
+		Result += MemberSize;
+		if(Idx + 1 != Type->Struct.Members.Count)
+		{
+			int AlignSize = GetTypeSize(GetType(Type->Struct.Members[Idx+1].Type));
+			if(MemberSize < AlignSize)
+				Result += AlignSize - MemberSize;
+		}
+	}
+	return Result;
+}
+
+int GetStructMemberOffset(u32 TypeIdx, uint Member)
+{
+	const type *Type = GetType(TypeIdx);
+	return GetStructMemberOffset(Type, Member);
 }
 
 // In bytes
 int GetTypeSize(const type *Type)
 {
-	if(Type->Kind == TypeKind_Basic)
+	switch(Type->Kind)
+	{
+		case TypeKind_Basic:
 		return GetBasicTypeSize(Type);
-	else if(Type->Kind == TypeKind_Pointer)
+		case TypeKind_Function:
+		case TypeKind_Pointer:
 		return GetRegisterTypeSize() / 8;
-	Assert(false);
+		case TypeKind_Array:
+		{
+			return GetTypeSize(GetType(Type->Array.Type)) * Type->Array.MemberCount;
+		} break;
+		case TypeKind_Struct:
+		{
+			return GetStructSize(Type);
+		} break;
+		default: {};
+	}
+	unreachable;
+}
+
+int GetTypeSize(u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	return GetTypeSize(Type);
 }
 
 b32 HasBasicFlag(const type *Type, u32 FlagMask)
@@ -406,6 +476,17 @@ b32 ShouldCopyType(const type *Type)
 			return false;
 	}
 	return true;
+}
+
+b32 IsLoadableType(const type *Type)
+{
+	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct;
+}
+
+b32 IsLoadableType(u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	return IsLoadableType(Type);
 }
 
 const char *GetTypeName(u32 TypeIdx)

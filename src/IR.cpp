@@ -219,7 +219,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const type *Type = GetType(Node->Selector.Type);
 			u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
 			const type *MemberType = GetType(MemberTypeIdx);
-			if(MemberType->Kind != TypeKind_Array && MemberType->Kind != TypeKind_Struct)
+			if(!IsLHS && IsLoadableType(MemberType))
 			{
 				Result = PushInstruction(Builder,
 						Instruction(OP_LOAD, 0, Result, Type->Struct.Members[Node->Selector.Index].Type, Builder));
@@ -261,8 +261,11 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
 					if(!IsLHS)
 					{
-						instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
-						Result = PushInstruction(Builder, I);
+						if(IsLoadableType(Node->Unary.Type))
+						{
+							instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
+							Result = PushInstruction(Builder, I);
+						}
 					}
 				} break;
 				case T_ADDROF:
@@ -281,7 +284,7 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 	return Result;
 }
 
-u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
+u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 NeedResult)
 {
 	if(Node->Type == AST_BINARY)
 	{
@@ -321,7 +324,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false)
 			case '=':
 			{
 				I = InstructionStore(Left, Right, Node->Binary.ExpressionType);
-				if(!IsLHS)
+				if(NeedResult && !IsLHS && IsLoadableType(Node->Binary.ExpressionType))
 				{
 					PushInstruction(Builder, I);
 					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
@@ -450,7 +453,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		default:
 		{
-			BuildIRFromExpression(Builder, Node);
+			BuildIRFromExpression(Builder, Node, false, false);
 		} break;
 	}
 }
@@ -492,14 +495,16 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			PushIRLocal(&Function, ModuleSymbols[Idx].Name, ModuleSymbols[Idx].Register,
 					ModuleSymbols[Idx].Type, true);
 		}
+		Builder.LastRegister = ModuleSymbols.Count;
 
 		ForArray(Idx, Args)
 		{
-			PushIRLocal(&Function, Args[Idx]->Decl.ID, Idx + ModuleSymbols.Count,
+			u32 Register = PushInstruction(&Builder,
+					Instruction(OP_ARG, Idx, FnType->Function.Args[Idx], &Builder));
+			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
 					FnType->Function.Args[Idx], true);
 		}
 
-		Builder.LastRegister = Args.Count + ModuleSymbols.Count;
 
 		ForArray(Idx, Body)
 		{
@@ -696,6 +701,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 			{
 				PushBuilderFormated(Builder, "MEMSET %%%d", Instr.Right);
 			} break;
+			case OP_ARG:
+			{
+				PushBuilderFormated(Builder, "%%%d = ARG #%d", Instr.Result, Instr.BigRegister);
+			} break;
 
 #define CASE_OP(op, str) \
 			case op: \
@@ -716,6 +725,7 @@ INSIDE_EQ:
 
 			} break;
 #undef CASE_OP
+			case OP_COUNT: unreachable;
 		}
 		PushBuilder(Builder, '\n');
 	}

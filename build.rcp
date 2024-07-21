@@ -1,0 +1,9 @@
+
+compile :: fn(out: *CompileInfo) {
+	to_fill := *out;
+	to_fill.files[0] = c"Test.rcp";
+	to_fill.files[1] = c"OtherFile.rcp";
+	to_fill.file_count = 2;
+	*out = to_fill;
+}
+

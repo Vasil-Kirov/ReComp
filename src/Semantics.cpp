@@ -205,7 +205,7 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		{
 			if(LHS->Unary.Op != T_PTR)
 				return false;
-			return IsLHSAssignable(Checker, LHS->Unary.Operand);
+			return true;
 		} break;
 		case AST_SELECTOR:
 		{
@@ -676,6 +676,7 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 	const type *Promotion = NULL;
 	if(!IsTypeCompatible(LeftType, RightType, &Promotion, IsAssignment))
 	{
+TYPE_ERR:
 		RaiseError(*ErrorInfo, "Incompatible types.\nLeft: %s\nRight: %s",
 				GetTypeName(LeftType), GetTypeName(RightType));
 	}
@@ -687,7 +688,8 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 		{
 			if(Promote.FromT == LeftType)
 			{
-				Assert(!IsAssignment);
+				if(IsAssignment)
+					goto TYPE_ERR;
 				*LeftNode  = MakeCast(ErrorInfo, *LeftNode, NULL, Promote.From, Promote.To);
 			}
 			else
@@ -717,7 +719,11 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		const type *RightType = GetType(Right);
 
 		// @TODO: Check how type checking and casting here works with +=, -=, etc... substitution
-		u32 Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
+		u32 Promoted;
+		if(Expr->Binary.Op != '=')
+			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
+		else
+			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, NULL, &Expr->Binary.Right);
 
 		u32 Result = Promoted;
 		switch(Expr->Binary.Op)

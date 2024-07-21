@@ -109,7 +109,29 @@ void PerformFunctionCall(interpreter *VM, call_info *Info)
 	ToCall(Operand->ptr, Args);
 }
 
-interpret_result Run(interpreter *VM)
+void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	if(Type->Kind == TypeKind_Basic)
+	{
+		int TypeSize = GetTypeSize(Type);
+		if(Type->Basic.Kind == Basic_cstring)
+			*(void **)Ptr->ptr = Value->ptr;
+		else
+			memcpy(Ptr->ptr, &Value->u64, TypeSize);
+	}
+	else if(Type->Kind == TypeKind_Pointer)
+	{
+		*(void **)Ptr->ptr = Value->ptr;
+	}
+	else
+	{
+		memcpy(Ptr->ptr, Value->ptr, GetTypeSize(Type));
+	}
+
+}
+
+interpret_result Run(interpreter *VM, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
 	{
@@ -204,43 +226,44 @@ interpret_result Run(interpreter *VM)
 
 					LOAD_T(int, 64);
 					LOAD_T(uint, 64);
+
 					default: unreachable;
 				}
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_STORE:
 			{
-#define STORE_T(T, size) case Basic_##T: \
-						{ \
-							*(u##size *)Left->ptr = Right->u64; \
-						} break
-
 				value *Left = VM->Registers.GetValue(I.Left);
 				value *Right = VM->Registers.GetValue(I.Right);
+				Store(VM, Left, Right, I.Type);
+			} break;
+			case OP_INDEX:
+			{
+				value Value = {};
+				value *Operand = VM->Registers.GetValue(I.Left);
 				const type *Type = GetType(I.Type);
-				Assert(Type->Kind == TypeKind_Basic);
-
-				switch(Type->Basic.Kind)
+				switch(Type->Kind)
 				{
-					STORE_T(bool, 8);
-
-					STORE_T(u8, 8);
-					STORE_T(u16, 16);
-					STORE_T(u32, 32);
-					STORE_T(u64, 64);
-
-					STORE_T(i8, 8);
-					STORE_T(i16, 16);
-					STORE_T(i32, 32);
-					STORE_T(i64, 64);
-
-					STORE_T(f32, 32);
-					STORE_T(f64, 64);
-
-					STORE_T(int, 64);
-					STORE_T(uint, 64);
+					case TypeKind_Array:
+					{
+						value *Index = VM->Registers.GetValue(I.Right);
+						int TypeSize = GetTypeSize(Type->Array.Type);
+						Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+					} break;
+					case TypeKind_Struct:
+					{
+						int Offset = GetStructMemberOffset(Type, I.Right);
+						Value.ptr = ((u8 *)Operand->ptr) + Offset;
+					} break;
+					case TypeKind_Pointer:
+					{
+						value *Index = VM->Registers.GetValue(I.Right);
+						int TypeSize = GetTypeSize(Type->Pointer.Pointed);
+						Value.ptr = (*(u8 **)Operand->ptr) + (TypeSize * Index->u64);
+					} break;
 					default: unreachable;
 				}
+				VM->Registers.AddValue(I.Result, Value);
 			} break;
 			case OP_RET:
 			{
@@ -258,6 +281,18 @@ interpret_result Run(interpreter *VM)
 				call_info *CallInfo = (call_info *)I.BigRegister;
 				PerformFunctionCall(VM, CallInfo);
 			} break;
+			case OP_ARG:
+			{
+				if(!OptionalArgs.IsValid())
+					return { INTERPRET_RUNTIME_ERROR };
+				int TypeSize = GetTypeSize(I.Type);
+				void *Memory = VM->Stack.Peek().Allocate(TypeSize);
+				value Value = {};
+				Value.Type = GetPointerTo(I.Type);
+				Value.ptr = Memory;
+				Store(VM, &Value, &OptionalArgs.Data[I.BigRegister], I.Type);
+				VM->Registers.AddValue(I.Result, OptionalArgs[I.BigRegister]);
+			} break;
 			BIN_OP(ADD, +);
 			BIN_OP(SUB, -);
 			BIN_OP(MUL, *);
@@ -270,6 +305,7 @@ interpret_result Run(interpreter *VM)
 			BIN_OP(EQEQ, ==);
 			default:
 			{
+				LDEBUG("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
 				return { INTERPRET_RUNTIME_ERROR };
 			} break;
 		}
@@ -286,7 +322,7 @@ interpret_result Interpret(code_chunk Chunk)
 	VM.Executing = &Chunk;
 	VM.Stack.Push(Stack);
 
-	interpret_result Result = Run(&VM);
+	interpret_result Result = Run(&VM, {});
 	Result.ToFreeStackMemory = Stack.Memory;
 
 
@@ -325,7 +361,7 @@ interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HM
 	return VM;
 }
 
-interpret_result InterpretFunction(interpreter *VM, function Function)
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args)
 {
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
@@ -338,7 +374,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function)
 		code_chunk Chunk;
 		Chunk.Code = SliceFromArray(Function.Blocks[Idx].Code);
 		VM->Executing = &Chunk;
-		Result = Run(VM);
+		Result = Run(VM, Args);
 	}
 	Result.ToFreeStackMemory = Stack.Memory;
 

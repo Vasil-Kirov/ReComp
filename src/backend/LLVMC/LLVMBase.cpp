@@ -232,8 +232,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Result);
 			LLVMValueRef Value = gen->map.Get(I.Right);
-			const type *Type = GetType(I.Type);
-			if(Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Array)
+			if(IsLoadableType(I.Type))
 			{
 				LLVMValueRef NewValue = LLVMBuildStore(gen->bld, Value, Pointer);
 				gen->map.Add(I.Result, NewValue);
@@ -272,6 +271,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 			LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
 			gen->map.Add(I.Result, Val);
+		} break;
+		case OP_ARG:
+		{
+			gen->map.Add(I.Result, LLVMGetParam(gen->fn, I.BigRegister));
 		} break;
 		case OP_RET:
 		{
@@ -353,22 +356,17 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
 			gen->map.Add(I.Result, Result);
 		} break;
+		case OP_COUNT: unreachable;
 	}
 }
 
 void RCGenerateFunction(generator *gen, function fn)
 {
-	const type *FnType = GetType(fn.Type);
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
 		gen->blocks[Idx] = RCCreateBlock(gen, Block.ID, false);
-	}
-
-	for(int Idx = 0; Idx < FnType->Function.ArgCount; ++Idx)
-	{
-		gen->map.Add(gen->map.Data.Count, LLVMGetParam(gen->fn, Idx));
 	}
 
 	ForArray(Idx, fn.Blocks)

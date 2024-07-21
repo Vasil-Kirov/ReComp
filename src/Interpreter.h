@@ -73,7 +73,7 @@ struct interpreter
 	stack<binary_stack> Stack;
 };
 
-interpret_result InterpretFunction(interpreter *VM, function Function);
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
 interpret_result Interpret(code_chunk Chunk);
 // @TODO: Don't use windows functions directly, some dll abstraction
 interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HMODULE *DLLs, u32 DLLCount);

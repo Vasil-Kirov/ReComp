@@ -5,6 +5,7 @@ enum op
 {
 	OP_NOP,
 	OP_CONST,
+	OP_ARG,
 	OP_ADD,
 	OP_SUB,
 	OP_DIV,
@@ -27,6 +28,7 @@ enum op
 	OP_INDEX,
 	OP_ARRAYLIST,
 	OP_MEMSET,
+	OP_COUNT,
 };
 
 enum ir_symbol_flags
@@ -105,7 +107,7 @@ string Dissasemble(slice<function> Fn);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);
-u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS);
+u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 
 
 

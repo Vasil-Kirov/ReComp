@@ -4,19 +4,50 @@ target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:
 
 %CompileInfo = type { [1024 x ptr], i32 }
 
-@0 = private unnamed_addr constant [9 x i8] c"Test.rcp\00", align 1
-@1 = private unnamed_addr constant [14 x i8] c"OtherFile.rcp\00", align 1
+declare ptr @memset(ptr, i32, i64)
+
+declare ptr @malloc(i64)
+
+declare ptr @read_stdin_line(ptr, i32, ptr)
+
+declare ptr @__acrt_iob_func(i32)
 
 define void @compile(ptr %0) {
 block_0:
-  %1 = getelementptr inbounds %CompileInfo, ptr %0, i32 0, i32 0
-  %2 = getelementptr [1024 x ptr], ptr %1, i64 0, i64 0
-  store ptr @0, ptr %2, align 8
-  %3 = getelementptr inbounds %CompileInfo, ptr %0, i32 0, i32 0
-  %4 = getelementptr [1024 x ptr], ptr %3, i64 0, i64 1
-  store ptr @1, ptr %4, align 8
-  %5 = getelementptr inbounds %CompileInfo, ptr %0, i32 0, i32 1
-  store i32 2, ptr %5, align 4
+  %1 = alloca i64, align 8
+  store i64 0, ptr %1, align 8
+  br label %block_1
+
+block_1:                                          ; preds = %block_3, %block_0
+  %2 = load i64, ptr %1, align 8
+  %3 = icmp slt i64 %2, 5
+  br i1 %3, label %block_2, label %block_4
+
+block_2:                                          ; preds = %block_1
+  %4 = call ptr @malloc(i64 32)
+  %5 = alloca ptr, align 8
+  store ptr %4, ptr %5, align 8
+  %6 = load ptr, ptr %5, align 8
+  %7 = call ptr @memset(ptr %6, i32 0, i64 32)
+  %8 = getelementptr inbounds %CompileInfo, ptr %0, i32 0, i32 0
+  %9 = load i64, ptr %1, align 8
+  %10 = getelementptr [1024 x ptr], ptr %8, i64 0, i64 %9
+  %11 = load ptr, ptr %5, align 8
+  %12 = call ptr @__acrt_iob_func(i32 0)
+  %13 = call ptr @read_stdin_line(ptr %11, i32 32, ptr %12)
+  store ptr %13, ptr %10, align 8
+  br label %block_3
+
+block_3:                                          ; preds = %block_2
+  %14 = load i64, ptr %1, align 8
+  %15 = add i64 %14, 1
+  store i64 %15, ptr %1, align 8
+  %16 = load i64, ptr %1, align 8
+  br label %block_1
+
+block_4:                                          ; preds = %block_1
+  %17 = getelementptr inbounds %CompileInfo, ptr %0, i32 0, i32 1
+  store i32 5, ptr %17, align 4
   call void @llvm.memcpy.p0.p0.i64(ptr align 8 %0, ptr align 8 %0, i64 8200, i1 false)
   ret void
 }

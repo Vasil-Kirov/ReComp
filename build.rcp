@@ -1,9 +1,18 @@
 
+memset :: fn(dst: *u8, val: i32, setsize: int) -> *u8;
+malloc :: fn(size: int) -> *u8;
+
+read_stdin_line :: fn(buff: *u8, max: i32, stream: *u8) -> cstring;
+__acrt_iob_func :: fn(_Ix: u32) -> *u8;
+
 compile :: fn(out: *CompileInfo) {
 	to_fill := *out;
-	to_fill.files[0] = c"Test.rcp";
-	to_fill.files[1] = c"OtherFile.rcp";
-	to_fill.file_count = 2;
+	for i := 0; i < 5; i += 1 {
+		buff := malloc(32);
+		memset(buff, 0, 32);
+		to_fill.files[i] = read_stdin_line(buff, 32, __acrt_iob_func(0));
+	}
+	to_fill.file_count = 5;
 	*out = to_fill;
 }
 

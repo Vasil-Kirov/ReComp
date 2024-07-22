@@ -76,6 +76,7 @@ struct operand
 		} Offset;
 		u32 Constant;
 	};
+	u8 GetRegisterEncoding();
 };
 
 struct assembler
@@ -95,6 +96,7 @@ struct assembler
 	void PushU64(u64 QWORD);
 	void PushU32(u32 QWORD);
 	void EncodeOperands(operand A, operand B);
+	void EncodePrefix(operand Dst, operand Src);
 };
 
 assembler MakeAssembler(uint MemorySize);

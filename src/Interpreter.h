@@ -84,7 +84,7 @@ interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HM
 				value Result = {}; \
 				Result.Type = I.Type; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
-				value *Right = VM->Registers.GetValue(I.Left); \
+				value *Right = VM->Registers.GetValue(I.Right); \
 				switch(Type->Basic.Kind) \
 				{ \
 					case Basic_bool: \

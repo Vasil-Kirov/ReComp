@@ -31,13 +31,6 @@ struct checker
 	u32 CurrentFnReturnTypeIdx;
 };
 
-struct locals_for_next_scope
-{
-	const string *ID;
-	const error_info *ErrorInfo;
-	u32 Type;
-};
-
 void AddFunctionToModule(checker *Checker, node *FnNode);
 node *FindFunction(checker *Checker, string *Name);
 void Analyze(const node **Nodes);

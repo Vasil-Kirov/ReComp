@@ -123,11 +123,15 @@ main(int ArgCount, char *Args[])
 	auto user32   = LoadLibrary("user32");
 	auto ntdll    = LoadLibrary("ntdll");
 	auto msvcrt   = LoadLibrary("msvcrt");
+	auto ucrtbase = LoadLibrary("ucrtbase");
+	auto testdll = LoadLibrary("testdll");
 	HMODULE DLLs[] = {
 		kernel32,
 		user32,
 		ntdll,
 		msvcrt,
+		ucrtbase,
+		testdll,
 	};
 
 	auto CompileFunction = STR_LIT("compile");

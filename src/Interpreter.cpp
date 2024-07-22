@@ -13,11 +13,11 @@ void *InterpreterAllocateString(interpreter *VM, const string *String)
 	return Memory;
 }
 
-void PerformFunctionCall(interpreter *VM, call_info *Info)
+u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 {
 	value *Operand = VM->Registers.GetValue(Info->Operand);
 
-	typedef int (__stdcall *inter_fn)(void *, value *);
+	typedef u64 (__stdcall *inter_fn)(void *, value *);
 
 	assembler Asm = MakeAssembler(KB(1));
 	//  rcx = operand
@@ -37,6 +37,7 @@ void PerformFunctionCall(interpreter *VM, call_info *Info)
 	//  pop rdx
 	//  ..
 	//
+	//	xor rax, rax
 	//	call rcx
 	//  mov rsp, rbp
 	//  pop rbp
@@ -69,6 +70,7 @@ void PerformFunctionCall(interpreter *VM, call_info *Info)
 		switch(Type->Kind)
 		{
 			case TypeKind_Basic:
+			case TypeKind_Pointer:
 			{
 				if(CurrentInt < ARR_LEN(ConventionRegisters))
 				{
@@ -87,16 +89,21 @@ void PerformFunctionCall(interpreter *VM, call_info *Info)
 
 
 	Asm.Pop(RegisterOperand(reg_b));
+	Asm.Xor(RegisterOperand(reg_a), RegisterOperand(reg_a));
 	Asm.Call(RegisterOperand(reg_b));
 
 	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
 	Asm.Pop(RegisterOperand(reg_bp));
 	Asm.Ret();
 
+#if 0
+	printf("Call to %%%d:\n", Info->Operand);
 	for(int Idx = 0; Idx < Asm.CurrentOffset; ++Idx)
 	{
-		//printf("%02x ", ((u8 *)Asm.Code)[Idx]);
+		printf("%02x ", ((u8 *)Asm.Code)[Idx]);
 	}
+	putchar('\n');
+#endif
 
 	inter_fn ToCall = (inter_fn)Asm.Code;
 
@@ -106,7 +113,7 @@ void PerformFunctionCall(interpreter *VM, call_info *Info)
 		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
 	}
 
-	ToCall(Operand->ptr, Args);
+	return ToCall(Operand->ptr, Args);
 }
 
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
@@ -131,7 +138,7 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 
 }
 
-interpret_result Run(interpreter *VM, slice<value> OptionalArgs)
+interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
 	{
@@ -205,28 +212,38 @@ interpret_result Run(interpreter *VM, slice<value> OptionalArgs)
 				Value->Type = I.Type;
 				value Result = {};
 				const type *Type = GetType(I.Type);
-				Assert(Type->Kind == TypeKind_Basic);
 
-				switch(Type->Basic.Kind)
+				switch(Type->Kind)
 				{
-					LOAD_T(bool, 8);
+					case TypeKind_Basic:
+					{
+						switch(Type->Basic.Kind)
+						{
+							LOAD_T(bool, 8);
 
-					LOAD_T(u8, 8);
-					LOAD_T(u16, 16);
-					LOAD_T(u32, 32);
-					LOAD_T(u64, 64);
+							LOAD_T(u8, 8);
+							LOAD_T(u16, 16);
+							LOAD_T(u32, 32);
+							LOAD_T(u64, 64);
 
-					LOAD_T(i8, 8);
-					LOAD_T(i16, 16);
-					LOAD_T(i32, 32);
-					LOAD_T(i64, 64);
+							LOAD_T(i8, 8);
+							LOAD_T(i16, 16);
+							LOAD_T(i32, 32);
+							LOAD_T(i64, 64);
 
-					LOAD_T(f32, 32);
-					LOAD_T(f64, 64);
+							LOAD_T(f32, 32);
+							LOAD_T(f64, 64);
 
-					LOAD_T(int, 64);
-					LOAD_T(uint, 64);
+							LOAD_T(int, 64);
+							LOAD_T(uint, 64);
 
+							default: unreachable;
+						}
+					} break;
+					case TypeKind_Pointer:
+					{
+						Result.ptr = *(void **)Value->ptr;
+					} break;
 					default: unreachable;
 				}
 				VM->Registers.AddValue(I.Result, Result);
@@ -279,7 +296,14 @@ interpret_result Run(interpreter *VM, slice<value> OptionalArgs)
 			case OP_CALL:
 			{
 				call_info *CallInfo = (call_info *)I.BigRegister;
-				PerformFunctionCall(VM, CallInfo);
+				u64 Result = PerformFunctionCall(VM, CallInfo);
+				if(I.Type != INVALID_TYPE)
+				{
+					value Value = {};
+					Value.Type = I.Type;
+					Value.u64 = Result;
+					VM->Registers.AddValue(I.Result, Value);
+				}
 			} break;
 			case OP_ARG:
 			{
@@ -292,6 +316,26 @@ interpret_result Run(interpreter *VM, slice<value> OptionalArgs)
 				Value.ptr = Memory;
 				Store(VM, &Value, &OptionalArgs.Data[I.BigRegister], I.Type);
 				VM->Registers.AddValue(I.Result, OptionalArgs[I.BigRegister]);
+			} break;
+			case OP_IF:
+			{
+				if(!OptionalBlocks.IsValid())
+					return { INTERPRET_RUNTIME_ERROR };
+
+				value *Cond = VM->Registers.GetValue(I.Result);
+				if(Cond->u64)
+					VM->Executing->Code = SliceFromArray(OptionalBlocks[I.Left].Code);
+				else
+					VM->Executing->Code = SliceFromArray(OptionalBlocks[I.Right].Code);
+				return Run(VM, OptionalBlocks, OptionalArgs);
+			} break;
+			case OP_JMP:
+			{
+				if(!OptionalBlocks.IsValid())
+					return { INTERPRET_RUNTIME_ERROR };
+
+				VM->Executing->Code = SliceFromArray(OptionalBlocks[I.BigRegister].Code);
+				return Run(VM, OptionalBlocks, OptionalArgs);
 			} break;
 			BIN_OP(ADD, +);
 			BIN_OP(SUB, -);
@@ -322,7 +366,7 @@ interpret_result Interpret(code_chunk Chunk)
 	VM.Executing = &Chunk;
 	VM.Stack.Push(Stack);
 
-	interpret_result Result = Run(&VM, {});
+	interpret_result Result = Run(&VM, {}, {});
 	Result.ToFreeStackMemory = Stack.Memory;
 
 
@@ -351,7 +395,7 @@ interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HM
 			}
 			if(Value.ptr == NULL)
 			{
-				LERROR("Couldn't find external function %s in compiler linked DLLs", Symbol.Name);
+				LERROR("Couldn't find external function %s in compiler linked DLLs", Symbol.Name->Data);
 				return {};
 			}
 		}
@@ -369,13 +413,11 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	VM->Stack.Push(Stack);
 
 	interpret_result Result = {};
-	ForArray(Idx, Function.Blocks)
-	{
-		code_chunk Chunk;
-		Chunk.Code = SliceFromArray(Function.Blocks[Idx].Code);
-		VM->Executing = &Chunk;
-		Result = Run(VM, Args);
-	}
+	code_chunk Chunk;
+	Chunk.Code = SliceFromArray(Function.Blocks[0].Code);
+	VM->Executing = &Chunk;
+	Result = Run(VM, SliceFromArray(Function.Blocks), Args);
+
 	Result.ToFreeStackMemory = Stack.Memory;
 
 

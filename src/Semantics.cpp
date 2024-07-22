@@ -225,10 +225,6 @@ u32 GetVariable(checker *Checker, const string *ID)
 	return Symbol ? Symbol->Type : INVALID_TYPE;
 }
 
-const int MAX_ARGS = 512;
-locals_for_next_scope LocalsNextScope[MAX_ARGS];
-int LocalNextCount = 0;
-
 u32 CreateFunctionType(checker *Checker, node *FnNode)
 {
 	type *NewType = NewType(type);
@@ -245,12 +241,6 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Decl.Type);
-
-		locals_for_next_scope Arg;
-		Arg.Type = Function.Args[I];
-		Arg.ErrorInfo = FnNode->Fn.Args[I]->ErrorInfo;
-		Arg.ID = FnNode->Fn.Args[I]->Decl.ID;
-		LocalsNextScope[LocalNextCount++] = Arg;
 	}
 	
 	NewType->Function = Function;
@@ -270,20 +260,19 @@ void PopScope(checker *Checker)
 	}
 }
 
-void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, u32 FunctionTypeIdx)
+void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx)
 {
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
 	const type *FunctionType = GetType(FunctionTypeIdx);
 	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Return;
 
 	Checker->CurrentDepth++;
-	for(int I = 0; I < LocalNextCount; ++I)
+	for(int I = 0; I < FunctionType->Function.ArgCount; ++I)
 	{
-		locals_for_next_scope Local = LocalsNextScope[I];
+		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		AddVariable(Checker, Local.ErrorInfo, Local.Type, Local.ID, NULL, flags);
+		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, NULL, flags);
 	}
-	LocalNextCount = 0;
 
 	b32 FoundReturn = false;
 	ForArray(Idx, Body)
@@ -1183,7 +1172,7 @@ void Analyze(node **Nodes)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			AnalyzeFunctionBody(&Checker, Node->Fn.Body, Node->Fn.TypeIdx);
+			AnalyzeFunctionBody(&Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}
 

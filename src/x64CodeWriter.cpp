@@ -107,8 +107,8 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 				case operand_register:
 				{
 					mod = MOD_register;
-					reg = Dst.Register;
-					rm = Src.Register;
+					reg = Dst.GetRegisterEncoding();
+					rm = Src.GetRegisterEncoding();
 				} break;
 				case operand_offset:
 				{
@@ -116,8 +116,8 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 						mod = MOD_displacement_0;
 					else
 						mod = MOD_displacement_i8;
-					reg = Dst.Register;
-					rm = Src.Offset.Register;
+					reg = Dst.GetRegisterEncoding();
+					rm = Src.GetRegisterEncoding();
 				} break;
 				default: unreachable;
 			}
@@ -136,8 +136,8 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 						mod = MOD_displacement_0;
 					else
 						mod = MOD_displacement_i8;
-					reg = Src.Register;
-					rm = Dst.Offset.Register;
+					reg = Src.GetRegisterEncoding();
+					rm = Dst.GetRegisterEncoding();
 				} break;
 				default: unreachable;
 			}
@@ -151,6 +151,55 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 		PushByte(Src.Offset.Constant);
 }
 
+void assembler::EncodePrefix(operand Dst, operand Src)
+{
+	u8 Byte = REX_W;
+	switch(Dst.Type)
+	{
+		case operand_register:
+		{
+			switch(Src.Type)
+			{
+				case operand_register:
+				{
+					if(Dst.Register >= reg_r8)
+						Byte |= REX_B;
+					if(Src.Register >= reg_r8)
+						Byte |= REX_R;
+				} break;
+				case operand_offset:
+				{
+					if(Dst.Register >= reg_r8)
+						Byte |= REX_R;
+					if(Src.Register >= reg_r8)
+						Byte |= REX_B;
+				} break;
+				case operand_constant:
+				{
+					if(Dst.Register >= reg_r8)
+						Byte |= REX_B;
+				} break;
+			}
+		} break;
+		case operand_offset:
+		{
+			if(Src.Type == operand_register)
+			{
+				if(Dst.Register >= reg_r8)
+					Byte |= REX_B;
+				if(Src.Register >= reg_r8)
+					Byte |= REX_R;
+			}
+			else
+			{
+				unreachable;
+			}
+		} break;
+		default: unreachable;
+	}
+	PushByte(Byte);
+}
+
 void assembler::Mov64(operand Dst, operand Src)
 {
 	switch(Dst.Type)
@@ -162,14 +211,14 @@ void assembler::Mov64(operand Dst, operand Src)
 				case operand_register:
 				case operand_offset:
 				{
-					PushByte(REX_W);
+					EncodePrefix(Dst, Src);
 					PushByte(0x8B);
 					EncodeOperands(Dst, Src);
 				} break;
 				case operand_constant:
 				{
 					Assert(false); // don't think it works
-					PushByte(REX_W);
+					EncodePrefix(Dst, Src);
 					PushByte(0xC7);
 					EncodeOperands(Dst, Src);
 				} break;
@@ -182,7 +231,7 @@ void assembler::Mov64(operand Dst, operand Src)
 			{
 				case operand_register:
 				{
-					PushByte(REX_W);
+					EncodePrefix(Dst, Src);
 					PushByte(0x89);
 					EncodeOperands(Dst, Src);
 				} break;
@@ -209,6 +258,28 @@ void assembler::Lea64(operand Dst, operand Src)
 				} break;
 				default: unreachable;
 			}
+		} break;
+		default: unreachable;
+	}
+}
+
+u8 operand::GetRegisterEncoding()
+{
+	switch(this->Type)
+	{
+		case operand_register:
+		{
+			u8 Byte = Register;
+			if(Byte >= reg_r8)
+				Byte -= reg_r8;
+			return Byte;
+		} break;
+		case operand_offset:
+		{
+			u8 Byte = Offset.Register;
+			if(Byte >= reg_r8)
+				Byte -= reg_r8;
+			return Byte;
 		} break;
 		default: unreachable;
 	}

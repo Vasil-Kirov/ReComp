@@ -163,7 +163,7 @@ node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_typ
 node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
 node *ParseTopLevel(parser *Parser);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
-node *ParseType(parser *Parser);
+node *ParseType(parser *Parser, b32 ShouldError = true);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

@@ -333,6 +333,10 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		} break;
 		case TypeKind_Pointer:
 		{
+			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
+			{
+				return (Left->Pointer.Pointed == INVALID_TYPE) == (Right->Pointer.Pointed == INVALID_TYPE);
+			}
 			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
 		default:
@@ -373,6 +377,8 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 		case TypeKind_Pointer:
 		{
+			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
+				return true;
 			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
 		case TypeKind_Array:
@@ -453,6 +459,10 @@ b32 IsCastRedundant(const type *From, const type *To)
 			} break;
 			case TypeKind_Pointer:
 			{
+				if(From->Pointer.Pointed == INVALID_TYPE || To->Pointer.Pointed == INVALID_TYPE)
+				{
+					return (From->Pointer.Pointed == INVALID_TYPE) == (To->Pointer.Pointed == INVALID_TYPE);
+				}
 				return IsCastRedundant(GetType(From->Pointer.Pointed), GetType(To->Pointer.Pointed));
 			} break;
 			default:
@@ -512,7 +522,10 @@ const char *GetTypeName(const type *Type)
 		case TypeKind_Pointer:
 		{
 			string_builder Builder = MakeBuilder();
-			PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
+			if(Type->Pointer.Pointed != INVALID_TYPE)
+				PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
+			else
+				PushBuilderFormated(&Builder, "*"); 
 			return MakeString(Builder).Data;
 		} break;
 		case TypeKind_Struct:

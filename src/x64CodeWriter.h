@@ -95,6 +95,7 @@ struct assembler
 	void PushByte(u8 Byte);
 	void PushU64(u64 QWORD);
 	void PushU32(u32 QWORD);
+	void Peek(operand Register);
 	void EncodeOperands(operand A, operand B);
 	void EncodePrefix(operand Dst, operand Src);
 };

@@ -1,9 +1,9 @@
 
-memset :: fn(dst: *u8, val: i32, setsize: int) -> *u8;
-malloc :: fn(size: int) -> *u8;
+memset :: fn(dst: *, val: i32, setsize: int) -> *;
+malloc :: fn(size: int) -> *;
 
-read_stdin_line :: fn(buff: *u8, max: i32, stream: *u8) -> cstring;
-__acrt_iob_func :: fn(_Ix: u32) -> *u8;
+read_stdin_line :: fn(buff: *, max: i32, stream: *) -> cstring;
+__acrt_iob_func :: fn(_Ix: u32) -> *;
 
 compile :: fn(out: *CompileInfo) {
 	to_fill := *out;

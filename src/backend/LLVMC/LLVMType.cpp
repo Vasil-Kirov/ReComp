@@ -89,6 +89,8 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
         case TypeKind_Pointer:
 		{
+			if(CustomType->Pointer.Pointed == INVALID_TYPE)
+				return LLVMPointerType(LLVMVoidTypeInContext(Context), 0);
             return LLVMPointerType(ConvertToLLVMType(Context, CustomType->Pointer.Pointed), 0);
 		} break;
 

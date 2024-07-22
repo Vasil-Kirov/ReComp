@@ -31,8 +31,8 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 	//  push rcx
 	//  push rdx
 	//  
-	//  lea rax, [rdx + idx]
-	//  mov rbx, [rax + offsetof(
+	//  mov rax, [rsp]
+	//  mov rax, [rax + offsetof(
 	//
 	//  pop rdx
 	//  ..
@@ -57,16 +57,18 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand(128));
 
 	Asm.Push(RegisterOperand(reg_c));
-	Asm.Mov64(RegisterOperand(reg_b), RegisterOperand(reg_d));
+	Asm.Push(RegisterOperand(reg_d));
 
 	const type *FnType = GetType(Operand->Type);
 
 	uint CurrentInt = 0;
 	//uint CurrentFloat = 0;
+
 	ForArray(Idx, Info->Args)
 	{
 		const type *Type = GetType(FnType->Function.Args[Idx]);
-		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_b, Idx * sizeof(value)));
+		Asm.Peek(RegisterOperand(reg_a));
+		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_a, Idx * sizeof(value)));
 		switch(Type->Kind)
 		{
 			case TypeKind_Basic:
@@ -78,8 +80,9 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 				}
 				else
 				{
-					Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
-					Asm.Push(RegisterOperand(reg_a));
+					Assert(false);
+					//Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
+					//Asm.Push(RegisterOperand(reg_a));
 				}
 			} break;
 
@@ -88,9 +91,9 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 	}
 
 
-	Asm.Pop(RegisterOperand(reg_b));
-	Asm.Xor(RegisterOperand(reg_a), RegisterOperand(reg_a));
-	Asm.Call(RegisterOperand(reg_b));
+	Asm.Pop(RegisterOperand(reg_a));
+	Asm.Pop(RegisterOperand(reg_a));
+	Asm.Call(RegisterOperand(reg_a));
 
 	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
 	Asm.Pop(RegisterOperand(reg_bp));
@@ -113,7 +116,9 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
 	}
 
-	return ToCall(Operand->ptr, Args);
+	u64 Result = ToCall(Operand->ptr, Args);
+	FreeVirtualMemory(Asm.Code);
+	return Result;
 }
 
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)

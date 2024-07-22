@@ -295,7 +295,7 @@ node *ParseArrayType(parser *Parser)
 }
 
 // @Todo: type types
-node *ParseType(parser *Parser)
+node *ParseType(parser *Parser, b32 ShouldError)
 {
 	token ErrorToken = PeekToken(Parser);
 	node *Result = NULL;
@@ -317,10 +317,7 @@ node *ParseType(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Pointed = ParseType(Parser);
-			if(Pointed == NULL)
-				RaiseError(*ErrorInfo, "Missing type of pointer");
-
+			node *Pointed = ParseType(Parser, false);
 			Result = MakePointerType(ErrorInfo, Pointed);
 		} break;
 		case T_FN:
@@ -331,7 +328,7 @@ node *ParseType(parser *Parser)
 		{
 		} break;
 	}
-	if(Result == NULL)
+	if(Result == NULL && ShouldError)
 	{
 		RaiseError(ErrorToken.ErrorInfo, "Expected a type. Found %s", GetTokenName(ErrorToken.Type));
 	}

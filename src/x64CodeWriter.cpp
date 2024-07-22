@@ -32,6 +32,14 @@ void assembler::PushByte(u8 Byte)
 	CurrentOffset++;
 }
 
+void assembler::Peek(operand Register)
+{
+	// @NOTE: Hard code it since there is no support for SIB bytes currently
+	Assert(Register.Type == operand_register);
+	Mov64(Register, OffsetOperand(reg_sp, 0));
+	PushByte(0x24);
+}
+
 void assembler::PushU32(u32 QWORD)
 {
 	u8 *Bytes = (u8 *)&QWORD;

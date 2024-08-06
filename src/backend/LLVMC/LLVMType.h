@@ -16,6 +16,7 @@ void LLVMDefineStructType(LLVMContextRef Context, u32 TypeID);
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID);
 
 LLVMOpcode RCCast(const type *From, const type *To);
+void LLVMClearTypeMap();
 
 
 

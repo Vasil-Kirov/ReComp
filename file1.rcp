@@ -1,0 +1,13 @@
+main
+
+#import file2 as f2
+
+struct x {
+	foo: f2.x,
+	bar: string,
+}
+
+main :: fn() -> i32 {
+	return f2.give_two();
+}
+

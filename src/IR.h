@@ -102,12 +102,10 @@ struct ir
 	u32 MaxRegisters;
 };
 
-ir BuildIR(node **Nodes);
+ir BuildIR(file *File);
 string Dissasemble(slice<function> Fn);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
-
-
 

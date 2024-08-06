@@ -1,4 +1,5 @@
 #pragma once
+#include "Basic.h"
 #include "VString.h"
 
 enum class const_type

@@ -6,7 +6,6 @@
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
-#include "Log.h"
 extern const type BasicTypes[];
 extern const int  BasicTypesCount;
 
@@ -32,11 +31,6 @@ void RaiseBinaryTypeError(const error_info *ErrorInfo, const type *Left, const t
 			GetTypeName(Left), GetTypeName(Right));
 }
 
-void AddFunctionToModule(checker *Checker, node *FnNode, u32 Type)
-{
-	AddVariable(Checker, FnNode->ErrorInfo, Type, FnNode->Fn.Name, FnNode, SymbolFlag_Public | SymbolFlag_Function);
-}
-
 void FillUntypedStack(checker *Checker, u32 Type)
 {
 	const type *TypePtr = GetType(Type);
@@ -49,8 +43,9 @@ void FillUntypedStack(checker *Checker, u32 Type)
 	}
 }
 
-u32 FindType(checker *Checker, const string *Name)
+u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
 {
+	string AsModule = {};
 	for(int I = 0; I < TypeCount; ++I)
 	{
 		const type *Type = GetType(I);
@@ -65,7 +60,21 @@ u32 FindType(checker *Checker, const string *Name)
 			} break;
 			case TypeKind_Struct:
 			{
-				if(*Name == Type->Struct.Name)
+				if(AsModule.Data == NULL)
+				{
+					if(ModuleNameOptional == NULL)
+					{
+						AsModule = *Name;
+					}
+					else
+					{
+						auto ModuleName = *ModuleNameOptional;
+						auto NonPtrName = *Name;
+						AsModule = StructToModuleName(NonPtrName, ModuleName);
+					}
+				}
+
+				if(AsModule == Type->Struct.Name)
 				{
 					return I;
 				}
@@ -95,6 +104,22 @@ void FixZeroSizedArrayList(u32 ArrayTypeIdx, const type *ArrayType, node *Expres
 		RaiseError(*Expression->ErrorInfo, "Cannot assign array initializer to non array type %s",
 				GetTypeName(ArrayType));
 	}
+}
+
+b32 FindImportedModule(checker *Checker, string &ModuleName, import *Out)
+{
+	auto Imports = *Checker->Imported;
+	ForArray(Idx, Imports)
+	{
+		import Imported = Imports[Idx];
+		if(Imported.Name == ModuleName
+				|| Imported.As == ModuleName)
+		{
+			*Out = Imported;
+			return true;
+		}
+	}
+	return false;
 }
 
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
@@ -164,6 +189,26 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			
 			return AddType(FnType);
 		} break;
+		case AST_SELECTOR:
+		{
+			node *Operand = TypeNode->Selector.Operand;
+			if(Operand->Type != AST_ID)
+			{
+				RaiseError(*Operand->ErrorInfo, "Expected module name in selector");
+			}
+			import Module;
+			string SearchName = *Operand->ID.Name;
+			if(!FindImportedModule(Checker, SearchName, &Module))
+			{
+				RaiseError(*Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
+			}
+			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Module.Name);
+			if(Type == INVALID_TYPE)
+			{
+				RaiseError(*TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member, TypeNode->Selector.Operand->ID.Name->Data);
+			}
+			return Type;
+		} break;
 		default:
 		{
 			RaiseError(*TypeNode->ErrorInfo, "Expected valid type!");
@@ -175,9 +220,15 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 const symbol *FindSymbol(checker *Checker, const string *ID)
 {
 	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
-	for(int I = 0; I < Checker->SymbolCount; ++I)
+	for(int I = 0; I < Checker->Symbols.Count; ++I)
 	{
-		const symbol *Local = &Checker->Symbols[I];
+		const symbol *Local = &Checker->Symbols.Data[I];
+		if(Hash == Local->Hash && *ID == *Local->Name)
+			return Local;
+	}
+	for(int I = 0; I < Checker->Module->Globals.Count; ++I)
+	{
+		const symbol *Local = Checker->Module->Globals.Data[I];
 		if(Hash == Local->Hash && *ID == *Local->Name)
 			return Local;
 	}
@@ -250,11 +301,11 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 void PopScope(checker *Checker)
 {
 	Checker->CurrentDepth--;
-	for(int I = 0; I < Checker->SymbolCount; ++I)
+	for(int I = 0; I < Checker->Symbols.Count; ++I)
 	{
 		if(Checker->Symbols[I].Depth > Checker->CurrentDepth)
 		{
-			Checker->SymbolCount = I;
+			Checker->Symbols.Count = I;
 			break;
 		}
 	}
@@ -303,6 +354,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_CALL:
 		{
 			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
+
 			const type *CallType = GetType(CallTypeIdx);
 			if(!IsCallable(CallType))
 			{
@@ -378,7 +430,27 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Result = GetVariable(Checker, Expr->ID.Name);
 			if(Result == INVALID_TYPE)
 			{
-				RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
+				ForArray(Idx, Checker->Module->Globals)
+				{
+					symbol *Sym = Checker->Module->Globals[Idx];
+					if(*Sym->Name == *Expr->ID.Name)
+					{
+						Result = Sym->Type;
+						break;
+					}
+				}
+
+				if(Result == INVALID_TYPE)
+				{
+					import m;
+					string Name = *Expr->ID.Name;
+					if(FindImportedModule(Checker, Name, &m))
+					{
+						Result = Basic_module;
+					}
+				}
+				if(Result == INVALID_TYPE)
+					RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
 		} break;
 		case AST_ARRAYLIST:
@@ -506,27 +578,65 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_SELECTOR:
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
-			Expr->Selector.Type = TypeIdx;
-			const type *Type = GetType(TypeIdx);
-			if(Type->Kind != TypeKind_Struct)
+			if(TypeIdx == Basic_module)
 			{
-				RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a non struct type %s",
-						GetTypeName(Type));
-			}
-
-			Result = INVALID_TYPE;
-			ForArray(Idx, Type->Struct.Members)
-			{
-				if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
+				Expr->Selector.Index = -1;
+				if(Expr->Selector.Operand->Type != AST_ID)
 				{
-					Expr->Selector.Index = Idx;
-					Result = Type->Struct.Members[Idx].Type;
+					RaiseError(*Expr->Selector.Operand->ErrorInfo,
+							"Invalid use of module");
 				}
+				string ModuleName = *Expr->Selector.Operand->ID.Name;
+				import m;
+				if(!FindImportedModule(Checker, ModuleName, &m))
+				{
+					unreachable;
+				}
+				b32 Found = false;
+				ForArray(Idx, m.Globals)
+				{
+					symbol *s = m.Globals[Idx];
+					if(*s->Name == *Expr->Selector.Member)
+					{
+						Result = s->Type;
+						Expr->Selector.Type = s->Type;
+						Found = true;
+						break;
+					}
+				}
+				if(!Found)
+				{
+					RaiseError(*Expr->ErrorInfo,
+							"Cannot find public symbol %s in module %s",
+							Expr->Selector.Member->Data, ModuleName.Data);
+				}
+				Assert(Expr->Selector.Operand->Type == AST_ID);
+				Expr->Selector.Operand->ID.Name = DupeType(m.Name, string);
 			}
-			if(Result == INVALID_TYPE)
+			else
 			{
-				RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
-						Expr->Selector.Member->Data, GetTypeName(Type));
+				Expr->Selector.Type = TypeIdx;
+				const type *Type = GetType(TypeIdx);
+				if(Type->Kind != TypeKind_Struct)
+				{
+					RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a non struct type %s",
+							GetTypeName(Type));
+				}
+
+				Result = INVALID_TYPE;
+				ForArray(Idx, Type->Struct.Members)
+				{
+					if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
+					{
+						Expr->Selector.Index = Idx;
+						Result = Type->Struct.Members[Idx].Type;
+					}
+				}
+				if(Result == INVALID_TYPE)
+				{
+					RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
+							Expr->Selector.Member->Data, GetTypeName(Type));
+				}
 			}
 		} break;
 		case AST_INDEX:
@@ -824,7 +934,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
 	if((Flags & SymbolFlag_Shadow) == 0)
 	{
-		for(int I = 0; I < Checker->SymbolCount; ++I)
+		for(int I = 0; I < Checker->Symbols.Count; ++I)
 		{
 			if(Hash == Checker->Symbols[I].Hash && *ID == *Checker->Symbols[I].Name)
 			{
@@ -851,7 +961,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 		}
 	}
 
-	Checker->Symbols[Checker->SymbolCount++] = Symbol;
+	Checker->Symbols.Push(Symbol);
 }
 
 const u32 AnalyzeDeclerations(checker *Checker, node *Node)
@@ -1033,16 +1143,14 @@ u32 FixPotentialFunctionPointer(u32 Type)
 	}
 }
 
-u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
+void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
-	if(FindType(Checker, Node->StructDecl.Name) != INVALID_TYPE)
-	{
-		RaiseError(*Node->ErrorInfo, "Redefinition of struct %s", Node->StructDecl.Name->Data);
-	}
+	u32 OpaqueType = FindType(Checker, Node->StructDecl.Name);
+	Assert(OpaqueType != INVALID_TYPE);
 
-	type *New = NewType(type);
-	New->Kind = TypeKind_Struct;
-	New->Struct.Name = *Node->StructDecl.Name;
+	type New = {};
+	New.Kind = TypeKind_Struct;
+	New.Struct.Name = *Node->StructDecl.Name;
 
 	array<struct_member> Members {Node->StructDecl.Members.Count};
 	ForArray(Idx, Node->StructDecl.Members)
@@ -1067,9 +1175,9 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 		}
 	}
 
-	New->Struct.Members = SliceFromArray(Members);
-	New->Struct.Flags = 0; // not supported rn
-	return AddType(New);
+	New.Struct.Members = SliceFromArray(Members);
+	New.Struct.Flags = 0; // not supported rn
+	FillOpaqueStruct(OpaqueType, New);
 }
 
 void AnalyzeNode(checker *Checker, node *Node)
@@ -1138,45 +1246,71 @@ RetErr:
 	}
 }
 
-void Analyze(node **Nodes)
+void AnalyzeForModuleStructs(slice<node *>Nodes, import &Module)
 {
-	// @NOTE: Too much?
-	checker Checker = {};
-	Checker.Symbols = (symbol *)AllocateVirtualMemory(MB(1) * sizeof(symbol));
-	Checker.SymbolCount = 0;
-	Checker.CurrentDepth = 0;
-	Checker.CurrentFnReturnTypeIdx = INVALID_TYPE;
-
-	int NodeCount = ArrLen(Nodes);
-	for(int I = 0; I < NodeCount; ++I)
+	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
-			AnalyzeStructDeclaration(&Checker, Nodes[I]);
+			type *New = NewType(type);
+			New->Kind = TypeKind_Struct;
+			New->Struct.Name = *Nodes[I]->StructDecl.Name;
+
+			AddType(New);
 		}
 	}
+}
 
-	for(int I = 0; I < NodeCount; ++I)
+checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
+{
+	checker Checker = {};
+	Checker.Module = ThisModule;
+	Checker.CurrentDepth = 0;
+	Checker.CurrentFnReturnTypeIdx = INVALID_TYPE;
+
+
+	dynamic<symbol *> GlobalSymbols = {};
+	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
 			u32 FnType = CreateFunctionType(&Checker, Node);
 			Node->Fn.TypeIdx = FnType;
-			AddFunctionToModule(&Checker, Node, FnType);
+			symbol *Sym = NewType(symbol);
+			Sym->Name = Node->Fn.Name;
+			Sym->Type = FnType;
+			Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
+			Sym->Depth = 0;
+			Sym->Flags = SymbolFlag_Function;
+			Sym->Flags |= SymbolFlag_Public;
+			if(Node->Fn.Flags & FunctionFlag_foreign)
+				Sym->Flags |= SymbolFlag_Foreign;
+			GlobalSymbols.Push(Sym);
+		}
+	}
+	Checker.Module->Globals = SliceFromArray(GlobalSymbols);
+	return Checker;
+}
+
+void Analyze(checker *Checker, slice<node *>Nodes)
+{
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_STRUCTDECL)
+		{
+			AnalyzeStructDeclaration(Checker, Nodes[I]);
 		}
 	}
 
-	for(int I = 0; I < NodeCount; ++I)
+	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			AnalyzeFunctionBody(&Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
+			AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}
-
-	FreeVirtualMemory(Checker.Symbols);
 }
 
 // @Note: Stolen from wikipedia implementations of murmur3

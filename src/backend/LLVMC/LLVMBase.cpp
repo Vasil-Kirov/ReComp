@@ -1,4 +1,6 @@
 #include "LLVMBase.h"
+#include "Parser.h"
+#include "Semantics.h"
 #include "Basic.h"
 #include "ConstVal.h"
 #include "IR.h"
@@ -425,8 +427,11 @@ void RCGenerateCompilerTypes(generator *gen)
 	LLVMDefineStructType(gen->ctx, String);
 }
 
-void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
+void RCGenerateFile(file *File, const char *Name, LLVMTargetMachineRef Machine, b32 OutputBC)
 {
+	LDEBUG("Generating file: %s", File->Module.Name.Data);
+	ir *IR = File->IR;
+
 	generator Gen = {};
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(Name, Gen.ctx);
@@ -437,12 +442,36 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	RCGenerateComplexTypes(&Gen);
 	RCGenerateCompilerTypes(&Gen);
 
+	uint Count = 0;
 	dynamic<LLVMValueRef> Functions = {};
-	ForArray(Idx, IR->Functions)
+	ForArray(GIdx, File->Module.Globals)
 	{
-		LLVMValueRef Fn = RCGenerateFunctionSignature(&Gen, IR->Functions[Idx]);
+		symbol *s = File->Module.Globals[GIdx];
+		string fnName = *s->Name;
+		string LinkName = fnName;
+		if((s->Flags & SymbolFlag_Foreign) == 0)
+			LinkName = StructToModuleName(fnName, File->Module.Name);
+		LLVMCreateFunctionType(Gen.ctx, s->Type);
+		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
+				ConvertToLLVMType(Gen.ctx, s->Type));
 		Functions.Push(Fn);
-		Gen.map.Add(Idx, Fn);
+		Gen.map.Add(Count++, Fn);
+	}
+
+	ForArray(Idx, File->Imported)
+	{
+		auto m = File->Imported[Idx];
+		ForArray(GIdx, m.Globals)
+		{
+			symbol *s = m.Globals[GIdx];
+			LLVMCreateFunctionType(Gen.ctx, s->Type);
+			string fnName = *s->Name;
+			string SymName = StructToModuleName(fnName, m.Name);
+			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, SymName.Data, 
+					ConvertToLLVMType(Gen.ctx, s->Type));
+			Functions.Push(Fn);
+			Gen.map.Add(Count++, Fn);
+		}
 	}
 	Gen.map.LockBottom();
 	ForArray(Idx, IR->Functions)
@@ -464,13 +493,25 @@ void RCGenerateFile(ir *IR, const char *Name, LLVMTargetMachineRef Machine)
 	}
 #endif
 
-	if(LLVMPrintModuleToFile(Gen.mod, "LLVMMod.bc", &Error))
+	if(OutputBC)
 	{
-		LERROR("Couldn't Print LLVM: %s", Error);
-		LLVMDisposeMessage(Error);
+		string_builder BCFileBuilder = MakeBuilder();
+		BCFileBuilder += File->Module.Name;
+		BCFileBuilder += ".bc";
+		string BCFile = MakeString(BCFileBuilder);
+
+		if(LLVMPrintModuleToFile(Gen.mod, BCFile.Data, &Error))
+		{
+			LERROR("Couldn't Print LLVM: %s", Error);
+			LLVMDisposeMessage(Error);
+		}
 	}
 
-	if(LLVMTargetMachineEmitToFile(Machine, Gen.mod, "out.obj", LLVMObjectFile, (char **)&Error))
+	string_builder Obj = MakeBuilder();
+	Obj += File->Module.Name;
+	Obj += ".obj";
+
+	if(LLVMTargetMachineEmitToFile(Machine, Gen.mod, MakeString(Obj).Data, LLVMObjectFile, (char **)&Error))
 	{
 		LERROR("Couldn't Generate File: %s", Error);
 		LLVMDisposeMessage(Error);
@@ -516,9 +557,17 @@ LLVMTargetMachineRef RCInitLLVM()
 	return Machine;
 }
 
-void RCGenerateCode(ir *IR)
+void RCGenerateCode(slice<file>Files, b32 OutputBC)
 {
 	LLVMTargetMachineRef Machine = RCInitLLVM();
-	RCGenerateFile(IR, "main", Machine);
+	
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		RCGenerateFile(File, File->Module.Name.Data, Machine, OutputBC);
+
+		// NOT THREAD SAFE
+		LLVMClearTypeMap();
+	}
 }
 

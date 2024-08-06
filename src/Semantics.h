@@ -6,11 +6,11 @@
 
 enum SymbolFlag
 {
-	SymbolFlag_Private = 0b0000,
-	SymbolFlag_Public  = 0b0001,
-	SymbolFlag_Const   = 0b0010,
-	SymbolFlag_Shadow  = 0b0100,
-	SymbolFlag_Function= 0b1000,
+	SymbolFlag_Public  = BIT(0),
+	SymbolFlag_Const   = BIT(1),
+	SymbolFlag_Shadow  = BIT(2),
+	SymbolFlag_Function= BIT(3),
+	SymbolFlag_Foreign = BIT(4),
 };
 
 struct symbol
@@ -24,16 +24,16 @@ struct symbol
 
 struct checker
 {
-	symbol *Symbols;
+	dynamic<symbol> Symbols;
+	import *Module;
+	slice<import> *Imported;
 	stack<u32 *> UntypedStack;
-	u32 SymbolCount;
 	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;
 };
 
 void AddFunctionToModule(checker *Checker, node *FnNode);
 node *FindFunction(checker *Checker, string *Name);
-void Analyze(const node **Nodes);
 void AnalyzeNode(checker *Checker, node *Node);
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags);
 u32 AnalyzeExpression(checker *Checker, node *Expr);

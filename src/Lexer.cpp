@@ -83,16 +83,23 @@ char PeekC(string *String)
 	return *String->Data;
 }
 
-token *StringToTokens(string String, error_info ErrorInfo)
+file StringToTokens(string String, error_info ErrorInfo)
 {
-	token *Result = ArrCreate(token);
-
+	file Result = {};
+	token ModuleName = GetNextToken(&String, &ErrorInfo);
+	if(ModuleName.Type != T_ID)
+	{
+		RaiseError(ModuleName.ErrorInfo, "Expected module name at the start of file"); 
+	}
+	Result.Module = { .Name = *ModuleName.ID, .As = STR_LIT("") };
+	token *Tokens = ArrCreate(token);
 	while(String.Size > 0)
 	{
 		token Token = GetNextToken(&String, &ErrorInfo);
-		ArrPush(Result, Token);
+		ArrPush(Tokens, Token);
 	}
 
+	Result.Tokens = Tokens;
 	return Result;
 }
 
@@ -288,6 +295,7 @@ void InitializeLexer()
 	AddKeyword("else",T_ELSE);
 	AddKeyword("for", T_FOR);
 	AddKeyword("fn",  T_FN);
+	AddKeyword("as",  T_AS);
 	AddKeyword("@@",  T_AUTOCAST);
 	AddKeyword(">=",  T_GEQ);
 	AddKeyword("<=",  T_LEQ);
@@ -310,7 +318,8 @@ void InitializeLexer()
 	AddKeyword("|=",  T_OREQ);
 	AddKeyword("::",  T_CONST);
 	AddKeyword("#shadow", T_SHADOW);
-	AddKeyword("#cdecl",  T_CDECL);
+	AddKeyword("#import", T_IMPORT);
+	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
 }

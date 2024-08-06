@@ -4,6 +4,7 @@
 #include "Lexer.h"
 #include "Memory.h"
 #include "Type.h"
+#include "VString.h"
 
 node *AllocateNode(const error_info *ErrorInfo)
 {
@@ -238,14 +239,15 @@ token EatToken(parser *Parser, char C)
 	return EatToken(Parser, (token_type)C);
 }
 
-node **ParseTokens(token *Tokens)
+parse_result ParseTokens(token *Tokens, string ModuleName)
 {
-	node **Result = ArrCreate(node *);
+	dynamic<node *>Nodes = {};
 
-	parser Parser;
+	parser Parser = {};
 	Parser.Tokens = Tokens;
 	Parser.TokenIndex = 0;
 	Parser.Current = Tokens;
+	Parser.ModuleName = ModuleName;
 	Parser.IsInBody = false;
 
 	size_t TokenCount = ArrLen(Tokens);
@@ -255,13 +257,21 @@ node **ParseTokens(token *Tokens)
 		node *Node = ParseTopLevel(&Parser);
 		if(Node)
 		{
-			ArrPush(Result, Node);
+			if(Node != (node *)0x1)
+			{
+				Nodes.Push(Node);
+			}
 		}
 		else
 		{
 			break;
 		}
 	}
+
+	parse_result Result = {};
+	Result.Nodes = Nodes;
+	Result.Imports = SliceFromArray(Parser.Imported);
+
 	return Result;
 }
 
@@ -306,7 +316,16 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			ERROR_INFO;
 			token IDToken = GetToken(Parser);
 			node *ID = MakeID(ErrorInfo, IDToken.ID);
-			Result = MakeBasicType(ErrorInfo, ID);
+			if(Parser->Current->Type == T_DOT)
+			{
+				GetToken(Parser);
+				token TypeID = EatToken(Parser, T_ID);
+				Result = MakeSelector(ErrorInfo, ID, TypeID.ID);
+			}
+			else
+			{
+				Result = MakeBasicType(ErrorInfo, ID);
+			}
 		} break;
 		case T_OPENBRACKET:
 		{
@@ -369,10 +388,10 @@ node *ParseFunctionType(parser *Parser)
 	ERROR_INFO;
 	u32 Flags = 0;
 	EatToken(Parser, T_FN);
-	if(Parser->Current->Type == T_CDECL)
+	if(Parser->Current->Type == T_FOREIGN)
 	{
 		GetToken(Parser);
-		Flags |= FunctionFlag_Cdecl;
+		Flags |= FunctionFlag_foreign;
 	}
 	EatToken(Parser, '(');
 	slice<node *> Args{};
@@ -912,6 +931,23 @@ node *ParseNode(parser *Parser)
 	return Result;
 }
 
+string *StructToModuleNamePtr(string &StructName, string &ModuleName)
+{
+	string Result = StructToModuleName(StructName, ModuleName);
+	string *StructNamePtr = NewType(string);
+	*StructNamePtr = Result;
+	return StructNamePtr;
+}
+
+string StructToModuleName(string &StructName, string &ModuleName)
+{
+	string_builder Builder = MakeBuilder();
+	Builder += ModuleName;
+	Builder += '!';
+	Builder += StructName;
+	return MakeString(Builder);
+}
+
 node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
@@ -924,13 +960,29 @@ node *ParseTopLevel(parser *Parser)
 			GetToken(Parser);
 			EatToken(Parser, T_CONST);
 			node *Fn = ParseFunctionType(Parser);
+			Fn->Fn.Name = StartToken.ID;
+			if(*Fn->Fn.Name == STR_LIT("main"))
+				Fn->Fn.Flags |= FunctionFlag_foreign;
 			if(PeekToken(Parser).Type == T_STARTSCOPE)
 				ParseBody(Parser, Fn->Fn.Body);
 			else
 				EatToken(Parser, ';');
 
-			Fn->Fn.Name = StartToken.ID;
 			Result = Fn;
+		} break;
+		case T_IMPORT:
+		{
+			GetToken(Parser);
+			token T = EatToken(Parser, T_ID);
+			string *As = NULL;
+			if(Parser->Current->Type == T_AS)
+			{
+				GetToken(Parser);
+				As = EatToken(Parser, T_ID).ID;
+			}
+			import Imported = {.Name = *T.ID, .As = As ? *As : STR_LIT("")};
+			Parser->Imported.Push(Imported);
+			Result = (node *)0x1;
 		} break;
 		case T_STRUCT:
 		{
@@ -948,8 +1000,8 @@ node *ParseTopLevel(parser *Parser)
 					return NULL;
 				return ParseDeclaration(P, false);
 			};
-
-			Result = MakeStructDecl(ErrorInfo, NameT.ID, Delimited(Parser, ',', ParseFn));
+			auto Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
+			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn));
 			EatToken(Parser, T_ENDSCOPE);
 		} break;
 		case T_EOF:
@@ -958,6 +1010,9 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		default:
 		{
+#if defined(DEBUG)
+			LERROR("%d", StartToken.Type);
+#endif
 			RaiseError(StartToken.ErrorInfo, "Unexpected Top Level declaration");
 		} break;
 	}

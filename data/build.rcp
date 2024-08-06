@@ -1,0 +1,26 @@
+build
+
+memset :: fn(dst: *, val: i32, setsize: int) -> *;
+malloc :: fn(size: int) -> *;
+printf :: fn(str: cstring);
+
+read_stdin_line :: fn(buff: *, max: i32, stream: *) -> cstring;
+__acrt_iob_func :: fn(_Ix: u32) -> *;
+
+compile :: fn(out: *CompileInfo) {
+	to_fill := *out;
+	
+	//for i := 0; i < 5; i += 1 {
+	//	buff := malloc(32);
+	//	memset(buff, 0, 32);
+
+	//	printf(c"Input file name:\n");
+	//	to_fill.files[i] = read_stdin_line(buff, 32, __acrt_iob_func(0));
+	//}
+	//
+	to_fill.files[0] = c"../file1.rcp";
+	to_fill.files[1] = c"../file2.rcp";
+	to_fill.file_count = 2;
+	*out = to_fill;
+}
+

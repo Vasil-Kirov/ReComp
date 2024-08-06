@@ -2,6 +2,7 @@
 #include "Basic.h"
 #include "VString.h"
 #include "Errors.h"
+#include <Dynamic.h>
 
 enum token_type
 {
@@ -53,9 +54,11 @@ enum token_type
 	T_SHADOW= -31,
 	T_RETURN= -32,
 	T_AUTOCAST= -34,
-	T_CDECL = -34,
+	T_FOREIGN = -34,
 	T_CSTR  = -35,
 	T_STRUCT= -36,
+	T_IMPORT= -37,
+	T_AS    = -38,
 };
 
 struct token
@@ -72,7 +75,7 @@ struct keyword
 };
 
 
-token *StringToTokens(string String, error_info ErrorInfo);
+file StringToTokens(string String, error_info ErrorInfo);
 
 token GetNextToken(string *String, error_info *ErrorInfo);
 

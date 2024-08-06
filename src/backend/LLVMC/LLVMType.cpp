@@ -25,6 +25,11 @@ void LLVMMapType(u32 TypeID, LLVMTypeRef LLVMType)
 	LLVMTypeMap.Push(Entry);
 }
 
+void LLVMClearTypeMap()
+{
+	LLVMTypeMap.Count = 0;
+}
+
 // I am a week man, I used ChatGPT as I didn't want to write my 4th custom type to LLVMTypeRef conversion function
 LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 	const type *CustomType = GetType(TypeID);
@@ -119,6 +124,7 @@ void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
+	LDEBUG("Name: %s", Type->Struct.Name.Data);
 	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
 	LLVMMapType(TypeID, Opaque);
 }

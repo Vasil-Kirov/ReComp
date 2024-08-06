@@ -1,14 +1,15 @@
+main
 
-printf :: fn #cdecl(fmt: cstring, num: i64);
+printf :: fn #foreign(fmt: cstring, num: int);
 //malloc :: fn #cdecl(size: int) -> u8*;
 //free   :: fn #cdecl(ptr: u8*);
 
-foo :: fn() -> cstring {
-	return c"foo";
+foo :: fn() -> int {
+	return 1;
 }
 
 main :: fn() {
-	printf(c"Foo: %d\n", 1);
+	printf(c"Foo: %d\n", foo());
 }
 
 //struct Foo {

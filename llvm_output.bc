@@ -1,7 +1,0 @@
-
-define i32 @get_one( i32 %x ) {
-
-block_0:
-%1 = add i32 %x,  1
-ret i32 %1
-}

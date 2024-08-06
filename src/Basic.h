@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <dbghelp.h>
 #include <stdint.h>
-#include "vlib.h"
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -36,7 +35,12 @@ typedef unsigned int uint;
 
 #define FOR_ARRAY(ARR, LEN) for(auto It = ARR; It < ARR + LEN; ++It)
 
+struct token;
+struct node;
+struct ir;
 
+#include <stdio.h>
+#include <vlib.h>
 static void PrintStacktrace()
 {
 	printf("\nStack Trace:\n");

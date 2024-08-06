@@ -1,5 +1,6 @@
 #include "Type.h"
 #include "Memory.h"
+#include "Threading.h"
 #include "VString.h"
 #include "Basic.h"
 
@@ -26,11 +27,12 @@ const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_UntypedInteger, BasicFlag_Integer | BasicFlag_Untyped, 0, STR_LIT("untyped integer")}},
 	{TypeKind_Basic, {Basic_UntypedFloat,   BasicFlag_Float   | BasicFlag_Untyped, 0, STR_LIT("untyped float")}},
 
-	{TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
 	{TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
+	{TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
 	{TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
 
-	{TypeKind_Basic, {Basic_auto, 0,                                              -1, STR_LIT("auto")}},
+	{TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
+	{TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("!invalid module type!")}},
 };
 
 //#pragma clang diagnostic pop
@@ -92,10 +94,19 @@ u32 AddType(type *Type)
 	LockMutex();
 
 	TypeTable[TypeCount++] = Type;
+	Assert(TypeCount < MAX_TYPES);
 	u32 Result = TypeCount - 1;
 
 	UnlockMutex();
 	return Result;
+}
+
+void FillOpaqueStruct(u32 TypeIdx, type T)
+{
+	LockMutex();
+	Assert(TypeTable[TypeIdx]->Kind == TypeKind_Struct);
+	*(type *)(TypeTable[TypeIdx]) = T;
+	UnlockMutex();
 }
 
 int GetRegisterTypeSize()
@@ -218,6 +229,15 @@ b32 CheckMissmatch(int LeftFlags, int RightFlags, basic_flags Flag)
 	return false;
 }
 
+b32 EitherIsReservedType(const type *Left, const type *Right)
+{
+	if(Left->Kind == TypeKind_Basic && Left->Basic.Kind == Basic_module)
+		return true;
+	if(Right->Kind == TypeKind_Basic && Right->Basic.Kind == Basic_module)
+		return true;
+	return false;
+}
+
 b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
 {
 	if(Left->Basic.Kind == Basic_string && Right->Basic.Kind == Basic_string)
@@ -292,6 +312,9 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 
 b32 IsCastValid(const type *From, const type *To)
 {
+	if(EitherIsReservedType(From, To))
+		return false;
+
 	if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
 	{
 		return GetTypeSize(To) == GetRegisterTypeSize() / 8;
@@ -319,6 +342,9 @@ b32 IsCastValid(const type *From, const type *To)
 b32 TypesMustMatch(const type *Left, const type *Right)
 {
 	if(Left->Kind != Right->Kind)
+		return false;
+
+	if(EitherIsReservedType(Left, Right))
 		return false;
 
 	switch(Left->Kind)

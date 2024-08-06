@@ -7,7 +7,7 @@ struct type;
 
 enum function_flags
 {
-	FunctionFlag_Cdecl = BIT(1),
+	FunctionFlag_foreign = BIT(1),
 };
 
 enum node_type
@@ -148,13 +148,21 @@ struct node
 
 struct parser
 {
+	dynamic<import> Imported;
+	string ModuleName;
 	token *Tokens;
 	token *Current;
 	u64 TokenIndex;
 	b32 IsInBody;
 };
 
-node **ParseTokens(token *Tokens);
+struct parse_result
+{
+	dynamic<node *>Nodes;
+	slice<import> Imports;
+};
+
+parse_result ParseTokens(token *Tokens, string ModuleName);
 node *ParseNode(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
@@ -164,6 +172,8 @@ node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
 node *ParseTopLevel(parser *Parser);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 node *ParseType(parser *Parser, b32 ShouldError = true);
+string *StructToModuleNamePtr(string &StructName, string &ModuleName);
+string StructToModuleName(string &StructName, string &ModuleName);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

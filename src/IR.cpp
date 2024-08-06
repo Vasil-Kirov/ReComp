@@ -1,5 +1,6 @@
 #include "IR.h"
 #include "ConstVal.h"
+#include "Semantics.h"
 #include "Dynamic.h"
 #include "Memory.h"
 #include "Parser.h"
@@ -81,6 +82,7 @@ basic_block AllocateBlock(block_builder *Builder)
 // @TODO: no? like why no scope tracking
 void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, b32 IsArg = false)
 {
+	//LDEBUG("Pushing: %s", Name->Data);
 	ir_symbol Local;
 	Local.Register = Register;
 	Local.Name  = Name;
@@ -211,18 +213,30 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_SELECTOR:
 		{
-			u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
-
-			Result = PushInstruction(Builder, 
-					Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
-
-			const type *Type = GetType(Node->Selector.Type);
-			u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
-			const type *MemberType = GetType(MemberTypeIdx);
-			if(!IsLHS && IsLoadableType(MemberType))
+			if(Node->Selector.Index == -1)
 			{
-				Result = PushInstruction(Builder,
-						Instruction(OP_LOAD, 0, Result, Type->Struct.Members[Node->Selector.Index].Type, Builder));
+				Assert(Node->Selector.Operand->Type == AST_ID);
+				string SymName = *Node->Selector.Member;
+				string ModuleName = *Node->Selector.Operand->ID.Name;
+				string *Mangled = StructToModuleNamePtr(SymName, ModuleName);
+				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled);
+				Result = Sym->Register;
+			}
+			else
+			{
+				u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
+
+				Result = PushInstruction(Builder, 
+						Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
+
+				const type *Type = GetType(Node->Selector.Type);
+				u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
+				const type *MemberType = GetType(MemberTypeIdx);
+				if(!IsLHS && IsLoadableType(MemberType))
+				{
+					Result = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Result, Type->Struct.Members[Node->Selector.Index].Type, Builder));
+				}
 			}
 
 		} break;
@@ -473,13 +487,12 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 }
 
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
-		slice<ir_symbol> ModuleSymbols)
+		slice<import> Imported, import Module)
 {
 	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
 	Function.FnNode = Node;
-	Function.ModuleSymbols = ModuleSymbols;
 	if(Body.IsValid())
 	{
 		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
@@ -490,12 +503,28 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 		const type *FnType = GetType(TypeIdx);
 
-		ForArray(Idx, ModuleSymbols)
+		uint Count = 0;
+		ForArray(GIdx, Module.Globals)
 		{
-			PushIRLocal(&Function, ModuleSymbols[Idx].Name, ModuleSymbols[Idx].Register,
-					ModuleSymbols[Idx].Type, true);
+			symbol *s = Module.Globals[GIdx];
+			PushIRLocal(&Function, s->Name, Count++,
+					s->Type, true);
 		}
-		Builder.LastRegister = ModuleSymbols.Count;
+
+		ForArray(Idx, Imported)
+		{
+			auto m = Imported[Idx];
+			ForArray(GIdx, m.Globals)
+			{
+				symbol *s = m.Globals[GIdx];
+				string sName = *s->Name;
+
+				string *Mangled = StructToModuleNamePtr(sName, m.Name);
+				PushIRLocal(&Function, Mangled, Count++,
+						s->Type, true);
+			}
+		}
+		Builder.LastRegister = Count;
 
 		ForArray(Idx, Args)
 		{
@@ -518,7 +547,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	return Function;
 }
 
-function GlobalLevelIR(node *Node, slice<ir_symbol> ModuleSymbols)
+function GlobalLevelIR(node *Node, slice<import> Imported, import Module)
 {
 	function Result = {};
 	switch(Node->Type)
@@ -527,7 +556,7 @@ function GlobalLevelIR(node *Node, slice<ir_symbol> ModuleSymbols)
 		{
 			Assert(Node->Fn.Name);
 
-			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, ModuleSymbols);
+			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, Module);
 		} break;
 		case AST_STRUCTDECL:
 		{
@@ -541,31 +570,14 @@ function GlobalLevelIR(node *Node, slice<ir_symbol> ModuleSymbols)
 	return Result;
 }
 
-ir BuildIR(node **Nodes)
+ir BuildIR(file *File)
 {
 	ir IR = {};
-	u32 NodeCount = ArrLen(Nodes);
+	u32 NodeCount = File->Nodes.Count;
 
-	dynamic<ir_symbol> ModuleSymbols = {};
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		if(Nodes[I]->Type == AST_FN)
-		{
-			ir_symbol Sym = {};
-			Sym.Type = Nodes[I]->Fn.TypeIdx;
-			Sym.Name = Nodes[I]->Fn.Name;
-			Sym.Register = ModuleSymbols.Count;
-			if(Nodes[I]->Fn.Body.Count == 0)
-				Sym.Flags = IRSymbol_ExternFn;
-			ModuleSymbols.Push(Sym);
-		}
-	}
-
-	IR.MaxRegisters = ModuleSymbols.Count;
-	slice<ir_symbol> ModuleSymbolsSlice = SliceFromArray(ModuleSymbols);
-	for(int I = 0; I < NodeCount; ++I)
-	{
-		function MaybeFunction = GlobalLevelIR(Nodes[I], ModuleSymbolsSlice);
+		function MaybeFunction = GlobalLevelIR(File->Nodes[I], *File->Checker->Imported, *File->Checker->Module);
 		if(MaybeFunction.LastRegister > IR.MaxRegisters)
 			IR.MaxRegisters = MaybeFunction.LastRegister;
 
@@ -573,7 +585,6 @@ ir BuildIR(node **Nodes)
 			IR.Functions.Push(MaybeFunction);
 	}
 
-	IR.GlobalSymbols = ModuleSymbolsSlice;
 	return IR;
 }
 

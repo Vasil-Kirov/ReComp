@@ -52,6 +52,13 @@ InitializeMemory()
 	return true;
 }
 
+void *ToArena(void *Data, u64 Size, i8 Index)
+{
+	void *Result = AllocateMemory(Size, Index);
+	memcpy(Result, Data, Size);
+	return Result;
+}
+
 void *
 AllocateMemory(u64 Size, i8 Index)
 {

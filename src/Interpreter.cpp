@@ -13,6 +13,7 @@ void *InterpreterAllocateString(interpreter *VM, const string *String)
 	return Memory;
 }
 
+__attribute__((no_sanitize("address")))
 u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 {
 	value *Operand = VM->Registers.GetValue(Info->Operand);

@@ -1,0 +1,11 @@
+file2
+
+struct x {
+	y: int,
+}
+
+give_two :: fn() -> i32 {
+	return 2;
+}
+
+

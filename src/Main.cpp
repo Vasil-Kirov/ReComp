@@ -62,9 +62,39 @@ struct timers
 	timer_group Parse;
 	timer_group TypeCheck;
 	timer_group IR;
+	timer_group LLVM;
 };
 
-ir ParseAndAnalyzeFile(string File, timers *Timers)
+void ResolveSymbols(dynamic<file> Files)
+{
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
+		AnalyzeForModuleStructs(NodeSlice, File->Module);
+		*File->Checker = AnalyzeFunctionDecls(NodeSlice, &File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		ForArray(j, File->Imported)
+		{
+			ForArray(k, Files)
+			{
+				file MaybeMod = Files[k];
+				if(MaybeMod.Module.Name == File->Imported[j].Name)
+				{
+					string As = File->Imported[j].As;
+					File->Imported.Data[j] = MaybeMod.Module;
+					File->Imported.Data[j].As = As;
+				}
+			}
+		}
+		File->Checker->Imported = &File->Imported;
+	}
+}
+
+file GetModule(string File, timers *Timers)
 {
 	string FileData = ReadEntireFile(File);
 
@@ -74,30 +104,37 @@ ir ParseAndAnalyzeFile(string File, timers *Timers)
 	}
 
 	error_info ErrorInfo = {};
-	ErrorInfo.Data = &FileData;
+	ErrorInfo.Data = DupeType(FileData, string);
 	ErrorInfo.FileName = File.Data;
 	ErrorInfo.Line = 1;
 	ErrorInfo.Character = 1;
 
 	Timers->Parse = VLibStartTimer("Parsing");
-	token *Tokens = StringToTokens(FileData, ErrorInfo);
-	node **Nodes = ParseTokens(Tokens);
+	file Result = StringToTokens(FileData, ErrorInfo);
+	parse_result Parse = ParseTokens(Result.Tokens, Result.Module.Name);
+	Result.Nodes = Parse.Nodes;
+	Result.Imported = Parse.Imports;
+	Result.Checker = NewType(checker);
+	Result.Checker->Module = &Result.Module;
 	VLibStopTimer(&Timers->Parse);
+	return Result;
+}
 
+void ParseAndAnalyzeFile(file *File, timers *Timers)
+{
 	Timers->TypeCheck = VLibStartTimer("Type Checking");
-	Analyze(Nodes);
+	Analyze(File->Checker, SliceFromArray(File->Nodes));
 	VLibStopTimer(&Timers->TypeCheck);
 
 	Timers->IR = VLibStartTimer("Intermediate Representation Generation");
-	ir IR = BuildIR(Nodes);
+	File->IR = NewType(ir);
+	*File->IR = BuildIR(File);
 	VLibStopTimer(&Timers->IR);
 	
 #if 0
 	string Dissasembly = Dissasemble(SliceFromArray(IR.Functions));
 	LDEBUG("%s", Dissasembly.Data);
 #endif
-
-	return IR;
 }
 
 struct compile_info
@@ -105,6 +142,18 @@ struct compile_info
 	const char *FileNames[1024];
 	i32 FileCount;
 };
+
+file CompileBuildFile(string Name, timers *Timers)
+{
+	file File = GetModule(Name, Timers);
+	auto NodeSlice = SliceFromArray(File.Nodes);
+	AnalyzeForModuleStructs(NodeSlice, File.Module);
+	*File.Checker = AnalyzeFunctionDecls(NodeSlice, &File.Module);
+	File.Checker->Imported = &File.Imported;
+	ParseAndAnalyzeFile(&File, Timers);
+
+	return File;
+}
 
 int
 main(int ArgCount, char *Args[])
@@ -124,7 +173,7 @@ main(int ArgCount, char *Args[])
 	auto ntdll    = LoadLibrary("ntdll");
 	auto msvcrt   = LoadLibrary("msvcrt");
 	auto ucrtbase = LoadLibrary("ucrtbase");
-	auto testdll = LoadLibrary("testdll");
+	auto testdll  = LoadLibrary("testdll");
 	HMODULE DLLs[] = {
 		kernel32,
 		user32,
@@ -158,18 +207,18 @@ main(int ArgCount, char *Args[])
 
 	dynamic<timers> Timers = {};
 	timers BuildTimers = {};
-	ir IR = ParseAndAnalyzeFile(MakeString(Args[1]), &BuildTimers);
+	file BuildFile = CompileBuildFile(MakeString(Args[1]), &BuildTimers);
 	Timers.Push(BuildTimers);
 
 	timer_group VMBuildTimer = VLibStartTimer("VM");
 
-	interpreter VM = MakeInterpreter(IR.GlobalSymbols, IR.MaxRegisters, DLLs, ARR_LEN(DLLs));
+	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, ARR_LEN(DLLs));
 
-	ForArray(Idx, IR.Functions)
+	ForArray(Idx, BuildFile.IR->Functions)
 	{
-		if(*IR.Functions[Idx].Name == CompileFunction)
+		if(*BuildFile.IR->Functions[Idx].Name == CompileFunction)
 		{
-			if(IR.Functions[Idx].Blocks.Count == 0)
+			if(BuildFile.IR->Functions[Idx].Blocks.Count == 0)
 			{
 				LFATAL("compile function doesn't have a body");
 			}
@@ -179,13 +228,31 @@ main(int ArgCount, char *Args[])
 			Out.Type = GetPointerTo(CompileInfo);
 			Out.ptr = VAlloc(GetTypeSize(CompileInfoType));
 
-			interpret_result Result = InterpretFunction(&VM, IR.Functions[Idx], {&Out, 1});
+			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&Out, 1});
 
+			dynamic<file> Files = {};
 			compile_info *Info = (compile_info *)Out.ptr;
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
-				LDEBUG("File: %s", Info->FileNames[i]);
+				timers FileTimer = {};
+				file File = GetModule(MakeString(Info->FileNames[i]),
+						&FileTimer);
+				Files.Push(File);
 			}
+			ResolveSymbols(Files);
+			ForArray(Idx, Files)
+			{
+				timers FileTimer = {};
+				file *File = &Files.Data[Idx];
+				ParseAndAnalyzeFile(File, &FileTimer);
+				Timers.Push(FileTimer);
+			}
+			timers LLVMTimers = {};
+			LLVMTimers.LLVM = VLibStartTimer("LLVM");
+			RCGenerateCode(SliceFromArray(Files), true);
+			VLibStopTimer(&LLVMTimers.LLVM);
+			Timers.Push(LLVMTimers);
+
 
 			if(Result.ToFreeStackMemory)
 				VFree(Result.ToFreeStackMemory);
@@ -200,9 +267,6 @@ main(int ArgCount, char *Args[])
 	VLibStopTimer(&VMBuildTimer);
 
 
-	auto LLVMTimer = VLibStartTimer("LLVM Code Generation");
-	RCGenerateCode(&IR);
-	VLibStopTimer(&LLVMTimer);
 
 	auto LinkTimer = VLibStartTimer("Linking");
 	//system("LINK.EXE /nologo /ENTRY:mainCRTStartup /defaultlib:libcmt /OUT:a.exe out.obj");
@@ -212,12 +276,14 @@ main(int ArgCount, char *Args[])
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;
 	i64 IRBuildTime = 0;
+	i64 LLVMTimer = 0;
 
 	ForArray(Idx, Timers)
 	{
-		ParseTime += TimeTaken(&Timers.Data[Idx].Parse);
+		ParseTime     += TimeTaken(&Timers.Data[Idx].Parse);
 		TypeCheckTime += TimeTaken(&Timers.Data[Idx].TypeCheck);
-		IRBuildTime += TimeTaken(&Timers.Data[Idx].IR);
+		IRBuildTime   += TimeTaken(&Timers.Data[Idx].IR);
+		LLVMTimer     += TimeTaken(&Timers.Data[Idx].LLVM);
 	}
 
 	if(ArgCount > 2 && MakeString(Args[2]) == STR_LIT("--time"))
@@ -227,7 +293,7 @@ main(int ArgCount, char *Args[])
 		LDEBUG("Type Checking:             %lldms", TypeCheckTime            / 1000);
 		LDEBUG("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
 		LDEBUG("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
-		LDEBUG("LLVM Code Generation:      %lldms", TimeTaken(&LLVMTimer)    / 1000);
+		LDEBUG("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
 		LDEBUG("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}
 

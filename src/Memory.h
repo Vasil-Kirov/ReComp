@@ -16,12 +16,15 @@ InitializeMemory();
 void *
 AllocateMemory(u64 Size, i8 Index);
 
+void *ToArena(void *, u64 Size, i8 Index);
+
 void
 ResetCompileMemory();
 
 #define AllocatePermanent(SIZE)  AllocateMemory((SIZE), PERM_INDEX)
 #define AllocateString(SIZE) (char *)AllocateMemory((SIZE), STR_INDEX)
 #define NewType(Type) (Type *)AllocatePermanent(sizeof(Type))
+#define DupeType(Data, Type) (Type *)ToArena((void *)&Data, sizeof(Type), PERM_INDEX)
 
 
 #endif //_MEMORY_H

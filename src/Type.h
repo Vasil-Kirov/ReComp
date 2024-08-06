@@ -3,8 +3,6 @@
 #include "VString.h"
 #include "Dynamic.h"
 
-// @Note: heavily inspired by the Odin type system
-
 struct type;
 #define INVALID_TYPE UINT32_MAX
 
@@ -47,6 +45,7 @@ enum basic_kind
 
 	Basic_type,
 	Basic_auto,
+	Basic_module,
 };
 
 enum basic_flags
@@ -122,6 +121,7 @@ struct type
 };
 
 u32 AddType(type *Type);
+void FillOpaqueStruct(u32 TypeIdx, type T);
 
 // @Note: I don't know if I need this but I'm wondering if later on accessing a global variable could
 // have some problems with threading, shouldn't hurt to have it for now

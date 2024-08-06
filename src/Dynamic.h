@@ -1,8 +1,8 @@
 #pragma once
 #include "Basic.h"
+#include "VString.h"
 
 // Dynamic array that doesn't need / use constructors and destructors
-#include <cstddef>
 #include <initializer_list>
 
 // Putting this in the class deletes the default copy constructor
@@ -69,6 +69,25 @@ struct array {
 		Count = _Count;
 		Data = (T *)VAlloc(Count * sizeof(T));
 	}
+};
+
+struct symbol;
+struct import
+{
+	string Name;
+	string As;
+	slice<symbol *> Globals;
+};
+
+struct checker;
+struct file
+{
+	token *Tokens;
+	dynamic<node *>Nodes;
+	ir *IR;
+	checker *Checker;
+	import Module;
+	slice<import> Imported;
 };
 
 template <typename T>

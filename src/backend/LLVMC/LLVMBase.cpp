@@ -425,7 +425,8 @@ void RCGenerateCompilerTypes(generator *gen)
 	};
 	u32 String = AddType(StringType);
 	LLVMCreateOpaqueStringStructType(gen->ctx, String);
-	LLVMDefineStructType(gen->ctx, String);
+	auto LLVMType = LLVMDefineStructType(gen->ctx, String);
+	LLVMMapType(Basic_string, LLVMType);
 }
 
 void RCGenerateFile(file *File, const char *Name, LLVMTargetMachineRef Machine, b32 OutputBC)
@@ -440,8 +441,8 @@ void RCGenerateFile(file *File, const char *Name, LLVMTargetMachineRef Machine, 
 	Gen.data = LLVMCreateTargetDataLayout(Machine);
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
-	RCGenerateComplexTypes(&Gen);
 	RCGenerateCompilerTypes(&Gen);
+	RCGenerateComplexTypes(&Gen);
 
 	uint Count = 0;
 	dynamic<LLVMValueRef> Functions = {};

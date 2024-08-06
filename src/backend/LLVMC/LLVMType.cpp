@@ -114,7 +114,6 @@ void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID)
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
 	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
-	LLVMMapType(Basic_string, Opaque);
 	LLVMMapType(TypeID, Opaque);
 }
 
@@ -129,7 +128,7 @@ void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
 	LLVMMapType(TypeID, Opaque);
 }
 
-void LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
+LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
 	Assert(Context);
@@ -147,6 +146,7 @@ void LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 	}
 	LLVMStructSetBody(Opaque, MemberTypes, MemberCount, Type->Struct.Flags & StructFlag_Packed);
 	VFree(MemberTypes);
+	return Opaque;
 }
 
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)

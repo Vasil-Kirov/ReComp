@@ -2,10 +2,33 @@
 source_filename = "main"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
+%"main!x" = type { %"file2!x", %"build!CompileInfo" }
+%"file2!x" = type { i64 }
+%"build!CompileInfo" = type { [1024 x ptr], i32 }
+
+@0 = private unnamed_addr constant [4 x i8] c"str\00", align 1
+
 define i32 @main() {
 block_0:
-  %0 = call i32 @"file2!give_two"()
-  ret i32 %0
+  %0 = alloca %"main!x", align 8
+  %1 = alloca %"file2!x", align 8
+  %2 = getelementptr inbounds %"file2!x", ptr %1, i32 0, i32 0
+  store i64 0, ptr %2, align 8
+  %3 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %3, ptr align 8 %1, i64 8, i1 false)
+  %4 = alloca %"build!CompileInfo", align 8
+  %String = getelementptr inbounds %"build!CompileInfo", ptr %4, i32 0, i32 0
+  %Size = getelementptr inbounds %"build!CompileInfo", ptr %4, i32 0, i32 1
+  store ptr @0, ptr %String, align 8
+  store i32 3, ptr %Size, align 4
+  %5 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 1
+  store ptr %4, ptr %5, align 8
+  ret i32 0
 }
 
 declare i32 @"file2!give_two"()
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }

@@ -1,0 +1,21 @@
+; ModuleID = 'pointers'
+source_filename = "pointers"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
+define void @"pointers!to_zero"(ptr %0) {
+block_0:
+  %1 = alloca ptr, align 8
+  store ptr %0, ptr %1, align 8
+  %2 = load ptr, ptr %1, align 8
+  store i32 0, ptr %2, align 4
+  ret void
+}
+
+define i32 @main() {
+block_0:
+  %0 = alloca i32, align 4
+  store i32 123, ptr %0, align 4
+  call void @"pointers!to_zero"(ptr %0)
+  %1 = load i32, ptr %0, align 4
+  ret i32 %1
+}

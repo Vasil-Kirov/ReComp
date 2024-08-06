@@ -1,3 +1,4 @@
+structs
 
 struct Foo {
 	x: i32,

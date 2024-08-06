@@ -92,6 +92,11 @@ void ResolveSymbols(dynamic<file> Files)
 		}
 		File->Checker->Imported = &File->Imported;
 	}
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
+	}
 }
 
 file GetModule(string File, timers *Timers)
@@ -143,9 +148,33 @@ struct compile_info
 	i32 FileCount;
 };
 
-file CompileBuildFile(string Name, timers *Timers)
+file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 {
+	type *FileArray = NewType(type);
+	FileArray->Kind = TypeKind_Array;
+	FileArray->Array.Type = Basic_cstring;
+	FileArray->Array.MemberCount = 1024;
+
+	u32 FileArrayType = AddType(FileArray);
+	static struct_member CompileInfoMembers[] = {
+		{STR_LIT("files"), FileArrayType},
+		{STR_LIT("file_count"), Basic_i32},
+	};
+
 	file File = GetModule(Name, Timers);
+	string_builder CompileInfoName = MakeBuilder();
+	CompileInfoName += File.Module.Name;
+	CompileInfoName += STR_LIT("!CompileInfo");
+
+	type *CompileInfoType = NewType(type);
+	CompileInfoType->Kind = TypeKind_Struct;
+	CompileInfoType->Struct.Name = MakeString(CompileInfoName);
+	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
+	CompileInfoType->Struct.Flags = 0;
+	
+	u32 CompileInfo = AddType(CompileInfoType);
+	*CompileInfoTypeIdx = CompileInfo;
+
 	auto NodeSlice = SliceFromArray(File.Nodes);
 	AnalyzeForModuleStructs(NodeSlice, File.Module);
 	*File.Checker = AnalyzeFunctionDecls(NodeSlice, &File.Module);
@@ -186,28 +215,10 @@ main(int ArgCount, char *Args[])
 	auto CompileFunction = STR_LIT("compile");
 	b32 FoundCompile = false;
 
-	type *FileArray = NewType(type);
-	FileArray->Kind = TypeKind_Array;
-	FileArray->Array.Type = Basic_cstring;
-	FileArray->Array.MemberCount = 1024;
-	u32 FileArrayType = AddType(FileArray);
-
-	struct_member CompileInfoMembers[] = {
-		{STR_LIT("files"), FileArrayType},
-		{STR_LIT("file_count"), Basic_i32},
-	};
-
-	type *CompileInfoType = NewType(type);
-	CompileInfoType->Kind = TypeKind_Struct;
-	CompileInfoType->Struct.Name = STR_LIT("CompileInfo");
-	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
-	CompileInfoType->Struct.Flags = 0;
-	
-	u32 CompileInfo = AddType(CompileInfoType);
-
 	dynamic<timers> Timers = {};
 	timers BuildTimers = {};
-	file BuildFile = CompileBuildFile(MakeString(Args[1]), &BuildTimers);
+	u32 CompileInfo;
+	file BuildFile = CompileBuildFile(MakeString(Args[1]), &BuildTimers, &CompileInfo);
 	Timers.Push(BuildTimers);
 
 	timer_group VMBuildTimer = VLibStartTimer("VM");
@@ -226,7 +237,7 @@ main(int ArgCount, char *Args[])
 
 			value Out = {};
 			Out.Type = GetPointerTo(CompileInfo);
-			Out.ptr = VAlloc(GetTypeSize(CompileInfoType));
+			Out.ptr = VAlloc(GetTypeSize(CompileInfo));
 
 			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&Out, 1});
 

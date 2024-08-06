@@ -43,6 +43,22 @@ void FillUntypedStack(checker *Checker, u32 Type)
 	}
 }
 
+u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *Name)
+{
+	for(int I = 0; I < TypeCount; ++I)
+	{
+		const type *Type = GetType(I);
+		if(Type->Kind == TypeKind_Struct)
+		{
+			if(*Name == Type->Struct.Name)
+			{
+				return I;
+			}
+		}
+	}
+	return INVALID_TYPE;
+}
+
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
 {
 	string AsModule = {};
@@ -62,16 +78,17 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 			{
 				if(AsModule.Data == NULL)
 				{
+					string ModuleName;
+					string NonPtrName = *Name;
 					if(ModuleNameOptional == NULL)
 					{
-						AsModule = *Name;
+						ModuleName = Checker->Module->Name;
 					}
 					else
 					{
-						auto ModuleName = *ModuleNameOptional;
-						auto NonPtrName = *Name;
-						AsModule = StructToModuleName(NonPtrName, ModuleName);
+						ModuleName = *ModuleNameOptional;
 					}
+					AsModule = StructToModuleName(NonPtrName, ModuleName);
 				}
 
 				if(AsModule == Type->Struct.Name)
@@ -520,17 +537,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_STRUCTLIST:
 		{
-			u32 TypeIdx = FindType(Checker, Expr->StructList.StructName);
+			u32 TypeIdx = GetTypeFromTypeNode(Checker, Expr->StructList.StructType);
 			if(TypeIdx == INVALID_TYPE)
 			{
-				RaiseError(*Expr->ErrorInfo, "Undefined type for struct delcaration %s",
-						Expr->StructList.StructName->Data);
+				RaiseError(*Expr->ErrorInfo, "Undefined type for struct delcaration");
 			}
 			const type *Type = GetType(TypeIdx);
 			if(Type->Kind != TypeKind_Struct)
 			{
 				RaiseError(*Expr->ErrorInfo, "Non struct type %s used for struct delcaration",
-						Expr->StructList.StructName->Data);
+						GetTypeName(Type));
 			}
 
 			uint *StructureIndexes = (uint *)VAlloc(sizeof(uint) * Expr->StructList.Expressions.Count);
@@ -549,7 +565,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				if(ToPut == -1)
 				{
 					RaiseError(*Expr->ErrorInfo, "`%s` is not a member of struct %s",
-							Name->Data, Expr->StructList.StructName->Data);
+							Name->Data, GetTypeName(Type));
 				}
 				StructureIndexes[Idx] = ToPut;
 			}
@@ -1145,7 +1161,7 @@ u32 FixPotentialFunctionPointer(u32 Type)
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
-	u32 OpaqueType = FindType(Checker, Node->StructDecl.Name);
+	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
 
 	type New = {};
@@ -1293,7 +1309,7 @@ checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 	return Checker;
 }
 
-void Analyze(checker *Checker, slice<node *>Nodes)
+void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -1302,7 +1318,10 @@ void Analyze(checker *Checker, slice<node *>Nodes)
 			AnalyzeStructDeclaration(Checker, Nodes[I]);
 		}
 	}
+}
 
+void Analyze(checker *Checker, slice<node *>Nodes)
+{
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_FN)

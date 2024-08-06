@@ -1,0 +1,21 @@
+build
+
+
+compile :: fn(out: *CompileInfo) {
+	to_fill := *out;
+
+	to_fill.files[0] = c"../arrays.rcp";
+	to_fill.files[1] = c"../basic.rcp";
+	to_fill.files[2] = c"../fn_call.rcp";
+	to_fill.files[3] = c"../fn_ptr.rcp";
+	to_fill.files[4] = c"../pointers.rcp";
+	to_fill.files[5] = c"../struct.rcp";
+
+	to_fill.file_count = 6;
+
+	*out = to_fill;
+}
+
+
+
+

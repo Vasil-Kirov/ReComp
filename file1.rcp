@@ -8,6 +8,7 @@ struct x {
 }
 
 main :: fn() -> i32 {
-	return f2.give_two();
+	foo := x { foo = f2.x { y = 0 }, bar = "str" };
+	return 0;
 }
 

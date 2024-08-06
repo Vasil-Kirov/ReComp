@@ -1,3 +1,4 @@
+pointers
 
 to_zero :: fn(x: *i32) {
 	change := x;

@@ -2,7 +2,7 @@
 
 
 set ASAN=-fsanitize=address
-REM set ASAN=
+set ASAN=
 
 pushd bin
 cl.exe /nologo /LD ../testdll.c

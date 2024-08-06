@@ -23,12 +23,12 @@ node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Mem
 	return Result;
 }
 
-node *MakeStructList(const error_info *ErrorInfo, slice<const string *> Names, slice<node *> Expressions,
-		const string *StructName)
+node *MakeStructList(const error_info *ErrorInfo, slice<const string *> Names,
+		slice<node *> Expressions, node *StructType)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_STRUCTLIST;
-	Result->StructList.StructName = StructName;
+	Result->StructList.StructType = StructType;
 	Result->StructList.Names = Names;
 	Result->StructList.Expressions = Expressions;
 
@@ -518,8 +518,10 @@ node *ParseAtom(parser *Parser, node *Operand)
 	return Operand;
 }
 
-node *ParseStructList(parser *Parser, const string *Name, const error_info *ErrorInfo)
+node *ParseStructList(parser *Parser)
 {
+	ERROR_INFO;
+	node *StructType = ParseType(Parser, true);
 	EatToken(Parser, T_STARTSCOPE);
 	dynamic<const string *> FieldNames = {};
 	dynamic<node *> FieldExpressions = {};
@@ -553,7 +555,7 @@ node *ParseStructList(parser *Parser, const string *Name, const error_info *Erro
 	}
 	EatToken(Parser, T_ENDSCOPE);
 
-	return MakeStructList(ErrorInfo, SliceFromArray(FieldNames), SliceFromArray(FieldExpressions), Name);
+	return MakeStructList(ErrorInfo, SliceFromArray(FieldNames), SliceFromArray(FieldExpressions), StructType);
 }
 
 node *ParseOperand(parser *Parser)
@@ -588,11 +590,12 @@ node *ParseOperand(parser *Parser)
 		case T_ID:
 		{
 			ERROR_INFO;
-			GetToken(Parser);
-			if(Parser->Current->Type == T_STARTSCOPE)
-				Result = ParseStructList(Parser, Token.ID, ErrorInfo);
+			if(PeekToken(Parser, 1).Type == T_DOT && PeekToken(Parser, 3).Type == T_STARTSCOPE)
+				Result = ParseStructList(Parser);
+			else if(PeekToken(Parser, 1).Type == T_STARTSCOPE)
+				Result = ParseStructList(Parser);
 			else
-				Result = MakeID(ErrorInfo, Token.ID);
+				Result = MakeID(ErrorInfo, GetToken(Parser).ID);
 		} break;
 		case T_STARTSCOPE:
 		{

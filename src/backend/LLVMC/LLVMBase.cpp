@@ -388,12 +388,6 @@ LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
 	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen->ctx, Function.Type));
 }
 
-void RCGenerateStruct(generator *gen, u32 Type)
-{
-	LLVMCreateOpaqueStringStructType(gen->ctx, Type);
-	LLVMDefineStructType(gen->ctx, Type);
-}
-
 void RCGenerateComplexTypes(generator *gen)
 {
 	uint TypeCount = GetTypeCount();
@@ -401,7 +395,14 @@ void RCGenerateComplexTypes(generator *gen)
 	{
 		if(GetType(Index)->Kind == TypeKind_Struct)
 		{
-			RCGenerateStruct(gen, Index);
+			LLVMCreateOpaqueStringStructType(gen->ctx, Index);
+		}
+	}
+	for(uint Index = 0; Index < TypeCount; ++Index)
+	{
+		if(GetType(Index)->Kind == TypeKind_Struct)
+		{
+			LLVMDefineStructType(gen->ctx, Index);
 		}
 	}
 }

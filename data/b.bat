@@ -1,3 +1,3 @@
 @ECHO OFF
-..\bin\a.exe build.rcp %1
+..\bin\rcp.exe build.rcp %1
 

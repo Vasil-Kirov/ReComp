@@ -15,6 +15,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Threading.h"
 #include "Interpreter.h"
 #include "x64CodeWriter.h"
+#include "CommandLine.h"
 #if 0
 #include "backend/LLVMFileOutput.h"
 #include "backend/LLVMFileCast.h"
@@ -39,6 +40,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Threading.cpp"
 #include "Interpreter.cpp"
 #include "x64CodeWriter.cpp"
+#include "CommandLine.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -197,20 +199,20 @@ main(int ArgCount, char *Args[])
 		LFATAL("Expected arguments");
 	}
 
-	auto kernel32 = LoadLibrary("kernel32");
-	auto user32   = LoadLibrary("user32");
-	auto ntdll    = LoadLibrary("ntdll");
-	auto msvcrt   = LoadLibrary("msvcrt");
-	auto ucrtbase = LoadLibrary("ucrtbase");
-	auto testdll  = LoadLibrary("testdll");
-	HMODULE DLLs[] = {
-		kernel32,
-		user32,
-		ntdll,
-		msvcrt,
-		ucrtbase,
-		testdll,
-	};
+	command_line CommandLine = ParseCommandLine(ArgCount, Args);
+
+	HMODULE DLLs[256] = {};
+	int DLLCount = 0;
+
+	DLLs[DLLCount++] = LoadLibrary("kernel32");
+	DLLs[DLLCount++] = LoadLibrary("user32");
+	DLLs[DLLCount++] = LoadLibrary("ntdll");
+	DLLs[DLLCount++] = LoadLibrary("msvcrt");
+	DLLs[DLLCount++] = LoadLibrary("ucrtbase");
+	ForArray(Idx, CommandLine.ImportDLLs)
+	{
+		DLLs[DLLCount++] = LoadLibrary(CommandLine.ImportDLLs[Idx].Data);
+	}
 
 	auto CompileFunction = STR_LIT("compile");
 	b32 FoundCompile = false;
@@ -218,12 +220,12 @@ main(int ArgCount, char *Args[])
 	dynamic<timers> Timers = {};
 	timers BuildTimers = {};
 	u32 CompileInfo;
-	file BuildFile = CompileBuildFile(MakeString(Args[1]), &BuildTimers, &CompileInfo);
+	file BuildFile = CompileBuildFile(CommandLine.BuildFile, &BuildTimers, &CompileInfo);
 	Timers.Push(BuildTimers);
 
 	timer_group VMBuildTimer = VLibStartTimer("VM");
 
-	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, ARR_LEN(DLLs));
+	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 	ForArray(Idx, BuildFile.IR->Functions)
 	{
@@ -297,7 +299,7 @@ main(int ArgCount, char *Args[])
 		LLVMTimer     += TimeTaken(&Timers.Data[Idx].LLVM);
 	}
 
-	if(ArgCount > 2 && MakeString(Args[2]) == STR_LIT("--time"))
+	if(CommandLine.Flags & CommandFlag_time)
 	{
 		LDEBUG("Compiling Finished...");
 		LDEBUG("Parsing:                   %lldms", ParseTime                / 1000);

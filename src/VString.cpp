@@ -108,3 +108,31 @@ void string_builder::operator+=(char C)
 {
 	PushBuilder(this, C);
 }
+
+string SliceString(string S, int From, int To)
+{
+	if(From < 0)
+		From = (S.Size + From);
+	if(To <= 0)
+		To = (S.Size + To);
+	string Result = {
+		.Data = S.Data + From,
+		.Size = (size_t)(To - From),
+	};
+
+	return Result;
+}
+
+bool StringsMatchNoCase(const string &a, const string &b)
+{
+	if(a.Size != b.Size)
+		return false;
+
+	for(int i = 0; i < a.Size; ++i)
+	{
+		if(tolower(a.Data[i]) != tolower(b.Data[i]))
+			return false;
+	}
+	return true;
+}
+

@@ -24,7 +24,7 @@ def get_absolute_paths(directory):
 os.chdir('tests/output')
 files = get_absolute_paths('..')
 
-command_line = ['../../bin/a.exe', "../build.rcp"]
+command_line = ['../../bin/rcp.exe', "../build.rcp"]
 start_time = time()
 process = subprocess.Popen(command_line, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 process.wait()

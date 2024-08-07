@@ -2,6 +2,18 @@
 #include "Basic.h"
 #include "Log.h"
 
+const char *HELP = R"#(
+USAGE: rcp.exe [options] build.rcp
+
+OPTIONS:
+	--help
+		Displays this message
+	--time
+		Show how long each step of the compilation process took
+	--vmdll my_file.dll
+		Add Shared Library file to be used by the interpreter
+)#";
+
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
 {
 	string Args[64] = {};
@@ -16,7 +28,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	const string CompileCommands[] = {
 		STR_LIT("--vmdll"),
 		STR_LIT("--time"),
-
+		STR_LIT("--help"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -42,6 +54,10 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		{
 			Result.Flags |= CommandFlag_time;
 		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[2]))
+		{
+			LINFO(HELP);
+		}
 		else
 		{
 			if(Result.BuildFile.Data != NULL)
@@ -52,6 +68,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			}
 			Result.BuildFile = Arg;
 		}
+	}
+	if(Result.BuildFile.Data == NULL)
+	{
+		LFATAL("No input file");
+		RET_EMPTY(command_line);
 	}
 
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);

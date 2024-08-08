@@ -416,6 +416,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			// @TODO: auto cast
 			Assert(Expr->Cast.TypeNode);
 			u32 To = GetTypeFromTypeNode(Checker, Expr->Cast.TypeNode);
+			FillUntypedStack(Checker, To);
+
 			u32 From = AnalyzeExpression(Checker, Expr->Cast.Expression);
 			Assert(To != INVALID_TYPE && From != INVALID_TYPE);
 			const type *ToType = GetType(To);

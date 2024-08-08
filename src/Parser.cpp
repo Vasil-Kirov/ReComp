@@ -1006,6 +1006,11 @@ node *ParseTopLevel(parser *Parser)
 			auto Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
 			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn));
 			EatToken(Parser, T_ENDSCOPE);
+			if(Parser->Current->Type == T_SEMICOL)
+			{
+				RaiseError(Parser->Current->ErrorInfo,
+						"In this language you do not put semicolons after struct declarations");
+			}
 		} break;
 		case T_EOF:
 		{

@@ -11,8 +11,9 @@ compile :: fn(out: *CompileInfo) {
 	to_fill.files[4] = c"../pointers.rcp";
 	to_fill.files[5] = c"../struct.rcp";
 	to_fill.files[6] = c"../pass_struct.rcp";
+	to_fill.files[7] = c"../struct_in_struct.rcp";
 
-	to_fill.file_count = 7;
+	to_fill.file_count = 8;
 
 	*out = to_fill;
 }

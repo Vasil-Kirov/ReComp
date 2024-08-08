@@ -106,6 +106,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				Value = RCGetStringConstPtr(gen, Val->String.Data);
 			}
+			else if(Type->Basic.Flags & BasicFlag_Boolean)
+			{
+				Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+			}
 			else
 			{
 				LDEBUG("%d", Type->Kind);
@@ -468,8 +472,10 @@ void RCGenerateFile(file *File, const char *Name, LLVMTargetMachineRef Machine, 
 			symbol *s = m.Globals[GIdx];
 			LLVMCreateFunctionType(Gen.ctx, s->Type);
 			string fnName = *s->Name;
-			string SymName = StructToModuleName(fnName, m.Name);
-			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, SymName.Data, 
+			string LinkName = fnName;
+			if((s->Flags & SymbolFlag_Foreign) == 0)
+				LinkName = StructToModuleName(fnName, m.Name);
+			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 					ConvertToLLVMType(Gen.ctx, s->Type));
 			Functions.Push(Fn);
 			Gen.map.Add(Count++, Fn);

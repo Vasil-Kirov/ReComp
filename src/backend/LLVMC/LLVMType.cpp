@@ -167,7 +167,11 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 
 	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc(Type->Function.ArgCount * sizeof(LLVMTypeRef));
 	for (int i = 0; i < Type->Function.ArgCount; ++i) {
-		ArgTypes[i] = ConvertToLLVMType(Context, Type->Function.Args[i]);
+		const type *ArgType = GetType(Type->Function.Args[i]);
+		if(!IsLoadableType(ArgType))
+			ArgTypes[i] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Args[i]), 0);
+		else
+			ArgTypes[i] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}
 	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, Type->Function.ArgCount, false);
 	LLVMMapType(TypeID, FuncType);

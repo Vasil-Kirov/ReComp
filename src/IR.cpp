@@ -1,6 +1,4 @@
 #include "IR.h"
-#include "ConstVal.h"
-#include "Semantics.h"
 #include "Dynamic.h"
 #include "Memory.h"
 #include "Parser.h"
@@ -8,6 +6,12 @@
 #include "VString.h"
 #include "vlib.h"
 #include "Log.h"
+
+inline u32 PushAlloc(u32 Type, block_builder *Builder)
+{
+	return PushInstruction(Builder,
+			Instruction(OP_ALLOC, -1, Type, Builder));
+}
 
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 {
@@ -145,10 +149,24 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
 
-			dynamic<u32> Args{};
+			const type *Type = GetType(Node->Call.Type);
+			if(Type->Kind == TypeKind_Pointer)
+				Type = GetType(Type->Pointer.Pointed);
+			Assert(Type->Kind == TypeKind_Function);
+			dynamic<u32> Args = {};
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
 			{
-				Args.Push(BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS));
+				const type *ArgType = GetType(Type->Function.Args[Idx]);
+				u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+#if  1
+				if(!IsLoadableType(ArgType))
+				{
+					u32 Ptr = PushAlloc(Type->Function.Args[Idx], Builder);
+					Expr = PushInstruction(Builder,
+							InstructionStore(Ptr, Expr, Type->Function.Args[Idx]));
+				}
+#endif
+				Args.Push(Expr);
 			}
 
 			CallInfo->Args = SliceFromArray(Args);

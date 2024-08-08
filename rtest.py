@@ -17,7 +17,7 @@ def remove_newlines(string):
     return string
 
 def get_absolute_paths(directory):
-    paths = ['arrays.obj', 'basic.obj', 'fn_call.obj', 'fn_ptr.obj', 'pointers.obj', 'structs.obj']
+    paths = ['arrays.obj', 'basic.obj', 'fn_call.obj', 'fn_ptr.obj', 'pointers.obj', 'structs.obj', 'pass.obj']
     return paths
 
 

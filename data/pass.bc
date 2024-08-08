@@ -1,14 +1,12 @@
-; ModuleID = 'main'
-source_filename = "main"
+; ModuleID = 'pass'
+source_filename = "pass"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
-%"main!Foo" = type { [1024 x i8] }
+%"pass!Foo" = type { [1024 x i8] }
 
-declare void @printf(ptr, i64)
-
-define i32 @"main!give_struct"(ptr %0) {
+define i32 @"pass!give_struct"(ptr %0) {
 block_0:
-  %1 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  %1 = getelementptr inbounds %"pass!Foo", ptr %0, i32 0, i32 0
   %2 = getelementptr [1024 x i8], ptr %1, i64 0, i64 5
   %3 = load i8, ptr %2, align 1
   %4 = sext i8 %3 to i32
@@ -17,17 +15,17 @@ block_0:
 
 define i32 @main() {
 block_0:
-  %0 = alloca %"main!Foo", align 8
+  %0 = alloca %"pass!Foo", align 8
   %1 = alloca [1024 x i8], align 1
   call void @llvm.memset.p0.i64(ptr align 1 %1, i8 0, i64 1024, i1 false)
-  %2 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  %2 = getelementptr inbounds %"pass!Foo", ptr %0, i32 0, i32 0
   call void @llvm.memcpy.p0.p0.i64(ptr align 1 %2, ptr align 1 %1, i64 1024, i1 false)
-  %3 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  %3 = getelementptr inbounds %"pass!Foo", ptr %0, i32 0, i32 0
   %4 = getelementptr [1024 x i8], ptr %3, i64 0, i64 5
   store i8 32, ptr %4, align 1
-  %5 = alloca %"main!Foo", align 8
+  %5 = alloca %"pass!Foo", align 8
   call void @llvm.memcpy.p0.p0.i64(ptr align 1 %5, ptr align 1 %0, i64 1024, i1 false)
-  %6 = call i32 @"main!give_struct"(ptr %5)
+  %6 = call i32 @"pass!give_struct"(ptr %5)
   %7 = sub i32 %6, 32
   ret i32 %7
 }

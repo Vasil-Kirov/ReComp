@@ -18,9 +18,10 @@ compile :: fn(out: *CompileInfo) {
 	//	to_fill.files[i] = read_stdin_line(buff, 32, __acrt_iob_func(0));
 	//}
 	//
-	to_fill.files[0] = c"../file1.rcp";
-	to_fill.files[1] = c"../file2.rcp";
-	to_fill.file_count = 2;
+	to_fill.files[0] = c"../Test.rcp";
+	//to_fill.files[0] = c"../file1.rcp";
+	//to_fill.files[1] = c"../file2.rcp";
+	to_fill.file_count = 1;
 	*out = to_fill;
 }
 

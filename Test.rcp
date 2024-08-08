@@ -1,15 +1,17 @@
-main
+pass
 
-printf :: fn #foreign(fmt: cstring, num: int);
-//malloc :: fn #cdecl(size: int) -> u8*;
-//free   :: fn #cdecl(ptr: u8*);
-
-foo :: fn() -> int {
-	return 1;
+struct Foo {
+	arr: [1024]i8,
 }
 
-main :: fn() {
-	printf(c"Foo: %d\n", foo());
+give_struct :: fn(foo: Foo) -> i32 {
+	return foo.arr[5];
+}
+
+main :: fn() -> i32 {
+	x := Foo { arr = {} };
+	x.arr[5] = 32;
+	return give_struct(x) - 32;
 }
 
 //struct Foo {

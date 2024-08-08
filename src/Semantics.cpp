@@ -437,10 +437,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				FillUntypedStack(Checker, To);
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
-			else if(GetTypeSize(FromType) == GetTypeSize(ToType))
-			{
-				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
-			}
 		} break;
 		case AST_ID:
 		{

@@ -1,17 +1,22 @@
 pass
 
-struct Foo {
-	arr: [1024]i8,
+
+struct Rectangle {
+	x: f32,
+	y: f32,
+	width:  f32,
+	height: f32,
 }
 
-give_struct :: fn(foo: Foo) -> i32 {
-	return foo.arr[5];
+DrawRect :: fn(r: i32) -> i32 {
+	return 0;
 }
 
 main :: fn() -> i32 {
-	x := Foo { arr = {} };
-	x.arr[5] = 32;
-	return give_struct(x) - 32;
+
+	player_rect := Rectangle { x = 40, y = 40, width = 100, height = 100 };
+	x := @f32 1.0;
+	return DrawRect(@i32 x);
 }
 
 //struct Foo {

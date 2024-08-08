@@ -114,6 +114,74 @@ const ir_symbol *GetIRLocal(function *Function, const string *Name)
 	return Found;
 }
 
+u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
+{
+	u32 Ptr = PushAlloc(Type, Builder);
+	Expr = PushInstruction(Builder,
+			InstructionStore(Ptr, Expr, Type));
+	return Expr;
+}
+
+void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS)
+{
+	const type *ArgType = GetType(ArgTypeIdx);
+	if(ArgType->Kind == TypeKind_Array)
+	{
+		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		return;
+	}
+	Assert(ArgType->Kind == TypeKind_Struct);
+	int Size = GetTypeSize(ArgType);
+
+	if(Size > MAX_PARAMETER_SIZE)
+	{
+		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		return;
+	}
+
+	u32 Pass = -1;
+	switch(Size)
+	{
+		case 8:
+		{
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			Pass = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u64, Builder));
+		} break;
+		case 4:
+		{
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			Pass = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u32, Builder));
+		} break;
+		case 2:
+		{
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			Pass = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u16, Builder));
+		} break;
+		case 1:
+		{
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			Pass = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u8, Builder));
+		} break;
+		default:
+		{
+			if(Size > 8)
+			{
+				LFATAL("Passing struct of size %d to function is not currently supported", Size);
+			}
+			u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+			Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+			return;
+		} break;
+	}
+	Args.Push(Pass);
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -157,16 +225,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
 			{
 				const type *ArgType = GetType(Type->Function.Args[Idx]);
-				u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
-#if  1
 				if(!IsLoadableType(ArgType))
 				{
-					u32 Ptr = PushAlloc(Type->Function.Args[Idx], Builder);
-					Expr = PushInstruction(Builder,
-							InstructionStore(Ptr, Expr, Type->Function.Args[Idx]));
+					FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS);
 				}
-#endif
-				Args.Push(Expr);
+				else
+				{
+					u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+					Args.Push(Expr);
+				}
 			}
 
 			CallInfo->Args = SliceFromArray(Args);

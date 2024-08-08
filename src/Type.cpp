@@ -111,7 +111,7 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 
 int GetRegisterTypeSize()
 {
-	// @TODO: Other platforsm :|
+	// @TODO: Other platforms :|
 	return 64;
 }
 
@@ -129,45 +129,66 @@ int GetBasicTypeSize(const type *Type)
 
 int GetStructSize(const type *Type)
 {
+	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
 		return 0;
+
 	int Result = 0;
-	int MaxMemberSize = 0;
 	ForArray(Idx, Type->Struct.Members)
 	{
-		int MemberSize = GetTypeSize(GetType(Type->Struct.Members[Idx].Type));
-		if(MemberSize > MaxMemberSize)
-			MaxMemberSize = MemberSize;
+		const type *m = GetType(Type->Struct.Members[Idx].Type);
+		int MemberSize = GetTypeSize(m);
+		int Alignment = GetTypeAlignment(m);
+		if(Alignment != 0)
+			Result += Result % Alignment;
 		Result += MemberSize;
-		if(Idx + 1 != Type->Struct.Members.Count)
-		{
-			int AlignSize = GetTypeSize(GetType(Type->Struct.Members[Idx+1].Type));
-			if(MemberSize < AlignSize)
-				Result += AlignSize - MemberSize;
-		}
 	}
-	Result += Result % MaxMemberSize;
+	auto sa = GetTypeAlignment(Type);
+	Result += Result % sa;
 	return Result;
 }
 
 int GetStructMemberOffset(const type *Type, uint Member)
 {
+	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
 		return 0;
-	int Result = 0;
-	for(int Idx = 0; Idx < Member; ++Idx)
-	{
-		int MemberSize = GetTypeSize(GetType(Type->Struct.Members[Idx].Type));
 
+	int Result = 0;
+	for(int Idx = 0; Idx <= Member; ++Idx)
+	{
+		const type *m = GetType(Type->Struct.Members[Idx].Type);
+		int MemberSize = GetTypeSize(m);
+		int Alignment = GetTypeAlignment(m);
+		if(Alignment != 0)
+			Result += Result % Alignment;
 		Result += MemberSize;
-		if(Idx + 1 != Type->Struct.Members.Count)
+	}
+	const type *m = GetType(Type->Struct.Members[Member].Type);
+	Result -= GetTypeSize(m);
+	return Result;
+}
+
+int GetStructAlignment(const type *Type)
+{
+	Assert(Type->Kind == TypeKind_Struct);
+	if(Type->Struct.Members.Count == 0)
+		return 1;
+
+	int BiggestMember = 0;
+	int CurrentAlignment = 1;
+	ForArray(Idx, Type->Struct.Members)
+	{
+		const type *m = GetType(Type->Struct.Members[Idx].Type);
+		int MemberSize = GetTypeSize(m);
+		if(MemberSize > BiggestMember)
 		{
-			int AlignSize = GetTypeSize(GetType(Type->Struct.Members[Idx+1].Type));
-			if(MemberSize < AlignSize)
-				Result += AlignSize - MemberSize;
+			BiggestMember = MemberSize;
+			CurrentAlignment = GetTypeAlignment(m);
 		}
 	}
-	return Result;
+
+	return CurrentAlignment;
 }
 
 int GetStructMemberOffset(u32 TypeIdx, uint Member)
@@ -197,6 +218,33 @@ int GetTypeSize(const type *Type)
 		default: {};
 	}
 	unreachable;
+}
+
+int GetTypeAlignment(const type *Type)
+{
+	switch(Type->Kind)
+	{
+		case TypeKind_Basic:
+		return GetBasicTypeSize(Type);
+		case TypeKind_Function:
+		case TypeKind_Pointer:
+		return GetRegisterTypeSize() / 8;
+		case TypeKind_Array:
+		{
+			return GetTypeAlignment(Type->Array.Type);
+		} break;
+		case TypeKind_Struct:
+		{
+			return GetStructAlignment(Type);
+		} break;
+		default: {};
+	}
+	unreachable;
+}
+
+int GetTypeAlignment(u32 Type)
+{
+	return GetTypeAlignment(GetType(Type));
 }
 
 int GetTypeSize(u32 TypeIdx)
@@ -364,6 +412,10 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 				return (Left->Pointer.Pointed == INVALID_TYPE) == (Right->Pointer.Pointed == INVALID_TYPE);
 			}
 			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
+		} break;
+		case TypeKind_Struct:
+		{
+			return Left->Struct.Name == Right->Struct.Name;
 		} break;
 		default:
 		{

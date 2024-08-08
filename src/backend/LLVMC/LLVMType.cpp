@@ -1,5 +1,6 @@
 #include "LLVMType.h"
 #include "LLVMBase.h"
+#include "Log.h"
 #include "Type.h"
 #include "llvm-c/Core.h"
 
@@ -149,6 +150,51 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 	return Opaque;
 }
 
+void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, const type *ArgType, LLVMTypeRef *Result, int *IdxOut)
+{
+	if(ArgType->Kind == TypeKind_Array)
+	{
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		return;
+	}
+	Assert(ArgType->Kind == TypeKind_Struct);
+	int Size = GetTypeSize(ArgType);
+	if(Size > MAX_PARAMETER_SIZE)
+	{
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		return;
+	}
+
+	switch(Size)
+	{
+		case 8:
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u64);
+		} break;
+		case 4:
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u32);
+		} break;
+		case 2:
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u16);
+		} break;
+		case 1:
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u8);
+		} break;
+		default:
+		{
+			if(Size > 8)
+			{
+				LFATAL("Passing struct of size %d to function is not currently supported", Size);
+			}
+			Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+			return;
+		} break;
+	}
+}
+
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
@@ -165,11 +211,12 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	else
 		ReturnType = LLVMVoidTypeInContext(Context);
 
-	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc(Type->Function.ArgCount * sizeof(LLVMTypeRef));
+	// Allocating ArgCount * 2 incase struts need to be passed as multiple arguments
+	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc(Type->Function.ArgCount * sizeof(LLVMTypeRef) * 2);
 	for (int i = 0; i < Type->Function.ArgCount; ++i) {
 		const type *ArgType = GetType(Type->Function.Args[i]);
 		if(!IsLoadableType(ArgType))
-			ArgTypes[i] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Args[i]), 0);
+			LLVMFixFunctionComplexParameter(Context, Type->Function.Args[i], ArgType, ArgTypes, &i);
 		else
 			ArgTypes[i] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}

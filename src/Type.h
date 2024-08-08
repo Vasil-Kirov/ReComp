@@ -6,6 +6,11 @@
 struct type;
 #define INVALID_TYPE UINT32_MAX
 
+#if _WIN32
+#define MAX_PARAMETER_SIZE 8
+#else
+#define MAX_PARAMETER_SIZE 16
+#endif
 
 enum type_kind
 {
@@ -135,6 +140,8 @@ u32 GetReturnType(const type *Type);
 int GetBasicTypeSize(const type *Type);
 int GetTypeSize(const type *Type);
 int GetTypeSize(u32 Type);
+int GetTypeAlignment(const type *Type);
+int GetTypeAlignment(u32 Type);
 int GetStructMemberOffset(const type *Type, uint Member);
 int GetStructMemberOffset(u32 Type, uint Member);
 int GetRegisterTypeSize();

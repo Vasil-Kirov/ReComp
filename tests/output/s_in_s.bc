@@ -10,7 +10,7 @@ block_0:
   %0 = alloca %"s_in_s!vv", align 8
   %1 = alloca %"s_in_s!v2", align 8
   %2 = getelementptr inbounds %"s_in_s!v2", ptr %1, i32 0, i32 0
-  store float 0.000000e+00, ptr %2, align 4
+  store float 1.000000e+01, ptr %2, align 4
   %3 = getelementptr inbounds %"s_in_s!v2", ptr %1, i32 0, i32 1
   store i64 20, ptr %3, align 8
   %4 = getelementptr inbounds %"s_in_s!vv", ptr %0, i32 0, i32 0

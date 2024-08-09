@@ -84,11 +84,27 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Value;
 			if(Type->Basic.Flags & BasicFlag_Float)
 			{
-				Value = LLVMConstReal(LLVMType, Val->Float);
+				if(Val->Type == const_type::Integer)
+				{
+					Value = LLVMConstReal(LLVMType, Val->Int.Signed);
+				}
+				else
+				{
+					Assert(Val->Type == const_type::Float);
+					Value = LLVMConstReal(LLVMType, Val->Float);
+				}
 			}
 			else if(Type->Basic.Flags & BasicFlag_Integer)
 			{
-				Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+				if(Val->Type == const_type::Integer)
+				{
+					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
+				}
+				else
+				{
+					Assert(Val->Type == const_type::Float);
+					Value = LLVMConstInt(LLVMType, Val->Float, true);
+				}
 			}
 			else if(Type->Basic.Flags & BasicFlag_String)
 			{
@@ -108,7 +124,15 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(Type->Basic.Flags & BasicFlag_Boolean)
 			{
-				Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+				if(Val->Type == const_type::Integer)
+				{
+					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+				}
+				else
+				{
+					Assert(Val->Type == const_type::Float);
+					Value = LLVMConstInt(LLVMType, Val->Float, true);
+				}
 			}
 			else
 			{

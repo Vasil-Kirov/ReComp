@@ -1,6 +1,7 @@
 #include "Basic.h"
 #include "Memory.h"
 #include "vlib.h"
+#include "llvm-c/TargetMachine.h"
 static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Log.h"
@@ -227,6 +228,7 @@ main(int ArgCount, char *Args[])
 
 	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
+
 	ForArray(Idx, BuildFile.IR->Functions)
 	{
 		if(*BuildFile.IR->Functions[Idx].Name == CompileFunction)
@@ -262,7 +264,9 @@ main(int ArgCount, char *Args[])
 			}
 			timers LLVMTimers = {};
 			LLVMTimers.LLVM = VLibStartTimer("LLVM");
-			RCGenerateCode(SliceFromArray(Files), true);
+			slice<file> FileArray = SliceFromArray(Files);
+			LLVMTargetMachineRef Machine = RCGenerateMain(FileArray);
+			RCGenerateCode(FileArray, Machine, true);
 			VLibStopTimer(&LLVMTimers.LLVM);
 			Timers.Push(LLVMTimers);
 

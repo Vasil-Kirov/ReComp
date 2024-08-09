@@ -5,11 +5,6 @@
 #include "VString.h"
 struct type;
 
-enum function_flags
-{
-	FunctionFlag_foreign = BIT(1),
-};
-
 enum node_type
 {
 	AST_INVALID,
@@ -111,8 +106,7 @@ struct node
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
 			u32 TypeIndex; // Set by semantic analyzer
-			b32 IsConst;
-			b32 IsShadow;
+			u32 Flags;
 		} Decl;
 		struct {
 			const string *Name;
@@ -154,6 +148,7 @@ struct parser
 	token *Current;
 	u64 TokenIndex;
 	b32 IsInBody;
+	b32 CurrentlyPublic;
 };
 
 struct parse_result

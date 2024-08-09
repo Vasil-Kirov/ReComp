@@ -2,7 +2,22 @@
 source_filename = "file2"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
+@"file2!foo" = global i64 0
+
+define void @"file2!__!GlobalInitializerFunction"() {
+block_0:
+  %0 = call i64 @"file2!give_one"()
+  store i64 %0, ptr @"file2!foo", align 8
+  ret void
+}
+
+define i64 @"file2!give_one"() {
+block_0:
+  ret i64 1
+}
+
 define i32 @"file2!give_two"() {
 block_0:
   ret i32 2
 }
+

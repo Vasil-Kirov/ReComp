@@ -125,6 +125,9 @@ void FixZeroSizedArrayList(u32 ArrayTypeIdx, const type *ArrayType, node *Expres
 
 b32 FindImportedModule(checker *Checker, string &ModuleName, import *Out)
 {
+	if(Checker->Imported == NULL)
+		return false;
+
 	auto Imports = *Checker->Imported;
 	ForArray(Idx, Imports)
 	{
@@ -277,7 +280,42 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		} break;
 		case AST_SELECTOR:
 		{
-			return IsLHSAssignable(Checker, LHS->Selector.Operand);
+			u32 TypeIdx = AnalyzeExpression(Checker, LHS->Selector.Operand);
+			if(TypeIdx == Basic_module)
+			{
+				if(LHS->Selector.Operand->Type != AST_ID)
+				{
+					RaiseError(*LHS->Selector.Operand->ErrorInfo,
+							"Invalid use of module");
+				}
+				string ModuleName = *LHS->Selector.Operand->ID.Name;
+				import m;
+				if(!FindImportedModule(Checker, ModuleName, &m))
+				{
+					unreachable;
+				}
+				b32 Found = false;
+				ForArray(Idx, m.Globals)
+				{
+					symbol *s = m.Globals[Idx];
+					if(*s->Name == *LHS->Selector.Member)
+					{
+						return (s->Flags & SymbolFlag_Public) &&
+							((s->Flags & SymbolFlag_Const) == 0);
+					}
+				}
+				if(!Found)
+				{
+					RaiseError(*LHS->ErrorInfo,
+							"Cannot find public symbol %s in module %s",
+							LHS->Selector.Member->Data, ModuleName.Data);
+				}
+				return false;
+			}
+			else
+			{
+				return IsLHSAssignable(Checker, LHS->Selector.Operand);
+			}
 		} break;
 		default:
 		{
@@ -612,6 +650,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					symbol *s = m.Globals[Idx];
 					if(*s->Name == *Expr->Selector.Member)
 					{
+						if((s->Flags & SymbolFlag_Public) == 0)
+						{
+							RaiseError(*Expr->ErrorInfo,
+									"Cannot access private member %s in module %s",
+									Expr->Selector.Member->Data, ModuleName.Data);
+						}
 						Result = s->Type;
 						Expr->Selector.Type = s->Type;
 						Found = true;
@@ -1063,8 +1107,7 @@ DECL_TYPE_ERROR:
 		FillUntypedStack(Checker, Type);
 	}
 	Node->Decl.TypeIndex = Type;
-	u32 Flags = (Node->Decl.IsShadow) ? SymbolFlag_Shadow : 0 | (Node->Decl.IsConst) ? SymbolFlag_Const : 0;
-	AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Flags);
+	AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Node->Decl.Flags);
 	return Type;
 }
 
@@ -1297,12 +1340,29 @@ checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 			Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
 			Sym->Depth = 0;
 			Sym->Flags = SymbolFlag_Function;
-			Sym->Flags |= SymbolFlag_Public;
-			if(Node->Fn.Flags & FunctionFlag_foreign)
-				Sym->Flags |= SymbolFlag_Foreign;
+			Sym->Flags |= Node->Fn.Flags;
 			GlobalSymbols.Push(Sym);
 		}
 	}
+	Checker.Module->Globals = SliceFromArray(GlobalSymbols);
+
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_DECL)
+		{
+			node *Node = Nodes[I];
+			u32 Type = AnalyzeDeclerations(&Checker, Node);
+			symbol *Sym = NewType(symbol);
+			Sym->Name = Node->Decl.ID;
+			Sym->Type = Type;
+			Sym->Hash = murmur3_32(Node->Decl.ID->Data, Node->Decl.ID->Size, 
+					HASH_SEED);
+			Sym->Depth = 0;
+			Sym->Flags = Node->Decl.Flags;
+			GlobalSymbols.Push(Sym);
+		}
+	}
+
 	Checker.Module->Globals = SliceFromArray(GlobalSymbols);
 	return Checker;
 }

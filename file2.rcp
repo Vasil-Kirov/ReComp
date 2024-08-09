@@ -1,7 +1,13 @@
 file2
 
+foo := give_one();
+
 struct x {
 	y: int,
+}
+
+give_one :: fn() -> int {
+	return 1;
 }
 
 give_two :: fn() -> i32 {

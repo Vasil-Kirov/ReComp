@@ -80,7 +80,6 @@ struct function
 	dynamic<basic_block> Blocks;
 	ir_symbol *Locals;
 	reg_allocation *Allocated;
-	node *FnNode;
 	slice<ir_symbol> ModuleSymbols;
 	u32 LocalCount;
 	u32 LastRegister;
@@ -90,7 +89,7 @@ struct function
 struct block_builder
 {
 	basic_block CurrentBlock;
-	function *Function;
+	function *Function; // @NOTE: DO NOT USE AFTER THE FUNCTION IS GENERATED
 	u32 LastRegister;
 	u32 LastBlock;
 };

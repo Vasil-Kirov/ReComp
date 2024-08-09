@@ -3,6 +3,7 @@
 #include "Errors.h"
 #include "Lexer.h"
 #include "Memory.h"
+#include "Semantics.h"
 #include "Type.h"
 #include "VString.h"
 
@@ -181,15 +182,14 @@ node *MakeBasicType(error_info *ErrorInfo, node *ID)
 	return Result;
 }
 
-node *MakeDecl(error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, b32 IsConst, b32 IsShadow)
+node *MakeDecl(error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_DECL;
 	Result->Decl.ID = ID;
 	Result->Decl.Expression = Expression;
 	Result->Decl.Type = MaybeType;
-	Result->Decl.IsConst = IsConst;
-	Result->Decl.IsShadow = IsShadow;
+	Result->Decl.Flags = Flags;
 	return Result;
 }
 
@@ -249,6 +249,7 @@ parse_result ParseTokens(token *Tokens, string ModuleName)
 	Parser.Current = Tokens;
 	Parser.ModuleName = ModuleName;
 	Parser.IsInBody = false;
+	Parser.CurrentlyPublic = true;
 
 	size_t TokenCount = ArrLen(Tokens);
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
@@ -360,7 +361,7 @@ node *ParseFunctionArgument(parser *Parser)
 	token ID = EatToken(Parser, T_ID);
 	EatToken(Parser, ':');
 	node *Type   = ParseType(Parser);
-	return MakeDecl(ErrorInfo, ID.ID, NULL, Type, true, false);
+	return MakeDecl(ErrorInfo, ID.ID, NULL, Type, SymbolFlag_Const);
 }
 
 slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
@@ -391,7 +392,7 @@ node *ParseFunctionType(parser *Parser)
 	if(Parser->Current->Type == T_FOREIGN)
 	{
 		GetToken(Parser);
-		Flags |= FunctionFlag_foreign;
+		Flags |= SymbolFlag_Foreign;
 	}
 	EatToken(Parser, '(');
 	slice<node *> Args{};
@@ -813,7 +814,8 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 	node *Expression = NULL;
 	if(HasExpression)
 		Expression = ParseExpression(Parser);
-	return MakeDecl(ErrorInfo, ID.ID, Expression, MaybeTypeNode, IsConst, IsShadow);
+	u32 Flags = IsConst ? SymbolFlag_Const : 0 | IsShadow ? SymbolFlag_Shadow : 0;
+	return MakeDecl(ErrorInfo, ID.ID, Expression, MaybeTypeNode, Flags);
 }
 
 void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
@@ -957,21 +959,44 @@ node *ParseTopLevel(parser *Parser)
 	token StartToken = PeekToken(Parser);
 	switch(StartToken.Type)
 	{
+		case T_PUBLIC:
+		{
+			Parser->CurrentlyPublic = true;
+			Result = (node *)0x1;
+		} break;
+		case T_PRIVATE:
+		{
+			Parser->CurrentlyPublic = false;
+			Result = (node *)0x1;
+		} break;
 		case T_ID:
 		{
-			// @TODO: Globals, this only does functions
-			GetToken(Parser);
-			EatToken(Parser, T_CONST);
-			node *Fn = ParseFunctionType(Parser);
-			Fn->Fn.Name = StartToken.ID;
-			if(*Fn->Fn.Name == STR_LIT("main"))
-				Fn->Fn.Flags |= FunctionFlag_foreign;
-			if(PeekToken(Parser).Type == T_STARTSCOPE)
-				ParseBody(Parser, Fn->Fn.Body);
+			node *Decl = ParseDeclaration(Parser, false);
+			if(Decl->Decl.Expression->Type == AST_FN)
+			{
+				node *Fn = Decl->Decl.Expression;
+				if(Fn == NULL)
+				{
+					RaiseError(*Decl->ErrorInfo, "Invalid function declaration");
+				}
+				if((Decl->Decl.Flags & SymbolFlag_Const) == 0)
+				{
+					RaiseError(*Decl->ErrorInfo, "Global function declaration needs to be constant");
+				}
+				Fn->Fn.Name = Decl->Decl.ID;
+				if(Parser->CurrentlyPublic)
+					Fn->Fn.Flags |= SymbolFlag_Public;
+				if(!Fn->Fn.Body.IsValid())
+					EatToken(Parser, ';');
+				Result = Fn;
+			}
 			else
+			{
+				if(Parser->CurrentlyPublic)
+					Decl->Decl.Flags |= SymbolFlag_Public;
+				Result = Decl;
 				EatToken(Parser, ';');
-
-			Result = Fn;
+			}
 		} break;
 		case T_IMPORT:
 		{

@@ -3,6 +3,7 @@
 #include <llvm-c/Types.h>
 #include "LLVMValue.h"
 #include "llvm-c/Target.h"
+#include "llvm-c/TargetMachine.h"
 #include <IR.h>
 
 struct rc_block
@@ -24,6 +25,6 @@ struct generator
 
 rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set = true);
 void RCSetBlock(generator *gen, rc_block Block);
-void RCGenerateCode(slice<file>Files, b32 OutputBC);
+void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC);
 
 

@@ -2,41 +2,46 @@
 source_filename = "main"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
-%"main!Foo" = type { [1024 x i8] }
+%"main!x" = type { %"file2!x", %string }
+%"file2!x" = type { i64 }
+%string = type { ptr, i32 }
 
-declare void @printf(ptr, i64)
+@"file2!foo" = external global i64
+@0 = private unnamed_addr constant [4 x i8] c"str\00", align 1
 
-define i32 @"main!give_struct"(ptr %0) {
+define void @"main!__!GlobalInitializerFunction"() {
 block_0:
-  %1 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
-  %2 = getelementptr [1024 x i8], ptr %1, i64 0, i64 5
-  %3 = load i8, ptr %2, align 1
-  %4 = sext i8 %3 to i32
-  ret i32 %4
+  ret void
 }
 
-define i32 @main() {
+define i32 @"main!main"() {
 block_0:
-  %0 = alloca %"main!Foo", align 8
-  %1 = alloca [1024 x i8], align 1
-  call void @llvm.memset.p0.i64(ptr align 1 %1, i8 0, i64 1024, i1 false)
-  %2 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
-  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %2, ptr align 1 %1, i64 1024, i1 false)
-  %3 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
-  %4 = getelementptr [1024 x i8], ptr %3, i64 0, i64 5
-  store i8 32, ptr %4, align 1
-  %5 = alloca %"main!Foo", align 8
-  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %5, ptr align 1 %0, i64 1024, i1 false)
-  %6 = call i32 @"main!give_struct"(ptr %5)
-  %7 = sub i32 %6, 32
-  ret i32 %7
+  %0 = alloca %"main!x", align 8
+  %1 = alloca %"file2!x", align 8
+  %2 = load i64, ptr @"file2!foo", align 8
+  %3 = getelementptr inbounds %"file2!x", ptr %1, i32 0, i32 0
+  store i64 %2, ptr %3, align 8
+  %4 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %4, ptr align 8 %1, i64 8, i1 false)
+  %5 = alloca %string, align 8
+  %String = getelementptr inbounds %string, ptr %5, i32 0, i32 0
+  %Size = getelementptr inbounds %string, ptr %5, i32 0, i32 1
+  store ptr @0, ptr %String, align 8
+  store i32 3, ptr %Size, align 4
+  %6 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 1
+  store ptr %5, ptr %6, align 8
+  %7 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 0
+  %8 = getelementptr inbounds %"file2!x", ptr %7, i32 0, i32 0
+  %9 = load i64, ptr %8, align 8
+  %10 = trunc i64 %9 to i32
+  ret i32 %10
 }
 
-; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #0
+declare i64 @"file2!give_one"()
+
+declare i32 @"file2!give_two"()
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
 
-attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }

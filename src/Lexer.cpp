@@ -322,7 +322,7 @@ void InitializeLexer()
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
-	AddKeyword("public", T_PUBLIC);
-	AddKeyword("private", T_PRIVATE);
+	AddKeyword("#public", T_PUBLIC);
+	AddKeyword("#private", T_PRIVATE);
 }
 

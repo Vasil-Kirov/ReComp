@@ -1,7 +1,7 @@
 file2
 
 
-private
+#private
 
 foo := give_one();
 

@@ -1,5 +1,8 @@
 file2
 
+
+private
+
 foo := give_one();
 
 struct x {

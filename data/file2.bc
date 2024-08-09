@@ -20,4 +20,3 @@ define i32 @"file2!give_two"() {
 block_0:
   ret i32 2
 }
-

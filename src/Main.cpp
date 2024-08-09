@@ -77,6 +77,38 @@ void ResolveSymbols(dynamic<file> Files)
 		AnalyzeForModuleStructs(NodeSlice, File->Module);
 		*File->Checker = AnalyzeFunctionDecls(NodeSlice, &File->Module);
 	}
+	b32 FoundMain = false;
+	string MainName = STR_LIT("main");
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		if(File->Module.Name == MainName)
+		{
+			FoundMain = true;
+			b32 FoundMainMain = false;
+			ForArray(mi, File->Module.Globals)
+			{
+				symbol *sym = File->Module.Globals[mi];
+				if(sym->Flags & SymbolFlag_Function &&
+						*sym->Name == MainName)
+				{
+					FoundMainMain = true;
+					break;
+				}
+			}
+			if(!FoundMainMain)
+			{
+				LFATAL("Missing main function in main module");
+			}
+			break;
+		}
+	}
+
+	if(!FoundMain)
+	{
+		LFATAL("Missing main module");
+	}
+
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];

@@ -961,11 +961,13 @@ node *ParseTopLevel(parser *Parser)
 	{
 		case T_PUBLIC:
 		{
+			GetToken(Parser);
 			Parser->CurrentlyPublic = true;
 			Result = (node *)0x1;
 		} break;
 		case T_PRIVATE:
 		{
+			GetToken(Parser);
 			Parser->CurrentlyPublic = false;
 			Result = (node *)0x1;
 		} break;

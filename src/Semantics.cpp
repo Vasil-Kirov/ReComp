@@ -1339,8 +1339,7 @@ checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 			Sym->Type = FnType;
 			Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
 			Sym->Depth = 0;
-			Sym->Flags = SymbolFlag_Function;
-			Sym->Flags |= Node->Fn.Flags;
+			Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
 			GlobalSymbols.Push(Sym);
 		}
 	}

@@ -308,7 +308,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled);
 				const type *Type = GetType(Node->Selector.Type);
 				Result = Sym->Register;
-				if(!IsLHS && IsLoadableType(Type))
+				if(!IsLHS && IsLoadableType(Type) && Type->Kind != TypeKind_Function)
 				{
 					Result = PushInstruction(Builder,
 							Instruction(OP_LOAD, 0, Result, Node->Selector.Type, Builder));
@@ -881,6 +881,8 @@ string Dissasemble(slice<function> Functions)
 	{
 		function Fn = Functions[FnIdx];
 		const type *FnType = GetType(Fn.Type);
+		if(!FnType)
+			continue;
 		PushBuilderFormated(&Builder, "\nfn %s(", Fn.Name->Data);
 		for(int I = 0; I < FnType->Function.ArgCount; ++I)
 		{

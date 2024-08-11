@@ -160,7 +160,7 @@ file GetModule(string File, timers *Timers)
 	return Result;
 }
 
-void ParseAndAnalyzeFile(file *File, timers *Timers)
+void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 {
 	Timers->TypeCheck = VLibStartTimer("Type Checking");
 	Analyze(File->Checker, SliceFromArray(File->Nodes));
@@ -171,10 +171,32 @@ void ParseAndAnalyzeFile(file *File, timers *Timers)
 	*File->IR = BuildIR(File);
 	VLibStopTimer(&Timers->IR);
 	
-#if 0
-	string Dissasembly = Dissasemble(SliceFromArray(IR.Functions));
-	LDEBUG("%s", Dissasembly.Data);
-#endif
+	if(Flag & CommandFlag_ir)
+	{
+		string Dissasembly = Dissasemble(SliceFromArray(File->IR->Functions));
+		LDEBUG("[ MODULE %s ]\n\n%s", File->Module.Name.Data, Dissasembly.Data);
+	}
+}
+
+string MakeLinkCommand(command_line CMD, slice<file> Files)
+{
+	string_builder Builder = MakeBuilder();
+	Builder += "LINK.EXE /nologo /defaultlib:MSVCRT /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj ";
+
+	ForArray(Idx, Files)
+	{
+		Builder += Files[Idx].Module.Name;
+		Builder += ".obj ";
+	}
+
+	ForArray(Idx, CMD.LinkArgs)
+	{
+		Builder += CMD.LinkArgs[Idx];
+		Builder += ' ';
+	}
+
+
+	return MakeString(Builder);
 }
 
 struct compile_info
@@ -214,7 +236,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	AnalyzeForModuleStructs(NodeSlice, File.Module);
 	*File.Checker = AnalyzeFunctionDecls(NodeSlice, &File.Module);
 	File.Checker->Imported = &File.Imported;
-	ParseAndAnalyzeFile(&File, Timers);
+	ParseAndAnalyzeFile(&File, Timers, 0);
 
 	return File;
 }
@@ -261,6 +283,7 @@ main(int ArgCount, char *Args[])
 	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 
+	slice<file> FileArray = {};
 	ForArray(Idx, BuildFile.IR->Functions)
 	{
 		if(*BuildFile.IR->Functions[Idx].Name == CompileFunction)
@@ -291,12 +314,12 @@ main(int ArgCount, char *Args[])
 			{
 				timers FileTimer = {};
 				file *File = &Files.Data[Idx];
-				ParseAndAnalyzeFile(File, &FileTimer);
+				ParseAndAnalyzeFile(File, &FileTimer, CommandLine.Flags);
 				Timers.Push(FileTimer);
 			}
 			timers LLVMTimers = {};
 			LLVMTimers.LLVM = VLibStartTimer("LLVM");
-			slice<file> FileArray = SliceFromArray(Files);
+			FileArray = SliceFromArray(Files);
 			LLVMTargetMachineRef Machine = RCGenerateMain(FileArray);
 			RCGenerateCode(FileArray, Machine, true);
 			VLibStopTimer(&LLVMTimers.LLVM);
@@ -318,7 +341,7 @@ main(int ArgCount, char *Args[])
 
 
 	auto LinkTimer = VLibStartTimer("Linking");
-	//system("LINK.EXE /nologo /ENTRY:mainCRTStartup /defaultlib:libcmt /OUT:a.exe out.obj");
+	system(MakeLinkCommand(CommandLine, FileArray).Data);
 	VLibStopTimer(&LinkTimer);
 
 

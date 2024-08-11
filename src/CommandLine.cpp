@@ -29,17 +29,27 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--vmdll"),
 		STR_LIT("--time"),
 		STR_LIT("--help"),
+		STR_LIT("--ir"),
+		STR_LIT("--LINK"),
 	};
 
 	dynamic<string> ImportDLLs = {};
+	dynamic<string> LinkCMDs = {};
 	for(int i = 0; i < ArgCount; ++i)
 	{
 		string Arg = Args[i];
-		if(Arg.Size < 2)
+		if(Arg.Size < 1)
 		{
 			LFATAL("Invalid argument %s", Arg.Data);
 			RET_EMPTY(command_line);
 		}
+
+		if(Result.Flags & CommandFlag_link)
+		{
+			LinkCMDs.Push(Arg);
+			continue;
+		}
+
 		if(StringsMatchNoCase(Arg, CompileCommands[0]))
 		{
 			if(i + 1 == ArgCount)
@@ -57,6 +67,14 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		else if(StringsMatchNoCase(Arg, CompileCommands[2]))
 		{
 			LINFO(HELP);
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[3]))
+		{
+			Result.Flags |= CommandFlag_ir;
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[4]))
+		{
+			Result.Flags |= CommandFlag_link;
 		}
 		else
 		{
@@ -76,6 +94,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	}
 
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
+	Result.LinkArgs = SliceFromArray(LinkCMDs);
 	return Result;
 }
 

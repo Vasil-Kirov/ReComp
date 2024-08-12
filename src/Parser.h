@@ -165,6 +165,7 @@ struct parse_result
 
 parse_result ParseTokens(token *Tokens, string ModuleName);
 node *ParseNode(parser *Parser);
+node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);

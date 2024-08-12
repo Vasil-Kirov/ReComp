@@ -3,7 +3,6 @@ main
 #import file2 as f2
 
 struct x {
-	foo: f2.x,
 	bar: string,
 }
 
@@ -24,10 +23,9 @@ main :: fn() -> i32 {
 	
 	//fn_ptr = my_64_fn;
 
-	foo: i32 = 0;
 	
-	x := "my_f";
+	foo := x { bar = "my_f" };
 
-	return @i32 (#size x - #size foo);
+	return @i32 #size foo.bar - #size "myf";
 }
 

@@ -600,7 +600,7 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Expr = ParseOperand(Parser);
+			node *Expr = ParseUnary(Parser);
 			Result = MakeSize(ErrorInfo, Expr);
 		} break;
 		case T_FN:

@@ -222,7 +222,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const type *Type = GetType(Node->Size.Type);
 			if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
 			{
-				u32 StringRegister = BuildIRFromExpression(Builder, Node->Size.Expression);
+				u32 StringRegister = BuildIRFromExpression(Builder, Node->Size.Expression, true);
 				u32 SizePtr = PushInstruction(Builder,
 						Instruction(OP_INDEX, StringRegister, 1, Basic_string, Builder));
 				Result = PushInstruction(Builder,
@@ -300,8 +300,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			ForArray(Idx, Node->StructList.Expressions)
 			{
+				const type *MemberType = GetType(StructType->Struct.Members[Idx].Type);
 				u32 MemberIndex = Node->StructList.NameIndexes[Idx];
 				u32 Expr = BuildIRFromExpression(Builder, Node->StructList.Expressions[Idx], false);
+				if(MemberType->Kind == TypeKind_Basic && MemberType->Basic.Kind == Basic_string)
+				{
+					Expr = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Expr, StructType->Struct.Members[Idx].Type, Builder));
+				}
 				u32 Location = PushInstruction(Builder,
 						Instruction(OP_INDEX, Alloc, MemberIndex, Node->StructList.Type, Builder));
 				PushInstruction(Builder,

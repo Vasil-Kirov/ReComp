@@ -308,7 +308,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled);
 				const type *Type = GetType(Node->Selector.Type);
 				Result = Sym->Register;
-				if(!IsLHS && IsLoadableType(Type) && Type->Kind != TypeKind_Function)
+				if(!IsLHS && IsLoadableType(Type))
 				{
 					Result = PushInstruction(Builder,
 							Instruction(OP_LOAD, 0, Result, Node->Selector.Type, Builder));
@@ -344,6 +344,17 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
 			instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
 			Result = PushInstruction(Builder, I);
+		} break;
+		case AST_FN:
+		{
+			function fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported, Builder->Module);
+
+			Result = PushInstruction(Builder,
+					Instruction(OP_FN, (u64)DupeType(fn, function), fn.Type, Builder));
+			/*
+			PushIRLocal(Builder->Function, fn.Name, Result,
+					fn.Type, SymbolFlag_Function);
+					*/
 		} break;
 		default:
 		{
@@ -618,6 +629,8 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		block_builder Builder = {};
 		Builder.Function = &Function;
 		Builder.CurrentBlock = AllocateBlock(&Builder);
+		Builder.Imported = Imported;
+		Builder.Module = Module;
 
 		const type *FnType = GetType(TypeIdx);
 
@@ -719,7 +732,7 @@ ir BuildIR(file *File)
 	return IR;
 }
 
-void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
+void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int indent)
 {
 	ForArray(I, Block->Code)
 	{
@@ -730,6 +743,8 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 
 		PushBuilder(Builder, '\t');
 		PushBuilder(Builder, '\t');
+		for(int i = 0; i < indent; ++i)
+			PushBuilder(Builder, '\t');
 		switch(Instr.Op)
 		{
 			case OP_NOP:
@@ -765,6 +780,11 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block)
 						PushBuilderFormated(Builder, "%%%d = %s %f", Instr.Result, GetTypeName(Type), Val->Float);
 					} break;
 				}
+			} break;
+			case OP_FN:
+			{
+				function Fn = *(function *)Instr.BigRegister;
+				PushBuilderFormated(Builder, "%%%d = %s", Instr.Result, DissasembleFunction(Fn, 2).Data);
 			} break;
 			case OP_ADD:
 			{
@@ -874,39 +894,54 @@ INSIDE_EQ:
 	PushBuilder(Builder, '\n');
 }
 
+string DissasembleFunction(function Fn, int indent)
+{
+	const type *FnType = GetType(Fn.Type);
+	if(!FnType)
+		return STR_LIT("");
+	string_builder Builder = MakeBuilder();
+	PushBuilderFormated(&Builder, "fn %s(", Fn.Name->Data);
+	for(int I = 0; I < FnType->Function.ArgCount; ++I)
+	{
+		const type *ArgType = GetType(FnType->Function.Args[I]);
+		PushBuilderFormated(&Builder, "%s %%%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
+		if(I + 1 != FnType->Function.ArgCount)
+			PushBuilder(&Builder, ", ");
+	}
+	PushBuilder(&Builder, ')');
+
+	if(Fn.Blocks.Count != 0)
+	{
+		PushBuilder(&Builder, " {\n");
+		ForArray(I, Fn.Blocks)
+		{
+			Builder += '\n';
+			for(int i = 0; i < indent; ++i)
+				Builder += '\t';
+
+			PushBuilderFormated(&Builder, "\tblock_%d:\n", I);
+			DissasembleBasicBlock(&Builder, Fn.Blocks.GetPtr(I), indent);
+		}
+		for(int i = 0; i < indent; ++i)
+			Builder += '\t';
+
+		PushBuilder(&Builder, "}\n");
+	}
+	else
+	{
+		PushBuilder(&Builder, ";\n");
+	}
+	return MakeString(Builder);
+}
+
 string Dissasemble(slice<function> Functions)
 {
 	string_builder Builder = MakeBuilder();
 	ForArray(FnIdx, Functions)
 	{
 		function Fn = Functions[FnIdx];
-		const type *FnType = GetType(Fn.Type);
-		if(!FnType)
-			continue;
-		PushBuilderFormated(&Builder, "\nfn %s(", Fn.Name->Data);
-		for(int I = 0; I < FnType->Function.ArgCount; ++I)
-		{
-			const type *ArgType = GetType(FnType->Function.Args[I]);
-			PushBuilderFormated(&Builder, "%s %%%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
-			if(I + 1 != FnType->Function.ArgCount)
-				PushBuilder(&Builder, ", ");
-		}
-		PushBuilder(&Builder, ')');
-
-		if(Fn.Blocks.Count != 0)
-		{
-			PushBuilder(&Builder, " {\n");
-			ForArray(I, Fn.Blocks)
-			{
-				PushBuilderFormated(&Builder, "\n\tblock_%d:\n", I);
-				DissasembleBasicBlock(&Builder, Fn.Blocks.GetPtr(I));
-			}
-			PushBuilder(&Builder, "}\n");
-		}
-		else
-		{
-			PushBuilder(&Builder, ";\n");
-		}
+		Builder += '\n';
+		Builder += DissasembleFunction(Fn, 0);
 	}
 	return MakeString(Builder);
 }

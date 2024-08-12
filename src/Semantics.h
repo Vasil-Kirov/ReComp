@@ -37,6 +37,7 @@ node *FindFunction(checker *Checker, string *Name);
 void AnalyzeNode(checker *Checker, node *Node);
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags);
 u32 AnalyzeExpression(checker *Checker, node *Expr);
+symbol *AnalyzeFunctionDecl(checker *Checker, node *Node);
 typedef struct {
 	u32 From;
 	u32 To;

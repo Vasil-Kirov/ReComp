@@ -1,0 +1,17 @@
+main
+
+struct v2 {
+	x: f32,
+	y: int,
+}
+
+struct vv {
+	v: v2,
+	foo: int,
+}
+
+main :: fn() -> i32 {
+	bar := vv { v = v2 { x = 10, y = 20 }, foo = 30 };
+	return @i32 (60 - (@int bar.v.x) - bar.v.y - bar.foo);
+}
+

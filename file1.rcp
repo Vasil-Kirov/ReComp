@@ -7,8 +7,22 @@ struct x {
 	bar: string,
 }
 
+my_64_fn :: fn() -> i32 {
+	return 64;
+}
+
+my_16_fn :: fn() -> i32 {
+	return 16;
+}
+
 main :: fn() -> i32 {
-	foo := x { foo = f2.x { y = f2.foo }, bar = "str" };
-	return @i32 foo.foo.y;
+	my_lambda := fn() -> i32 {
+		return 32;
+	};
+
+	fn_ptr := my_16_fn;
+	fn_ptr = my_64_fn;
+
+	return my_lambda() - fn_ptr();
 }
 

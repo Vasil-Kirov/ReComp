@@ -1,7 +1,0 @@
-arrays
-
-main :: fn() -> i32 {
-	arr := {1, 2, 3, 4};
-	return @i32(arr[3] - arr[2] - arr[0]);
-}
-

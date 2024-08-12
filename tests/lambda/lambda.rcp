@@ -1,0 +1,21 @@
+main
+
+my_32_fn :: fn() -> i32 {
+	return 32;
+}
+
+my_16_fn :: fn() -> i32 {
+	return 16;
+}
+
+main :: fn() -> i32 {
+	my_lambda := fn() -> i32 {
+		return 32;
+	};
+
+	fn_ptr := my_16_fn;
+	fn_ptr = my_32_fn;
+
+	return my_lambda() - fn_ptr();
+}
+

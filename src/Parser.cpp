@@ -305,6 +305,13 @@ node *ParseArrayType(parser *Parser)
 	return MakeArrayType(ID->ErrorInfo, ID, Expression);
 }
 
+string MakeLambdaName(error_info *Info)
+{
+	string_builder Builder = MakeBuilder();
+	PushBuilderFormated(&Builder, "__lambda_%s%d", Info->FileName, Info->Line);
+	return MakeString(Builder);
+}
+
 // @Todo: type types
 node *ParseType(parser *Parser, b32 ShouldError)
 {
@@ -582,7 +589,10 @@ node *ParseOperand(parser *Parser)
 		} break;
 		case T_FN:
 		{
+			ERROR_INFO;
 			Result = ParseFunctionType(Parser);
+			string Name = MakeLambdaName(ErrorInfo);
+			Result->Fn.Name = DupeType(Name, string);
 			if((int)PeekToken(Parser).Type == T_STARTSCOPE)
 			{
 				ParseBody(Parser, Result->Fn.Body);

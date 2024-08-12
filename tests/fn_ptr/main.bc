@@ -1,0 +1,42 @@
+; ModuleID = 'main'
+source_filename = "main"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
+%"main!Foo" = type { [1024 x ptr] }
+
+define void @"main!__!GlobalInitializerFunction"() {
+block_0:
+  ret void
+}
+
+define i32 @"main!sum"(i32 %0, i32 %1) {
+block_0:
+  %2 = add i32 %0, %1
+  ret i32 %2
+}
+
+define i32 @"main!main"() {
+block_0:
+  %0 = alloca %"main!Foo", align 8
+  %1 = alloca [1024 x ptr], align 8
+  call void @llvm.memset.p0.i64(ptr align 8 %1, i8 0, i64 8192, i1 false)
+  %2 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %2, ptr align 8 %1, i64 8192, i1 false)
+  %3 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  %4 = getelementptr [1024 x ptr], ptr %3, i64 0, i64 513
+  store ptr @"main!sum", ptr %4, align 8
+  %5 = getelementptr inbounds %"main!Foo", ptr %0, i32 0, i32 0
+  %6 = getelementptr [1024 x ptr], ptr %5, i64 0, i64 513
+  %7 = load ptr, ptr %6, align 8
+  %8 = call i32 %7(i32 3, i32 -3)
+  ret i32 %8
+}
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #0
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }

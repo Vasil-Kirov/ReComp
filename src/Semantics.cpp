@@ -505,6 +505,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				if(Result == INVALID_TYPE)
 					RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
+			const type *Type = GetType(Result);
+			if(Type->Kind == TypeKind_Function)
+				Result = GetPointerTo(Result);
 		} break;
 		case AST_ARRAYLIST:
 		{
@@ -740,6 +743,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				Checker->UntypedStack.Push(&Expr->Constant.Type);
 			}
+		} break;
+		case AST_FN:
+		{
+			symbol *Sym = AnalyzeFunctionDecl(Checker, Expr);
+			AnalyzeFunctionBody(Checker, Expr->Fn.Body, Expr, Sym->Type);
+			return GetPointerTo(Sym->Type);
 		} break;
 		default:
 		{
@@ -1243,10 +1252,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 	{
 		case AST_DECL:
 		{
-			u32 TypeIdx = AnalyzeDeclerations(Checker, Node);
-			const type *Type = GetType(TypeIdx);
-			if(Type->Kind == TypeKind_Function)
-				Node->Fn.TypeIdx = TypeIdx;
+			AnalyzeDeclerations(Checker, Node);
 		} break;
 		case AST_IF:
 		{
@@ -1318,6 +1324,19 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, import &Module)
 	}
 }
 
+symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
+{
+	u32 FnType = CreateFunctionType(Checker, Node);
+	Node->Fn.TypeIdx = FnType;
+	symbol *Sym = NewType(symbol);
+	Sym->Name = Node->Fn.Name;
+	Sym->Type = FnType;
+	Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
+	Sym->Depth = 0;
+	Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
+	return Sym;
+}
+
 checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 {
 	checker Checker = {};
@@ -1332,14 +1351,7 @@ checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			u32 FnType = CreateFunctionType(&Checker, Node);
-			Node->Fn.TypeIdx = FnType;
-			symbol *Sym = NewType(symbol);
-			Sym->Name = Node->Fn.Name;
-			Sym->Type = FnType;
-			Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
-			Sym->Depth = 0;
-			Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
+			symbol *Sym = AnalyzeFunctionDecl(&Checker, Node);
 			GlobalSymbols.Push(Sym);
 		}
 	}

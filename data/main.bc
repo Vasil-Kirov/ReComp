@@ -2,46 +2,43 @@
 source_filename = "main"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
-%"main!x" = type { %"file2!x", %string }
-%"file2!x" = type { i64 }
-%string = type { ptr, i32 }
-
 @"file2!foo" = external global i64
-@0 = private unnamed_addr constant [4 x i8] c"str\00", align 1
 
 define void @"main!__!GlobalInitializerFunction"() {
 block_0:
   ret void
 }
 
+define i32 @"main!my_64_fn"() {
+block_0:
+  ret i32 64
+}
+
+define i32 @"main!my_16_fn"() {
+block_0:
+  ret i32 16
+}
+
 define i32 @"main!main"() {
 block_0:
-  %0 = alloca %"main!x", align 8
-  %1 = alloca %"file2!x", align 8
-  %2 = load i64, ptr @"file2!foo", align 8
-  %3 = getelementptr inbounds %"file2!x", ptr %1, i32 0, i32 0
-  store i64 %2, ptr %3, align 8
-  %4 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 0
-  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %4, ptr align 8 %1, i64 8, i1 false)
-  %5 = alloca %string, align 8
-  %String = getelementptr inbounds %string, ptr %5, i32 0, i32 0
-  %Size = getelementptr inbounds %string, ptr %5, i32 0, i32 1
-  store ptr @0, ptr %String, align 8
-  store i32 3, ptr %Size, align 4
-  %6 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 1
-  store ptr %5, ptr %6, align 8
-  %7 = getelementptr inbounds %"main!x", ptr %0, i32 0, i32 0
-  %8 = getelementptr inbounds %"file2!x", ptr %7, i32 0, i32 0
-  %9 = load i64, ptr %8, align 8
-  %10 = trunc i64 %9 to i32
-  ret i32 %10
+  %0 = alloca ptr, align 8
+  store ptr @"__lambda_../file1.rcp19", ptr %0, align 8
+  %1 = alloca ptr, align 8
+  store ptr @"main!my_16_fn", ptr %1, align 8
+  store ptr @"main!my_64_fn", ptr %1, align 8
+  %2 = load ptr, ptr %0, align 8
+  %3 = call i32 %2()
+  %4 = load ptr, ptr %1, align 8
+  %5 = call i32 %4()
+  %6 = sub i32 %3, %5
+  ret i32 %6
 }
 
 declare i64 @"file2!give_one"()
 
 declare i32 @"file2!give_two"()
 
-; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #0
-
-attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+define private i32 @"__lambda_../file1.rcp19"() {
+block_0:
+  ret i32 32
+}

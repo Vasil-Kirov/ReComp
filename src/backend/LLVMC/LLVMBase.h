@@ -21,10 +21,12 @@ struct generator
 	value_map map;
 	LLVMValueRef fn;
 	rc_block *blocks;
+	int CurrentBlock;
 };
 
 rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set = true);
-void RCSetBlock(generator *gen, rc_block Block);
+void RCSetBlock(generator *gen, int Index);
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC);
+void RCGenerateFunction(generator *gen, function fn);
 
 

@@ -16,53 +16,39 @@ def remove_newlines(string):
     string = string.replace('\r', '')
     return string
 
-def get_absolute_paths(directory):
-    paths = ['arrays.obj', 'basic.obj', 'fn_call.obj', 'fn_ptr.obj', 'pointers.obj', 'structs.obj', 'pass.obj', 's_in_s']
+def get_tests():
+    paths = ['arrays', 'basic', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda']
     return paths
 
 
-os.chdir('tests/output')
-files = get_absolute_paths('..')
+tests = get_tests()
+os.chdir('tests')
+for test in tests:
+    os.chdir(test)
 
-command_line = ['../../bin/rcp.exe', "../build.rcp"]
-start_time = time()
-process = subprocess.Popen(command_line, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-process.wait()
-end_time = time()
-
-if process.stderr is not None and process.stdout is not None:
-    subprocess_stderr = str(process.stderr.read().decode('utf-8'))
-    subprocess_stdout = str(process.stdout.read().decode('utf-8')) 
-
-    if subprocess_stderr.find('FATAL') != -1 or subprocess_stderr.find('ERROR') != -1:
-        print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}Time: {end_time - start_time:.2f}\nOutput: {subprocess_stderr}\n')
-
-    if subprocess_stdout.find('FATAL') != -1 or subprocess_stdout.find('ERROR') != -1:
-        print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}Time: {end_time - start_time:.2f}\nOutput: {subprocess_stderr}\n')
-
-    if len(subprocess_stdout) == 0:
-        print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}:CRASHED')
-
-for file in files:
-
-    command_line = ['LINK.EXE', '/NOLOGO', '/DEFAULTLIB:LIBCMT', '/OUT:a.exe', file]
-    process = subprocess.Popen(command_line)
-    process.wait()
+    c_start_time = time()
+    command_line = ['rcp', 'build.rcp']
+    process = subprocess.Popen(command_line, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    c_end_time = time()
 
     if not os.path.isfile('a.exe'):
-        continue
+        print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Time: {c_end_time - c_start_time:.2f}s')
+        print(f'Output: {stderr.decode()}\n{stdout.decode()}')
 
-    # Run the compiled program
-    command_line = ['a.exe']
-    process = subprocess.Popen(command_line)
-    process.wait()
-
-    if process.returncode == 0:
-        print(f'{Fore.GREEN}[✓]OK {Style.RESET_ALL}{file} Time: {end_time - start_time:.2f}')
     else:
-        print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{file} Got: {process.returncode}')
+        # Run the compiled program
+        start_time = time()
+        command_line = ['a.exe']
+        process = subprocess.Popen(command_line)
+        process.wait()
+        end_time = time()
+        if process.returncode == 0:
+            print(f'{Fore.GREEN}[✓]OK {Style.RESET_ALL}{test} Compile: {c_end_time - c_start_time:.2f}s Execute: {end_time - start_time:.2f}s')
+        else:
+            print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Got: {process.returncode}')
 
-    remove_file()
+    os.chdir('..')
 
 
 

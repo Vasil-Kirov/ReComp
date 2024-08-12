@@ -405,6 +405,25 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 				return false;
 			return Left->Basic.Kind == Right->Basic.Kind;
 		} break;
+		case TypeKind_Function:
+		{
+			if(Left->Function.ArgCount != Right->Function.ArgCount)
+				return false;
+
+			const type *RetLeft  = GetType(Left->Function.Return);
+			const type *RetRight = GetType(Right->Function.Return);
+			if(!TypesMustMatch(RetLeft, RetRight))
+				return false;
+
+			for(int i = 0; i < Left->Function.ArgCount; ++i)
+			{
+				const type *LeftArg = GetType(Left->Function.Args[i]);
+				const type *RightArg = GetType(Right->Function.Args[i]);
+				if(!TypesMustMatch(LeftArg, RightArg))
+					return false;
+			}
+			return true;
+		} break;
 		case TypeKind_Pointer:
 		{
 			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
@@ -568,7 +587,7 @@ b32 ShouldCopyType(const type *Type)
 
 b32 IsLoadableType(const type *Type)
 {
-	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct;
+	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function;
 }
 
 b32 IsLoadableType(u32 TypeIdx)

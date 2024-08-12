@@ -182,6 +182,25 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			gen->map.Add(I.Result, Val);
 		} break;
+		case OP_FN:
+		{
+			function *Fn = (function *)I.BigRegister;
+			LLVMTypeRef FnType = LLVMCreateFunctionType(gen->ctx, Fn->Type);
+			LLVMValueRef LLVMFn = LLVMAddFunction(gen->mod, Fn->Name->Data, FnType);
+			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);
+
+
+			generator NewGen = {};
+			NewGen.ctx = gen->ctx;
+			NewGen.mod = gen->mod;
+			NewGen.bld = LLVMCreateBuilderInContext(NewGen.ctx);
+			NewGen.data = gen->data;
+			NewGen.fn = LLVMFn;
+			gen->map.Add(I.Result, LLVMFn);
+			for(int i = 0; i < gen->map.Bottom; ++i)
+				NewGen.map.Add(gen->map.Data[i].Register, gen->map.Data[i].Value);
+			RCGenerateFunction(&NewGen, *Fn);
+		} break;
 		case OP_CAST:
 		{
 			u32 FromType = I.Right;
@@ -401,7 +420,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
-		RCSetBlock(gen, gen->blocks[Idx]);
+		RCSetBlock(gen, Idx);
 		ForArray(InstrIdx, Block.Code)
 		{
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);
@@ -497,7 +516,7 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 			string LinkName = fnName;
 			if((s->Flags & SymbolFlag_Foreign) == 0)
 				LinkName = StructToModuleName(fnName, File->Module.Name);
-			LLVMCreateFunctionType(Gen.ctx, s->Type);
+			//LLVMCreateFunctionType(Gen.ctx, s->Type);
 			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 					ConvertToLLVMType(Gen.ctx, s->Type));
 			LLVMSetLinkage(Fn, Linkage);
@@ -616,9 +635,10 @@ rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set)
 	return Result;
 }
 
-void RCSetBlock(generator *gen, rc_block Block)
+void RCSetBlock(generator *gen, int Index)
 {
-	LLVMPositionBuilderAtEnd(gen->bld, Block.Block);
+	gen->CurrentBlock = Index;
+	LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[Index].Block);
 }
 
 LLVMTargetMachineRef RCInitLLVM()

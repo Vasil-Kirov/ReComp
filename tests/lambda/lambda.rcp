@@ -1,10 +1,10 @@
 main
 
-my_32_fn :: fn() -> i32 {
+my_32_fn :: fn(x: i32) -> i32 {
 	return 32;
 }
 
-my_16_fn :: fn() -> i32 {
+my_16_fn :: fn(x: i32) -> i32 {
 	return 16;
 }
 
@@ -21,7 +21,7 @@ main :: fn() -> i32 {
 	fn_ptr := my_32_fn;
 	fn_ptr = my_16_fn;
 
-	return my_lambda() - fn_ptr() - call_lambda(fn(x: i32) -> i32 {
+	return my_lambda() - call_lambda(fn_ptr) - call_lambda(fn(x: i32) -> i32 {
         return x;
     });
 }

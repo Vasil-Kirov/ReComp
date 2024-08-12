@@ -157,6 +157,11 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
 		return;
 	}
+	else if(ArgType->Kind == TypeKind_Function)
+	{
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		return;
+	}
 	Assert(ArgType->Kind == TypeKind_Struct);
 	int Size = GetTypeSize(ArgType);
 	if(Size > MAX_PARAMETER_SIZE)

@@ -132,6 +132,12 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
 		return;
 	}
+	else if(ArgType->Kind == TypeKind_Function)
+	{
+		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		Args.Push(Res);
+		return;
+	}
 	Assert(ArgType->Kind == TypeKind_Struct);
 	int Size = GetTypeSize(ArgType);
 

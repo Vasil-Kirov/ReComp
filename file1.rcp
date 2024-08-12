@@ -11,8 +11,8 @@ my_64_fn :: fn() -> i32 {
 	return 64;
 }
 
-my_16_fn :: fn() -> i32 {
-	return 16;
+my_16_fn :: fn(f: fn(x: i32) -> i32) -> i32 {
+	return f(64);
 }
 
 main :: fn() -> i32 {
@@ -21,8 +21,10 @@ main :: fn() -> i32 {
 	};
 
 	fn_ptr := my_16_fn;
-	fn_ptr = my_64_fn;
+	//fn_ptr = my_64_fn;
 
-	return my_lambda() - fn_ptr();
+	return my_lambda() - fn_ptr(fn(x: i32) -> i32 {
+		return x;
+	});
 }
 

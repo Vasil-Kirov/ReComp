@@ -7,6 +7,11 @@ from time import time
 from colorama import Fore
 from colorama import Style
 
+def right_pad(str, len_s):
+    while len(str) < len_s:
+        str += ' '
+    return str
+
 def remove_file():
     if os.path.isfile('a.exe'):
         os.remove('a.exe')
@@ -44,9 +49,12 @@ for test in tests:
         process.wait()
         end_time = time()
         if process.returncode == 0:
-            print(f'{Fore.GREEN}[✓]OK {Style.RESET_ALL}{test} Compile: {c_end_time - c_start_time:.2f}s Execute: {end_time - start_time:.2f}s')
+            ok_str = f'{Fore.GREEN}[✓]OK {Style.RESET_ALL}{test}'
+            ok_str = right_pad(ok_str, 35)
+            print(f'{ok_str}Compile: {c_end_time - c_start_time:.2f}s Execute: {end_time - start_time:.2f}s')
         else:
             print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Got: {process.returncode}')
+    remove_file()
 
     os.chdir('..')
 

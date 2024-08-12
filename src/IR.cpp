@@ -217,6 +217,27 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(ShouldLoad)
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
+		case AST_SIZE:
+		{
+			const type *Type = GetType(Node->Size.Type);
+			if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
+			{
+				u32 StringRegister = BuildIRFromExpression(Builder, Node->Size.Expression);
+				u32 SizePtr = PushInstruction(Builder,
+						Instruction(OP_INDEX, StringRegister, 1, Basic_string, Builder));
+				Result = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, SizePtr, Basic_int, Builder));
+			}
+			else
+			{
+				const_value *Size = NewType(const_value);
+				Size->Type = const_type::Integer;
+				Size->Int.IsSigned = false;
+				Size->Int.Unsigned = GetTypeSize(Type);
+				Result = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)Size, Basic_u64, Builder));
+			}
+		} break;
 		case AST_CALL:
 		{
 			Assert(!IsLHS);

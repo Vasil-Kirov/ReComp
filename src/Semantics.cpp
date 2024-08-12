@@ -449,6 +449,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Expr->Call.Type = CallTypeIdx;
 			Result = GetReturnType(CallType);
 		} break;
+		case AST_SIZE:
+		{
+			u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+			Expr->Size.Type = ExprType;
+			Result = Basic_int;
+		} break;
 		case AST_CAST:
 		{
 			// @TODO: auto cast

@@ -14,6 +14,15 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeSize(const error_info *ErrorInfo, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_SIZE;
+	Result->Size.Expression = Expr;
+
+	return Result;
+}
+
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -586,6 +595,13 @@ node *ParseOperand(parser *Parser)
 			node *Type = ParseType(Parser);
 			node *Expr = ParseExpression(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
+		} break;
+		case T_SIZE:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = ParseOperand(Parser);
+			Result = MakeSize(ErrorInfo, Expr);
 		} break;
 		case T_FN:
 		{

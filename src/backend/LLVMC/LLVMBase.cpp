@@ -265,6 +265,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
+			else if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
+			{
+				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
+			}
 			else if(Type->Kind == TypeKind_Struct)
 			{
 				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
@@ -460,7 +464,7 @@ void RCGenerateCompilerTypes(generator *gen)
 	U8Ptr->Pointer = {.Pointed = Basic_u8};
 	u32 U8PtrID = AddType(U8Ptr);
 	struct_member DataMember = {STR_LIT("data"), U8PtrID};
-	struct_member SizeMember = {STR_LIT("size"), Basic_i32};
+	struct_member SizeMember = {STR_LIT("size"), Basic_int};
 	type *StringType = NewType(type);
 
 	StringType->Kind = TypeKind_Struct;

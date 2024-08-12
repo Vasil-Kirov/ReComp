@@ -16,15 +16,18 @@ my_16_fn :: fn(f: fn(x: i32) -> i32) -> i32 {
 }
 
 main :: fn() -> i32 {
-	my_lambda := fn() -> i32 {
-		return 32;
-	};
+	// my_lambda := fn() -> i32 {
+	// 	return 32;
+	// };
 
-	fn_ptr := my_16_fn;
+	// fn_ptr := my_16_fn;
+	
 	//fn_ptr = my_64_fn;
 
-	return my_lambda() - fn_ptr(fn(x: i32) -> i32 {
-		return x;
-	});
+	foo: i32 = 0;
+	
+	x := "my_f";
+
+	return @i32 (#size x - #size foo);
 }
 

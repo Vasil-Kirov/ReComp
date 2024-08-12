@@ -56,12 +56,13 @@ enum token_type
 	T_RETURN= -32,
 	T_AUTOCAST= -34,
 	T_FOREIGN = -34,
-	T_CSTR  =  -35,
-	T_STRUCT=  -36,
-	T_IMPORT=  -37,
-	T_AS    =  -38,
+	T_CSTR   = -35,
+	T_STRUCT = -36,
+	T_IMPORT = -37,
+	T_AS     = -38,
 	T_PUBLIC = -39,
 	T_PRIVATE= -40,
+	T_SIZE   = -41,
 };
 
 struct token

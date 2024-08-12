@@ -30,6 +30,7 @@ enum node_type
 	AST_INDEX,
 	AST_STRUCTDECL,
 	AST_SELECTOR,
+	AST_SIZE,
 };
 
 struct node
@@ -47,6 +48,11 @@ struct node
 			node *StructType;
 			u32 Type; // Set by semantic analyzer
 		} StructList;
+		struct {
+			node *Expression;
+			u32 Type; // Set by semantic analyzer
+
+		} Size;
 		struct {
 			const string *Name;
 			slice<node *> Members;

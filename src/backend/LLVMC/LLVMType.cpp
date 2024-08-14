@@ -1,5 +1,4 @@
 #include "LLVMType.h"
-#include "LLVMBase.h"
 #include "Log.h"
 #include "Type.h"
 #include "llvm-c/Core.h"
@@ -155,11 +154,13 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 	if(ArgType->Kind == TypeKind_Array)
 	{
 		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		*IdxOut = *IdxOut + 1;
 		return;
 	}
 	else if(ArgType->Kind == TypeKind_Function)
 	{
 		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		*IdxOut = *IdxOut + 1;
 		return;
 	}
 	Assert(ArgType->Kind == TypeKind_Struct);
@@ -167,6 +168,7 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 	if(Size > MAX_PARAMETER_SIZE)
 	{
 		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		*IdxOut = *IdxOut + 1;
 		return;
 	}
 
@@ -195,9 +197,9 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 				LFATAL("Passing struct of size %d to function is not currently supported", Size);
 			}
 			Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
-			return;
 		} break;
 	}
+	*IdxOut = *IdxOut + 1;
 }
 
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
@@ -210,22 +212,35 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	if(Found)
 		return Found;
 
+
+	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc((Type->Function.ArgCount+1) * sizeof(LLVMTypeRef) * 2);
+	int ArgCount = 0;
+
 	LLVMTypeRef ReturnType;
 	if(Type->Function.Return != INVALID_TYPE)
-		ReturnType = ConvertToLLVMType(Context, Type->Function.Return);
+	{
+		if(IsRetTypePassInPointer(Type->Function.Return))
+		{
+			ReturnType = LLVMVoidTypeInContext(Context);
+			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
+
+		}
+		else
+		{
+			ReturnType = ConvertToLLVMType(Context, Type->Function.Return);
+		}
+	}
 	else
 		ReturnType = LLVMVoidTypeInContext(Context);
 
-	// Allocating ArgCount * 2 incase struts need to be passed as multiple arguments
-	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc(Type->Function.ArgCount * sizeof(LLVMTypeRef) * 2);
 	for (int i = 0; i < Type->Function.ArgCount; ++i) {
 		const type *ArgType = GetType(Type->Function.Args[i]);
 		if(!IsLoadableType(ArgType))
-			LLVMFixFunctionComplexParameter(Context, Type->Function.Args[i], ArgType, ArgTypes, &i);
+			LLVMFixFunctionComplexParameter(Context, Type->Function.Args[i], ArgType, ArgTypes, &ArgCount);
 		else
-			ArgTypes[i] = ConvertToLLVMType(Context, Type->Function.Args[i]);
+			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}
-	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, Type->Function.ArgCount, false);
+	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, ArgCount, false);
 	LLVMMapType(TypeID, FuncType);
 	VFree(ArgTypes);
 

@@ -4,6 +4,7 @@ main
 
 struct x {
 	bar: string,
+	num: int,
 }
 
 my_64_fn :: fn() -> i32 {
@@ -12,6 +13,11 @@ my_64_fn :: fn() -> i32 {
 
 my_16_fn :: fn(f: fn(x: i32) -> i32) -> i32 {
 	return f(64);
+}
+
+make_x :: fn(num: int) -> x {
+	foo := x { bar = "my_string", num = num };
+	return foo;
 }
 
 main :: fn() -> i32 {
@@ -24,8 +30,8 @@ main :: fn() -> i32 {
 	//fn_ptr = my_64_fn;
 
 	
-	foo := x { bar = "my_f" };
+	f := make_x(5);
 
-	return @i32 #size foo.bar - #size "myf";
+	return @i32 (#size f.bar - f.num);
 }
 

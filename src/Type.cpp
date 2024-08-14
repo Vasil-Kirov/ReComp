@@ -660,3 +660,13 @@ u32 GetPointerTo(u32 TypeIdx)
 	return AddType(New);
 }
 
+b32 IsRetTypePassInPointer(u32 Type)
+{
+	if(Type == INVALID_TYPE)
+		return false;
+
+	const type *RetType = GetType(Type);
+
+	return (!IsLoadableType(RetType) && RetType->Kind != TypeKind_Function);
+}
+

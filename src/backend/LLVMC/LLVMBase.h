@@ -22,6 +22,7 @@ struct generator
 	LLVMValueRef fn;
 	rc_block *blocks;
 	int CurrentBlock;
+	b32 IsCurrentFnRetInPtr;
 };
 
 rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set = true);

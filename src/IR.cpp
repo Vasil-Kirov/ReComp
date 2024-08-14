@@ -250,6 +250,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				Type = GetType(Type->Pointer.Pointed);
 			Assert(Type->Kind == TypeKind_Function);
 			dynamic<u32> Args = {};
+
+			u32 ResultPtr = -1;
+			if(IsRetTypePassInPointer(Type->Function.Return))
+			{
+				ResultPtr = PushInstruction(Builder,
+						Instruction(OP_ALLOC, -1, Type->Function.Return, Builder));
+				Args.Push(ResultPtr);
+			}
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
 			{
 				const type *ArgType = GetType(Type->Function.Args[Idx]);
@@ -267,6 +275,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			CallInfo->Args = SliceFromArray(Args);
 
 			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, Node->Call.Type, Builder));
+			if(ResultPtr != -1)
+				Result = ResultPtr;
 		} break;
 		case AST_ARRAYLIST:
 		{

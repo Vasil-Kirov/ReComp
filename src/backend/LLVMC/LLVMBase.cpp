@@ -326,14 +326,31 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ARG:
 		{
-			gen->map.Add(I.Result, LLVMGetParam(gen->fn, I.BigRegister));
+			u64 Idx = I.BigRegister;
+			if(gen->IsCurrentFnRetInPtr)
+				Idx++;
+			gen->map.Add(I.Result, LLVMGetParam(gen->fn, Idx));
 		} break;
 		case OP_RET:
 		{
 			if(I.Left != -1)
 			{
 				LLVMValueRef Value = gen->map.Get(I.Left);
-				LLVMBuildRet(gen->bld, Value);
+				if(gen->IsCurrentFnRetInPtr)
+				{
+					LLVMValueRef RetPtr = LLVMGetParam(gen->fn, 0);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+					u64 Size = LLVMABISizeOfType(gen->data, LLVMType);
+					LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+					uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
+
+					LLVMBuildMemCpy(gen->bld, RetPtr, Align, Value, Align, ValueSize);
+					LLVMBuildRetVoid(gen->bld);
+				}
+				else
+				{
+					LLVMBuildRet(gen->bld, Value);
+				}
 			}
 			else
 			{
@@ -415,6 +432,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 void RCGenerateFunction(generator *gen, function fn)
 {
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
+	if(fn.Type == INVALID_TYPE)
+		gen->IsCurrentFnRetInPtr = false;
+	else
+		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(fn.Type)->Function.Return);
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -430,6 +451,7 @@ void RCGenerateFunction(generator *gen, function fn)
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);
 		}
 	}
+	VFree(gen->blocks);
 }
 
 LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)

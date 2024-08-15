@@ -1,5 +1,7 @@
 @ECHO OFF
 
+mkdir %1
+
 echo build  ^
  ^
 compile :: fn(out: *CompileInfo) { ^

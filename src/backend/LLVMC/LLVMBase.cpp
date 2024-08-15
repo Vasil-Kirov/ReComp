@@ -11,6 +11,7 @@
 #include "Type.h"
 #include "Dynamic.h"
 #include "llvm-c/Core.h"
+#include "llvm-c/DebugInfo.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
@@ -24,6 +25,33 @@ void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef Ou
 {
 	OutArray[0] = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), 0, false);
 	OutArray[1] = Index;
+}
+
+void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
+{
+	switch(Info->type)
+	{
+		case IR_DBG_VAR:
+		{
+			if(gen->CurrentScope == NULL)
+				return;
+			LLVMValueRef LLVM = gen->map.Get(Info->var.Register);
+			auto m_info = LLVMDIBuilderCreateAutoVariable(gen->dbg, gen->CurrentScope, Info->var.Name.Data, Info->var.Name.Size, gen->f_dbg, Info->var.LineNo, ToDebugTypeLLVM(gen, Info->var.TypeID), false, LLVMDIFlagZero, 0);
+			LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(gen->dbg, NULL, 0);
+			LLVMDIBuilderInsertDeclareAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
+		} break;
+		case IR_DBG_LOCATION:
+		{
+			if(gen->CurrentScope == NULL)
+				return;
+			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, Info->loc.LineNo, 0, gen->CurrentScope, NULL);
+			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
+		} break;
+		case IR_DBG_SCOPE:
+		{
+			gen->CurrentScope = LLVMDIBuilderCreateLexicalBlock(gen->dbg, gen->CurrentScope, gen->f_dbg, Info->loc.LineNo, 0);
+		} break;
+	}
 }
 
 void RCGenerateInstruction(generator *gen, instruction I)
@@ -194,12 +222,16 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.ctx = gen->ctx;
 			NewGen.mod = gen->mod;
 			NewGen.bld = LLVMCreateBuilderInContext(NewGen.ctx);
+			NewGen.dbg = gen->dbg;
+			NewGen.f_dbg = gen->f_dbg;
 			NewGen.data = gen->data;
 			NewGen.fn = LLVMFn;
+
 			gen->map.Add(I.Result, LLVMFn);
 			for(int i = 0; i < gen->map.Bottom; ++i)
 				NewGen.map.Add(gen->map.Data[i].Register, gen->map.Data[i].Value);
 			RCGenerateFunction(&NewGen, *Fn);
+			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
 		} break;
 		case OP_CAST:
 		{
@@ -437,17 +469,47 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
 			gen->map.Add(I.Result, Result);
 		} break;
+		case OP_DEBUGINFO:
+		{
+			ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+			RCGenerateDebugInfo(gen, Info);
+		} break;
 		case OP_COUNT: unreachable;
 	}
+}
+
+LLVMMetadataRef RCGenerateDebugInfoForFunction(generator *gen, function fn)
+{
+	string fnName = *fn.Name;
+	string LinkName = fnName;
+	if((GetType(fn.Type)->Function.Flags & SymbolFlag_Foreign) == 0)
+		LinkName = StructToModuleName(fnName, fn.ModuleName);
+
+	LLVMMetadataRef Meta = LLVMDIBuilderCreateFunction(
+			gen->dbg, gen->f_dbg,
+			fn.Name->Data, fn.Name->Size,
+			LinkName.Data, LinkName.Size,
+			gen->f_dbg, fn.LineNo,
+			ToDebugTypeLLVM(gen, fn.Type), false, true, 0, LLVMDIFlagZero, false);
+	LLVMSetSubprogram(gen->fn, Meta);
+	return Meta;
 }
 
 void RCGenerateFunction(generator *gen, function fn)
 {
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	if(fn.Type == INVALID_TYPE)
+	{
 		gen->IsCurrentFnRetInPtr = false;
+		gen->CurrentScope = NULL;
+		gen->CurrentLocation = NULL;
+	}
 	else
+	{
 		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(fn.Type)->Function.Return);
+		gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
+		LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+	}
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -480,6 +542,7 @@ void RCGenerateComplexTypes(generator *gen)
 		if(GetType(Index)->Kind == TypeKind_Struct)
 		{
 			LLVMCreateOpaqueStringStructType(gen->ctx, Index);
+			LLMVDebugOpaqueStruct(gen, Index);
 		}
 	}
 	for(uint Index = 0; Index < TypeCount; ++Index)
@@ -487,6 +550,7 @@ void RCGenerateComplexTypes(generator *gen)
 		if(GetType(Index)->Kind == TypeKind_Struct)
 		{
 			LLVMDefineStructType(gen->ctx, Index);
+			LLMVDebugDefineStruct(gen, Index);
 		}
 	}
 }
@@ -509,8 +573,37 @@ void RCGenerateCompilerTypes(generator *gen)
 	};
 	u32 String = AddType(StringType);
 	LLVMCreateOpaqueStringStructType(gen->ctx, String);
+	LLMVDebugOpaqueStruct(gen, String);
 	auto LLVMType = LLVMDefineStructType(gen->ctx, String);
+	auto DebugType = LLMVDebugDefineStruct(gen, String);
 	LLVMMapType(Basic_string, LLVMType);
+	LLVMDebugMapType(Basic_string, DebugType);
+
+}
+
+void GetNameAndDirectory(char **OutName, char **OutDirectory, string Relative)
+{
+	char *Absolute = GetAbsolutePath(Relative.Data);
+	size_t AbsoluteSize = strlen(Absolute);
+	for(int i = AbsoluteSize; i >= 0; i--)
+	{
+		if(Absolute[i] == '\\' || Absolute[i] == '/')
+		{
+			*OutName = Absolute + i + 1;
+			*OutDirectory = (char *)VAlloc(i+1);
+			memcpy(*OutDirectory, Absolute, i);
+			(*OutDirectory)[i] = 0;
+			return;
+		}
+	}
+	unreachable;
+}
+
+LLVMMetadataRef IntToMeta(generator *gen, int i)
+{
+	LLVMValueRef Value = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), i, true);
+
+	return LLVMValueAsMetadata(Value);
 }
 
 void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
@@ -518,12 +611,47 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 	LDEBUG("Generating file: %s", File->Module.Name.Data);
 	ir *IR = File->IR;
 
+	char *FileName = NULL;
+	char *FileDirectory = NULL;
+	GetNameAndDirectory(&FileName, &FileDirectory, File->Name);
+
 	generator Gen = {};
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(File->Module.Name.Data, Gen.ctx);
+	LLVMSetSourceFileName(Gen.mod, FileName, strlen(FileName));
+	LLVMSetTarget(Gen.mod, LLVMGetDefaultTargetTriple());
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
+	Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
+	Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
+			FileName, VStrLen(FileName),
+			FileDirectory, VStrLen(FileDirectory));
 	Gen.data = LLVMCreateTargetDataLayout(Machine);
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
+
+	string CompilerName = STR_LIT("RCP Compiler");
+	
+
+	LLVMDIBuilderCreateCompileUnit(
+			Gen.dbg,
+			LLVMDWARFSourceLanguageC99,
+			Gen.f_dbg,
+			CompilerName.Data, CompilerName.Size,
+			false,
+			NULL, 0, 0, "", 0, LLVMDWARFEmissionFull, 0, false, false, "", 0, "", 0);
+
+#if defined (_WIN32)
+	string CodeView = STR_LIT("CodeView");
+	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
+			CodeView.Data, CodeView.Size, IntToMeta(&Gen, 1));
+#elif defined (CM_LINUX)
+	backend.module->addModuleFlag(Module::Warning, "Dwarf Version", 13);
+#else
+#error Unkown debug fromat for this OS
+#endif
+
+	string DIV = STR_LIT("Debug Info Version");
+	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
+			DIV.Data, DIV.Size, IntToMeta(&Gen, 3));
 
 	RCGenerateCompilerTypes(&Gen);
 	RCGenerateComplexTypes(&Gen);
@@ -533,7 +661,7 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 	// Generate internal function
 	{
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
-		string LinkName = STR_LIT("__!GlobalInitializerFunction");
+		string LinkName = STR_LIT("__GlobalInitializerFunction");
 		LinkName = StructToModuleName(LinkName, File->Module.Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
 		Functions.Push(Fn);
@@ -617,11 +745,13 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 		}
 	}
 
+	LLVMDIBuilderFinalize(Gen.dbg);
+
 	RCEmitFile(Machine, Gen.mod, File->Module.Name, OutputBC);
 
+	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
-	LLVMDisposeModule(Gen.mod);
-	LLVMContextDispose(Gen.ctx);
+	LLVMShutdown();
 }
 
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC)
@@ -713,18 +843,16 @@ LLVMTargetMachineRef RCGenerateMain(slice<file> Files)
 	LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
 	LLVMTypeRef Int32Ty = LLVMInt32TypeInContext(Gen.ctx);
 	LLVMTypeRef MainFnType = LLVMFunctionType(Int32Ty, NULL, 0, false);
+	string GlobalInit = STR_LIT("__GlobalInitializerFunction");
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
-		string_builder Builder = MakeBuilder();
-		Builder += File->Module.Name;
-		Builder += "!__!GlobalInitializerFunction";
-		string InitFnName = MakeString(Builder);
+		string InitFnName = StructToModuleName(GlobalInit, File->Module.Name);
 		FileFns[Idx] = LLVMAddFunction(Gen.mod, InitFnName.Data, FnType);
 	}
 
 	{
-		FileFns[Files.Count] = LLVMAddFunction(Gen.mod, "main!main", MainFnType);
+		FileFns[Files.Count] = LLVMAddFunction(Gen.mod, "__main!main", MainFnType);
 	}
 
 	LLVMValueRef MainFn = LLVMAddFunction(Gen.mod, "main", MainFnType);

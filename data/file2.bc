@@ -13,10 +13,21 @@ block_0:
 
 define private i64 @"file2!give_one"() {
 block_0:
-  ret i64 1
+  ret i64 1, !dbg !2
 }
 
 define private i32 @"file2!give_two"() {
 block_0:
-  ret i32 2
+  ret i32 2, !dbg !6
 }
+
+!llvm.dbg.cu = !{!0}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug)
+!1 = !DIFile(filename: "file2.rcp", directory: "D:/Programming/ReComp")
+!2 = !DILocation(line: 13, scope: !3)
+!3 = distinct !DISubprogram(name: "give_one", linkageName: "file2!give_one", scope: !1, file: !1, line: 12, type: !4, spFlags: DISPFlagDefinition, unit: !0)
+!4 = !DISubroutineType(types: !5)
+!5 = !{}
+!6 = !DILocation(line: 17, scope: !7)
+!7 = distinct !DISubprogram(name: "give_two", linkageName: "file2!give_two", scope: !1, file: !1, line: 16, type: !4, spFlags: DISPFlagDefinition, unit: !0)

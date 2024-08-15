@@ -1,51 +1,94 @@
 ; ModuleID = 'main'
-source_filename = "main"
+source_filename = "lambda.rcp"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-pc-windows-msvc"
 
-define void @"main!__!GlobalInitializerFunction"() {
+define void @"__main!__GlobalInitializerFunction"() {
 block_0:
   ret void
 }
 
-define i32 @"main!my_32_fn"(i32 %0) {
+define i32 @"__main!my_32_fn"(i32 %0) !dbg !4 {
 block_0:
-  ret i32 32
+  ret i32 32, !dbg !8
 }
 
-define i32 @"main!my_16_fn"(i32 %0) {
+define i32 @"__main!my_16_fn"(i32 %0) !dbg !9 {
 block_0:
-  ret i32 16
+  ret i32 16, !dbg !10
 }
 
-define i32 @"main!call_lambda"(ptr %0) {
+define i32 @"__main!call_lambda"(ptr %0) !dbg !11 {
 block_0:
-  %1 = call i32 %0(i32 16)
-  ret i32 %1
+  %1 = call i32 %0(i32 16), !dbg !14
+  ret i32 %1, !dbg !14
 }
 
-define i32 @"main!main"() {
+define i32 @"__main!main"() !dbg !15 {
 block_0:
-  %0 = alloca ptr, align 8
-  store ptr @__lambda_lambda.rcp17, ptr %0, align 8
-  %1 = alloca ptr, align 8
-  store ptr @"main!my_32_fn", ptr %1, align 8
-  store ptr @"main!my_16_fn", ptr %1, align 8
-  %2 = load ptr, ptr %0, align 8
-  %3 = call i32 %2()
-  %4 = load ptr, ptr %1, align 8
-  %5 = call i32 @"main!call_lambda"(ptr %4)
-  %6 = sub i32 %3, %5
-  %7 = call i32 @"main!call_lambda"(ptr @__lambda_lambda.rcp24)
-  %8 = sub i32 %6, %7
-  ret i32 %8
+  %0 = alloca ptr, align 8, !dbg !15
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !19, metadata !DIExpression()), !dbg !21
+  store ptr @__lambda_lambda.rcp17, ptr %0, align 8, !dbg !15
+  %1 = alloca ptr, align 8, !dbg !22
+  call void @llvm.dbg.declare(metadata ptr %1, metadata !23, metadata !DIExpression()), !dbg !22
+  store ptr @"__main!my_32_fn", ptr %1, align 8, !dbg !22
+  store ptr @"__main!my_16_fn", ptr %1, align 8, !dbg !25
+  %2 = load ptr, ptr %0, align 8, !dbg !26
+  %3 = call i32 %2(), !dbg !26
+  %4 = load ptr, ptr %1, align 8, !dbg !26
+  %5 = call i32 @"__main!call_lambda"(ptr %4), !dbg !26
+  %6 = sub i32 %3, %5, !dbg !26
+  %7 = call i32 @"__main!call_lambda"(ptr @__lambda_lambda.rcp24), !dbg !15
+  %8 = sub i32 %6, %7, !dbg !15
+  ret i32 %8, !dbg !15
 }
 
-define private i32 @__lambda_lambda.rcp17() {
+define private i32 @__lambda_lambda.rcp17() !dbg !27 {
 block_0:
-  ret i32 32
+  ret i32 32, !dbg !28
 }
 
-define private i32 @__lambda_lambda.rcp24(i32 %0) {
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
+
+define private i32 @__lambda_lambda.rcp24(i32 %0) !dbg !29 {
 block_0:
-  ret i32 %0
+  ret i32 %0, !dbg !30
 }
+
+attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+
+!llvm.dbg.cu = !{!0}
+!llvm.module.flags = !{!2, !3}
+
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false)
+!1 = !DIFile(filename: "lambda.rcp", directory: "D:\\Programming\\ReComp\\tests\\lambda")
+!2 = !{i32 2, !"CodeView", i32 1}
+!3 = !{i32 2, !"Debug Info Version", i32 3}
+!4 = distinct !DISubprogram(name: "my_32_fn", linkageName: "__main!my_32_fn", scope: !1, file: !1, line: 3, type: !5, spFlags: DISPFlagDefinition, unit: !0)
+!5 = !DISubroutineType(types: !6)
+!6 = !{!7, !7}
+!7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
+!8 = !DILocation(line: 4, scope: !4)
+!9 = distinct !DISubprogram(name: "my_16_fn", linkageName: "__main!my_16_fn", scope: !1, file: !1, line: 7, type: !5, spFlags: DISPFlagDefinition, unit: !0)
+!10 = !DILocation(line: 8, scope: !9)
+!11 = distinct !DISubprogram(name: "call_lambda", linkageName: "__main!call_lambda", scope: !1, file: !1, line: 11, type: !12, spFlags: DISPFlagDefinition, unit: !0)
+!12 = !DISubroutineType(types: !13)
+!13 = !{!7, !5}
+!14 = !DILocation(line: 13, scope: !11)
+!15 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 16, type: !16, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !18)
+!16 = !DISubroutineType(types: !17)
+!17 = !{!7}
+!18 = !{}
+!19 = !DILocalVariable(name: "my_lambda", scope: !15, file: !1, line: 17, type: !20)
+!20 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn() -> i32", baseType: !16, size: 64, align: 64, dwarfAddressSpace: 0)
+!21 = !DILocation(line: 17, scope: !15)
+!22 = !DILocation(line: 21, scope: !15)
+!23 = !DILocalVariable(name: "fn_ptr", scope: !15, file: !1, line: 21, type: !24)
+!24 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn(i32) -> i32", baseType: !5, size: 64, align: 64, dwarfAddressSpace: 0)
+!25 = !DILocation(line: 22, scope: !15)
+!26 = !DILocation(line: 24, scope: !15)
+!27 = distinct !DISubprogram(name: "__lambda_lambda.rcp17", linkageName: "__main!__lambda_lambda.rcp17", scope: !1, file: !1, line: 17, type: !16, spFlags: DISPFlagDefinition, unit: !0)
+!28 = !DILocation(line: 18, scope: !27)
+!29 = distinct !DISubprogram(name: "__lambda_lambda.rcp24", linkageName: "__main!__lambda_lambda.rcp24", scope: !1, file: !1, line: 24, type: !5, spFlags: DISPFlagDefinition, unit: !0)
+!30 = !DILocation(line: 25, scope: !29)

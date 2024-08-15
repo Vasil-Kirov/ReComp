@@ -1,9 +1,12 @@
 #include "LLVMType.h"
 #include "Log.h"
 #include "Type.h"
+#include "backend/LLVMC/LLVMBase.h"
 #include "llvm-c/Core.h"
+#include "llvm-c/DebugInfo.h"
 
 dynamic<LLVMTypeEntry> LLVMTypeMap;
+dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
 
 LLVMTypeRef LLVMFindMapType(u32 ToFind)
 {
@@ -28,6 +31,31 @@ void LLVMMapType(u32 TypeID, LLVMTypeRef LLVMType)
 void LLVMClearTypeMap()
 {
 	LLVMTypeMap.Count = 0;
+}
+
+LLVMMetadataRef LLVMDebugFindMapType(u32 ToFind)
+{
+	ForArray(Idx, LLVMDebugTypeMap)
+	{
+		if(LLVMDebugTypeMap[Idx].TypeID == ToFind)
+		{
+			return LLVMDebugTypeMap[Idx].Ref;
+		}
+	}
+	return NULL;
+}
+
+void LLVMDebugMapType(u32 TypeID, LLVMMetadataRef LLVMType)
+{
+	LLVMDebugMetadataEntry Entry;
+	Entry.TypeID = TypeID;
+	Entry.Ref = LLVMType;
+	LLVMDebugTypeMap.Push(Entry);
+}
+
+void LLVMDebugClearTypeMap()
+{
+	LLVMDebugTypeMap.Count = 0;
 }
 
 // I am a week man, I used ChatGPT as I didn't want to write my 4th custom type to LLVMTypeRef conversion function
@@ -107,6 +135,169 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 	return NULL;
 }
 
+LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
+{
+	LLVMMetadataRef Found = LLVMDebugFindMapType(TypeID);
+	if(Found)
+		return Found;
+
+	const type *CustomType = GetType(TypeID);
+	LLVMMetadataRef Made = NULL;
+
+    Assert(gen);
+    Assert(TypeID != INVALID_TYPE);
+	Assert(CustomType);
+	switch(CustomType->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			int Size = GetTypeSize(CustomType) * 8;
+			string Name = GetTypeNameAsString(CustomType);
+
+			switch(CustomType->Basic.Kind)
+			{
+				case Basic_u8:
+				case Basic_u16:
+				case Basic_u32:
+				case Basic_u64:
+				case Basic_uint:
+				{
+					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_unsigned, LLVMDIFlagZero);
+				} break;
+				case Basic_i8:
+				case Basic_i16:
+				case Basic_i32:
+				case Basic_i64:
+				case Basic_int:
+				{
+					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_signed, LLVMDIFlagZero);
+				} break;
+				case Basic_bool:
+				{
+					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_boolean, LLVMDIFlagZero);
+				} break;
+				case Basic_f32:
+				case Basic_f64:
+				{
+					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_float, LLVMDIFlagZero);
+				} break;
+				case Basic_cstring:
+				{
+					Made = LLVMDIBuilderCreatePointerType
+					(
+						 gen->dbg,
+						 ToDebugTypeLLVM(gen, Basic_u8),
+						 Size, 0, 0,
+						 "*u8", 3);
+				} break;
+				default: unreachable;
+			}
+		} break;
+		case TypeKind_Array:
+		{
+			int Size = GetTypeSize(CustomType) * 8;
+			int Align = GetTypeAlignment(CustomType) * 8;
+			LLVMMetadataRef Subrange = LLVMDIBuilderGetOrCreateSubrange(gen->dbg, 0, CustomType->Array.MemberCount);
+			Made = LLVMDIBuilderCreateArrayType(gen->dbg, Size, Align, ToDebugTypeLLVM(gen, CustomType->Array.Type), &Subrange, 1);
+		} break;
+		case TypeKind_Pointer:
+		{
+			if(CustomType->Pointer.Pointed == INVALID_TYPE)
+			{
+				Made = LLVMDIBuilderCreatePointerType(gen->dbg, NULL, GetRegisterTypeSize(), GetRegisterTypeSize(), 0, "*void", 5);
+			}
+			else
+			{
+				string Name = GetTypeNameAsString(CustomType);
+				Made = LLVMDIBuilderCreatePointerType(gen->dbg, ToDebugTypeLLVM(gen, CustomType->Pointer.Pointed), GetRegisterTypeSize(), GetRegisterTypeSize(), 0, Name.Data, Name.Size);
+			}
+		} break;
+		case TypeKind_Function:
+		{
+			LLVMMetadataRef *ArgTypes = (LLVMMetadataRef *)VAlloc(sizeof(LLVMMetadataRef) * (CustomType->Function.ArgCount+1));
+			if(CustomType->Function.Return != INVALID_TYPE)
+				ArgTypes[0] = ToDebugTypeLLVM(gen, CustomType->Function.Return);
+			else
+				ArgTypes[0] = NULL;
+			for(int i = 0; i < CustomType->Function.ArgCount; ++i)
+			{
+				ArgTypes[i+1] = ToDebugTypeLLVM(gen, CustomType->Function.Args[i]);
+			}
+			Made = LLVMDIBuilderCreateSubroutineType(gen->dbg, gen->f_dbg, ArgTypes, CustomType->Function.ArgCount+1, LLVMDIFlagZero);
+			VFree(ArgTypes);
+		} break;
+		case TypeKind_Struct:
+		{
+			LERROR("No debug info for struct %s", GetTypeName(CustomType));
+			Assert(false);
+		} break;
+		default: unreachable;
+	}
+	Assert(Made);
+	LLVMDebugMapType(TypeID, Made);
+	return Made;
+}
+
+void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
+{
+
+	const type *CustomType = GetType(TypeID);
+	string Name = GetTypeNameAsString(CustomType);
+
+	LLVMDIBuilderCreateStructType(gen->dbg,
+			gen->f_dbg,
+			Name.Data,
+			Name.Size,
+			gen->f_dbg,
+			0,
+			0,
+			0,
+			LLVMDIFlagFwdDecl,
+			NULL,
+			NULL,
+			0,
+			0,
+			NULL,
+			NULL,
+			0);
+
+}
+
+LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
+{
+	const type *CustomType = GetType(TypeID);
+	LLVMMetadataRef *Members = (LLVMMetadataRef *)VAlloc(sizeof(LLVMMetadataRef) * CustomType->Struct.Members.Count);
+	ForArray(Idx, CustomType->Struct.Members)
+	{
+		auto Member = CustomType->Struct.Members[Idx];
+		int Size = GetTypeSize(Member.Type) * 8;
+		int Alignment = GetTypeAlignment(Member.Type) * 8;
+		int Offset = GetStructMemberOffset(CustomType, Idx) * 8;
+		Members[Idx] = LLVMDIBuilderCreateMemberType(gen->dbg, gen->f_dbg, Member.ID.Data, Member.ID.Size, gen->f_dbg, 0, Size, Alignment, Offset, LLVMDIFlagZero, ToDebugTypeLLVM(gen, Member.Type));
+	}
+	string Name = GetTypeNameAsString(CustomType);
+	int Size = GetTypeSize(CustomType) * 8;
+	LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
+			gen->f_dbg,
+			Name.Data,
+			Name.Size,
+			gen->f_dbg,
+			0,
+			Size,
+			0,
+			LLVMDIFlagZero,
+			NULL,
+			Members,
+			CustomType->Struct.Members.Count,
+			0,
+			NULL,
+			NULL,
+			0);
+
+	LLVMDebugMapType(TypeID, Made);
+	return Made;
+}
+
 void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
@@ -163,6 +354,7 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		*IdxOut = *IdxOut + 1;
 		return;
 	}
+
 	Assert(ArgType->Kind == TypeKind_Struct);
 	int Size = GetTypeSize(ArgType);
 	if(Size > MAX_PARAMETER_SIZE)

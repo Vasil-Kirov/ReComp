@@ -2,16 +2,13 @@
 source_filename = "!internal"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 
-declare void @"main!__!GlobalInitializerFunction"()
+declare void @"__main!__GlobalInitializerFunction"()
 
-declare void @"file2!__!GlobalInitializerFunction"()
-
-declare i32 @"main!main"()
+declare i32 @__main___main()
 
 define i32 @main() {
 only_block:
-  call void @"main!__!GlobalInitializerFunction"()
-  call void @"file2!__!GlobalInitializerFunction"()
-  %0 = call i32 @"main!main"()
+  call void @"__main!__GlobalInitializerFunction"()
+  %0 = call i32 @__main___main()
   ret i32 %0
 }

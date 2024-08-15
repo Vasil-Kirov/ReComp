@@ -17,10 +17,14 @@ struct generator
 	LLVMContextRef ctx; // Context
 	LLVMModuleRef  mod; // Module
 	LLVMBuilderRef bld; // Builder
+	LLVMDIBuilderRef dbg; // Debug Info Builder
+	LLVMMetadataRef f_dbg; // Metadata for current file
 	LLVMTargetDataRef data;
 	value_map map;
 	LLVMValueRef fn;
 	rc_block *blocks;
+	LLVMMetadataRef CurrentLocation;
+	LLVMMetadataRef CurrentScope;
 	int CurrentBlock;
 	b32 IsCurrentFnRetInPtr;
 };

@@ -88,6 +88,7 @@ struct file
 	checker *Checker;
 	import Module;
 	slice<import> Imported;
+	string Name;
 };
 
 template <typename T>

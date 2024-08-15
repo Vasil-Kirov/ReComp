@@ -606,25 +606,19 @@ b32 IsLoadableType(u32 TypeIdx)
 	return IsLoadableType(Type);
 }
 
-const char *GetTypeName(u32 TypeIdx)
-{
-	const type *Type = GetType(TypeIdx);
-	return GetTypeName(Type);
-}
-
-const char *GetTypeName(const type *Type)
+string GetTypeNameAsString(const type *Type)
 {
 	switch (Type->Kind)
 	{
 		case TypeKind_Basic:
 		{
-			return Type->Basic.Name.Data;
+			return Type->Basic.Name;
 		} break;
 		case TypeKind_Array:
 		{
 			string_builder Builder = MakeBuilder();
 			PushBuilderFormated(&Builder, "%s[%d]", GetTypeName(GetType(Type->Array.Type)), Type->Array.MemberCount);
-			return MakeString(Builder).Data;
+			return MakeString(Builder);
 		} break;
 		case TypeKind_Pointer:
 		{
@@ -633,11 +627,11 @@ const char *GetTypeName(const type *Type)
 				PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
 			else
 				PushBuilderFormated(&Builder, "*"); 
-			return MakeString(Builder).Data;
+			return MakeString(Builder);
 		} break;
 		case TypeKind_Struct:
 		{
-			return Type->Struct.Name.Data;
+			return Type->Struct.Name;
 		} break;
 		case TypeKind_Function:
 		{
@@ -652,13 +646,24 @@ const char *GetTypeName(const type *Type)
 			PushBuilder(&Builder, ')');
 			if(Type->Function.Return != INVALID_TYPE)
 				PushBuilderFormated(&Builder, " -> %s", GetTypeName(Type->Function.Return));
-			return MakeString(Builder).Data;
+			return MakeString(Builder);
 		} break;
 		default:
 		{
-			return "(Error! Unkown type name)";
+			return STR_LIT("(Error! Unkown type name)");
 		} break;
 	}
+}
+
+const char *GetTypeName(u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	return GetTypeName(Type);
+}
+
+const char *GetTypeName(const type *Type)
+{
+	return GetTypeNameAsString(Type).Data;
 }
 
 // @TODO: Maybe try to find it first... idk

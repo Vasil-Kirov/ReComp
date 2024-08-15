@@ -2,6 +2,7 @@
 
 int main()
 {
-	return 0;
+	int x = 1 + 1;
+	return x;
 }
 

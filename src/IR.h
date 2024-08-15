@@ -14,7 +14,7 @@ enum op
 	OP_LOAD,
 	OP_ALLOC,
 	OP_STORE,
-	OP_CAST, // @TODO: Actual casting, this is just for dissasembly
+	OP_CAST,
 	OP_FN,
 	OP_RET,
 	OP_IF,
@@ -30,6 +30,30 @@ enum op
 	OP_ARRAYLIST,
 	OP_MEMSET,
 	OP_COUNT,
+	OP_DEBUGINFO,
+};
+
+enum ir_debug_type
+{
+	IR_DBG_VAR,
+	IR_DBG_LOCATION,
+	IR_DBG_SCOPE,
+};
+
+struct ir_debug_info
+{
+	ir_debug_type type;
+	union {
+		struct {
+			string Name;
+			u32 Register;
+			int LineNo;
+			u32 TypeID;
+		} var;
+		struct {
+			int LineNo;
+		} loc;
+	};
 };
 
 enum ir_symbol_flags
@@ -82,6 +106,8 @@ struct function
 	ir_symbol *Locals;
 	reg_allocation *Allocated;
 	slice<ir_symbol> ModuleSymbols;
+	string ModuleName;
+	u32 LineNo;
 	u32 LocalCount;
 	u32 LastRegister;
 	u32 Type;
@@ -113,4 +139,5 @@ u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported, import Module);
+void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 

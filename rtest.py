@@ -40,7 +40,6 @@ for test in tests:
     if not os.path.isfile('a.exe'):
         print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Time: {c_end_time - c_start_time:.2f}s')
         print(f'Output: {stderr.decode()}\n{stdout.decode()}')
-
     else:
         # Run the compiled program
         start_time = time()

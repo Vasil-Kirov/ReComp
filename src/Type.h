@@ -160,4 +160,5 @@ u32 GetPointerTo(u32 Type);
 uint GetTypeCount();
 b32 IsRetTypePassInPointer(u32 Type);
 b32 IsPassInAsIntType(const type *Type);
+string GetTypeNameAsString(const type *Type);
 

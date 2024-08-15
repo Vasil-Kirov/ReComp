@@ -151,6 +151,7 @@ file GetModule(string File, timers *Timers)
 
 	Timers->Parse = VLibStartTimer("Parsing");
 	file Result = StringToTokens(FileData, ErrorInfo);
+	Result.Name = File;
 	parse_result Parse = ParseTokens(Result.Tokens, Result.Module.Name);
 	Result.Nodes = Parse.Nodes;
 	Result.Imported = Parse.Imports;
@@ -181,7 +182,7 @@ void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 string MakeLinkCommand(command_line CMD, slice<file> Files)
 {
 	string_builder Builder = MakeBuilder();
-	Builder += "LINK.EXE /nologo /defaultlib:MSVCRT /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj ";
+	Builder += "LINK.EXE /nologo /defaultlib:MSVCRT /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj /DEBUG ";
 
 	ForArray(Idx, Files)
 	{
@@ -220,6 +221,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 
 	file File = GetModule(Name, Timers);
 	string_builder CompileInfoName = MakeBuilder();
+	CompileInfoName += "__";
 	CompileInfoName += File.Module.Name;
 	CompileInfoName += STR_LIT("!CompileInfo");
 

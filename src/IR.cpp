@@ -14,6 +14,7 @@ inline u32 PushAlloc(u32 Type, block_builder *Builder)
 			Instruction(OP_ALLOC, -1, Type, Builder));
 }
 
+
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 {
 	instruction Result;
@@ -21,6 +22,15 @@ inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 	Result.Op = Op;
 	Result.Type = Type;
 	Result.Result = Builder->LastRegister++;
+	return Result;
+}
+
+inline instruction InstructionDebugInfo(ir_debug_info *Info)
+{
+	instruction Result;
+	Result.Op = OP_DEBUGINFO;
+	Result.BigRegister = (u64)Info;
+
 	return Result;
 }
 
@@ -518,6 +528,19 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 	return BuildIRFromUnary(Builder, Node, IsLHS);
 }
 
+void IRPushDebugVariableInfo(block_builder *Builder, node *Node, u32 Location)
+{
+	ir_debug_info *IRInfo = NewType(ir_debug_info);
+	IRInfo->type = IR_DBG_VAR;
+	IRInfo->var.LineNo = Node->ErrorInfo->Line;
+	IRInfo->var.Name = *Node->Decl.ID;
+	IRInfo->var.Register = Location;
+	IRInfo->var.TypeID = Node->Decl.TypeIndex;
+
+	PushInstruction(Builder,
+			InstructionDebugInfo(IRInfo));
+}
+
 void BuildIRFromDecleration(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
@@ -526,11 +549,13 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 	if(ShouldCopyType(Type))
 	{
 		u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+		IRPushDebugVariableInfo(Builder, Node, LocalRegister);
 		PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
 		PushIRLocal(Builder->Function, Node->Decl.ID, LocalRegister, Node->Decl.TypeIndex);
 	}
 	else
 	{
+		IRPushDebugVariableInfo(Builder, Node, ExpressionRegister);
 		PushIRLocal(Builder->Function, Node->Decl.ID, ExpressionRegister, Node->Decl.TypeIndex);
 	}
 }
@@ -546,6 +571,7 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block Then);
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
+	IRPushDebugLocation(Builder, Node->ErrorInfo);
 	switch(Node->Type)
 	{
 		case AST_DECL:
@@ -659,12 +685,24 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, slice<
 
 }
 
+void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
+{
+	ir_debug_info *IRInfo = NewType(ir_debug_info);
+	IRInfo->type = IR_DBG_LOCATION;
+	IRInfo->loc.LineNo = Info->Line;
+
+	PushInstruction(Builder,
+			InstructionDebugInfo(IRInfo));
+}
+
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported, import Module)
 {
 	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
+	Function.LineNo = Node->ErrorInfo->Line;
+	Function.ModuleName = Module.Name;
 	if(Body.IsValid())
 	{
 		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
@@ -676,6 +714,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		Builder.Module = Module;
 
 		const type *FnType = GetType(TypeIdx);
+		IRPushDebugLocation(&Builder, Node->ErrorInfo);
 
 		IRPushGlobalSymbolsForFunction(&Builder, &Function, Imported, Module);
 		ForArray(Idx, Args)
@@ -728,7 +767,7 @@ ir BuildIR(file *File)
 	ir IR = {};
 	u32 NodeCount = File->Nodes.Count;
 
-	string GlobalFnName = STR_LIT("__!GlobalInitializerFunction");
+	string GlobalFnName = STR_LIT("__GlobalInitializerFunction");
 	function GlobalInitializers = {};
 	GlobalInitializers.Name = DupeType(GlobalFnName, string);
 	GlobalInitializers.Type = INVALID_TYPE;
@@ -930,6 +969,10 @@ INSIDE_EQ:
 
 			} break;
 #undef CASE_OP
+			case OP_DEBUGINFO:
+			{
+				*Builder += "DEBUG_INFO";
+			} break;
 			case OP_COUNT: unreachable;
 		}
 		PushBuilder(Builder, '\n');

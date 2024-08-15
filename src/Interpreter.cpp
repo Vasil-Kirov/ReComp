@@ -353,6 +353,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_OP(GEQ, >=);
 			BIN_OP(LEQ, <=);
 			BIN_OP(EQEQ, ==);
+			case OP_DEBUGINFO:
+			{} break;
 			default:
 			{
 				LDEBUG("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);

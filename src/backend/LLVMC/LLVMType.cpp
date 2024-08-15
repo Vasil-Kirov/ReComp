@@ -225,6 +225,10 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
 
 		}
+		else if(GetType(Type->Function.Return)->Kind == TypeKind_Function)
+		{
+			ReturnType = LLVMPointerType(LLVMVoidTypeInContext(Context), 0);
+		}
 		else
 		{
 			ReturnType = ConvertToLLVMType(Context, Type->Function.Return);

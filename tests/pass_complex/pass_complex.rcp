@@ -35,12 +35,17 @@ make_array :: fn(num: i32) -> [100]i32 {
     return arr;
 }
 
+get_fn :: fn() -> fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
+	return fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
+		return foo1.foo[50] - foo2.num2 - foo3[0] - foo3[50];
+	};
+}
 
 main :: fn() -> i32 {
     foo1 := make_bs(100);
     foo2 := make_ss(25);
     foo3 := make_array(25);
     //     100 - 25 - 25 - 50
-    return foo1.foo[50] - foo2.num2 - foo3[0] - foo3[50];
+	return get_fn()(foo1, foo2, foo3);
 }
 

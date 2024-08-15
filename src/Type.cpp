@@ -3,6 +3,7 @@
 #include "Threading.h"
 #include "VString.h"
 #include "Basic.h"
+#include "Log.h"
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
@@ -436,8 +437,17 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		{
 			return Left->Struct.Name == Right->Struct.Name;
 		} break;
+		case TypeKind_Array:
+		{
+			if(Left->Array.MemberCount != Right->Array.MemberCount)
+				return false;
+			const type *LeftArray  = GetType(Left->Array.Type);
+			const type *RightArray = GetType(Right->Array.Type);
+			return TypesMustMatch(LeftArray, RightArray);
+		} break;
 		default:
 		{
+			LERROR("Unknown type kind: %d", Left->Kind);
 			Assert(false);
 			return false;
 		} break;
@@ -668,5 +678,22 @@ b32 IsRetTypePassInPointer(u32 Type)
 	const type *RetType = GetType(Type);
 
 	return (!IsLoadableType(RetType) && RetType->Kind != TypeKind_Function);
+}
+
+b32 IsPassInAsIntType(const type *Type)
+{
+	if(Type->Kind != TypeKind_Struct)
+		return false;
+	int Size = GetTypeSize(Type);
+	switch(Size)
+	{
+		case 8:
+		case 4:
+		case 2:
+		case 1:
+		return true;
+		default:
+		return false;
+	}
 }
 

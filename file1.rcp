@@ -1,37 +1,51 @@
 main
 
-#import file2 as f2
 
-struct x {
-	bar: string,
-	num: int,
+struct BigStruct {
+    foo: [100]i32,
 }
 
-my_64_fn :: fn() -> i32 {
-	return 64;
+struct SmallStruct {
+    num1: i16,
+    num2: i16,
 }
 
-my_16_fn :: fn(f: fn(x: i32) -> i32) -> i32 {
-	return f(64);
+make_bs :: fn(num: i32) -> BigStruct {
+    res := BigStruct { foo = {} };
+    for i := 0; i < 100;  i += 1 {
+        res.foo[i] = num;
+    }
+
+    return res;
 }
 
-make_x :: fn(num: int) -> x {
-	foo := x { bar = "my_string", num = num };
-	return foo;
+make_ss :: fn(num: i32) -> SmallStruct {
+    res := SmallStruct { num1 = @i16 num, num2 = @i16 num };
+    return res;
+}
+
+make_array :: fn(num: i32) -> [100]i32 {
+    arr:[100]i32 = {};
+    for i := 0; i < 50; i += 1 {
+        arr[i] = num;
+    }
+    for i := 50; i < 100; i += 1 {
+        arr[i] = num * 2;
+    }
+    return arr;
+}
+
+get_fn :: fn() -> fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
+	return fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
+		return foo1.foo[50] - foo2.num2 - foo3[0] - foo3[50] + 1;
+	};
 }
 
 main :: fn() -> i32 {
-	// my_lambda := fn() -> i32 {
-	// 	return 32;
-	// };
-
-	// fn_ptr := my_16_fn;
-	
-	//fn_ptr = my_64_fn;
-
-	
-	f := make_x(5);
-
-	return @i32 (#size f.bar - f.num);
+    foo1 := make_bs(100);
+    foo2 := make_ss(25);
+    foo3 := make_array(25);
+    //     100 - 25 - 25 - 50
+	return get_fn()(foo1, foo2, foo3);
 }
 

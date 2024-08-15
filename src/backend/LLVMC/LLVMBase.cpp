@@ -329,7 +329,19 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			u64 Idx = I.BigRegister;
 			if(gen->IsCurrentFnRetInPtr)
 				Idx++;
-			gen->map.Add(I.Result, LLVMGetParam(gen->fn, Idx));
+			LLVMValueRef Arg = LLVMGetParam(gen->fn, Idx);
+			const type *Type = GetType(I.Type);
+			if(IsPassInAsIntType(Type))
+			{
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "");
+				LLVMBuildStore(gen->bld, Arg, AsArg);
+				gen->map.Add(I.Result, AsArg);
+			}
+			else
+			{
+				gen->map.Add(I.Result, Arg);
+			}
 		} break;
 		case OP_RET:
 		{

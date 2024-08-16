@@ -114,15 +114,24 @@ void ResolveSymbols(dynamic<file> Files)
 		file *File = &Files.Data[Idx];
 		ForArray(j, File->Imported)
 		{
+			b32 Found = false;
+			string Name = File->Imported[j].Name;
 			ForArray(k, Files)
 			{
 				file MaybeMod = Files[k];
-				if(MaybeMod.Module.Name == File->Imported[j].Name)
+				if(MaybeMod.Module.Name == Name)
 				{
+					Found = true;
 					string As = File->Imported[j].As;
 					File->Imported.Data[j] = MaybeMod.Module;
 					File->Imported.Data[j].As = As;
+					break;
 				}
+			}
+			if(!Found)
+			{
+				LFATAL("Module `%s` imported by module `%s` coudln't be found",
+						Name.Data, File->Module.Name.Data);
 			}
 		}
 		File->Checker->Imported = &File->Imported;
@@ -322,7 +331,7 @@ main(int ArgCount, char *Args[])
 			timers LLVMTimers = {};
 			LLVMTimers.LLVM = VLibStartTimer("LLVM");
 			FileArray = SliceFromArray(Files);
-			LLVMTargetMachineRef Machine = RCGenerateMain(FileArray);
+			llvm_init_info Machine = RCGenerateMain(FileArray);
 			RCGenerateCode(FileArray, Machine, true);
 			VLibStopTimer(&LLVMTimers.LLVM);
 			Timers.Push(LLVMTimers);

@@ -986,7 +986,26 @@ INSIDE_EQ:
 #undef CASE_OP
 			case OP_DEBUGINFO:
 			{
-				*Builder += "DEBUG_INFO";
+				ir_debug_info *Info = (ir_debug_info *)Instr.BigRegister;
+				switch(Info->type)
+				{
+					case IR_DBG_ARG:
+					{
+						PushBuilderFormated(Builder, "DEBUG_ARG_INFO %s #%d", Info->arg.Name.Data, Info->arg.ArgNo);
+					} break;
+					case IR_DBG_VAR:
+					{
+						PushBuilderFormated(Builder, "DEBUG_VAR_INFO %s Line=%d, Type=%s", Info->var.Name.Data, Info->var.LineNo, GetTypeName(Info->var.TypeID));
+					} break;
+					case IR_DBG_LOCATION:
+					{
+						PushBuilderFormated(Builder, "DEBUG_LOC_INFO Line=%d", Info->loc.LineNo);
+					} break;
+					case IR_DBG_SCOPE:
+					{
+						*Builder += "SCOPE";
+					} break;
+				}
 			} break;
 			case OP_COUNT: unreachable;
 		}

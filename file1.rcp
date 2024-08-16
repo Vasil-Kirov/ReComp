@@ -1,6 +1,6 @@
 main
 
-#import file2 as f2
+#import stuff as f2
 
 struct BigStruct {
 	bar: f2.x,

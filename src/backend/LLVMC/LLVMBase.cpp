@@ -244,7 +244,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			for(int i = 0; i < gen->map.Bottom; ++i)
 				NewGen.map.Add(gen->map.Data[i].Register, gen->map.Data[i].Value);
 			RCGenerateFunction(&NewGen, *Fn);
-			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
 		} break;
 		case OP_CAST:
 		{
@@ -619,7 +619,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
+void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 {
 	LDEBUG("Generating file: %s", File->Module.Name.Data);
 	ir *IR = File->IR;
@@ -629,7 +629,7 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 	GetNameAndDirectory(&FileName, &FileDirectory, File->Name);
 
 	generator Gen = {};
-	Gen.ctx = LLVMContextCreate();
+	Gen.ctx = Machine.Context;
 	Gen.mod = LLVMModuleCreateWithNameInContext(File->Module.Name.Data, Gen.ctx);
 	LLVMSetSourceFileName(Gen.mod, FileName, strlen(FileName));
 	LLVMSetTarget(Gen.mod, LLVMGetDefaultTargetTriple());
@@ -638,7 +638,7 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 	Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
 			FileName, VStrLen(FileName),
 			FileDirectory, VStrLen(FileDirectory));
-	Gen.data = LLVMCreateTargetDataLayout(Machine);
+	Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
 	string CompilerName = STR_LIT("RCP Compiler");
@@ -760,7 +760,7 @@ void RCGenerateFile(file *File, LLVMTargetMachineRef Machine, b32 OutputBC)
 
 	LLVMDIBuilderFinalize(Gen.dbg);
 
-	RCEmitFile(Machine, Gen.mod, File->Module.Name, OutputBC);
+	RCEmitFile(Machine.Target, Gen.mod, File->Module.Name, OutputBC);
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
@@ -822,7 +822,7 @@ void RCSetBlock(generator *gen, int Index)
 	LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[Index].Block);
 }
 
-LLVMTargetMachineRef RCInitLLVM()
+llvm_init_info RCInitLLVM()
 {
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
@@ -837,18 +837,21 @@ LLVMTargetMachineRef RCInitLLVM()
 	Machine = LLVMCreateTargetMachine(Target, LLVMGetDefaultTargetTriple(), "generic", LLVMGetHostCPUFeatures(),
 			LLVMCodeGenLevelNone, LLVMRelocDefault, LLVMCodeModelDefault);
 
-	return Machine;
+	llvm_init_info Result = {};
+	Result.Context = LLVMContextCreate();
+	Result.Target = Machine;
+	return Result;
 }
 
-LLVMTargetMachineRef RCGenerateMain(slice<file> Files)
+llvm_init_info RCGenerateMain(slice<file> Files)
 {
-	LLVMTargetMachineRef Machine = RCInitLLVM();
+	llvm_init_info Machine = RCInitLLVM();
 
 	generator Gen = {};
-	Gen.ctx = LLVMContextCreate();
+	Gen.ctx = Machine.Context;
 	Gen.mod = LLVMModuleCreateWithNameInContext("!internal", Gen.ctx);
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
-	Gen.data = LLVMCreateTargetDataLayout(Machine);
+	Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
 	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
@@ -882,12 +885,12 @@ LLVMTargetMachineRef RCGenerateMain(slice<file> Files)
 	LLVMValueRef Result = LLVMBuildCall2(Gen.bld, MainFnType, FileFns[Files.Count], NULL, 0, "");
 
 	LLVMBuildRet(Gen.bld, Result);
-	RCEmitFile(Machine, Gen.mod, STR_LIT("!internal"), true) ;
+	RCEmitFile(Machine.Target, Gen.mod, STR_LIT("!internal"), true) ;
 	VFree(FileFns);
 	return Machine;
 }
 
-void RCGenerateCode(slice<file> Files, LLVMTargetMachineRef Machine, b32 OutputBC)
+void RCGenerateCode(slice<file> Files, llvm_init_info Machine, b32 OutputBC)
 {
 	ForArray(Idx, Files)
 	{

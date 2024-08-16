@@ -53,6 +53,19 @@ void LLVMDebugMapType(u32 TypeID, LLVMMetadataRef LLVMType)
 	LLVMDebugTypeMap.Push(Entry);
 }
 
+void LLVMDebugReMapType(u32 TypeID, LLVMMetadataRef LLVMType)
+{
+	ForArray(Idx, LLVMDebugTypeMap)
+	{
+		if(LLVMDebugTypeMap[Idx].TypeID == TypeID)
+		{
+			LLVMDebugTypeMap.Data[Idx].Ref = LLVMType;
+			return;
+		}
+	}
+	unreachable;
+}
+
 void LLVMDebugClearTypeMap()
 {
 	LLVMDebugTypeMap.Count = 0;
@@ -216,7 +229,16 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 		{
 			LLVMMetadataRef *ArgTypes = (LLVMMetadataRef *)VAlloc(sizeof(LLVMMetadataRef) * (CustomType->Function.ArgCount+1));
 			if(CustomType->Function.Return != INVALID_TYPE)
-				ArgTypes[0] = ToDebugTypeLLVM(gen, CustomType->Function.Return);
+			{
+				const type *RetType = GetType(CustomType->Function.Return);
+				if(RetType->Kind == TypeKind_Function)
+				{
+					u32 FnPtr = GetPointerTo(INVALID_TYPE);
+					ArgTypes[0] = ToDebugTypeLLVM(gen,  FnPtr);
+				}
+				else
+					ArgTypes[0] = ToDebugTypeLLVM(gen, CustomType->Function.Return);
+			}
 			else
 				ArgTypes[0] = NULL;
 			for(int i = 0; i < CustomType->Function.ArgCount; ++i)
@@ -240,10 +262,20 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 
 void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 {
-
 	const type *CustomType = GetType(TypeID);
 	string Name = GetTypeNameAsString(CustomType);
+	int Size = GetTypeSize(CustomType) * 8;
+	int Align = GetTypeAlignment(CustomType) * 8;
+	
+	LLVMMetadataRef Made = LLVMDIBuilderCreateForwardDecl(gen->dbg,
+			DW_TAG_structure_type,
+			Name.Data, Name.Size,
+			gen->f_dbg, gen->f_dbg,
+			0, 0,
+			Size, Align,
+			"", 0);
 
+	/*
 	LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
 			gen->f_dbg,
 			Name.Data,
@@ -260,6 +292,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 			NULL,
 			NULL,
 			0);
+			*/
 
 	LLVMDebugMapType(TypeID, Made);
 }
@@ -295,6 +328,7 @@ LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 			NULL,
 			0);
 
+	LLVMDebugReMapType(TypeID, Made);
 	return Made;
 }
 

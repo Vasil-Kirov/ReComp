@@ -4,6 +4,7 @@
 #include "Dynamic.h"
 
 struct type;
+struct scope;
 #define INVALID_TYPE UINT32_MAX
 
 #if _WIN32
@@ -21,6 +22,7 @@ enum type_kind
 	TypeKind_Struct  ,
 	TypeKind_Pointer ,
 	TypeKind_Array   ,
+	TypeKind_Generic ,
 };
 
 enum basic_kind
@@ -112,6 +114,13 @@ struct array_type
 	u32 MemberCount;
 };
 
+struct generic_type
+{
+	u32 ID;
+	string Name;
+	scope *Scope;
+};
+
 struct type
 {
 	type_kind Kind;
@@ -122,6 +131,7 @@ struct type
 		function_type Function;
 		pointer Pointer;
 		array_type Array;
+		generic_type Generic;
 	};
 };
 
@@ -134,6 +144,9 @@ const type *GetType(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
 const char *GetTypeName(u32 TypeIdx);
+
+string GetTypeNameAsString(const type *Type);
+string GetTypeNameAsString(u32 Type);
 
 u32 GetReturnType(const type *Type);
 
@@ -160,5 +173,13 @@ u32 GetPointerTo(u32 Type);
 uint GetTypeCount();
 b32 IsRetTypePassInPointer(u32 Type);
 b32 IsPassInAsIntType(const type *Type);
-string GetTypeNameAsString(const type *Type);
+type *AllocType(type_kind Kind);
+u32 MakeGeneric(scope *Scope, string Name);
+b32 IsGeneric(const type *Type);
+b32 IsGeneric(u32 Type);
+u32 ToNonGeneric(u32 TypeID, u32 Resolve);
+u32 GetGenericPart(u32 Resolved, u32 GenericID);
+
+void SetGenericReplacement(u32 ToReplace);
+u32 GetGenericReplacement();
 

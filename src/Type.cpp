@@ -1,4 +1,5 @@
 #include "Type.h"
+#include "Semantics.h"
 #include "Memory.h"
 #include "Threading.h"
 #include "VString.h"
@@ -68,6 +69,25 @@ b32 IsUntyped(const type *Type)
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
 }
 
+struct generic_replacement
+{
+	u32 TypeID;
+};
+
+generic_replacement GenericReplacement = {};
+
+void SetGenericReplacement(u32 ToReplace)
+{
+	GenericReplacement.TypeID = ToReplace;
+}
+
+u32 GetGenericReplacement() { return GenericReplacement.TypeID; }
+
+void ClearGenericReplacement()
+{
+	GenericReplacement.TypeID = INVALID_TYPE;
+}
+
 inline const type *GetType(u32 TypeIdx)
 {
 	// Bad?
@@ -76,7 +96,15 @@ inline const type *GetType(u32 TypeIdx)
 		return NULL;
 #endif
 
-	return TypeTable[TypeIdx];
+	const type *Type = TypeTable[TypeIdx];
+	if(Type->Kind == TypeKind_Generic)
+	{
+		if(GenericReplacement.TypeID != INVALID_TYPE)
+		{
+			Type = TypeTable[GenericReplacement.TypeID];
+		}
+	}
+	return Type;
 }
 
 uint GetTypeCount()
@@ -374,6 +402,9 @@ b32 IsCastValid(const type *From, const type *To)
 		return GetTypeSize(From) == GetRegisterTypeSize() / 8;
 	}
 
+	if(From->Kind == TypeKind_Generic || To->Kind == TypeKind_Generic)
+		return true;
+
 	if(From->Kind != To->Kind)
 		return false;
 
@@ -445,6 +476,12 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			const type *RightArray = GetType(Right->Array.Type);
 			return TypesMustMatch(LeftArray, RightArray);
 		} break;
+		case TypeKind_Generic:
+		{
+			if(!ScopesMatch(Left->Generic.Scope, Right->Generic.Scope))
+				return false;
+			return Left->Generic.ID == Right->Generic.ID;
+		} break;
 		default:
 		{
 			LERROR("Unknown type kind: %d", Left->Kind);
@@ -456,6 +493,13 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
 {
+	if(Left->Kind == TypeKind_Generic || Right->Kind == TypeKind_Generic)
+	{
+		if(Left->Kind == Right->Kind)
+			return TypesMustMatch(Left, Right);
+		return true;
+	}
+
 	if(Left->Kind == TypeKind_Pointer && HasBasicFlag(Right, BasicFlag_Integer))
 	{
 		*PotentialPromotion = Left;
@@ -550,7 +594,6 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 	}
 
-
 	return false;
 }
 
@@ -571,6 +614,10 @@ b32 IsCastRedundant(const type *From, const type *To)
 					return (From->Pointer.Pointed == INVALID_TYPE) == (To->Pointer.Pointed == INVALID_TYPE);
 				}
 				return IsCastRedundant(GetType(From->Pointer.Pointed), GetType(To->Pointer.Pointed));
+			} break;
+			case TypeKind_Generic:
+			{
+				return TypesMustMatch(From, To);
 			} break;
 			default:
 			{
@@ -604,6 +651,11 @@ b32 IsLoadableType(u32 TypeIdx)
 {
 	const type *Type = GetType(TypeIdx);
 	return IsLoadableType(Type);
+}
+
+string GetTypeNameAsString(u32 Type)
+{
+	return GetTypeNameAsString(GetType(Type));
 }
 
 string GetTypeNameAsString(const type *Type)
@@ -646,6 +698,13 @@ string GetTypeNameAsString(const type *Type)
 			PushBuilder(&Builder, ')');
 			if(Type->Function.Return != INVALID_TYPE)
 				PushBuilderFormated(&Builder, " -> %s", GetTypeName(Type->Function.Return));
+			return MakeString(Builder);
+		} break;
+		case TypeKind_Generic:
+		{
+			string_builder Builder = MakeBuilder();
+			Builder += "$";
+			Builder += Type->Generic.Name;
 			return MakeString(Builder);
 		} break;
 		default:
@@ -700,5 +759,230 @@ b32 IsPassInAsIntType(const type *Type)
 		default:
 		return false;
 	}
+}
+
+u32 ToNonGeneric(u32 TypeID, u32 Resolve)
+{
+	const type *Type = GetType(TypeID);
+	u32 Result = TypeID;
+	switch(Type->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			return TypeID;
+		} break;
+		case TypeKind_Pointer:
+		{
+			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve);
+			if(Pointed != Type->Pointer.Pointed)
+				Result = GetPointerTo(Pointed);
+		} break;
+		case TypeKind_Array:
+		{
+			u32 AT = ToNonGeneric(Type->Array.Type, Resolve);
+			if(AT != Type->Array.Type)
+			{
+				type *NewT = AllocType(TypeKind_Array);
+				NewT->Array.Type = AT;
+				NewT->Array.MemberCount = Type->Array.MemberCount;
+				Result = AddType(NewT);
+			}
+		} break;
+		case TypeKind_Struct:
+		{
+			dynamic<struct_member> NewTypes = {};
+			b32 NeedsNew = false;
+			ForArray(Idx, Type->Struct.Members)
+			{
+				u32 MemberType = Type->Struct.Members[Idx].Type;
+				u32 NonGeneric = ToNonGeneric(MemberType, Resolve);
+				NewTypes.Push((struct_member){.Type = NonGeneric});
+				if(MemberType != NonGeneric)
+					NeedsNew = true;
+			}
+			// @LEAK: maybe can free NewTypes idk if it matters who cares
+			if(NeedsNew)
+			{
+				ForArray(Idx, NewTypes)
+				{
+					NewTypes.Data[Idx].ID = Type->Struct.Members[Idx].ID;
+				}
+
+				type *NT = AllocType(TypeKind_Struct);
+				NT->Struct.Name = Type->Struct.Name;
+				NT->Struct.Flags = Type->Struct.Flags;
+				NT->Struct.Members = SliceFromArray(NewTypes);
+				Result = AddType(NT);
+			}
+		} break;
+		case TypeKind_Function:
+		{
+			uint ArgCount = Type->Function.ArgCount;
+			u32 *NArgs = (u32 *)AllocatePermanent(sizeof(u32) * ArgCount);
+			b32 NeedsNew = false;
+			for(int i = 0; i < ArgCount; ++i)
+			{
+				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve);
+				if(NArgs[i] != Type->Function.Args[i])
+					NeedsNew = true;
+			}
+			u32 RetTypeIdx = Type->Function.Return;
+
+			if(RetTypeIdx != INVALID_TYPE)
+				RetTypeIdx = ToNonGeneric(Type->Function.Return, Resolve);
+
+			if(RetTypeIdx != Type->Function.Return)
+				NeedsNew = true;
+			if(NeedsNew)
+			{
+				type *NT = AllocType(TypeKind_Function);
+				*NT = *Type;
+				NT->Function.Args = NArgs;
+				NT->Function.Return = RetTypeIdx;
+				NT->Function.Flags = Type->Function.Flags & ~SymbolFlag_Generic;
+				Result = AddType(NT);
+			}
+		} break;
+		case TypeKind_Generic:
+		{
+			Result = Resolve;
+		} break;
+		case TypeKind_Invalid: unreachable;
+	}
+	return Result;
+}
+
+b32 IsGeneric(u32 Type)
+{
+	return IsGeneric(GetType(Type));
+}
+
+u32 GetGenericPart(u32 Resolved, u32 GenericID)
+{
+	u32 Result = INVALID_TYPE;
+	const type *T = GetType(Resolved);
+	const type *G = GetType(GenericID);
+	if(G->Kind != TypeKind_Generic)
+		Assert(T->Kind == G->Kind);
+
+	switch(G->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			unreachable;
+		} break;
+		case TypeKind_Pointer:
+		{
+			Result = GetGenericPart(T->Pointer.Pointed, G->Pointer.Pointed);
+		} break;
+		case TypeKind_Array:
+		{
+			Result = GetGenericPart(T->Array.Type, G->Array.Type);
+		} break;
+		case TypeKind_Struct:
+		{
+			ForArray(Idx, G->Struct.Members)
+			{
+				if(IsGeneric(G->Struct.Members[Idx].Type))
+				{
+					Result = GetGenericPart(T->Struct.Members[Idx].Type, G->Struct.Members[Idx].Type);
+					break;
+				}
+			}
+		} break;
+		case TypeKind_Function:
+		{
+			uint ArgCount = G->Function.ArgCount;
+			for(int i = 0; i < ArgCount; ++i)
+			{
+				if(IsGeneric(G->Function.Args[i]))
+				{
+					Result = GetGenericPart(T->Function.Args[i], G->Function.Args[i]);
+					break;
+				}
+			}
+			if(Result == INVALID_TYPE)
+			{
+				Result = GetGenericPart(T->Function.Return, G->Function.Return);
+			}
+		} break;
+		case TypeKind_Generic:
+		{
+			Result = Resolved;
+		} break;
+		case TypeKind_Invalid: unreachable;
+	}
+	return Result;
+}
+
+b32 IsGeneric(const type *Type)
+{
+	b32 Result = false;
+	switch(Type->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			Result = false;
+		} break;
+		case TypeKind_Pointer:
+		{
+			Result = IsGeneric(Type->Pointer.Pointed);
+		} break;
+		case TypeKind_Array:
+		{
+			Result = IsGeneric(Type->Array.Type);
+		} break;
+		case TypeKind_Struct:
+		{
+			ForArray(Idx, Type->Struct.Members)
+			{
+				if(IsGeneric(Type->Struct.Members[Idx].Type))
+				{
+					Result = true;
+					break;
+				}
+			}
+		} break;
+		case TypeKind_Function:
+		{
+			uint ArgCount = Type->Function.ArgCount;
+			for(int i = 0; i < ArgCount; ++i)
+			{
+				if(IsGeneric(Type->Function.Args[i]))
+				{
+					Result = true;
+					break;
+				}
+			}
+			if(!Result)
+			{
+				if(Type->Function.Return != INVALID_TYPE)
+					Result = IsGeneric(Type->Function.Return);
+			}
+		} break;
+		case TypeKind_Generic:
+		{
+			Result = true;
+		} break;
+		case TypeKind_Invalid: unreachable;
+
+	}
+	return Result;
+}
+
+type *AllocType(type_kind Kind)
+{
+	type *T = NewType(type);
+	T->Kind = Kind;
+	return T;
+}
+
+u32 MakeGeneric(scope *Scope, string Name)
+{
+	type *T = AllocType(TypeKind_Generic);
+	T->Generic.ID = Scope->LastGeneric++;
+	T->Generic.Name = Name;
+	T->Generic.Scope = Scope;
+	return AddType(T);
 }
 

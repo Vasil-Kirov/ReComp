@@ -75,6 +75,16 @@ void ResolveSymbols(dynamic<file> Files)
 		file *File = &Files.Data[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		AnalyzeForModuleStructs(NodeSlice, File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		*File->Checker = AnalyzeFunctionDecls(NodeSlice, &File->Module);
 	}
 	b32 FoundMain = false;
@@ -136,11 +146,6 @@ void ResolveSymbols(dynamic<file> Files)
 		}
 		File->Checker->Imported = &File->Imported;
 	}
-	ForArray(Idx, Files)
-	{
-		file *File = &Files.Data[Idx];
-		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
-	}
 }
 
 file GetModule(string File, timers *Timers)
@@ -173,7 +178,7 @@ file GetModule(string File, timers *Timers)
 void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 {
 	Timers->TypeCheck = VLibStartTimer("Type Checking");
-	Analyze(File->Checker, SliceFromArray(File->Nodes));
+	Analyze(File->Checker, File->Nodes);
 	VLibStopTimer(&Timers->TypeCheck);
 
 	Timers->IR = VLibStartTimer("Intermediate Representation Generation");
@@ -256,6 +261,7 @@ int
 main(int ArgCount, char *Args[])
 {
 	InitVLib();
+	SetGenericReplacement(INVALID_TYPE);
 
 	InitializeLogger();
 	InitializeLexer();

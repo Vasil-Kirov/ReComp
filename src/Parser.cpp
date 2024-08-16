@@ -14,6 +14,15 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeGeneric(const error_info *ErrorInfo, const string *T)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_GENERIC;
+	Result->Generic.Name = T;
+
+	return Result;
+}
+
 node *MakeSize(const error_info *ErrorInfo, node *Expr)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -128,12 +137,13 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags)
+node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, node *MaybeGeneric, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_FN;
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
+	Result->Fn.MaybeGenric = MaybeGeneric;
 	Result->Fn.Flags = Flags;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
@@ -191,7 +201,7 @@ node *MakeBasicType(error_info *ErrorInfo, node *ID)
 	return Result;
 }
 
-node *MakeDecl(error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags)
+node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_DECL;
@@ -400,11 +410,25 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 	return Delimited(Parser, (token_type)Deliminator, Fn);
 }
 
+node *ParseGeneric(parser *Parser)
+{
+	ERROR_INFO;
+	EatToken(Parser, T_LESS);
+	token ID = EatToken(Parser, T_ID);
+	EatToken(Parser, T_GREAT);
+	return MakeGeneric(ErrorInfo, ID.ID);
+}
+
 node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
 	u32 Flags = 0;
 	EatToken(Parser, T_FN);
+	node *MaybeGeneric = NULL;
+	if(Parser->Current->Type == T_LESS)
+	{
+		MaybeGeneric = ParseGeneric(Parser);
+	}
 	if(Parser->Current->Type == T_FOREIGN)
 	{
 		GetToken(Parser);
@@ -423,7 +447,7 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(ErrorInfo, Args, ReturnType, Flags);
+	return MakeFunction(ErrorInfo, Args, ReturnType, MaybeGeneric, Flags);
 }
 
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)

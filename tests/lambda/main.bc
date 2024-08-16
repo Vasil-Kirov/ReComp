@@ -29,9 +29,9 @@ block_0:
 
 define i32 @"__main!main"() !dbg !22 {
 block_0:
-  %0 = alloca ptr, align 8, !dbg !22
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !25, metadata !DIExpression()), !dbg !27
-  store ptr @__lambda_lambda.rcp17, ptr %0, align 8, !dbg !22
+  %0 = alloca ptr, align 8, !dbg !25
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !26, metadata !DIExpression()), !dbg !25
+  store ptr @__lambda_lambda.rcp17, ptr %0, align 8, !dbg !25
   %1 = alloca ptr, align 8, !dbg !28
   call void @llvm.dbg.declare(metadata ptr %1, metadata !29, metadata !DIExpression()), !dbg !28
   store ptr @"__main!my_32_fn", ptr %1, align 8, !dbg !28
@@ -41,9 +41,9 @@ block_0:
   %4 = load ptr, ptr %1, align 8, !dbg !32
   %5 = call i32 @"__main!call_lambda"(ptr %4), !dbg !32
   %6 = sub i32 %3, %5, !dbg !32
-  %7 = call i32 @"__main!call_lambda"(ptr @__lambda_lambda.rcp24), !dbg !22
-  %8 = sub i32 %6, %7, !dbg !22
-  ret i32 %8, !dbg !22
+  %7 = call i32 @"__main!call_lambda"(ptr @__lambda_lambda.rcp24), !dbg !32
+  %8 = sub i32 %6, %7, !dbg !32
+  ret i32 %8, !dbg !32
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
@@ -93,9 +93,9 @@ attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !22 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 16, type: !23, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
 !23 = !DISubroutineType(types: !24)
 !24 = !{!7}
-!25 = !DILocalVariable(name: "my_lambda", scope: !22, file: !1, line: 17, type: !26)
-!26 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn() -> i32", baseType: !23, size: 64, align: 64, dwarfAddressSpace: 0)
-!27 = !DILocation(line: 17, scope: !22)
+!25 = !DILocation(line: 17, scope: !22)
+!26 = !DILocalVariable(name: "my_lambda", scope: !22, file: !1, line: 17, type: !27)
+!27 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn() -> i32", baseType: !23, size: 64, align: 64, dwarfAddressSpace: 0)
 !28 = !DILocation(line: 21, scope: !22)
 !29 = !DILocalVariable(name: "fn_ptr", scope: !22, file: !1, line: 21, type: !30)
 !30 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn(i32) -> i32", baseType: !5, size: 64, align: 64, dwarfAddressSpace: 0)

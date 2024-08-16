@@ -62,6 +62,7 @@ u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *Name)
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
 {
 	string AsModule = {};
+	string N = *Name;
 	for(int I = 0; I < TypeCount; ++I)
 	{
 		const type *Type = GetType(I);
@@ -69,7 +70,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 		{
 			case TypeKind_Basic:
 			{
-				if(*Name == Type->Basic.Name)
+				if(N == Type->Basic.Name)
 				{
 					return I;
 				}
@@ -79,7 +80,6 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 				if(AsModule.Data == NULL)
 				{
 					string ModuleName;
-					string NonPtrName = *Name;
 					if(ModuleNameOptional == NULL)
 					{
 						ModuleName = Checker->Module->Name;
@@ -88,12 +88,22 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 					{
 						ModuleName = *ModuleNameOptional;
 					}
-					AsModule = StructToModuleName(NonPtrName, ModuleName);
+					AsModule = StructToModuleName(N, ModuleName);
 				}
 
 				if(AsModule == Type->Struct.Name)
 				{
 					return I;
+				}
+			} break;
+			case TypeKind_Generic:
+			{
+				if(ScopesMatch(Checker->CurrentScope, Type->Generic.Scope))
+				{
+					if(N == Type->Generic.Name)
+					{
+						return I;
+					}
 				}
 			} break;
 			default:
@@ -331,8 +341,33 @@ u32 GetVariable(checker *Checker, const string *ID)
 	return Symbol ? Symbol->Type : INVALID_TYPE;
 }
 
+scope *AllocScope(node *Node, scope *Parent)
+{
+	scope *S = NewType(scope);
+	S->ScopeNode = Node;
+	S->Parent = Parent;
+	S->LastGeneric = 0;
+	return S;
+}
+
+b32 ScopesMatch(scope *A, scope *B)
+{
+	if(!A || !B)
+		return A == B;
+	return A->ScopeNode == B->ScopeNode;
+}
+
 u32 CreateFunctionType(checker *Checker, node *FnNode)
 {
+	scope *Save = Checker->CurrentScope;
+	scope *FnScope = AllocScope(FnNode);
+	Checker->CurrentScope = FnScope;
+	if(FnNode->Fn.MaybeGenric)
+	{
+		Assert(FnNode->Fn.MaybeGenric->Type == AST_GENERIC);
+		MakeGeneric(FnScope, *FnNode->Fn.MaybeGenric->Generic.Name);
+	}
+
 	type *NewType = NewType(type);
 	NewType->Kind = TypeKind_Function;
 	function_type Function;
@@ -340,6 +375,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	Function.ArgCount = FnNode->Fn.Args.Count;
 	Function.Args = NULL;
 	Function.Flags = FnNode->Fn.Flags;
+	if(FnNode->Fn.MaybeGenric)
+		Function.Flags |= SymbolFlag_Generic;
 
 	if(Function.ArgCount > 0)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
@@ -350,6 +387,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	}
 	
 	NewType->Function = Function;
+	Checker->CurrentScope = Save;
 	return AddType(NewType);
 }
 
@@ -369,10 +407,13 @@ void PopScope(checker *Checker)
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx)
 {
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
+	scope *SaveScope = Checker->CurrentScope;
+	Checker->CurrentScope = AllocScope(FnNode);
+
+	Checker->CurrentDepth++;
 	const type *FunctionType = GetType(FunctionTypeIdx);
 	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Return;
 
-	Checker->CurrentDepth++;
 	for(int I = 0; I < FunctionType->Function.ArgCount; ++I)
 	{
 		node *Arg = FnNode->Fn.Args[I];
@@ -398,6 +439,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	}
 
 	PopScope(Checker);
+	Checker->CurrentScope = SaveScope;
 	Checker->CurrentFnReturnTypeIdx = Save;
 }
 
@@ -406,6 +448,37 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 	u32 Result = INVALID_TYPE;
 	switch(Expr->Type)
 	{
+		case AST_ID:
+		{
+			Result = GetVariable(Checker, Expr->ID.Name);
+			if(Result == INVALID_TYPE)
+			{
+				ForArray(Idx, Checker->Module->Globals)
+				{
+					symbol *Sym = Checker->Module->Globals[Idx];
+					if(*Sym->Name == *Expr->ID.Name)
+					{
+						Result = Sym->Type;
+						break;
+					}
+				}
+
+				if(Result == INVALID_TYPE)
+				{
+					import m;
+					string Name = *Expr->ID.Name;
+					if(FindImportedModule(Checker, Name, &m))
+					{
+						Result = Basic_module;
+					}
+				}
+				if(Result == INVALID_TYPE)
+					RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
+			}
+			const type *Type = GetType(Result);
+			if(Type->Kind == TypeKind_Function)
+				Result = GetPointerTo(Result);
+		} break;
 		case AST_CALL:
 		{
 			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
@@ -417,15 +490,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			if(CallType->Kind == TypeKind_Pointer)
 				CallType = GetType(CallType->Pointer.Pointed);
+
+			if(IsGeneric(CallType))
+			{
+				Checker->GenericExpressions.Push(Expr);
+			}
+
 			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
 			{
 				RaiseError(*Expr->ErrorInfo, "Incorrect number of arguments, needed %d got %d",
 						CallType->Function.ArgCount, Expr->Call.Args.Count);
 			}
 
+			dynamic<u32> ArgTypes = {};
 			ForArray(Idx, Expr->Call.Args)
 			{
 				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+				ArgTypes.Push(ExprTypeIdx);
 				const type *ExpectType = GetType(CallType->Function.Args[Idx]);
 				const type *ExprType = GetType(ExprTypeIdx);
 				const type *PromotionType = NULL;
@@ -445,6 +526,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							ExprTypeIdx, CallType->Function.Args[Idx]);
 				}
 			}
+			Expr->Call.ArgTypes = SliceFromArray(ArgTypes);
 
 			Expr->Call.Type = CallTypeIdx;
 			Result = GetReturnType(CallType);
@@ -483,37 +565,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				FillUntypedStack(Checker, To);
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
-		} break;
-		case AST_ID:
-		{
-			Result = GetVariable(Checker, Expr->ID.Name);
-			if(Result == INVALID_TYPE)
-			{
-				ForArray(Idx, Checker->Module->Globals)
-				{
-					symbol *Sym = Checker->Module->Globals[Idx];
-					if(*Sym->Name == *Expr->ID.Name)
-					{
-						Result = Sym->Type;
-						break;
-					}
-				}
-
-				if(Result == INVALID_TYPE)
-				{
-					import m;
-					string Name = *Expr->ID.Name;
-					if(FindImportedModule(Checker, Name, &m))
-					{
-						Result = Basic_module;
-					}
-				}
-				if(Result == INVALID_TYPE)
-					RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
-			}
-			const type *Type = GetType(Result);
-			if(Type->Kind == TypeKind_Function)
-				Result = GetPointerTo(Result);
 		} break;
 		case AST_ARRAYLIST:
 		{
@@ -1020,6 +1071,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 	}
 	symbol Symbol;
 	Symbol.Hash    = Hash;
+	Symbol.Node    = Node;
 	Symbol.Depth   = Checker->CurrentDepth;
 	Symbol.Name    = ID;
 	Symbol.Type    = Type;
@@ -1340,6 +1392,7 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
 	Sym->Depth = 0;
 	Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
+	Sym->Node = Node;
 	return Sym;
 }
 
@@ -1395,7 +1448,110 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	}
 }
 
-void Analyze(checker *Checker, slice<node *>Nodes)
+string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
+{
+	const type *T = GetType(FnTypeNonGeneric);
+	string_builder Builder = MakeBuilder();
+	Builder += BaseName;
+	Builder += '@';
+	for(int i = 0; i < T->Function.ArgCount; ++i)
+	{
+		Builder += GetTypeNameAsString(T->Function.Args[i]);
+		Builder += '_';
+	}
+	Builder += '@';
+	Builder += GetTypeNameAsString(T->Function.Return);
+	string Result = MakeString(Builder);
+	return DupeType(Result, string);
+}
+
+node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType)
+{
+	node *Result = MakeFunction(FnNode->ErrorInfo, FnNode->Fn.Args, FnNode->Fn.ReturnType, NULL, FnNode->Fn.Flags);
+	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
+
+	u32 NewFnType = ToNonGeneric(FnNode->Fn.TypeIdx, ResolvedType);
+	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType);
+	Result->Fn.TypeIdx = NewFnType;
+
+	ForArray(Idx, FnNode->Fn.Body)
+	{
+		//@BUG: This doesn't do a deep copy for all the possible subnodes...
+		node *Node = FnNode->Fn.Body[Idx];
+		
+		node *NewNode = AllocateNode(Node->ErrorInfo);
+		*NewNode = *Node;
+
+		Result->Fn.Body.Push(NewNode);
+	}
+	u32 Save = GetGenericReplacement();
+	SetGenericReplacement(ResolvedType);
+	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx);
+	SetGenericReplacement(Save);
+	return Result;
+}
+
+void AnalyzeGenericExpressions(checker *Checker, dynamic<node *> &)
+{
+	slice<node *> Expressions = SliceFromArray(Checker->GenericExpressions);
+	ForArray(Idx, Expressions)
+	{
+		node *Expr = Expressions[Idx];
+		switch(Expr->Type)
+		{
+			case AST_CALL:
+			{
+				Assert(Expr->Call.Fn->Type == AST_ID);
+				symbol *FnSym = NULL;
+				ForArray(Idx, Checker->Module->Globals)
+				{
+					symbol *Sym = Checker->Module->Globals[Idx];
+					if(*Sym->Name == *Expr->Call.Fn->ID.Name)
+					{
+						FnSym = Sym;
+						break;
+					}
+				}
+				Assert(FnSym);
+				const type *T = GetType(FnSym->Type);
+				u32 ResolvedType = INVALID_TYPE;
+				u32 GenericID = INVALID_TYPE;
+				for(int i = 0; i < T->Function.ArgCount; ++i)
+				{
+					if(IsGeneric(T->Function.Args[i]))
+					{
+						if(ResolvedType != INVALID_TYPE)
+						{
+							const type *L = GetType(ResolvedType);
+							const type *R = GetType(Expr->Call.ArgTypes[i]);
+							if(!TypesMustMatch(L, R))
+							{
+								RaiseError(*Expr->ErrorInfo,
+										"Passing parameters of different types for generic expression %s and %s", GetTypeName(L), GetTypeName(R));
+							}
+						}
+						GenericID = T->Function.Args[i];
+						ResolvedType = Expr->Call.ArgTypes[i];
+					}
+				}
+				if(ResolvedType == INVALID_TYPE)
+				{
+					RaiseError(*Expr->ErrorInfo,
+							"Couldn't resolve generic function call");
+				}
+
+				u32 ResolvedFully = GetGenericPart(ResolvedType, GenericID);
+				Assert(ResolvedFully != INVALID_TYPE);
+				node *NewFn = AnalyzeGenericFunction(Checker, FnSym->Node, ResolvedFully);
+				Expr->Call.Fn = NewFn;
+				//Nodes.Push(NewFn);
+			} break;
+			default: unreachable;
+		}
+	}
+}
+
+void Analyze(checker *Checker, dynamic<node *> &Nodes)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -1405,6 +1561,7 @@ void Analyze(checker *Checker, slice<node *>Nodes)
 			AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}
+	AnalyzeGenericExpressions(Checker, Nodes);
 }
 
 // @Note: Stolen from wikipedia implementations of murmur3

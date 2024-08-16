@@ -1,51 +1,31 @@
 main
 
-struct Rectangle {
-	x: f32,
-	y: f32,
-	width:  f32,
-	height: f32,
+make_stack :: fn() -> stack<T> {
+    result := stack<T> { items = {}, top = 0 };
+    return result;
 }
 
-DrawRect :: fn(r: i32) -> i32 {
-	return 0;
+give_num :: fn<T>() -> T {
+    return 10;
 }
 
 main :: fn() -> i32 {
-
-	player_rect := Rectangle { x = 40, y = 40, width = 100, height = 100 };
-	x := @f32 1.0;
-	return DrawRect(@i32 x);
+    s := make_stack<i32>();
+    push(&s, give_num(10));
 }
 
-//struct Foo {
-//	x: [1024]fn(num1: i32, num2: i32) -> i32,
-//}
-//
-//sum :: fn(a: i32, b: i32) -> i32 {
-//	return a + b;
-//}
-//
-//main :: fn() -> i32 {
-//	foo := Foo { x = {} };
-//	foo.x[513] = sum;
-//
-//	return foo.x[513](3, -3);
-//}
+struct stack<T> {
+	items: T[128],
+    top: int,
+}
 
+push :: fn<T>(Stack: *stack<T>, item: T) -> T {
+	stack.items[stack.top++] = item;
+    return item;
+}
 
-// GENERICS SYNTAX
-// struct stack!T {
-// 	items: T[];
-//  top: int;
-// }
-// 
-// push!T :: fn(Stack: *stack!T, item: T) -> T {
-// 	return stack.items[stack.top++] = item;
-// }
-
-// 1. 2 * 3
-// 2. 4 / 1
-// 3. (2) % 0
-// 4. 10 + (1) - (3)
+1. 2 * 3
+2. 4 / 1
+3. (2) % 0
+4. 10 + (1) - (3)
 

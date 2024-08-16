@@ -684,6 +684,8 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 	ForArray(GIdx, File->Module.Globals)
 	{
 		symbol *s = File->Module.Globals[GIdx];
+		if(s->Flags & SymbolFlag_Generic)
+			continue;
 		LLVMLinkage Linkage;
 		if(s->Flags & SymbolFlag_Public)
 			Linkage = LLVMExternalLinkage;
@@ -722,6 +724,8 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 		ForArray(GIdx, m.Globals)
 		{
 			symbol *s = m.Globals[GIdx];
+			if(s->Flags & SymbolFlag_Generic)
+				continue;
 			if(s->Flags & SymbolFlag_Function)
 			{
 				LLVMCreateFunctionType(Gen.ctx, s->Type);

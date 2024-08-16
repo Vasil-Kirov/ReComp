@@ -30,6 +30,7 @@ inline instruction InstructionDebugInfo(ir_debug_info *Info)
 	instruction Result;
 	Result.Op = OP_DEBUGINFO;
 	Result.BigRegister = (u64)Info;
+	Result.Type = INVALID_TYPE;
 
 	return Result;
 }
@@ -762,7 +763,10 @@ function GlobalLevelIR(node *Node, slice<import> Imported, import Module)
 		{
 			Assert(Node->Fn.Name);
 
-			Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, Module);
+			if(Node->Fn.MaybeGenric == NULL)
+			{
+				Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, Module);
+			}
 		} break;
 		case AST_DECL:
 		case AST_STRUCTDECL:
@@ -1029,6 +1033,10 @@ string DissasembleFunction(function Fn, int indent)
 			PushBuilder(&Builder, ", ");
 	}
 	PushBuilder(&Builder, ')');
+	if(FnType->Function.Return != INVALID_TYPE)
+	{
+		PushBuilderFormated(&Builder, " -> %s", GetTypeName(FnType->Function.Return));
+	}
 
 	if(Fn.Blocks.Count != 0)
 	{

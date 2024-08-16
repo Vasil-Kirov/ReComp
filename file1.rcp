@@ -14,8 +14,13 @@ struct foo {
 
 my_c :: foo { b = bar { b = 10 } };
 
+give :: fn() -> bar {
+    res := bar { b = 10 };
+    return res;
+}
+
 main :: fn() -> i32 {
-    return 0;
+    return @i32 give().b;
 }
 
 // #import stuff as f2

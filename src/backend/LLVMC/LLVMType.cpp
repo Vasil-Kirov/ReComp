@@ -419,13 +419,14 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 {
-	const type *Type = GetType(TypeID);
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
-	Assert(Type);
 	LLVMTypeRef Found = LLVMFindMapType(TypeID);
 	if(Found)
 		return Found;
+
+	const type *Type = GetType(TypeID);
+	Assert(Type);
 
 
 	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc((Type->Function.ArgCount+1) * sizeof(LLVMTypeRef) * 2);
@@ -434,13 +435,18 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	LLVMTypeRef ReturnType;
 	if(Type->Function.Return != INVALID_TYPE)
 	{
+		const type *RT = GetType(Type->Function.Return);
 		if(IsRetTypePassInPointer(Type->Function.Return))
 		{
-			ReturnType = LLVMVoidTypeInContext(Context);
-			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
+					ReturnType = LLVMVoidTypeInContext(Context);
+					ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
 
 		}
-		else if(GetType(Type->Function.Return)->Kind == TypeKind_Function)
+		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
+		{
+			ReturnType = ConvertToLLVMType(Context, ComplexTypeToSizeType(RT));
+		}
+		else if(RT->Kind == TypeKind_Function)
 		{
 			ReturnType = LLVMPointerType(LLVMVoidTypeInContext(Context), 0);
 		}

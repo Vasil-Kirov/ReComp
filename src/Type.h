@@ -179,6 +179,8 @@ b32 IsGeneric(const type *Type);
 b32 IsGeneric(u32 Type);
 u32 ToNonGeneric(u32 TypeID, u32 Resolve);
 u32 GetGenericPart(u32 Resolved, u32 GenericID);
+u32 ComplexTypeToSizeType(u32 Complex);
+u32 ComplexTypeToSizeType(const type *T);
 
 void SetGenericReplacement(u32 ToReplace);
 u32 GetGenericReplacement();

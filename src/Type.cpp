@@ -741,7 +741,20 @@ b32 IsRetTypePassInPointer(u32 Type)
 
 	const type *RetType = GetType(Type);
 
-	return (!IsLoadableType(RetType) && RetType->Kind != TypeKind_Function);
+	b32 IsComplex = (!IsLoadableType(RetType) && RetType->Kind != TypeKind_Function);
+	if(!IsComplex)
+		return false;
+	int Size = GetTypeSize(RetType);
+	switch(Size)
+	{
+		case 8:
+		case 4:
+		case 2:
+		case 1:
+		return false;
+		default:
+		return true;
+	}
 }
 
 b32 IsPassInAsIntType(const type *Type)
@@ -984,5 +997,28 @@ u32 MakeGeneric(scope *Scope, string Name)
 	T->Generic.Name = Name;
 	T->Generic.Scope = Scope;
 	return AddType(T);
+}
+
+u32 ComplexTypeToSizeType(const type *T)
+{
+	int Size = GetTypeSize(T);
+	switch(Size)
+	{
+		case 8:
+		return Basic_u64;
+		case 4:
+		return Basic_u32;
+		case 2:
+		return Basic_u16;
+		case 1:
+		return Basic_u8;
+		default: unreachable;
+	}
+}
+
+u32 ComplexTypeToSizeType(u32 Complex)
+{
+	const type *T = GetType(Complex);
+	return ComplexTypeToSizeType(T);
 }
 

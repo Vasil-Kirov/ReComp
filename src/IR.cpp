@@ -251,7 +251,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_CALL:
 		{
-			Assert(!IsLHS);
+			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
 			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
@@ -263,11 +263,20 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			dynamic<u32> Args = {};
 
 			u32 ResultPtr = -1;
-			if(IsRetTypePassInPointer(Type->Function.Return))
+			u32 ReturnedWrongType = -1;
+			if(Type->Function.Return != INVALID_TYPE)
 			{
-				ResultPtr = PushInstruction(Builder,
-						Instruction(OP_ALLOC, -1, Type->Function.Return, Builder));
-				Args.Push(ResultPtr);
+				const type *RT = GetType(Type->Function.Return);
+				if(IsRetTypePassInPointer(Type->Function.Return))
+				{
+					ResultPtr = PushInstruction(Builder,
+							Instruction(OP_ALLOC, -1, Type->Function.Return, Builder));
+					Args.Push(ResultPtr);
+				}
+				else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
+				{
+					ReturnedWrongType = ComplexTypeToSizeType(RT);
+				}
 			}
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
 			{
@@ -285,9 +294,26 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			CallInfo->Args = SliceFromArray(Args);
 
-			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, Node->Call.Type, Builder));
+			u32 CallType = Node->Call.Type;
+			if(ReturnedWrongType != -1)
+			{
+				type *NT = AllocType(TypeKind_Function);
+				*NT = *Type;
+				NT->Function.Return = ReturnedWrongType;
+				CallType = AddType(NT);
+			}
+
+			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, CallType, Builder));
 			if(ResultPtr != -1)
 				Result = ResultPtr;
+			else if(ReturnedWrongType != -1)
+			{
+				u32 R = Type->Function.Return;
+				u32 Alloced = PushInstruction(Builder,
+						Instruction(OP_ALLOC, -1, R, Builder));
+				Result = PushInstruction(Builder,
+						InstructionStore(Alloced, Result, ReturnedWrongType));
+			}
 		} break;
 		case AST_ARRAYLIST:
 		{
@@ -582,9 +608,17 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_RETURN:
 		{
 			u32 Expression = -1;
+			u32 Type = Node->Return.TypeIdx;
+			const type *RT = GetType(Type);
 			if(Node->Return.Expression)
 					Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
-			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Node->Return.TypeIdx, Builder));
+			if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
+			{
+				Type = ComplexTypeToSizeType(RT);
+				Expression = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, Expression, Type, Builder));
+			}
+			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
 			Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_IF:

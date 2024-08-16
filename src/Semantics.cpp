@@ -225,7 +225,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Module.Name);
 			if(Type == INVALID_TYPE)
 			{
-				RaiseError(*TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member, TypeNode->Selector.Operand->ID.Name->Data);
+				RaiseError(*TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member->Data, TypeNode->Selector.Operand->ID.Name->Data);
 			}
 			return Type;
 		} break;

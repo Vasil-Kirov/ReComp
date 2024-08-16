@@ -38,6 +38,7 @@ enum ir_debug_type
 	IR_DBG_VAR,
 	IR_DBG_LOCATION,
 	IR_DBG_SCOPE,
+	IR_DBG_ARG,
 };
 
 struct ir_debug_info
@@ -53,6 +54,13 @@ struct ir_debug_info
 		struct {
 			int LineNo;
 		} loc;
+		struct {
+			string Name;
+			u32 Register;
+			int LineNo;
+			int ArgNo;
+			u32 TypeID;
+		} arg;
 	};
 };
 

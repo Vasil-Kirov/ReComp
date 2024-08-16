@@ -244,7 +244,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 	const type *CustomType = GetType(TypeID);
 	string Name = GetTypeNameAsString(CustomType);
 
-	LLVMDIBuilderCreateStructType(gen->dbg,
+	LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
 			gen->f_dbg,
 			Name.Data,
 			Name.Size,
@@ -261,6 +261,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 			NULL,
 			0);
 
+	LLVMDebugMapType(TypeID, Made);
 }
 
 LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
@@ -294,18 +295,7 @@ LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 			NULL,
 			0);
 
-	LLVMDebugMapType(TypeID, Made);
 	return Made;
-}
-
-void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID)
-{
-	const type *Type = GetType(TypeID);
-	Assert(Context);
-	Assert(TypeID != INVALID_TYPE);
-	Assert(Type);
-	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
-	LLVMMapType(TypeID, Opaque);
 }
 
 void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
@@ -314,7 +304,6 @@ void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
-	LDEBUG("Name: %s", Type->Struct.Name.Data);
 	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
 	LLVMMapType(TypeID, Opaque);
 }

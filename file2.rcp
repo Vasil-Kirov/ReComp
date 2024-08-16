@@ -1,13 +1,12 @@
 file2
 
+struct x {
+	y: int,
+}
 
 #private
 
 foo := give_one();
-
-struct x {
-	y: int,
-}
 
 give_one :: fn() -> int {
 	return 1;

@@ -685,6 +685,20 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, slice<
 
 }
 
+void IRPushDebugArgInfo(block_builder *Builder, const error_info *ErrorInfo, int ArgNo, u32 Location, string Name, u32 TypeID)
+{
+	ir_debug_info *IRInfo = NewType(ir_debug_info);
+	IRInfo->type = IR_DBG_ARG;
+	IRInfo->arg.ArgNo = ArgNo;
+	IRInfo->arg.LineNo = ErrorInfo->Line;
+	IRInfo->arg.Name = Name;
+	IRInfo->arg.Register = Location;
+	IRInfo->arg.TypeID = TypeID;
+
+	PushInstruction(Builder,
+			InstructionDebugInfo(IRInfo));
+}
+
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
 {
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
@@ -723,6 +737,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 					Instruction(OP_ARG, Idx, FnType->Function.Args[Idx], &Builder));
 			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
 					FnType->Function.Args[Idx], true);
+			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, FnType->Function.Args[Idx]);
 		}
 
 		ForArray(Idx, Body)

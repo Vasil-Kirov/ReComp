@@ -18,7 +18,6 @@ struct generator;
 
 LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID);
 
-void LLVMCreateOpaqueStringStructType(LLVMContextRef Context, u32 TypeID);
 void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID);
 LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID);
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID);

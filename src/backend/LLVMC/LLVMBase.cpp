@@ -51,6 +51,19 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 		{
 			gen->CurrentScope = LLVMDIBuilderCreateLexicalBlock(gen->dbg, gen->CurrentScope, gen->f_dbg, Info->loc.LineNo, 0);
 		} break;
+		case IR_DBG_ARG:
+		{
+			LLVMMetadataRef Meta = LLVMDIBuilderCreateParameterVariable(
+					gen->dbg, gen->CurrentScope,
+					Info->arg.Name.Data, Info->arg.Name.Size,
+					Info->arg.ArgNo,
+					gen->f_dbg, Info->arg.LineNo,
+					ToDebugTypeLLVM(gen, Info->arg.TypeID),
+					false, LLVMDIFlagZero);
+			LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(gen->dbg, NULL, 0);
+			LLVMValueRef Value = gen->map.Get(Info->arg.Register);
+			LLVMDIBuilderInsertDbgValueAtEnd(gen->dbg, Value, Meta, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
+		} break;
 	}
 }
 
@@ -541,7 +554,7 @@ void RCGenerateComplexTypes(generator *gen)
 	{
 		if(GetType(Index)->Kind == TypeKind_Struct)
 		{
-			LLVMCreateOpaqueStringStructType(gen->ctx, Index);
+			LLVMCreateOpaqueStructType(gen->ctx, Index);
 			LLMVDebugOpaqueStruct(gen, Index);
 		}
 	}
@@ -572,7 +585,7 @@ void RCGenerateCompilerTypes(generator *gen)
 		.Flags = 0,
 	};
 	u32 String = AddType(StringType);
-	LLVMCreateOpaqueStringStructType(gen->ctx, String);
+	LLVMCreateOpaqueStructType(gen->ctx, String);
 	LLMVDebugOpaqueStruct(gen, String);
 	auto LLVMType = LLVMDefineStructType(gen->ctx, String);
 	auto DebugType = LLMVDebugDefineStruct(gen, String);

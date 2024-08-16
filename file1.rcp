@@ -4,11 +4,15 @@ main
 //    return num;
 //}
 
-struct foo {
+struct bar {
     b: int,
 }
 
-my_c :: foo { b = 10 };
+struct foo {
+    b: bar,
+}
+
+my_c :: foo { b = bar { b = 10 } };
 
 main :: fn() -> i32 {
     return 0;

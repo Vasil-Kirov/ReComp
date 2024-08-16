@@ -621,7 +621,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 
 void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 {
-	LDEBUG("Generating file: %s", File->Module.Name.Data);
+	LDEBUG("Generating file: %s", File->Module->Name.Data);
 	ir *IR = File->IR;
 
 	char *FileName = NULL;
@@ -630,7 +630,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 
 	generator Gen = {};
 	Gen.ctx = Machine.Context;
-	Gen.mod = LLVMModuleCreateWithNameInContext(File->Module.Name.Data, Gen.ctx);
+	Gen.mod = LLVMModuleCreateWithNameInContext(File->Module->Name.Data, Gen.ctx);
 	LLVMSetSourceFileName(Gen.mod, FileName, strlen(FileName));
 	LLVMSetTarget(Gen.mod, LLVMGetDefaultTargetTriple());
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
@@ -675,15 +675,15 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 	{
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
 		string LinkName = STR_LIT("__GlobalInitializerFunction");
-		LinkName = StructToModuleName(LinkName, File->Module.Name);
+		LinkName = StructToModuleName(LinkName, File->Module->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
 		Functions.Push(Fn);
 	}
 
 	uint Count = 0;
-	ForArray(GIdx, File->Module.Globals)
+	ForArray(GIdx, File->Module->Globals)
 	{
-		symbol *s = File->Module.Globals[GIdx];
+		symbol *s = File->Module->Globals[GIdx];
 		if(s->Flags & SymbolFlag_Generic)
 			continue;
 		LLVMLinkage Linkage;
@@ -696,7 +696,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 			string fnName = *s->Name;
 			string LinkName = fnName;
 			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(fnName, File->Module.Name);
+				LinkName = StructToModuleName(fnName, File->Module->Name);
 			//LLVMCreateFunctionType(Gen.ctx, s->Type);
 			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 					ConvertToLLVMType(Gen.ctx, s->Type));
@@ -709,7 +709,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 			string Name = *s->Name;
 			string LinkName = Name;
 			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(Name, File->Module.Name);
+				LinkName = StructToModuleName(Name, File->Module->Name);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
 			LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 			LLVMSetLinkage(Global, Linkage);
@@ -764,7 +764,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 
 	LLVMDIBuilderFinalize(Gen.dbg);
 
-	RCEmitFile(Machine.Target, Gen.mod, File->Module.Name, OutputBC);
+	RCEmitFile(Machine.Target, Gen.mod, File->Module->Name, OutputBC);
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
@@ -867,7 +867,7 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
-		string InitFnName = StructToModuleName(GlobalInit, File->Module.Name);
+		string InitFnName = StructToModuleName(GlobalInit, File->Module->Name);
 		FileFns[Idx] = LLVMAddFunction(Gen.mod, InitFnName.Data, FnType);
 	}
 

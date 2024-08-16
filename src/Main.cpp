@@ -74,7 +74,7 @@ void ResolveSymbols(dynamic<file> Files)
 	{
 		file *File = &Files.Data[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		AnalyzeForModuleStructs(NodeSlice, File->Module);
+		AnalyzeForModuleStructs(NodeSlice, *File->Module);
 	}
 	ForArray(Idx, Files)
 	{
@@ -85,20 +85,20 @@ void ResolveSymbols(dynamic<file> Files)
 	{
 		file *File = &Files.Data[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		*File->Checker = AnalyzeFunctionDecls(NodeSlice, &File->Module);
+		*File->Checker = AnalyzeFunctionDecls(NodeSlice, File->Module);
 	}
 	b32 FoundMain = false;
 	string MainName = STR_LIT("main");
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
-		if(File->Module.Name == MainName)
+		if(File->Module->Name == MainName)
 		{
 			FoundMain = true;
 			b32 FoundMainMain = false;
-			ForArray(mi, File->Module.Globals)
+			ForArray(mi, File->Module->Globals)
 			{
-				symbol *sym = File->Module.Globals[mi];
+				symbol *sym = File->Module->Globals[mi];
 				if(sym->Flags & SymbolFlag_Function &&
 						*sym->Name == MainName)
 				{
@@ -129,11 +129,11 @@ void ResolveSymbols(dynamic<file> Files)
 			ForArray(k, Files)
 			{
 				file MaybeMod = Files[k];
-				if(MaybeMod.Module.Name == Name)
+				if(MaybeMod.Module->Name == Name)
 				{
 					Found = true;
 					string As = File->Imported[j].As;
-					File->Imported.Data[j] = MaybeMod.Module;
+					File->Imported.Data[j] = *MaybeMod.Module;
 					File->Imported.Data[j].As = As;
 					break;
 				}
@@ -141,7 +141,7 @@ void ResolveSymbols(dynamic<file> Files)
 			if(!Found)
 			{
 				LFATAL("Module `%s` imported by module `%s` coudln't be found",
-						Name.Data, File->Module.Name.Data);
+						Name.Data, File->Module->Name.Data);
 			}
 		}
 		File->Checker->Imported = &File->Imported;
@@ -166,11 +166,11 @@ file GetModule(string File, timers *Timers)
 	Timers->Parse = VLibStartTimer("Parsing");
 	file Result = StringToTokens(FileData, ErrorInfo);
 	Result.Name = File;
-	parse_result Parse = ParseTokens(Result.Tokens, Result.Module.Name);
+	parse_result Parse = ParseTokens(Result.Tokens, Result.Module->Name);
 	Result.Nodes = Parse.Nodes;
 	Result.Imported = Parse.Imports;
 	Result.Checker = NewType(checker);
-	Result.Checker->Module = &Result.Module;
+	Result.Checker->Module = Result.Module;
 	VLibStopTimer(&Timers->Parse);
 	return Result;
 }
@@ -189,7 +189,7 @@ void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 	if(Flag & CommandFlag_ir)
 	{
 		string Dissasembly = Dissasemble(SliceFromArray(File->IR->Functions));
-		LDEBUG("[ MODULE %s ]\n\n%s", File->Module.Name.Data, Dissasembly.Data);
+		LDEBUG("[ MODULE %s ]\n\n%s", File->Module->Name.Data, Dissasembly.Data);
 	}
 }
 
@@ -200,7 +200,7 @@ string MakeLinkCommand(command_line CMD, slice<file> Files)
 
 	ForArray(Idx, Files)
 	{
-		Builder += Files[Idx].Module.Name;
+		Builder += Files[Idx].Module->Name;
 		Builder += ".obj ";
 	}
 
@@ -236,7 +236,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	file File = GetModule(Name, Timers);
 	string_builder CompileInfoName = MakeBuilder();
 	CompileInfoName += "__";
-	CompileInfoName += File.Module.Name;
+	CompileInfoName += File.Module->Name;
 	CompileInfoName += STR_LIT("!CompileInfo");
 
 	type *CompileInfoType = NewType(type);
@@ -249,8 +249,8 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	*CompileInfoTypeIdx = CompileInfo;
 
 	auto NodeSlice = SliceFromArray(File.Nodes);
-	AnalyzeForModuleStructs(NodeSlice, File.Module);
-	*File.Checker = AnalyzeFunctionDecls(NodeSlice, &File.Module);
+	AnalyzeForModuleStructs(NodeSlice, *File.Module);
+	*File.Checker = AnalyzeFunctionDecls(NodeSlice, File.Module);
 	File.Checker->Imported = &File.Imported;
 	ParseAndAnalyzeFile(&File, Timers, 0);
 

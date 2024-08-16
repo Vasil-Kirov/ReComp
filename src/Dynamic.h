@@ -86,7 +86,7 @@ struct file
 	dynamic<node *>Nodes;
 	ir *IR;
 	checker *Checker;
-	import Module;
+	import *Module;
 	slice<import> Imported;
 	string Name;
 };

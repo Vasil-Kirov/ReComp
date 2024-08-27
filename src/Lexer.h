@@ -63,6 +63,7 @@ enum token_type
 	T_PUBLIC = -39,
 	T_PRIVATE= -40,
 	T_SIZE   = -41,
+	T_IN     = -42,
 };
 
 struct token

@@ -1022,3 +1022,13 @@ u32 ComplexTypeToSizeType(u32 Complex)
 	return ComplexTypeToSizeType(T);
 }
 
+const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y)
+{
+	if(L->Kind == X && R->Kind == Y)
+		return L;
+	if(R->Kind == X && L->Kind == Y)
+		return R;
+
+	return NULL;
+}
+

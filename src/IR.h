@@ -148,4 +148,5 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false,
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported, import Module);
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
+u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 

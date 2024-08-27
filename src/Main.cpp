@@ -196,7 +196,7 @@ void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 string MakeLinkCommand(command_line CMD, slice<file> Files)
 {
 	string_builder Builder = MakeBuilder();
-	Builder += "LINK.EXE /nologo /defaultlib:MSVCRT /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj /DEBUG ";
+	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj /DEBUG ";
 
 	ForArray(Idx, Files)
 	{
@@ -208,6 +208,11 @@ string MakeLinkCommand(command_line CMD, slice<file> Files)
 	{
 		Builder += CMD.LinkArgs[Idx];
 		Builder += ' ';
+	}
+
+	if(CMD.LinkArgs.Count == 0)
+	{
+		Builder += "/DEFAULTLIB:MSVCRT ";
 	}
 
 

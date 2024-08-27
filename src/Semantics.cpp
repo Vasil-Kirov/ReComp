@@ -479,6 +479,24 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_RESERVED:
+		{
+			using rs = reserved;
+			switch(Expr->Reserved.ID)
+			{
+				case rs::Null:
+				{
+					Result = GetPointerTo(INVALID_TYPE);
+				} break;
+				case rs::False:
+				case rs::True:
+				{
+					Result = Basic_bool;
+				} break;
+				default: unreachable;
+			}
+			Expr->Reserved.Type = Result;
+		} break;
 		case AST_CALL:
 		{
 			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
@@ -943,6 +961,20 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 		// @TODO: Check how type checking and casting here works with +=, -=, etc... substitution
 		u32 Promoted;
+		const type *X = OneIsXAndTheOtherY(LeftType, RightType, TypeKind_Pointer, TypeKind_Basic);
+		if(X)
+		{
+			token_type T = Expr->Binary.Op;
+			if(T != '+' && T != '-')
+			{
+				RaiseError(*Expr->ErrorInfo, "Invalid operator between pointer and basic type");
+			}
+			if(X->Pointer.Pointed == INVALID_TYPE)
+			{
+				RaiseError(*Expr->ErrorInfo, "Cannot perform pointer arithmetic on an opaque pointer");
+			}
+		}
+
 		if(Expr->Binary.Op != '=')
 			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
 		else
@@ -1212,14 +1244,54 @@ void AnalyzeIf(checker *Checker, node *Node)
 void AnalyzeFor(checker *Checker, node *Node)
 {
 	Checker->CurrentDepth++;
-	if(Node->For.Init)
-		AnalyzeDeclerations(Checker, Node->For.Init);
-	if(Node->For.Expr)
-		AnalyzeExpression(Checker, Node->For.Expr);
-	if(Node->For.Incr)
-		AnalyzeExpression(Checker, Node->For.Incr);
+	using ft = for_type;
+	switch(Node->For.Kind)
+	{
+		case ft::C:
+		{
+			if(Node->For.Expr1)
+				AnalyzeDeclerations(Checker, Node->For.Expr1);
+			if(Node->For.Expr2)
+			{
+				u32 ConditionIdx = AnalyzeExpression(Checker, Node->For.Expr2);
+				const type *Condition = GetType(ConditionIdx);
+				if(!HasBasicFlag(Condition, BasicFlag_Boolean))
+				{
+					RaiseError(*Node->ErrorInfo,
+							"Expected boolean type for condition expression, got %s.", GetTypeName(Condition));
+				}
+			}
+			if(Node->For.Expr3)
+				AnalyzeExpression(Checker, Node->For.Expr3);
+		} break;
+		case ft::It:
+		{
+			u32 TypeIdx = AnalyzeExpression(Checker, Node->For.Expr2);
+			const type *T = GetType(TypeIdx);
+			if(T->Kind != TypeKind_Array)
+			{
+				RaiseError(*Node->For.Expr2->ErrorInfo,
+						"Expression is of non array type %s, only array types support iterating", GetTypeName(T));
+			}
+			Assert(Node->For.Expr1->Type == AST_ID);
+			u32 ItType = T->Array.Type;
+			AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
+					Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
+			Node->For.ItType = ItType;
+			Node->For.ArrayType = TypeIdx;
+			Node->For.ArraySize = T->Array.MemberCount;
+		} break;
+		case ft::While:
+		{
+			AnalyzeExpression(Checker, Node->For.Expr1);
+		} break;
+		case ft::Infinite:
+		{
+		} break;
+	}
 
-	AnalyzeInnerBody(Checker, Node->For.Body);
+	if(Node->For.Body.IsValid())
+		AnalyzeInnerBody(Checker, Node->For.Body);
 	PopScope(Checker);
 }
 

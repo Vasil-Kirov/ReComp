@@ -122,7 +122,19 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 
 			LLVMValueRef Value;
-			if(Type->Basic.Flags & BasicFlag_Float)
+			if(Type->Kind == TypeKind_Pointer)
+			{
+				Assert(Val->Type == const_type::Integer);
+				if(Val->Int.Unsigned == 0)
+				{
+					Value = LLVMConstPointerNull(LLVMType);
+				}
+				else
+				{
+					unreachable;
+				}
+			}
+			else if(Type->Basic.Flags & BasicFlag_Float)
 			{
 				if(Val->Type == const_type::Integer)
 				{

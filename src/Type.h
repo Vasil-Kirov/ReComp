@@ -182,6 +182,8 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID);
 u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
 
+const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
+
 void SetGenericReplacement(u32 ToReplace);
 u32 GetGenericReplacement();
 

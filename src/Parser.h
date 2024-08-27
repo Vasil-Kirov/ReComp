@@ -5,6 +5,21 @@
 #include "VString.h"
 struct type;
 
+enum class reserved
+{
+	Null,
+	True,
+	False,
+};
+
+enum class for_type
+{
+	C,
+	It,
+	While,
+	Infinite,
+};
+
 enum node_type
 {
 	AST_INVALID,
@@ -32,6 +47,7 @@ enum node_type
 	AST_SELECTOR,
 	AST_SIZE,
 	AST_GENERIC,
+	AST_RESERVED,
 };
 
 struct node
@@ -42,6 +58,10 @@ struct node
 		struct {
 			const string *Name;
 		} ID;
+		struct {
+			reserved ID;
+			u32 Type; // Set by semantic analyzer
+		} Reserved;
 		struct {
 			const string *Name;
 		} Generic;
@@ -55,7 +75,6 @@ struct node
 		struct {
 			node *Expression;
 			u32 Type; // Set by semantic analyzer
-
 		} Size;
 		struct {
 			const string *Name;
@@ -84,10 +103,15 @@ struct node
 			dynamic<node *>Else;
 		} If;
 		struct {
-			node *Init; // @Nullable
-			node *Expr; // @Nullable
-			node *Incr; // @Nullable
+			node *Expr1; // @Nullable
+			node *Expr2; // @Nullable
+			node *Expr3; // @Nullable
 			dynamic<node *>Body;
+			for_type Kind;
+			// The rest are for iterator expressions
+			u32 ArrayType;
+			u32 ItType; // Set by semantics analyzer
+			u32 ArraySize;
 		} For;
 		struct {
 			node *Operand;
@@ -161,6 +185,7 @@ struct parser
 	u64 TokenIndex;
 	b32 IsInBody;
 	b32 CurrentlyPublic;
+	b32 NoStructLists;
 };
 
 struct parse_result

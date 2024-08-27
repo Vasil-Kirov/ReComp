@@ -228,6 +228,29 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(ShouldLoad)
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
+		case AST_RESERVED:
+		{
+			const_value *Val = NewType(const_value);
+			Val->Type = const_type::Integer;
+			using rs = reserved;
+			switch(Node->Reserved.ID)
+			{
+				case rs::False:
+				case rs::Null:
+				{
+					Val->Int.IsSigned = false;
+					Val->Int.Unsigned = 0;
+				} break;
+				case rs::True:
+				{
+					Val->Int.IsSigned = false;
+					Val->Int.Unsigned = 1;
+				} break;
+				default: unreachable;
+			}
+			Result = PushInstruction(Builder, 
+					Instruction(OP_CONST, (u64)Val, Node->Reserved.Type, Builder));
+		} break;
 		case AST_SIZE:
 		{
 			const type *Type = GetType(Node->Size.Type);
@@ -422,8 +445,19 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		case AST_CAST:
 		{
 			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
-			instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
-			Result = PushInstruction(Builder, I);
+
+			const type *To = GetType(Node->Cast.ToType);
+			const type *From = GetType(Node->Cast.FromType);
+
+			if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
+			{
+				Result = Expression;
+			}
+			else
+			{
+				instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
+				Result = PushInstruction(Builder, I);
+			}
 		} break;
 		case AST_FN:
 		{
@@ -555,36 +589,43 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 	return BuildIRFromUnary(Builder, Node, IsLHS);
 }
 
-void IRPushDebugVariableInfo(block_builder *Builder, node *Node, u32 Location)
+void IRPushDebugVariableInfo(block_builder *Builder, const error_info *ErrorInfo, string Name, u32 Type, u32 Location)
 {
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
 	IRInfo->type = IR_DBG_VAR;
-	IRInfo->var.LineNo = Node->ErrorInfo->Line;
-	IRInfo->var.Name = *Node->Decl.ID;
+	IRInfo->var.LineNo = ErrorInfo->Line;
+	IRInfo->var.Name = Name;
 	IRInfo->var.Register = Location;
-	IRInfo->var.TypeID = Node->Decl.TypeIndex;
+	IRInfo->var.TypeID = Type;
 
 	PushInstruction(Builder,
 			InstructionDebugInfo(IRInfo));
+}
+
+u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx)
+{
+	const type *Type = GetType(TypeIdx);
+	if(ShouldCopyType(Type))
+	{
+		u32 LocalRegister = PushInstruction(Builder,
+				Instruction(OP_ALLOC, -1, TypeIdx, Builder));
+		PushInstruction(Builder,
+				InstructionStore(LocalRegister, Expression, TypeIdx));
+		return LocalRegister;
+	}
+	else
+	{
+		return Expression;
+	}
 }
 
 void BuildIRFromDecleration(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
 	u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-	const type *Type = GetType(Node->Decl.TypeIndex);
-	if(ShouldCopyType(Type))
-	{
-		u32 LocalRegister = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
-		IRPushDebugVariableInfo(Builder, Node, LocalRegister);
-		PushInstruction(Builder, InstructionStore(LocalRegister, ExpressionRegister, Node->Decl.TypeIndex));
-		PushIRLocal(Builder->Function, Node->Decl.ID, LocalRegister, Node->Decl.TypeIndex);
-	}
-	else
-	{
-		IRPushDebugVariableInfo(Builder, Node, ExpressionRegister);
-		PushIRLocal(Builder->Function, Node->Decl.ID, ExpressionRegister, Node->Decl.TypeIndex);
-	}
+	u32 Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
+	IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.ID, Node->Decl.TypeIndex, Var);
+	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex);
 }
 
 void Terminate(block_builder *Builder, basic_block GoTo)
@@ -595,6 +636,153 @@ void Terminate(block_builder *Builder, basic_block GoTo)
 }
 
 void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block Then);
+
+void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
+{
+	basic_block Cond  = AllocateBlock(Builder);
+	basic_block Then  = AllocateBlock(Builder);
+	basic_block End   = AllocateBlock(Builder);
+	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	Terminate(Builder, Cond);
+
+	if(HasCondition)
+	{
+		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr1);
+		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
+	}
+	else
+	{
+		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
+	}
+
+	Terminate(Builder, Then);
+	BuildIRBody(Node->For.Body, Builder, Cond);
+	Builder->CurrentBlock = End;
+}
+
+void BuildIRForIt(block_builder *Builder, node *Node)
+{
+	basic_block Cond  = AllocateBlock(Builder);
+	basic_block Then  = AllocateBlock(Builder);
+	basic_block Incr  = AllocateBlock(Builder);
+	basic_block End   = AllocateBlock(Builder);
+
+	u32 IAlloc, ItAlloc, Size, One, Array;
+
+	// Init
+	{
+		const_value *ValSize = NewType(const_value);
+		ValSize->Type = const_type::Integer;
+		ValSize->Int.Unsigned = Node->For.ArraySize;
+
+		Size = PushInstruction(Builder, 
+				Instruction(OP_CONST, (u64)ValSize, Basic_int, Builder));
+
+		const_value *ValOne = NewType(const_value);
+		ValOne->Type = const_type::Integer;
+		ValOne->Int.Unsigned = 1;
+
+		One = PushInstruction(Builder, 
+				Instruction(OP_CONST, (u64)ValOne, Basic_int, Builder));
+
+		const_value *ValZero = NewType(const_value);
+		ValZero->Type = const_type::Integer;
+		ValZero->Int.Unsigned = 0;
+
+		IAlloc = PushInstruction(Builder,
+				Instruction(OP_ALLOC, -1, Basic_int, Builder));
+		u32 Zero = PushInstruction(Builder, 
+				Instruction(OP_CONST, (u64)ValZero, Basic_int, Builder));
+		PushInstruction(Builder,
+				InstructionStore(IAlloc, Zero, Basic_int));
+
+		Array = BuildIRFromExpression(Builder, Node->For.Expr2);
+
+		u32 ElemPtr = PushInstruction(Builder,
+				Instruction(OP_INDEX, Array, Zero, Node->For.ArrayType, Builder));
+
+		u32 Elem = PushInstruction(Builder, 
+				Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
+
+		ItAlloc = BuildIRStoreVariable(Builder, Elem, Node->For.ItType);
+		IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
+				*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
+		PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
+
+		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	}
+
+	Terminate(Builder, Cond);
+	
+	// Condition
+	{
+		u32 I = PushInstruction(Builder, 
+				Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
+		u32 Condition = PushInstruction(Builder,
+				Instruction(OP_LESS, I, Size, Basic_bool, Builder));
+		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
+	}
+	Terminate(Builder, Then);
+
+	// Body
+	{
+		BuildIRBody(Node->For.Body, Builder, Incr);
+	}
+
+	// Increment
+	{
+		u32 I = PushInstruction(Builder, 
+				Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
+		
+		u32 ToStore = PushInstruction(Builder, 
+				Instruction(OP_ADD, I, One, Basic_int, Builder));
+
+		PushInstruction(Builder,
+				InstructionStore(IAlloc, ToStore, Basic_int));
+
+		u32 ElemPtr = PushInstruction(Builder,
+				Instruction(OP_INDEX, Array, ToStore, Node->For.ArrayType, Builder));
+
+		u32 Elem = PushInstruction(Builder, 
+				Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
+
+		PushInstruction(Builder, InstructionStore(ItAlloc, Elem, Node->For.ItType));
+
+		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	}
+	Terminate(Builder, End);
+}
+
+void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
+{
+	basic_block Cond  = AllocateBlock(Builder);
+	basic_block Then  = AllocateBlock(Builder);
+	basic_block Incr  = AllocateBlock(Builder);
+	basic_block End   = AllocateBlock(Builder);
+
+	if(Node->For.Expr1)
+		BuildIRFromDecleration(Builder, Node->For.Expr1);
+	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	Terminate(Builder, Cond);
+
+	if(Node->For.Expr2)
+	{
+		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr2);
+		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
+	}
+	else
+	{
+		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
+	}
+	Terminate(Builder, Then);
+	BuildIRBody(Node->For.Body, Builder, Incr);
+
+	if(Node->For.Expr3)
+		BuildIRFromExpression(Builder, Node->For.Expr3);
+
+	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	Terminate(Builder, End);
+}
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
@@ -644,33 +832,26 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_FOR:
 		{
-			basic_block Cond  = AllocateBlock(Builder);
-			basic_block Then  = AllocateBlock(Builder);
-			basic_block Incr  = AllocateBlock(Builder);
-			basic_block End   = AllocateBlock(Builder);
-
-			if(Node->For.Init)
-				BuildIRFromDecleration(Builder, Node->For.Init);
-			PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
-			Terminate(Builder, Cond);
-
-			if(Node->For.Expr)
+			using ft = for_type;
+			switch(Node->For.Kind)
 			{
-				u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr);
-				PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
+				case ft::C:
+				{
+					BuildIRForLoopCStyle(Builder, Node);
+				} break;
+				case ft::While:
+				{
+					BuildIRForLoopWhile(Builder, Node, true);
+				} break;
+				case ft::Infinite:
+				{
+					BuildIRForLoopWhile(Builder, Node, false);
+				} break;
+				case ft::It:
+				{
+					BuildIRForIt(Builder, Node);
+				} break;
 			}
-			else
-			{
-				PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
-			}
-			Terminate(Builder, Then);
-			BuildIRBody(Node->For.Body, Builder, Incr);
-
-			if(Node->For.Incr)
-				BuildIRFromExpression(Builder, Node->For.Incr);
-
-			PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
-			Terminate(Builder, End);
 		} break;
 		default:
 		{

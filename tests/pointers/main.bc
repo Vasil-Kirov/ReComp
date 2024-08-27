@@ -12,8 +12,8 @@ define void @"__main!to_zero"(ptr %0) !dbg !4 {
 block_0:
   call void @llvm.dbg.value(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !11
   %1 = alloca ptr, align 8, !dbg !12
-  call void @llvm.dbg.declare(metadata ptr %1, metadata !13, metadata !DIExpression()), !dbg !12
   store ptr %0, ptr %1, align 8, !dbg !12
+  call void @llvm.dbg.declare(metadata ptr %1, metadata !13, metadata !DIExpression()), !dbg !12
   %2 = load ptr, ptr %1, align 8, !dbg !14
   store i32 0, ptr %2, align 4, !dbg !14
   ret void, !dbg !14
@@ -22,8 +22,8 @@ block_0:
 define i32 @"__main!main"() !dbg !15 {
 block_0:
   %0 = alloca i32, align 4, !dbg !18
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !19, metadata !DIExpression()), !dbg !18
   store i32 123, ptr %0, align 4, !dbg !18
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !19, metadata !DIExpression()), !dbg !18
   call void @"__main!to_zero"(ptr %0), !dbg !20
   %1 = load i32, ptr %0, align 4, !dbg !21
   ret i32 %1, !dbg !21

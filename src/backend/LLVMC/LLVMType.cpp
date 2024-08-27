@@ -73,10 +73,11 @@ void LLVMDebugClearTypeMap()
 
 // I am a week man, I used ChatGPT as I didn't want to write my 4th custom type to LLVMTypeRef conversion function
 LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
+	if(TypeID == INVALID_TYPE)
+		return LLVMVoidTypeInContext(Context);
 	const type *CustomType = GetType(TypeID);
 
     Assert(Context);
-    Assert(TypeID != INVALID_TYPE);
 	Assert(CustomType);
 
     switch (CustomType->Kind) {
@@ -153,6 +154,9 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 	LLVMMetadataRef Found = LLVMDebugFindMapType(TypeID);
 	if(Found)
 		return Found;
+
+	if(TypeID == INVALID_TYPE)
+		return NULL;
 
 	const type *CustomType = GetType(TypeID);
 	LLVMMetadataRef Made = NULL;
@@ -557,8 +561,22 @@ LLVMOpcode RCCast(const type *From, const type *To)
 	}
 	else if(From->Kind == TypeKind_Pointer || To->Kind == TypeKind_Pointer)
 	{
-		// @TODO: pointers
-		Assert(false);
+		if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
+		{
+			return LLVMPtrToInt;
+		}
+		else if(To->Kind == TypeKind_Pointer && From->Kind == TypeKind_Basic)
+		{
+			return LLVMIntToPtr;
+		}
+		else
+		{
+			// @TODO: other pointer casts ?
+			// ???
+			// It should probably not do anything here, pointer to pointer shouldn't be
+			// outputed to the backend
+			Assert(false);
+		}
 	}
 	else
 	{

@@ -14,6 +14,15 @@ node *AllocateNode(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakeReserve(const error_info *ErrorInfo, reserved ID)
+{
+	node *Result = AllocateNode(ErrorInfo);
+	Result->Type = AST_RESERVED;
+	Result->Reserved.ID = ID;
+
+	return Result;
+}
+
 node *MakeGeneric(const error_info *ErrorInfo, const string *T)
 {
 	node *Result = AllocateNode(ErrorInfo);
@@ -105,13 +114,14 @@ node *MakeIf(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFor(const error_info *ErrorInfo, node *ForInit, node *ForExpr, node *ForIncr)
+node *MakeFor(const error_info *ErrorInfo, node *Expr1, node *Expr2, node *Expr3, for_type Kind)
 {
 	node *Result = AllocateNode(ErrorInfo);
 	Result->Type = AST_FOR;
-	Result->For.Init = ForInit;
-	Result->For.Expr = ForExpr;
-	Result->For.Incr = ForIncr;
+	Result->For.Expr1 = Expr1;
+	Result->For.Expr2 = Expr2;
+	Result->For.Expr3 = Expr3;
+	Result->For.Kind = Kind;
 
 	return Result;
 }
@@ -233,6 +243,15 @@ token GetToken(parser *Parser)
 
 token PeekToken(parser *Parser, int Depth)
 {
+	for(int i = 0; i < Depth; ++i)
+	{
+		token Token = Parser->Tokens[Parser->TokenIndex + i];
+		if(Token.Type == T_EOF)
+		{
+			RaiseError(Token.ErrorInfo, "Unexpected End of File");
+		}
+	}
+
 	token Token = Parser->Tokens[Parser->TokenIndex + Depth];
 	return Token;
 }
@@ -641,12 +660,33 @@ node *ParseOperand(parser *Parser)
 		case T_ID:
 		{
 			ERROR_INFO;
-			if(PeekToken(Parser, 1).Type == T_DOT && PeekToken(Parser, 3).Type == T_STARTSCOPE)
+			const string *Name = PeekToken(Parser).ID;
+			static const string ReservedIDs[] = {
+				STR_LIT("null"),
+				STR_LIT("true"),
+				STR_LIT("false"),
+			};
+			int Found = -1;
+			for(int i = 0; i < ARR_LEN(ReservedIDs); ++i) {
+				if(*Name == ReservedIDs[i]) {
+					Found = i;
+					break;
+				}
+			}
+			if(Found != -1)
+			{
+				GetToken(Parser);
+				Result = MakeReserve(ErrorInfo, (reserved)Found);
+			}
+			else if(!Parser->NoStructLists && PeekToken(Parser, 1).Type == T_DOT && PeekToken(Parser, 3).Type == T_STARTSCOPE)
 				Result = ParseStructList(Parser);
-			else if(PeekToken(Parser, 1).Type == T_STARTSCOPE)
+			else if(!Parser->NoStructLists && PeekToken(Parser, 1).Type == T_STARTSCOPE)
 				Result = ParseStructList(Parser);
 			else
-				Result = MakeID(ErrorInfo, GetToken(Parser).ID);
+			{
+				GetToken(Parser);
+				Result = MakeID(ErrorInfo, Name);
+			}
 		} break;
 		case T_STARTSCOPE:
 		{
@@ -933,7 +973,10 @@ node *ParseNode(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
+			b32 NoStructLists = Parser->NoStructLists;
+			Parser->NoStructLists = true;
 			node *IfExpression = ParseExpression(Parser);
+			Parser->NoStructLists = NoStructLists;
 			Result = MakeIf(ErrorInfo, IfExpression);
 			ParseMaybeBody(Parser, Result->If.Body);
 			
@@ -949,23 +992,95 @@ node *ParseNode(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *ForInit = NULL;
-			node *ForExpr = NULL;
-			node *ForIncr = NULL;
-			if(PeekToken(Parser).Type != ';')
-				ForInit = ParseDeclaration(Parser, false);
-			EatToken(Parser, ';');
+			using ft = for_type;
 
-			if(PeekToken(Parser).Type != ';')
-				ForExpr = ParseExpression(Parser);
-			EatToken(Parser, ';');
+			ft Kind = ft::C;
+			{
+				int depth = 0;
+				b32 FoundType = false;
+				while(true)
+				{
+					token T = PeekToken(Parser, depth);
+					if(T.Type == T_EOF)
+					{
+						RaiseError(*ErrorInfo, "Found EOF while parsing for loop");
+					}
+					if(T.Type == T_STARTSCOPE)
+					{
+						if(!FoundType)
+						{
+							if(depth == 0)
+								Kind = ft::Infinite;
+							else
+								Kind = ft::While;
+						}
+						break;
+					}
+					else if(T.Type == T_IN)
+					{
+						if(FoundType)
+							RaiseError(*ErrorInfo, "Malformed for loop, couldn't identify type");
+						FoundType = true;
+						Kind = ft::It;
+					}
+					else if(T.Type == T_SEMICOL)
+					{
+						if(FoundType && Kind != ft::C)
+							RaiseError(*ErrorInfo, "Malformed for loop, couldn't identify type");
+						FoundType = true;
+						Kind = ft::C;
+					}
 
-			if(PeekToken(Parser).Type != T_STARTSCOPE)
-				ForIncr = ParseExpression(Parser);
+					depth++;
+				}
+			}
 
-			Result = MakeFor(ErrorInfo, ForInit, ForExpr, ForIncr);
+			switch(Kind)
+			{
+				case ft::C:
+				{
+					node *ForInit = NULL;
+					node *ForExpr = NULL;
+					node *ForIncr = NULL;
+
+					if(PeekToken(Parser).Type != ';')
+						ForInit = ParseDeclaration(Parser, false);
+					EatToken(Parser, ';');
+
+					if(PeekToken(Parser).Type != ';')
+						ForExpr = ParseExpression(Parser);
+					EatToken(Parser, ';');
+
+					if(PeekToken(Parser).Type != T_STARTSCOPE)
+						ForIncr = ParseExpression(Parser);
+
+					Result = MakeFor(ErrorInfo, ForInit, ForExpr, ForIncr, ft::C);
+				} break;
+				case ft::It:
+				{
+					ERROR_INFO;
+					token ItName = EatToken(Parser, T_ID);
+					node *It = MakeID(ErrorInfo, ItName.ID);
+					EatToken(Parser, T_IN);
+					b32 nsl = Parser->NoStructLists;
+					Parser->NoStructLists = true;
+					node *Array = ParseExpression(Parser);
+					Parser->NoStructLists = nsl;
+
+					Result = MakeFor(ErrorInfo, It, Array, NULL, ft::It);
+				} break;
+				case ft::While:
+				{
+					node *WhileExpr = ParseExpression(Parser);
+					Result = MakeFor(ErrorInfo, WhileExpr, NULL, NULL, ft::While);
+				} break;
+				case ft::Infinite:
+				{
+					Result = MakeFor(ErrorInfo, NULL, NULL, NULL, ft::Infinite);
+				} break;
+			}
+
 			ParseMaybeBody(Parser, Result->For.Body);
-			
 			ExpectSemicolon = false;
 		} break;
 		case T_ENDSCOPE:
@@ -1007,8 +1122,7 @@ string StructToModuleName(string &StructName, string &ModuleName)
 node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
-	token StartToken = PeekToken(Parser);
-	switch(StartToken.Type)
+	switch(Parser->Current->Type)
 	{
 		case T_PUBLIC:
 		{
@@ -1097,9 +1211,9 @@ node *ParseTopLevel(parser *Parser)
 		default:
 		{
 #if defined(DEBUG)
-			LERROR("%d", StartToken.Type);
+			LERROR("%d", Parser->Current->Type);
 #endif
-			RaiseError(StartToken.ErrorInfo, "Unexpected Top Level declaration");
+			RaiseError(Parser->Current->ErrorInfo, "Unexpected Top Level declaration");
 		} break;
 	}
 

@@ -15,6 +15,12 @@ struct scope;
 #define MAX_PARAMETER_SIZE 16
 #endif
 
+enum class platform_target
+{
+	Windows,
+	UnixBased,
+};
+
 enum type_kind
 {
 	TypeKind_Invalid ,
@@ -24,6 +30,7 @@ enum type_kind
 	TypeKind_Struct  ,
 	TypeKind_Pointer ,
 	TypeKind_Array   ,
+	TypeKind_Vector  ,
 	TypeKind_Generic ,
 };
 
@@ -122,6 +129,18 @@ struct array_type
 	u32 MemberCount;
 };
 
+enum vector_kind
+{
+	Vector_Float,
+	Vector_Int,
+};
+
+struct vector_type
+{
+	vector_kind Kind;
+	int ElementCount;
+};
+
 struct generic_type
 {
 	u32 ID;
@@ -139,6 +158,7 @@ struct type
 		function_type Function;
 		pointer Pointer;
 		array_type Array;
+		vector_type Vector;
 		generic_type Generic;
 	};
 };
@@ -191,9 +211,13 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID);
 u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
+u32 AllFloatsStructToReturnType(const type *T);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 
 void SetGenericReplacement(u32 ToReplace);
 u32 GetGenericReplacement();
+b32 IsStructAllFloats(const type *T);
+
+extern platform_target PTarget;
 

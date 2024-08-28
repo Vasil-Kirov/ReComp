@@ -4,6 +4,15 @@ struct Foo {
 	x: [1024]fn(a: ?*) -> i32,
 }
 
+struct SFloat {
+    a: f32,
+    b: f32,
+}
+
+something :: fn(arg: SFloat) -> SFloat {
+    return arg;
+}
+
 sum :: fn(a: ?*) -> i32 {
     if a {
         return 1;
@@ -21,10 +30,9 @@ main :: fn() -> i32 {
 	foo := Foo { x = [1024]*{} };
 	foo.x[513] = sum;
 
-    x_maybe := x();
-    a := (?x_maybe)[1];
+    a := something(SFloat { a = 2, b = 1 } );
 
-	return foo.x[513](x_maybe);
+	return @i32(a.a - a.b);
 }
 // #import stuff as f2
 // 

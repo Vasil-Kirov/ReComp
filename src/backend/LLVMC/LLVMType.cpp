@@ -1,5 +1,6 @@
 #include "LLVMType.h"
 #include "Log.h"
+#include "Memory.h"
 #include "Type.h"
 #include "backend/LLVMC/LLVMBase.h"
 #include "llvm-c/Core.h"
@@ -133,6 +134,21 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 		{
 			return LLVMFindMapType(TypeID);
         } break;
+
+		case TypeKind_Vector:
+		{
+			switch(CustomType->Vector.Kind)
+			{
+				case Vector_Float:
+				{
+					return LLVMVectorType(LLVMFloatTypeInContext(Context), CustomType->Vector.ElementCount);
+				} break;
+				case Vector_Int:
+				{
+					return LLVMVectorType(LLVMInt32TypeInContext(Context), CustomType->Vector.ElementCount);
+				} break;
+			}
+		} break;
 
         case TypeKind_Pointer:
 		{
@@ -391,6 +407,44 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		return;
 	}
 
+	b32 AllFloats = IsStructAllFloats(ArgType);
+	if(AllFloats)
+	{
+		type *Type = AllocType(TypeKind_Vector);
+		Type->Vector.Kind = Vector_Float;
+		Type->Vector.ElementCount = 2;
+		u32 FloatVector = AddType(Type);
+
+		ForArray(Idx, ArgType->Struct.Members)
+		{
+			u32 MemTypeIdx = ArgType->Struct.Members[Idx].Type;
+			if(Idx + 1 != ArgType->Struct.Members.Count)
+			{
+				const type *MemType = GetType(MemTypeIdx);
+				u32 NextMemTypeIdx = ArgType->Struct.Members[Idx+1].Type;
+				if(NextMemTypeIdx != MemTypeIdx || MemType->Basic.Kind == Basic_f64)
+				{
+					Result[*IdxOut] = ConvertToLLVMType(Context, MemTypeIdx);
+					*IdxOut = *IdxOut + 1;
+					Result[*IdxOut] = ConvertToLLVMType(Context, NextMemTypeIdx);
+					*IdxOut = *IdxOut + 1;
+				}
+				else
+				{
+					Result[*IdxOut] = ConvertToLLVMType(Context, FloatVector);
+					*IdxOut = *IdxOut + 1;
+				}
+				Idx++;
+			}
+			else
+			{
+				Result[*IdxOut] = ConvertToLLVMType(Context, MemTypeIdx);
+				*IdxOut = *IdxOut + 1;
+			}
+		}
+		return;
+	}
+
 	switch(Size)
 	{
 		case 8:
@@ -448,7 +502,10 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
-			ReturnType = ConvertToLLVMType(Context, ComplexTypeToSizeType(RT));
+			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+				ReturnType = ConvertToLLVMType(Context, AllFloatsStructToReturnType(RT));
+			else
+				ReturnType = ConvertToLLVMType(Context, ComplexTypeToSizeType(RT));
 		}
 		else if(RT->Kind == TypeKind_Function)
 		{

@@ -6,6 +6,8 @@
 #include "Basic.h"
 #include "Log.h"
 
+platform_target PTarget = platform_target::Windows;
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
@@ -793,6 +795,10 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 	u32 Result = TypeID;
 	switch(Type->Kind)
 	{
+		case TypeKind_Vector:
+		{
+			return TypeID;
+		}
 		case TypeKind_Basic:
 		{
 			return TypeID;
@@ -893,6 +899,7 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 
 	switch(G->Kind)
 	{
+		case TypeKind_Vector:
 		case TypeKind_Basic:
 		{
 			unreachable;
@@ -946,6 +953,7 @@ b32 IsGeneric(const type *Type)
 	b32 Result = false;
 	switch(Type->Kind)
 	{
+		case TypeKind_Vector:
 		case TypeKind_Basic:
 		{
 			Result = false;
@@ -1031,6 +1039,46 @@ u32 ComplexTypeToSizeType(const type *T)
 	}
 }
 
+u32 AllFloatsStructToReturnType(const type *T)
+{
+	if(PTarget == platform_target::Windows)
+		return ComplexTypeToSizeType(T);
+
+	if(T->Struct.Members.Count == 1)
+	{
+		u32 Mem1 = T->Struct.Members[0].Type;
+		return Mem1;
+	}
+
+	if(T->Struct.Members.Count == 2)
+	{
+		u32 Mem1 = T->Struct.Members[0].Type;
+		u32 Mem2 = T->Struct.Members[1].Type;
+		const type *M1T = GetType(Mem1);
+		if(Mem1 == Mem2 && M1T->Basic.Kind == Basic_f32)
+		{
+			type *Type = AllocType(TypeKind_Vector);
+			Type->Vector.Kind = Vector_Float;
+			Type->Vector.ElementCount = 2;
+			return AddType(Type);
+		}
+		else
+		{
+			dynamic<struct_member> Members = {};
+			Members.Push((struct_member){.ID = STR_LIT("!_mem1"), .Type = Mem1});
+			Members.Push((struct_member){.ID = STR_LIT("!_mem2"), .Type = Mem2});
+			type *Type = AllocType(TypeKind_Struct);
+			Type->Struct.Name = STR_LIT("!_return_struct");
+			Type->Struct.Members = SliceFromArray(Members);
+
+			return AddType(Type);
+		}
+	}
+
+	Assert(false);
+	return INVALID_TYPE;
+}
+
 u32 ComplexTypeToSizeType(u32 Complex)
 {
 	const type *T = GetType(Complex);
@@ -1045,5 +1093,21 @@ const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_k
 		return R;
 
 	return NULL;
+}
+
+b32 IsStructAllFloats(const type *T)
+{
+	b32 AllFloats = true;
+	ForArray(Idx, T->Struct.Members)
+	{
+		u32 TypeIdx = T->Struct.Members[Idx].Type;
+		const type *MemberType = GetType(TypeIdx);
+		if(!HasBasicFlag(MemberType, BasicFlag_Float))
+		{
+			AllFloats = false;
+			break;
+		}
+	}
+	return AllFloats;
 }
 

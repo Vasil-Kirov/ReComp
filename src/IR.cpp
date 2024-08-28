@@ -159,6 +159,57 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		return;
 	}
 
+	b32 AllFloats = IsStructAllFloats(ArgType);
+	if(AllFloats && PTarget != platform_target::Windows)
+	{
+		type *Type = AllocType(TypeKind_Vector);
+		Type->Vector.Kind = Vector_Float;
+		Type->Vector.ElementCount = 2;
+		u32 FloatVector = AddType(Type);
+		u32 StructPtr = BuildIRFromExpression(Builder, Expr, IsLHS);
+
+		ForArray(Idx, ArgType->Struct.Members)
+		{
+			u32 MemTypeIdx = ArgType->Struct.Members[Idx].Type;
+			if(Idx + 1 != ArgType->Struct.Members.Count)
+			{
+				const type *MemType = GetType(MemTypeIdx);
+				u32 NextMemTypeIdx = ArgType->Struct.Members[Idx+1].Type;
+				if(NextMemTypeIdx != MemTypeIdx || MemType->Basic.Kind == Basic_f64)
+				{
+					u32 Mem1Ptr = PushInstruction(Builder,
+							Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
+					u32 Mem2Ptr = PushInstruction(Builder,
+							Instruction(OP_INDEX, StructPtr, Idx+1, ArgTypeIdx, Builder));
+					u32 Mem1 = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Mem1Ptr, MemTypeIdx, Builder));
+					u32 Mem2 = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Mem2Ptr, NextMemTypeIdx, Builder));
+					Args.Push(Mem1);
+					Args.Push(Mem2);
+				}
+				else
+				{
+					u32 Mem1Ptr = PushInstruction(Builder,
+							Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
+					u32 Mem1 = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Mem1Ptr, FloatVector, Builder));
+					Args.Push(Mem1);
+				}
+				Idx++;
+			}
+			else
+			{
+				u32 Mem1Ptr = PushInstruction(Builder,
+						Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
+				u32 Mem1 = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, Mem1Ptr, MemTypeIdx, Builder));
+				Args.Push(Mem1);
+			}
+		}
+		return;
+	}
+
 	u32 Pass = -1;
 	switch(Size)
 	{
@@ -298,7 +349,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 				else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 				{
-					ReturnedWrongType = ComplexTypeToSizeType(RT);
+					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+						ReturnedWrongType = AllFloatsStructToReturnType(RT);
+					else
+						ReturnedWrongType = ComplexTypeToSizeType(RT);
 				}
 			}
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
@@ -826,9 +880,18 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 					Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
 			if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
 			{
-				Type = ComplexTypeToSizeType(RT);
-				Expression = PushInstruction(Builder,
-						Instruction(OP_LOAD, 0, Expression, Type, Builder));
+				if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+				{
+					Type = AllFloatsStructToReturnType(RT);
+					Expression = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Expression, Type, Builder));
+				}
+				else
+				{
+					Type = ComplexTypeToSizeType(RT);
+					Expression = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Expression, Type, Builder));
+				}
 			}
 			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
 			Builder->CurrentBlock.HasTerminator = true;

@@ -68,6 +68,37 @@ struct timers
 	timer_group LLVM;
 };
 
+void ResolveModules(dynamic<file> Files)
+{
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
+		ForArray(j, File->Imported)
+		{
+			b32 Found = false;
+			string Name = File->Imported[j].Name;
+			ForArray(k, Files)
+			{
+				file MaybeMod = Files[k];
+				if(MaybeMod.Module->Name == Name)
+				{
+					Found = true;
+					string As = File->Imported[j].As;
+					File->Imported.Data[j] = *MaybeMod.Module;
+					File->Imported.Data[j].As = As;
+					break;
+				}
+			}
+			if(!Found)
+			{
+				LFATAL("Module `%s` imported by module `%s` coudln't be found",
+						Name.Data, File->Module->Name.Data);
+			}
+		}
+		File->Checker->Imported = &File->Imported;
+	}
+}
+
 void ResolveSymbols(dynamic<file> Files)
 {
 	ForArray(Idx, Files)
@@ -76,6 +107,7 @@ void ResolveSymbols(dynamic<file> Files)
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		AnalyzeForModuleStructs(NodeSlice, *File->Module);
 	}
+	ResolveModules(Files);
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
@@ -87,6 +119,7 @@ void ResolveSymbols(dynamic<file> Files)
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		*File->Checker = AnalyzeFunctionDecls(NodeSlice, File->Module);
 	}
+	ResolveModules(Files);
 	b32 FoundMain = false;
 	string MainName = STR_LIT("main");
 	ForArray(Idx, Files)
@@ -119,33 +152,6 @@ void ResolveSymbols(dynamic<file> Files)
 		LFATAL("Missing main module");
 	}
 
-	ForArray(Idx, Files)
-	{
-		file *File = &Files.Data[Idx];
-		ForArray(j, File->Imported)
-		{
-			b32 Found = false;
-			string Name = File->Imported[j].Name;
-			ForArray(k, Files)
-			{
-				file MaybeMod = Files[k];
-				if(MaybeMod.Module->Name == Name)
-				{
-					Found = true;
-					string As = File->Imported[j].As;
-					File->Imported.Data[j] = *MaybeMod.Module;
-					File->Imported.Data[j].As = As;
-					break;
-				}
-			}
-			if(!Found)
-			{
-				LFATAL("Module `%s` imported by module `%s` coudln't be found",
-						Name.Data, File->Module->Name.Data);
-			}
-		}
-		File->Checker->Imported = &File->Imported;
-	}
 }
 
 file GetModule(string File, timers *Timers)

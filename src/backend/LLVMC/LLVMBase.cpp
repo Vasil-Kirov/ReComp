@@ -117,9 +117,15 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ALLOC: // Handled before
 		{
 		} break;
+		case OP_CONSTINT:
+		{
+			u64 Val = I.BigRegister;
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMValueRef Value = LLVMConstInt(LLVMType, Val, false);
+			gen->map.Add(I.Result, Value);
+		} break;
 		case OP_CONST:
 		{
-			// @TODO:
 			const_value *Val = (const_value *)I.BigRegister;
 			const type *Type = GetType(I.Type);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
@@ -520,6 +526,7 @@ LLVMMetadataRef RCGenerateDebugInfoForFunction(generator *gen, function fn)
 void RCGenerateFunction(generator *gen, function fn)
 {
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
+	gen->BlockCount = fn.Blocks.Count;
 	if(fn.Type == INVALID_TYPE)
 	{
 		gen->IsCurrentFnRetInPtr = false;
@@ -535,7 +542,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
-		gen->blocks[Idx] = RCCreateBlock(gen, Block.ID, false);
+		gen->blocks[Block.ID] = RCCreateBlock(gen, Block.ID, false);
 	}
 
 	gen->CurrentBlock = -1;
@@ -588,7 +595,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
-		RCSetBlock(gen, Idx);
+		RCSetBlock(gen, Block.ID);
 		ForArray(InstrIdx, Block.Code)
 		{
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);

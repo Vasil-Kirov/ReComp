@@ -46,8 +46,8 @@ enum token_type
 	T_TEQ   = -21,
 	T_DEQ   = -22,
 	T_MODEQ = -23,
-//	T_SLEQ  = -24, // Lexer doesn't support 3 character combinations right now
-//	T_SREQ  = -25,
+	T_SLEQ  = -24, // Lexer doesn't support 3 character combinations right now
+	T_SREQ  = -25,
 	T_ANDEQ = -26,
 	T_XOREQ = -27,
 	T_OREQ  = -28,
@@ -67,6 +67,7 @@ enum token_type
 	T_IN     = -42,
 	T_BREAK  = -43,
 	T_TYPEOF = -44,
+	T_VARARG = -45,
 };
 
 struct token

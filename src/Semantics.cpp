@@ -349,13 +349,26 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		MakeGeneric(FnScope, *FnNode->Fn.MaybeGenric->Generic.Name);
 	}
 
+	u32 Flags = FnNode->Fn.Flags;
+	ForArray(Idx, FnNode->Fn.Args)
+	{
+		if(FnNode->Fn.Args[Idx]->Decl.Type == NULL)
+		{
+			Flags |= SymbolFlag_VarFunc;
+			if(Idx + 1 != FnNode->Fn.Args.Count)
+			{
+				RaiseError(*FnNode->Fn.Args[Idx]->ErrorInfo, "Variadic arguments needs to be last in function type, but it is #%d", Idx);
+			}
+		}
+	}
+
 	type *NewType = NewType(type);
 	NewType->Kind = TypeKind_Function;
 	function_type Function;
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
-	Function.ArgCount = FnNode->Fn.Args.Count;
+	Function.ArgCount = FnNode->Fn.Args.Count - ((Flags & SymbolFlag_VarFunc) ? 1 : 0);
 	Function.Args = NULL;
-	Function.Flags = FnNode->Fn.Flags;
+	Function.Flags = Flags;
 	if(FnNode->Fn.MaybeGenric)
 		Function.Flags |= SymbolFlag_Generic;
 
@@ -400,6 +413,15 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
 		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, NULL, flags);
+	}
+	if(FunctionType->Function.Flags & SymbolFlag_VarFunc)
+	{
+		int I = FunctionType->Function.ArgCount;
+		node *Arg = FnNode->Fn.Args[I];
+		u32 flags = SymbolFlag_Const;
+		u32 Type = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Decl.ID, NULL, flags);
+
 	}
 
 	b32 FoundReturn = false;
@@ -506,17 +528,40 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
 			{
-				RaiseError(*Expr->ErrorInfo, "Incorrect number of arguments, needed %d got %d",
-						CallType->Function.ArgCount, Expr->Call.Args.Count);
+				if(CallType->Function.Flags & SymbolFlag_VarFunc && Expr->Call.Args.Count > CallType->Function.ArgCount)
+				{}
+				else
+				{
+					RaiseError(*Expr->ErrorInfo, "Incorrect number of arguments, needed %d got %d",
+							CallType->Function.ArgCount, Expr->Call.Args.Count);
+				}
 			}
 
 			dynamic<u32> ArgTypes = {};
 			ForArray(Idx, Expr->Call.Args)
 			{
 				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+				const type *ExprType = GetType(ExprTypeIdx);
+				if(CallType->Function.ArgCount <= Idx)
+				{
+					if(IsUntyped(ExprType))
+					{
+						if(ExprType->Basic.Flags & BasicFlag_Float)
+						{
+							ExprTypeIdx = Basic_f32;
+							FillUntypedStack(Checker, Basic_f32);
+						}
+						else
+						{
+							ExprTypeIdx = Basic_int;
+							FillUntypedStack(Checker, Basic_int);
+						}
+					}
+					ArgTypes.Push(ExprTypeIdx);
+					continue;
+				}
 				ArgTypes.Push(ExprTypeIdx);
 				const type *ExpectType = GetType(CallType->Function.Args[Idx]);
-				const type *ExprType = GetType(ExprTypeIdx);
 				const type *PromotionType = NULL;
 				if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
 				{
@@ -991,6 +1036,8 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		u32 Result = Promoted;
 		switch(Expr->Binary.Op)
 		{
+			case T_SLEQ:
+			case T_SREQ:
 			case T_PEQ:
 			case T_MEQ:
 			case T_TEQ:
@@ -1030,6 +1077,14 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		node *BinaryExpression = Expr;
 		switch(Expr->Binary.Op)
 		{
+			case T_SLEQ:
+			{
+				BinaryExpression = OverwriteOpEqExpression(Expr, T_SLEFT);
+			} break;
+			case T_SREQ:
+			{
+				BinaryExpression = OverwriteOpEqExpression(Expr, T_SRIGHT);
+			} break;
 			case T_PEQ:
 			{
 				BinaryExpression = OverwriteOpEqExpression(Expr, '+');
@@ -1302,6 +1357,8 @@ u32 FixPotentialFunctionPointer(u32 Type)
 		} break;
 		case TypeKind_Pointer:
 		{
+			if(Ptr->Pointer.Pointed == INVALID_TYPE)
+				return Type;
 			u32 NewPointed = FixPotentialFunctionPointer(Ptr->Pointer.Pointed);
 			if(NewPointed != Ptr->Pointer.Pointed)
 			{

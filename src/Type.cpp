@@ -67,6 +67,16 @@ const type **InitializeTypeTable()
 const type **TypeTable = InitializeTypeTable();
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
+u32 VarArgArrayType(u32 ElemCount)
+{
+	type *T = AllocType(TypeKind_Array);
+	u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+	T->Array.Type = ArgType;
+	T->Array.MemberCount = ElemCount;
+
+	return AddType(T);
+}
+
 b32 IsUntyped(const type *Type)
 {
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
@@ -76,6 +86,19 @@ struct generic_replacement
 {
 	u32 TypeID;
 };
+
+u32 FindStruct(string Name)
+{
+	for(int i = 0; i < TypeCount; ++i)
+	{
+		if(TypeTable[i]->Kind == TypeKind_Struct)
+		{
+			if(TypeTable[i]->Struct.Name == Name)
+				return i;
+		}
+	}
+	Assert(false);
+}
 
 generic_replacement GenericReplacement = {};
 

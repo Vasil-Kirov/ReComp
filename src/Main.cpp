@@ -233,8 +233,7 @@ struct compile_info
 
 file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 {
-	type *FileArray = NewType(type);
-	FileArray->Kind = TypeKind_Array;
+	type *FileArray = AllocType(TypeKind_Array);
 	FileArray->Array.Type = Basic_cstring;
 	FileArray->Array.MemberCount = 1024;
 
@@ -250,8 +249,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	CompileInfoName += File.Module->Name;
 	CompileInfoName += STR_LIT("!CompileInfo");
 
-	type *CompileInfoType = NewType(type);
-	CompileInfoType->Kind = TypeKind_Struct;
+	type *CompileInfoType = AllocType(TypeKind_Struct);
 	CompileInfoType->Struct.Name = MakeString(CompileInfoName);
 	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
 	CompileInfoType->Struct.Flags = 0;

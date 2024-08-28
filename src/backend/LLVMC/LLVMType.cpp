@@ -1,6 +1,7 @@
 #include "LLVMType.h"
 #include "Log.h"
 #include "Memory.h"
+#include "Semantics.h"
 #include "Type.h"
 #include "backend/LLVMC/LLVMBase.h"
 #include "llvm-c/Core.h"
@@ -507,7 +508,7 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	Assert(Type);
 
 
-	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc((Type->Function.ArgCount+1) * sizeof(LLVMTypeRef) * 2);
+	LLVMTypeRef *ArgTypes = (LLVMTypeRef *)VAlloc((Type->Function.ArgCount+2) * sizeof(LLVMTypeRef) * 12);
 	int ArgCount = 0;
 
 	LLVMTypeRef ReturnType;
@@ -546,6 +547,14 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		else
 			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}
+
+	if(Type->Function.Flags & SymbolFlag_VarFunc)
+	{
+		u32 VarArgType = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+		ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
+	}
+
+	Assert(ArgCount < (Type->Function.ArgCount+2)*12);
 	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, ArgCount, false);
 	LLVMMapType(TypeID, FuncType);
 	VFree(ArgTypes);

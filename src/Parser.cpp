@@ -406,7 +406,11 @@ node *ParseFunctionArgument(parser *Parser)
 	ERROR_INFO;
 	token ID = EatToken(Parser, T_ID);
 	EatToken(Parser, ':');
-	node *Type   = ParseType(Parser);
+	node *Type = NULL;
+	if(Parser->Current->Type == T_VARARG)
+		EatToken(Parser, T_VARARG);
+	else
+		Type   = ParseType(Parser);
 	return MakeDecl(ErrorInfo, ID.ID, NULL, Type, SymbolFlag_Const);
 }
 

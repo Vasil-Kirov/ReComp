@@ -26,6 +26,7 @@ struct generator
 	LLVMMetadataRef CurrentLocation;
 	LLVMMetadataRef CurrentScope;
 	int CurrentBlock;
+	int BlockCount;
 	b32 IsCurrentFnRetInPtr;
 };
 

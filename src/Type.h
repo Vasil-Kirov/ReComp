@@ -212,6 +212,8 @@ u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 u32 AllFloatsStructToReturnType(const type *T);
+u32 FindStruct(string Name);
+u32 VarArgArrayType(u32 ElemCount);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 

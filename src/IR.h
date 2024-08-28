@@ -5,6 +5,7 @@ enum op
 {
 	OP_NOP,
 	OP_CONST,
+	OP_CONSTINT,
 	OP_ARG,
 	OP_ADD,
 	OP_SUB,

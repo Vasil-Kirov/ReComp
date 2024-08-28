@@ -14,7 +14,6 @@ inline u32 PushAlloc(u32 Type, block_builder *Builder)
 			Instruction(OP_ALLOC, -1, Type, Builder));
 }
 
-
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 {
 	instruction Result;
@@ -23,6 +22,11 @@ inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 	Result.Type = Type;
 	Result.Result = Builder->LastRegister++;
 	return Result;
+}
+
+inline u32 PushInt(u64 Value, block_builder *Builder)
+{
+	return PushInstruction(Builder, Instruction(OP_CONSTINT, Value, Basic_int, Builder));
 }
 
 inline instruction InstructionDebugInfo(ir_debug_info *Info)
@@ -374,19 +378,74 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						ReturnedWrongType = ComplexTypeToSizeType(RT);
 				}
 			}
+			u32 VarArgStructType = INVALID_TYPE;
+			u32 VarArgArrayT = INVALID_TYPE;
+			u32 VarArgT = INVALID_TYPE;
+			u32 VarArgAlloc = -1;
+			u32 VarArgsArray = -1;
+			u32 PassedVarArgs = 0;
+			if(Type->Function.Flags & SymbolFlag_VarFunc)
+			{
+				VarArgStructType = FindStruct(STR_LIT("__init!ArgList"));
+				VarArgT          = FindStruct(STR_LIT("__init!Arg"));
+				VarArgAlloc = PushInstruction(Builder, 
+						Instruction(OP_ALLOC, -1, VarArgStructType, Builder));
+				u32 CountMemberLocation = PushInstruction(Builder, 
+						Instruction(OP_INDEX, VarArgAlloc, 0, VarArgStructType, Builder));
+				u32 ArrayMemberLocation = PushInstruction(Builder, 
+						Instruction(OP_INDEX, VarArgAlloc, 1, VarArgStructType, Builder));
+
+				u32 PassedArgs = Node->Call.Args.Count - Type->Function.ArgCount;;
+				const_value *ValCount = NewType(const_value);
+				ValCount->Type = const_type::Integer;
+				ValCount->Int.Unsigned = PassedArgs;
+				u32 Count = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)ValCount, Basic_int, Builder));
+				VarArgArrayT = VarArgArrayType(PassedArgs);
+
+				VarArgsArray = PushInstruction(Builder,
+						Instruction(OP_ALLOC, -1, VarArgArrayT, Builder));
+
+				PushInstruction(Builder,
+						InstructionStore(CountMemberLocation, Count, Basic_int));
+				PushInstruction(Builder,
+						InstructionStore(ArrayMemberLocation, VarArgsArray, Basic_int));
+			}
 			for(int Idx = 0; Idx < Node->Call.Args.Count; ++Idx)
 			{
-				const type *ArgType = GetType(Type->Function.Args[Idx]);
-				if(!IsLoadableType(ArgType))
+				if(Idx >= Type->Function.ArgCount)
 				{
-					FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS);
+					// Var args
+					u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+					u32 Index = PushInt(PassedVarArgs++, Builder);
+					u32 ExprLocation = PushInstruction(Builder,
+							Instruction(OP_ALLOC, -1, Node->Call.ArgTypes[Idx], Builder));
+					PushInstruction(Builder, InstructionStore(ExprLocation, Expr, Node->Call.ArgTypes[Idx]));
+
+					u32 ArgLocation = PushInstruction(Builder, Instruction(OP_INDEX, VarArgsArray, Index, VarArgArrayT, Builder));
+
+					u32 TypeLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 0, VarArgT, Builder));
+					u32 ValLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 1, VarArgT, Builder));
+					PushInstruction(Builder, InstructionStore(TypeLocation, PushInt(Node->Call.ArgTypes[Idx], Builder), Basic_type));
+					PushInstruction(Builder, InstructionStore(ValLocation, ExprLocation, GetPointerTo(Node->Call.ArgTypes[Idx])));
 				}
 				else
 				{
-					u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
-					Args.Push(Expr);
+					const type *ArgType = GetType(Type->Function.Args[Idx]);
+					if(!IsLoadableType(ArgType))
+					{
+						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS);
+					}
+					else
+					{
+						u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+						Args.Push(Expr);
+					}
 				}
 			}
+
+			if(Type->Function.Flags & SymbolFlag_VarFunc)
+				Args.Push(VarArgAlloc);
 
 			CallInfo->Args = SliceFromArray(Args);
 
@@ -1059,11 +1118,20 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		IRPushGlobalSymbolsForFunction(&Builder, &Function, Imported, Module);
 		ForArray(Idx, Args)
 		{
+			u32 Type = INVALID_TYPE;
+			if(Idx >= FnType->Function.ArgCount)
+			{
+				Type = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+			}
+			else
+			{
+				Type = FnType->Function.Args[Idx];
+			}
 			u32 Register = PushInstruction(&Builder,
-					Instruction(OP_ARG, Idx, FnType->Function.Args[Idx], &Builder));
+					Instruction(OP_ARG, Idx, Type, &Builder));
 			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
-					FnType->Function.Args[Idx], true);
-			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, FnType->Function.Args[Idx]);
+					Type, true);
+			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, Type);
 		}
 
 		ForArray(Idx, Body)
@@ -1176,6 +1244,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			case OP_NOP:
 			{
 				PushBuilder(Builder, "NOP");
+			} break;
+			case OP_CONSTINT:
+			{
+				PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type), Instr.BigRegister);
 			} break;
 			case OP_CONST:
 			{
@@ -1368,11 +1440,12 @@ string DissasembleFunction(function Fn, int indent)
 		PushBuilder(&Builder, " {\n");
 		ForArray(I, Fn.Blocks)
 		{
+			basic_block Block = Fn.Blocks[I];
 			Builder += '\n';
 			for(int i = 0; i < indent; ++i)
 				Builder += '\t';
 
-			PushBuilderFormated(&Builder, "\tblock_%d:\n", I);
+			PushBuilderFormated(&Builder, "\tblock_%d:\n", Block.ID);
 			DissasembleBasicBlock(&Builder, Fn.Blocks.GetPtr(I), indent);
 		}
 		for(int i = 0; i < indent; ++i)

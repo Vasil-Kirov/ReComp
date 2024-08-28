@@ -176,6 +176,17 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 	token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
 	if(PotentialKeyword == T_ID)
 	{
+		if(String->Size > 1)
+		{
+			PotentialKeywordString = MakeString(Start, 3);
+			PotentialKeyword = GetKeyword(PotentialKeywordString);
+			if(PotentialKeyword != T_ID)
+			{
+				AdvanceC(String, ErrorInfo);
+				AdvanceC(String, ErrorInfo);
+				return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+			}
+		}
 		return MakeToken((token_type)C, StartErrorInfo, NULL);
 	}
 	AdvanceC(String, ErrorInfo);
@@ -301,6 +312,7 @@ void InitializeLexer()
 	AddKeyword("as",  T_AS);
 	AddKeyword("in",  T_IN);
 	AddKeyword("@@",  T_AUTOCAST);
+	AddKeyword("::",  T_CONST);
 	AddKeyword(">=",  T_GEQ);
 	AddKeyword("<=",  T_LEQ);
 	AddKeyword("!=",  T_NEQ);
@@ -320,7 +332,9 @@ void InitializeLexer()
 	AddKeyword("&=",  T_ANDEQ);
 	AddKeyword("^=",  T_XOREQ);
 	AddKeyword("|=",  T_OREQ);
-	AddKeyword("::",  T_CONST);
+	AddKeyword("<<=",  T_SLEQ);
+	AddKeyword(">>=",  T_SREQ);
+	AddKeyword("...",  T_VARARG);
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#import", T_IMPORT);
 	AddKeyword("#foreign",  T_FOREIGN);

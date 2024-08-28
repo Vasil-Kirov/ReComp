@@ -38,6 +38,14 @@ node *MakeGeneric(const error_info *ErrorInfo, const string *T)
 	return Result;
 }
 
+node *MakeTypeOf(const error_info *ErrorInfo, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_TYPEOF);
+	Result->TypeOf.Expression = Expr;
+
+	return Result;
+}
+
 node *MakeSize(const error_info *ErrorInfo, node *Expr)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_SIZE);
@@ -174,6 +182,7 @@ node *MakeID(error_info *ErrorInfo, const string *ID)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_ID);
 	Result->ID.Name = ID;
+	Result->ID.Type = INVALID_TYPE;
 	return Result;
 }
 
@@ -630,7 +639,14 @@ node *ParseOperand(parser *Parser)
 			node *Expr = ParseExpression(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
 		} break;
-		case T_SIZE:
+		case T_TYPEOF:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = ParseUnary(Parser);
+			Result = MakeTypeOf(ErrorInfo, Expr);
+		} break;
+		case T_SIZEOF:
 		{
 			ERROR_INFO;
 			GetToken(Parser);

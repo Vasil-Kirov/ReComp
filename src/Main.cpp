@@ -268,6 +268,21 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	return File;
 }
 
+const char *GetStdMainFile()
+{
+	char *Path = (char *)AllocatePermanent(VMAX_PATH);
+	GetExePath(Path);
+	int i;
+	for(i = 0; Path[i] != 0; ++i);
+	int size = i;
+	for(; Path[i] != '\\' && Path[i] != '/';--i);
+	memset(Path + i, 0, size - i);
+	strcat(Path, "/std/init.rcp");
+
+
+	return Path;
+}
+
 int
 main(int ArgCount, char *Args[])
 {
@@ -330,6 +345,7 @@ main(int ArgCount, char *Args[])
 
 			dynamic<file> Files = {};
 			compile_info *Info = (compile_info *)Out.ptr;
+			Info->FileNames[Info->FileCount++] = GetStdMainFile();
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
 				timers FileTimer = {};

@@ -1,0 +1,13 @@
+init
+
+#import main as mn
+
+global_initializers :: fn();
+
+main :: fn #foreign() -> i32 {
+    global_initializers();
+    res := mn.main();
+
+    return res;
+}
+

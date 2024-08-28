@@ -6,12 +6,12 @@ declare void @"__main!__GlobalInitializerFunction"()
 
 declare void @"__stuff!__GlobalInitializerFunction"()
 
-declare i32 @"__main!main"()
+declare void @"__init!__GlobalInitializerFunction"()
 
-define i32 @main() {
+define void @"__init!global_initializers"() {
 only_block:
   call void @"__main!__GlobalInitializerFunction"()
   call void @"__stuff!__GlobalInitializerFunction"()
-  %0 = call i32 @"__main!main"()
-  ret i32 %0
+  call void @"__init!__GlobalInitializerFunction"()
+  ret void
 }

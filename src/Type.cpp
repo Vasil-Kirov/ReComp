@@ -11,7 +11,7 @@ platform_target PTarget = platform_target::Windows;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
-	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean,                             4, STR_LIT("bool")}},
+	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,       1, STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
 	{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 

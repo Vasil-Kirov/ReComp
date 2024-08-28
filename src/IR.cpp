@@ -258,6 +258,16 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 	{
 		case AST_ID:
 		{
+			if(Node->ID.Type != INVALID_TYPE)
+			{
+				const_value *TypeValue = NewType(const_value);
+				TypeValue->Type = const_type::Integer;
+				TypeValue->Int.IsSigned = false;
+				TypeValue->Int.Unsigned = Node->ID.Type;
+				Result = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)TypeValue, Basic_u64, Builder));
+				break;
+			}
 			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
 			Result = Local->Register;
 
@@ -301,6 +311,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			Result = PushInstruction(Builder, 
 					Instruction(OP_CONST, (u64)Val, Node->Reserved.Type, Builder));
+		} break;
+		case AST_TYPEOF:
+		{
+			const_value *TypeValue = NewType(const_value);
+			TypeValue->Type = const_type::Integer;
+			TypeValue->Int.IsSigned = false;
+			TypeValue->Int.Unsigned = Node->TypeOf.Type;
+			Result = PushInstruction(Builder, 
+					Instruction(OP_CONST, (u64)TypeValue, Basic_u64, Builder));
 		} break;
 		case AST_SIZE:
 		{

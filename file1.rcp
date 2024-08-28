@@ -30,9 +30,7 @@ main :: fn() -> i32 {
 	foo := Foo { x = [1024]*{} };
 	foo.x[513] = sum;
 
-    a := something(SFloat { a = 2, b = 1 } );
-
-	return @i32(a.a - a.b);
+	return @i32(type_of foo == i32);
 }
 // #import stuff as f2
 // 

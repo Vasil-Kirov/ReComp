@@ -454,6 +454,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 				}
 				if(Result == INVALID_TYPE)
+				{
+					u32 Find = FindType(Checker, Expr->ID.Name);
+					if(Find != INVALID_TYPE)
+					{
+						Result = Basic_type;
+						Expr->ID.Type = Find;
+					}
+				}
+				if(Result == INVALID_TYPE)
 					RaiseError(*Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 			}
 			const type *Type = GetType(Result);
@@ -529,6 +538,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Expr->Call.Type = CallTypeIdx;
 			Result = GetReturnType(CallType);
+		} break;
+		case AST_TYPEOF:
+		{
+			u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+			Expr->TypeOf.Type = ExprType;
+			Result = Basic_type;
 		} break;
 		case AST_SIZE:
 		{

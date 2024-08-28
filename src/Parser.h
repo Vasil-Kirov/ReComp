@@ -44,6 +44,7 @@ enum node_type
 	AST_STRUCTDECL,
 	AST_SELECTOR,
 	AST_SIZE,
+	AST_TYPEOF,
 	AST_GENERIC,
 	AST_RESERVED,
 	AST_BREAK,
@@ -57,6 +58,7 @@ struct node
 	{
 		struct {
 			const string *Name;
+			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
 		struct {
 			reserved ID;
@@ -78,6 +80,10 @@ struct node
 			node *Expression;
 			u32 Type; // Set by semantic analyzer
 		} Size;
+		struct {
+			node *Expression;
+			u32 Type; // Set by semantic analyzer
+		} TypeOf;
 		struct {
 			const string *Name;
 			slice<node *> Members;

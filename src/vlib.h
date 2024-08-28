@@ -289,6 +289,16 @@ inline char *GetAbsolutePath(const char *RelativePath)
 }
 
 bool
+GetExePath(char *Out)
+{
+#if defined(_WIN32)
+	return GetModuleFileNameA(NULL, Out, VMAX_PATH) != 0;
+#else
+#error Implement GetExePath
+#endif
+}
+
+bool
 GetActiveDirectory(char *Out)
 {
 #if defined(_WIN32)

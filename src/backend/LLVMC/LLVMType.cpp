@@ -115,6 +115,8 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 					return LLVMFindMapType(TypeID);
                 case Basic_cstring:
                     return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
+				case Basic_type:
+					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
                 default:
                     return NULL;
             }
@@ -193,6 +195,7 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 				case Basic_u16:
 				case Basic_u32:
 				case Basic_u64:
+				case Basic_type:
 				case Basic_uint:
 				{
 					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_unsigned, LLVMDIFlagZero);
@@ -267,6 +270,23 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 			}
 			Made = LLVMDIBuilderCreateSubroutineType(gen->dbg, gen->f_dbg, ArgTypes, CustomType->Function.ArgCount+1, LLVMDIFlagZero);
 			VFree(ArgTypes);
+		} break;
+		case TypeKind_Vector:
+		{
+			LLVMMetadataRef Type = NULL;
+			switch(CustomType->Vector.Kind)
+			{
+				case Vector_Float:
+				{
+					Type = ToDebugTypeLLVM(gen, Basic_f32);
+				} break;
+				case Vector_Int:
+				{
+					Type = ToDebugTypeLLVM(gen, Basic_i32);
+				} break;
+			}
+			LLVMMetadataRef Subrange = LLVMDIBuilderGetOrCreateSubrange(gen->dbg, 0, CustomType->Vector.ElementCount);
+			Made = LLVMDIBuilderCreateVectorType(gen->dbg, CustomType->Vector.ElementCount * 32, 0, Type, &Subrange, 1);
 		} break;
 		case TypeKind_Struct:
 		{
@@ -615,6 +635,7 @@ LLVMOpcode RCCast(const type *From, const type *To)
 		{
 			return RCCastExt(From, To);
 		}
+		return LLVMCatchSwitch;
 	}
 	else if(From->Kind == TypeKind_Pointer || To->Kind == TypeKind_Pointer)
 	{

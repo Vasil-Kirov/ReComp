@@ -328,6 +328,7 @@ void InitializeLexer()
 	AddKeyword("struct", T_STRUCT);
 	AddKeyword("#public", T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
-	AddKeyword("#size", T_SIZE);
+	AddKeyword("size_of", T_SIZEOF);
+	AddKeyword("type_of", T_TYPEOF);
 }
 

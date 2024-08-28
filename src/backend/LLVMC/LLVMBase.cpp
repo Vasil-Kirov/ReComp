@@ -274,8 +274,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
 				LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
-				LLVMValueRef Value = gen->map.Get(I.Left);
-				LLVMValueRef Val = LLVMBuildCast(gen->bld, Op, Value, LLVMToType, "");
+				LLVMValueRef Val = gen->map.Get(I.Left);
+				if(Op != LLVMCatchSwitch)
+				{
+					Val = LLVMBuildCast(gen->bld, Op, Val, LLVMToType, "");
+				}
 				gen->map.Add(I.Result, Val);
 			}
 		} break;
@@ -875,8 +878,6 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
 
 	LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
-	LLVMTypeRef Int32Ty = LLVMInt32TypeInContext(Gen.ctx);
-	LLVMTypeRef MainFnType = LLVMFunctionType(Int32Ty, NULL, 0, false);
 	string GlobalInit = STR_LIT("__GlobalInitializerFunction");
 	ForArray(Idx, Files)
 	{
@@ -885,11 +886,7 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 		FileFns[Idx] = LLVMAddFunction(Gen.mod, InitFnName.Data, FnType);
 	}
 
-	{
-		FileFns[Files.Count] = LLVMAddFunction(Gen.mod, "__main!main", MainFnType);
-	}
-
-	LLVMValueRef MainFn = LLVMAddFunction(Gen.mod, "main", MainFnType);
+	LLVMValueRef MainFn = LLVMAddFunction(Gen.mod, "__init!global_initializers", FnType);
 	LLVMBasicBlockRef Block = LLVMAppendBasicBlockInContext(Gen.ctx, MainFn, "only_block");
 	LLVMPositionBuilderAtEnd(Gen.bld, Block);
 
@@ -900,9 +897,7 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 		LLVMBuildCall2(Gen.bld, FnType, FileFns[Idx], NULL, 0, "");
 	}
 
-	LLVMValueRef Result = LLVMBuildCall2(Gen.bld, MainFnType, FileFns[Files.Count], NULL, 0, "");
-
-	LLVMBuildRet(Gen.bld, Result);
+	LLVMBuildRetVoid(Gen.bld);
 	RCEmitFile(Machine.Target, Gen.mod, STR_LIT("!internal"), true) ;
 	VFree(FileFns);
 	return Machine;

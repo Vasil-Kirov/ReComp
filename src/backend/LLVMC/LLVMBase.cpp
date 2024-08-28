@@ -282,13 +282,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ARRAYLIST:
 		{
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-			u32 *Registers = (u32 *)I.BigRegister;
-			LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "_array_list");
+			array_list_info *Info = (array_list_info *)I.BigRegister;
+			LLVMValueRef Val = gen->map.Get(Info->Alloc);
 
-			int Idx = 0;
-			while(Registers[Idx] != -1)
+			for(int Idx = 0; Idx < Info->Count; ++Idx)
 			{
-				LLVMValueRef Member = gen->map.Get(Registers[Idx]);
+				LLVMValueRef Member = gen->map.Get(Info->Registers[Idx]);
 				LLVMValueRef Index = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), Idx, false);
 
 				LLVMValueRef Indexes[2];
@@ -296,8 +295,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 				LLVMValueRef Location = LLVMBuildGEP2(gen->bld, LLVMType, Val, Indexes, 2, "");
 				LLVMBuildStore(gen->bld, Member, Location);
-
-				Idx++;
 			}
 
 			gen->map.Add(I.Result, Val);

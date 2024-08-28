@@ -16,7 +16,6 @@ block_0:
   call void @llvm.dbg.value(metadata i32 %1, metadata !15, metadata !DIExpression()), !dbg !16
   %2 = alloca %"__main!BigStruct", align 8, !dbg !17
   %3 = alloca [100 x i32], align 4, !dbg !17
-  call void @llvm.memset.p0.i64(ptr align 4 %3, i8 0, i64 400, i1 false), !dbg !17
   %4 = getelementptr inbounds %"__main!BigStruct", ptr %2, i32 0, i32 0, !dbg !17
   call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %3, i64 400, i1 false), !dbg !17
   call void @llvm.dbg.declare(metadata ptr %2, metadata !18, metadata !DIExpression()), !dbg !17
@@ -68,7 +67,6 @@ define void @"__main!make_array"(ptr %0, i32 %1) !dbg !37 {
 block_0:
   call void @llvm.dbg.value(metadata i32 %1, metadata !40, metadata !DIExpression()), !dbg !41
   %2 = alloca [100 x i32], align 4, !dbg !42
-  call void @llvm.memset.p0.i64(ptr align 4 %2, i8 0, i64 400, i1 false), !dbg !42
   call void @llvm.dbg.declare(metadata ptr %2, metadata !43, metadata !DIExpression()), !dbg !42
   %3 = alloca i64, align 8, !dbg !44
   store i64 0, ptr %3, align 8, !dbg !44
@@ -153,11 +151,8 @@ block_0:
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
-; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i64(ptr nocapture writeonly, i8, i64, i1 immarg) #1
-
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
@@ -186,8 +181,7 @@ block_0:
 }
 
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}

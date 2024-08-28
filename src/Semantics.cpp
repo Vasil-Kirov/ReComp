@@ -114,25 +114,6 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	return INVALID_TYPE;
 }
 
-void FixZeroSizedArrayList(u32 ArrayTypeIdx, const type *ArrayType, node *Expression)
-{
-	if(ArrayType->Kind == TypeKind_Array)
-	{
-		if(Expression->Type != AST_ARRAYLIST)
-		{
-			RaiseError(*Expression->ErrorInfo, "Invalid use of array size inference",
-					GetTypeName(ArrayType));
-		}
-		Assert(Expression->ArrayList.IsEmpty);
-		Expression->ArrayList.Type = ArrayTypeIdx;
-	}
-	else
-	{
-		RaiseError(*Expression->ErrorInfo, "Cannot assign array initializer to non array type %s",
-				GetTypeName(ArrayType));
-	}
-}
-
 b32 FindImportedModule(checker *Checker, string &ModuleName, import *Out)
 {
 	if(Checker->Imported == NULL)
@@ -159,9 +140,9 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 
 	switch(TypeNode->Type)
 	{
-		case AST_BASICTYPE:
+		case AST_ID:
 		{
-			const string *Name = TypeNode->BasicType.ID->ID.Name;
+			const string *Name = TypeNode->ID.Name;
 			u32 Type = FindType(Checker, Name);
 			if(Type == INVALID_TYPE)
 			{
@@ -584,125 +565,101 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
 			}
 		} break;
-		case AST_ARRAYLIST:
+		case AST_TYPELIST:
 		{
-			if(Expr->ArrayList.Expressions.Count == 0)
-			{
-				type *ArrayType = NewType(type);
-				ArrayType->Kind = TypeKind_Array;
-				ArrayType->Array.Type = Basic_UntypedInteger;
-				ArrayType->Array.MemberCount = 0;
-
-				Result = AddType(ArrayType);
-				Expr->ArrayList.Type = Result;
-				Expr->ArrayList.IsEmpty = true;
-			}
-			else
-			{
-				u32 ListType = INVALID_TYPE;
-				node **First = NULL;
-				b32 ShouldRunTyping = false;
-				ForArray(Idx, Expr->ArrayList.Expressions)
-				{
-					u32 ExprType = AnalyzeExpression(Checker, Expr->ArrayList.Expressions[Idx]);
-					const type *Type = GetType(ExprType);
-					if(IsUntyped(Type))
-					{
-						ShouldRunTyping = true;
-					}
-					if(ListType == INVALID_TYPE)
-					{
-						// @NOTE: Kinda bad, accessing the .Data
-						ListType = ExprType;
-						First = &Expr->ArrayList.Expressions.Data[Idx];
-					}
-					else
-					{
-						// @NOTE: Kinda bad, accessing the .Data
-						node **ListMemberNode = &Expr->ArrayList.Expressions.Data[Idx];
-						ListType = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ListType, ExprType, First, ListMemberNode);
-					}
-				}
-				const type *Type = GetType(ListType);
-				if(IsUntyped(Type))
-				{
-					if(Type->Basic.Flags & BasicFlag_Integer)
-						ListType = Basic_i64;
-					else if(Type->Basic.Flags & BasicFlag_Float)
-						ListType = Basic_f64;
-					else
-						Assert(false);
-				}
-
-				if(ShouldRunTyping)
-				{
-					FillUntypedStack(Checker, ListType);
-				}
-
-				type *ArrayType = NewType(type);
-				ArrayType->Kind = TypeKind_Array;
-				ArrayType->Array.Type = ListType;
-				ArrayType->Array.MemberCount = Expr->ArrayList.Expressions.Count;
-
-				Result = AddType(ArrayType);
-				Expr->ArrayList.Type = Result;
-			}
-
-		} break;
-		case AST_STRUCTLIST:
-		{
-			u32 TypeIdx = GetTypeFromTypeNode(Checker, Expr->StructList.StructType);
-			if(TypeIdx == INVALID_TYPE)
-			{
-				RaiseError(*Expr->ErrorInfo, "Undefined type for struct delcaration");
-			}
+			u32 TypeIdx = GetTypeFromTypeNode(Checker, Expr->TypeList.TypeNode);
+			Assert(TypeIdx != INVALID_TYPE);
 			const type *Type = GetType(TypeIdx);
-			if(Type->Kind != TypeKind_Struct)
+			switch(Type->Kind)
 			{
-				RaiseError(*Expr->ErrorInfo, "Non struct type %s used for struct delcaration",
-						GetTypeName(Type));
+				case TypeKind_Array: 
+				case TypeKind_Struct:
+				break;
+
+				default:
+				{
+					RaiseError(*Expr->ErrorInfo, "Cannot create a list of type %s, not a struct or an array", GetTypeName(Type));
+				} break;
 			}
 
-			uint *StructureIndexes = (uint *)VAlloc(sizeof(uint) * Expr->StructList.Expressions.Count);
-			ForArray(Idx, Expr->StructList.Expressions)
+			enum {
+				NS_UNKNOWN,
+				NS_NAMED,
+				NS_NOT_NAMED,
+			} NamedStatus = NS_UNKNOWN;
+			ForArray(Idx, Expr->TypeList.Items)
 			{
-				const string *Name = Expr->StructList.Names[Idx];
-				uint ToPut = -1;
-				ForArray(j, Type->Struct.Members)
+				node *Item = Expr->TypeList.Items[Idx];
+				const string *Name = Item->Item.Name;
+				if(Name)
 				{
-					if(*Name == Type->Struct.Members[j].ID)
+					if(NamedStatus == NS_NOT_NAMED)
 					{
-						ToPut = j;
-						break;
+						RaiseError(*Item->ErrorInfo, "Name parameter in a list with an unnamed parameter, mixing is not allowed");
 					}
-				}
-				if(ToPut == -1)
-				{
-					RaiseError(*Expr->ErrorInfo, "`%s` is not a member of struct %s",
-							Name->Data, GetTypeName(Type));
-				}
-				StructureIndexes[Idx] = ToPut;
-			}
-
-			ForArray(Idx, Expr->StructList.Names)
-			{
-				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->StructList.Expressions[Idx]);
-				u32 MemberTypeIdx = Type->Struct.Members[StructureIndexes[Idx]].Type;
-
-				const type *ExprType = GetType(ExprTypeIdx);
-				if(ExprType->Kind == TypeKind_Array && ExprType->Array.MemberCount == 0)
-				{
-					const type *MemberType = GetType(MemberTypeIdx);
-					FixZeroSizedArrayList(MemberTypeIdx, MemberType, Expr->StructList.Expressions[Idx]);
+					NamedStatus = NS_NAMED;
 				}
 				else
 				{
-					TypeCheckAndPromote(Checker, Expr->StructList.Expressions[Idx]->ErrorInfo,
-							MemberTypeIdx, ExprTypeIdx, NULL, &Expr->StructList.Expressions.Data[Idx]);
+					if(NamedStatus == NS_NAMED)
+					{
+						RaiseError(*Item->ErrorInfo, "Unnamed parameter in a list with a named parameter, mixing is not allowed");
+					}
+					NamedStatus = NS_NOT_NAMED;
+
 				}
 			}
-			Expr->StructList.Type = TypeIdx;
-			Expr->StructList.NameIndexes = {StructureIndexes, Expr->StructList.Expressions.Count};
+
+			if(NamedStatus == NS_NAMED && Type->Kind == TypeKind_Array)
+			{
+				RaiseError(*Expr->ErrorInfo, "Still haven't implemented named array lists");
+			}
+
+			ForArray(Idx, Expr->TypeList.Items)
+			{
+				node *Item = Expr->TypeList.Items[Idx];
+				const string *NamePtr = Item->Item.Name;
+				Assert(Item->Type == AST_LISTITEM);
+				u32 ItemType = AnalyzeExpression(Checker, Item->Item.Expression);
+				u32 PromotedUntyped = INVALID_TYPE;
+				switch(Type->Kind)
+				{
+					case TypeKind_Array: 
+					{
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression);
+					} break;
+					case TypeKind_Struct:
+					{
+						int MemberIdx = Idx;
+						if(NamePtr)
+						{
+							string Name = *NamePtr;
+							int Found = -1;
+							ForArray(MIdx, Type->Struct.Members)
+							{
+								struct_member Mem = Type->Struct.Members[MIdx];
+								if(Mem.ID == Name)
+								{
+									Found = MIdx;
+									break;
+								}
+							}
+							if(Found == -1)
+							{
+								RaiseError(*Item->ErrorInfo, "No member named %s in struct %s",
+										Name.Data, GetTypeName(Type));
+							}
+							MemberIdx = Found;
+						}
+						struct_member Mem = Type->Struct.Members[MemberIdx];
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression);
+					} break;
+					default: unreachable;
+				}
+
+				FillUntypedStack(Checker, PromotedUntyped);
+			}
+			Expr->TypeList.Type = TypeIdx;
 			Result = TypeIdx;
 		} break;
 		case AST_SELECTOR:
@@ -1134,12 +1091,6 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 		{
 			const type *TypePointer = GetType(Type);
 			const type *Promotion = NULL;
-			if(ExprTypePointer->Kind == TypeKind_Array && ExprTypePointer->Array.MemberCount == 0)
-			{
-				FixZeroSizedArrayList(Type, TypePointer, Node->Decl.Expression);
-				ExprType = Type;
-				ExprTypePointer = TypePointer;
-			}
 			if(!IsTypeCompatible(TypePointer, ExprTypePointer, &Promotion, true))
 			{
 DECL_TYPE_ERROR:
@@ -1150,16 +1101,8 @@ DECL_TYPE_ERROR:
 			{
 				if(!IsUntyped(ExprTypePointer))
 				{
-					if(Promotion != TypePointer && TypePointer->Kind != TypeKind_Array)
-						goto DECL_TYPE_ERROR;
-					if(TypePointer->Kind == TypeKind_Array)
-					{
-						Type = PromoteType(Promotion, TypePointer, ExprTypePointer, Type, ExprType).To;
-					}
-					else
-					{
-						Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
-					}
+					goto DECL_TYPE_ERROR;
+					//Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
 				}
 				else
 				{
@@ -1169,10 +1112,6 @@ DECL_TYPE_ERROR:
 		}
 		else
 		{
-			if(ExprTypePointer->Kind == TypeKind_Array && ExprTypePointer->Array.MemberCount == 0)
-			{
-				RaiseError(*Node->ErrorInfo, "Cannot infer type of an empty initializer");
-			}
 			Type = ExprType;
 		}
 	}
@@ -1386,11 +1325,22 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_IF:
 		{
+			Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
 			AnalyzeIf(Checker, Node);
+			Checker->CurrentScope = Checker->CurrentScope->Parent;
+		} break;
+		case AST_BREAK:
+		{
+			if(!Checker->CurrentScope || Checker->CurrentScope->ScopeNode->Type != AST_FOR)
+			{
+				RaiseError(*Node->ErrorInfo, "Invalid context for break, not a loop or a switch statement");
+			}
 		} break;
 		case AST_FOR:
 		{
+			Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
 			AnalyzeFor(Checker, Node);
+			Checker->CurrentScope = Checker->CurrentScope->Parent;
 		} break;
 		case AST_RETURN:
 		{
@@ -1551,7 +1501,7 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType)
 		//@BUG: This doesn't do a deep copy for all the possible subnodes...
 		node *Node = FnNode->Fn.Body[Idx];
 		
-		node *NewNode = AllocateNode(Node->ErrorInfo);
+		node *NewNode = AllocateNode(Node->ErrorInfo, Node->Type);
 		*NewNode = *Node;
 
 		Result->Fn.Body.Push(NewNode);

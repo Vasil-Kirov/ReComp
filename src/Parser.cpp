@@ -7,26 +7,32 @@
 #include "Type.h"
 #include "VString.h"
 
-node *AllocateNode(const error_info *ErrorInfo)
+node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
 	Result->ErrorInfo = ErrorInfo;
+	Result->Type = Type;
 	return Result;
 }
 
 node *MakeReserve(const error_info *ErrorInfo, reserved ID)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_RESERVED;
+	node *Result = AllocateNode(ErrorInfo, AST_RESERVED);
 	Result->Reserved.ID = ID;
+
+	return Result;
+}
+
+node *MakeBreak(const error_info *ErrorInfo)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_BREAK);
 
 	return Result;
 }
 
 node *MakeGeneric(const error_info *ErrorInfo, const string *T)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_GENERIC;
+	node *Result = AllocateNode(ErrorInfo, AST_GENERIC);
 	Result->Generic.Name = T;
 
 	return Result;
@@ -34,8 +40,7 @@ node *MakeGeneric(const error_info *ErrorInfo, const string *T)
 
 node *MakeSize(const error_info *ErrorInfo, node *Expr)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_SIZE;
+	node *Result = AllocateNode(ErrorInfo, AST_SIZE);
 	Result->Size.Expression = Expr;
 
 	return Result;
@@ -43,30 +48,16 @@ node *MakeSize(const error_info *ErrorInfo, node *Expr)
 
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_SELECTOR;
+	node *Result = AllocateNode(ErrorInfo, AST_SELECTOR);
 	Result->Selector.Operand = Operand;
 	Result->Selector.Member = Member;
 
 	return Result;
 }
 
-node *MakeStructList(const error_info *ErrorInfo, slice<const string *> Names,
-		slice<node *> Expressions, node *StructType)
-{
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_STRUCTLIST;
-	Result->StructList.StructType = StructType;
-	Result->StructList.Names = Names;
-	Result->StructList.Expressions = Expressions;
-
-	return Result;
-}
-
 node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_STRUCTDECL;
+	node *Result = AllocateNode(ErrorInfo, AST_STRUCTDECL);
 	Result->StructDecl.Name = Name;
 	Result->StructDecl.Members = Members;
 
@@ -75,8 +66,7 @@ node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node
 
 node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_INDEX;
+	node *Result = AllocateNode(ErrorInfo, AST_INDEX);
 	Result->Index.Expression = Expression;
 	Result->Index.Operand = Operand;
 	Result->Index.ForceNotLoad = false;
@@ -84,19 +74,28 @@ node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression)
 	return Result;
 }
 
-node *MakeArrayList(const error_info *ErrorInfo, slice<node *> Expressions)
+node *MakeListItem(const error_info *ErrorInfo, const string *OptionalName, node *Expression)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_ARRAYLIST;
-	Result->ArrayList.Expressions = Expressions;
+	node *Result = AllocateNode(ErrorInfo, AST_LISTITEM);
+	Result->Item.Name = OptionalName;
+	Result->Item.Expression = Expression;
+
+
+	return Result;
+}
+
+node *MakeTypeList(const error_info *ErrorInfo, node *Type, slice<node *> ListItems)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_TYPELIST);
+	Result->TypeList.TypeNode = Type;
+	Result->TypeList.Items = ListItems;
 
 	return Result;
 }
 
 node *MakeCall(const error_info *ErrorInfo, node *Operand, slice<node *> Args)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_CALL;
+	node *Result = AllocateNode(ErrorInfo, AST_CALL);
 	Result->Call.Fn = Operand;
 	Result->Call.Args = Args;
 	Result->Call.Type = INVALID_TYPE;
@@ -107,8 +106,7 @@ node *MakeCall(const error_info *ErrorInfo, node *Operand, slice<node *> Args)
 // @NOTE: The body is not initialized here and it's the job of the caller to do it
 node *MakeIf(const error_info *ErrorInfo, node *Expression)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_IF;
+	node *Result = AllocateNode(ErrorInfo, AST_IF);
 	Result->If.Expression = Expression;
 	
 	return Result;
@@ -116,8 +114,7 @@ node *MakeIf(const error_info *ErrorInfo, node *Expression)
 
 node *MakeFor(const error_info *ErrorInfo, node *Expr1, node *Expr2, node *Expr3, for_type Kind)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_FOR;
+	node *Result = AllocateNode(ErrorInfo, AST_FOR);
 	Result->For.Expr1 = Expr1;
 	Result->For.Expr2 = Expr2;
 	Result->For.Expr3 = Expr3;
@@ -128,8 +125,7 @@ node *MakeFor(const error_info *ErrorInfo, node *Expr1, node *Expr2, node *Expr3
 
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_CAST;
+	node *Result = AllocateNode(ErrorInfo, AST_CAST);
 	Result->Cast.Expression = Expression;
 	Result->Cast.TypeNode = TypeNode;
 	Result->Cast.FromType = FromType;
@@ -140,8 +136,7 @@ node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u3
 
 node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_RETURN;
+	node *Result = AllocateNode(ErrorInfo, AST_RETURN);
 	Result->Return.Expression = Expression;
 
 	return Result;
@@ -149,8 +144,7 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 
 node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, node *MaybeGeneric, u32 Flags)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_FN;
+	node *Result = AllocateNode(ErrorInfo, AST_FN);
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
 	Result->Fn.MaybeGenric = MaybeGeneric;
@@ -161,8 +155,7 @@ node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *Return
 
 node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_UNARY;
+	node *Result = AllocateNode(ErrorInfo, AST_UNARY);
 	Result->Unary.Operand = Operand;
 	Result->Unary.Op = Op;
 	return Result;
@@ -170,8 +163,7 @@ node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op)
 
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_BINARY;
+	node *Result = AllocateNode(ErrorInfo, AST_BINARY);
 	Result->Binary.Left = Left;
 	Result->Binary.Right = Right;
 	Result->Binary.Op = Op;
@@ -180,41 +172,29 @@ node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_typ
 
 node *MakeID(error_info *ErrorInfo, const string *ID)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_ID;
+	node *Result = AllocateNode(ErrorInfo, AST_ID);
 	Result->ID.Name = ID;
 	return Result;
 }
 
 node *MakePointerType(error_info *ErrorInfo, node *Pointed)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_PTRTYPE;
+	node *Result = AllocateNode(ErrorInfo, AST_PTRTYPE);
 	Result->PointerType.Pointed = Pointed;
 	return Result;
 }
 
 node *MakeArrayType(const error_info *ErrorInfo, node *ID, node *Expression)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_ARRAYTYPE;
+	node *Result = AllocateNode(ErrorInfo, AST_ARRAYTYPE);
 	Result->ArrayType.Type = ID;
 	Result->ArrayType.Expression = Expression;
 	return Result;
 }
 
-node *MakeBasicType(error_info *ErrorInfo, node *ID)
-{
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_BASICTYPE;
-	Result->BasicType.ID = ID;
-	return Result;
-}
-
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_DECL;
+	node *Result = AllocateNode(ErrorInfo, AST_DECL);
 	Result->Decl.ID = ID;
 	Result->Decl.Expression = Expression;
 	Result->Decl.Type = MaybeType;
@@ -224,8 +204,7 @@ node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, 
 
 node *MakeConstant(error_info *ErrorInfo, const_value Value)
 {
-	node *Result = AllocateNode(ErrorInfo);
-	Result->Type = AST_CONSTANT;
+	node *Result = AllocateNode(ErrorInfo, AST_CONSTANT);
 	Result->Constant.Value = Value;
 	return Result;
 }
@@ -370,7 +349,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			}
 			else
 			{
-				Result = MakeBasicType(ErrorInfo, ID);
+				Result = ID;
 			}
 		} break;
 		case T_OPENBRACKET:
@@ -549,6 +528,38 @@ node *ParseSelectors(parser *Parser, node *Operand)
 	return Operand;
 }
 
+node *ParseList(parser *Parser, node *Operand)
+{
+	ERROR_INFO;
+	GetToken(Parser);
+	node *Result = NULL;
+	if(Parser->Current->Type == T_ENDSCOPE)
+	{
+		Result = MakeTypeList(ErrorInfo, Operand, ZeroSlice<node *>());
+	}
+	else
+	{
+		auto ParseListItems = [](parser *Parser) -> node* {
+			ERROR_INFO;
+			if(Parser->Current->Type == T_ENDSCOPE)
+				return NULL;
+
+			const string *Name = NULL;
+			if(PeekToken(Parser, 1).Type == T_EQ)
+			{
+				Name = GetToken(Parser).ID;
+				EatToken(Parser, T_EQ);
+			}
+			node *Expression = ParseExpression(Parser);
+			return MakeListItem(ErrorInfo, Name, Expression);
+		};
+		slice<node *> Items = Delimited(Parser, ',', ParseListItems);
+		Result = MakeTypeList(ErrorInfo, Operand, Items);
+	}
+	EatToken(Parser, T_ENDSCOPE);
+	return Result;
+}
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -569,6 +580,13 @@ node *ParseAtom(parser *Parser, node *Operand)
 			{
 				Operand = ParseSelectors(Parser, Operand);
 			} break;
+			case T_STARTSCOPE:
+			{
+				if(!Parser->NoStructLists)
+					Operand = ParseList(Parser, Operand);
+				else
+					Loop = false;
+			} break;
 			default:
 			{
 				Loop = false;
@@ -576,46 +594,6 @@ node *ParseAtom(parser *Parser, node *Operand)
 		}
 	}
 	return Operand;
-}
-
-node *ParseStructList(parser *Parser)
-{
-	ERROR_INFO;
-	node *StructType = ParseType(Parser, true);
-	EatToken(Parser, T_STARTSCOPE);
-	dynamic<const string *> FieldNames = {};
-	dynamic<node *> FieldExpressions = {};
-	while(Parser->Current->Type != T_ENDSCOPE)
-	{
-		token FieldNameT = GetToken(Parser);
-		if(FieldNameT.Type != T_ID)
-		{
-			RaiseError(FieldNameT.ErrorInfo, "Expected name of field, got: %s. To initialize a struct the syntax is:\n"
-					"\tStructName { field_name1 = value, field_name2 = value };",
-					GetTokenName(FieldNameT.Type));
-		}
-		EatToken(Parser, T_EQ);
-		node *Expression = ParseExpression(Parser);
-		if(Parser->Current->Type == T_COMMA)
-		{
-			GetToken(Parser);
-		}
-		else
-		{
-			if(Parser->Current->Type != T_ENDSCOPE)
-			{
-				RaiseError(Parser->Current->ErrorInfo,
-						"Expected ',' to continue struct list or '}' to close it, got: %s",
-						GetTokenName(FieldNameT.Type));
-			}
-		}
-
-		FieldNames.Push(FieldNameT.ID);
-		FieldExpressions.Push(Expression);
-	}
-	EatToken(Parser, T_ENDSCOPE);
-
-	return MakeStructList(ErrorInfo, SliceFromArray(FieldNames), SliceFromArray(FieldExpressions), StructType);
 }
 
 node *ParseOperand(parser *Parser)
@@ -657,6 +635,11 @@ node *ParseOperand(parser *Parser)
 				ParseBody(Parser, Result->Fn.Body);
 			}
 		} break;
+		case T_OPENBRACKET:
+		{
+			GetToken(Parser);
+			Result = ParseArrayType(Parser);
+		} break;
 		case T_ID:
 		{
 			ERROR_INFO;
@@ -678,30 +661,11 @@ node *ParseOperand(parser *Parser)
 				GetToken(Parser);
 				Result = MakeReserve(ErrorInfo, (reserved)Found);
 			}
-			else if(!Parser->NoStructLists && PeekToken(Parser, 1).Type == T_DOT && PeekToken(Parser, 3).Type == T_STARTSCOPE)
-				Result = ParseStructList(Parser);
-			else if(!Parser->NoStructLists && PeekToken(Parser, 1).Type == T_STARTSCOPE)
-				Result = ParseStructList(Parser);
 			else
 			{
 				GetToken(Parser);
 				Result = MakeID(ErrorInfo, Name);
 			}
-		} break;
-		case T_STARTSCOPE:
-		{
-			ERROR_INFO;
-			GetToken(Parser);
-			if(Parser->Current->Type == T_ENDSCOPE)
-			{
-				Result = MakeArrayList(ErrorInfo, ZeroSlice<node *>());
-			}
-			else
-			{
-				slice<node *> Items = Delimited(Parser, ',', ParseExpression);
-				Result = MakeArrayList(ErrorInfo, Items);
-			}
-			EatToken(Parser, T_ENDSCOPE);
 		} break;
 		case T_VAL:
 		{
@@ -751,11 +715,11 @@ node *ParseUnary(parser *Parser)
 	}
 
 	node *Operand = ParseOperand(Parser);
-	node *Atom = ParseAtom(Parser, Operand);
-	if(!Atom)
+	if(!Operand)
 	{
 		RaiseError(Token.ErrorInfo, "Expected operand in expression");
 	}
+	node *Atom = ParseAtom(Parser, Operand);
 	return Atom;
 }
 
@@ -960,6 +924,12 @@ node *ParseNode(parser *Parser)
 				} break;
 			}
 		} break;
+		case T_BREAK:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeBreak(ErrorInfo);
+		} break;
 		case T_RETURN:
 		{
 			ERROR_INFO;
@@ -1047,6 +1017,8 @@ node *ParseNode(parser *Parser)
 						ForInit = ParseDeclaration(Parser, false);
 					EatToken(Parser, ';');
 
+					b32 nsl = Parser->NoStructLists;
+					Parser->NoStructLists = true;
 					if(PeekToken(Parser).Type != ';')
 						ForExpr = ParseExpression(Parser);
 					EatToken(Parser, ';');
@@ -1054,11 +1026,13 @@ node *ParseNode(parser *Parser)
 					if(PeekToken(Parser).Type != T_STARTSCOPE)
 						ForIncr = ParseExpression(Parser);
 
+					Parser->NoStructLists = nsl;
 					Result = MakeFor(ErrorInfo, ForInit, ForExpr, ForIncr, ft::C);
 				} break;
 				case ft::It:
 				{
 					ERROR_INFO;
+
 					token ItName = EatToken(Parser, T_ID);
 					node *It = MakeID(ErrorInfo, ItName.ID);
 					EatToken(Parser, T_IN);
@@ -1071,7 +1045,10 @@ node *ParseNode(parser *Parser)
 				} break;
 				case ft::While:
 				{
+					b32 nsl = Parser->NoStructLists;
+					Parser->NoStructLists = true;
 					node *WhileExpr = ParseExpression(Parser);
+					Parser->NoStructLists = nsl;
 					Result = MakeFor(ErrorInfo, WhileExpr, NULL, NULL, ft::While);
 				} break;
 				case ft::Infinite:

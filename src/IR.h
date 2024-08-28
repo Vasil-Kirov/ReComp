@@ -89,6 +89,13 @@ struct call_info
 	slice<u32> Args;
 };
 
+struct array_list_info
+{
+	u32 Alloc;
+	u32 *Registers;
+	u32 Count;
+};
+
 struct basic_block
 {
 	dynamic<instruction> Code;
@@ -127,6 +134,7 @@ struct block_builder
 	function *Function; // @NOTE: DO NOT USE AFTER THE FUNCTION IS GENERATED
 	slice<import> Imported;
 	import Module;
+	u32 BreakBlockID;
 	u32 LastRegister;
 	u32 LastBlock;
 };

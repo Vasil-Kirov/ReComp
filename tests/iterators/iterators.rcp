@@ -2,11 +2,11 @@ main
 
 
 main :: fn() -> i32 {
-    arr := { 1, 2, 3 };
-    sum := 0;
+    arr := [3]i32{ 1, 2, 3 };
+    sum := @i32 0;
     for n in arr {
         sum += n;
     }
-    return @i32 (sum - 6);
+    return sum - 6;
 }
 

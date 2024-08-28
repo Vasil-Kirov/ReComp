@@ -460,7 +460,7 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		{
 			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
 			{
-				return (Left->Pointer.Pointed == INVALID_TYPE) == (Right->Pointer.Pointed == INVALID_TYPE);
+				return true;
 			}
 			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
 		} break;
@@ -537,26 +537,15 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 			if(!IsAssignment)
 				return false;
 
-			const type *Type = GetType(Right->Array.Type);
-			if(IsUntyped(Type))
+			const type *LeftT = GetType(Left->Array.Type);
+			const type *RightT = GetType(Right->Array.Type);
+			if(IsUntyped(RightT))
 			{
 				*PotentialPromotion = Left;
 			}
-			else if(Left->Array.Type != Right->Array.Type)
+			else if(!TypesMustMatch(LeftT, RightT))
 				return false;
 
-			if(Left->Array.MemberCount == 0)
-			{
-				if(Right->Array.MemberCount == 0)
-					return false;
-
-				if(*PotentialPromotion != NULL)
-					return false;
-
-				*PotentialPromotion = Right;
-				return true;
-			}
-			
 			return Left->Array.MemberCount == Right->Array.MemberCount;
 		} break;
 		case TypeKind_Struct:

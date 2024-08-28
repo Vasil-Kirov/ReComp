@@ -9,7 +9,7 @@ sum :: fn(a: i32, b: i32) -> i32 {
 }
 
 main :: fn() -> i32 {
-	foo := Foo { x = {} };
+	foo := Foo { x = [1024]*{} };
 	foo.x[513] = sum;
 
 	return foo.x[513](3, -3);

@@ -32,7 +32,6 @@ enum node_type
 	AST_ID,
 	AST_DECL,
 	
-	AST_BASICTYPE,
 	AST_PTRTYPE,
 	AST_ARRAYTYPE,
 	AST_FN,
@@ -40,14 +39,15 @@ enum node_type
 	AST_CALL,
 	AST_RETURN,
 	AST_CAST,
-	AST_ARRAYLIST,
-	AST_STRUCTLIST,
+	AST_TYPELIST,
 	AST_INDEX,
 	AST_STRUCTDECL,
 	AST_SELECTOR,
 	AST_SIZE,
 	AST_GENERIC,
 	AST_RESERVED,
+	AST_BREAK,
+	AST_LISTITEM,
 };
 
 struct node
@@ -66,12 +66,14 @@ struct node
 			const string *Name;
 		} Generic;
 		struct {
-			slice<const string *> Names;
-			slice<node *> Expressions;
-			slice<u32> NameIndexes; // Set by semantic analyzer
-			node *StructType;
-			u32 Type; // Set by semantic analyzer
-		} StructList;
+			const string *Name; // @Nullable
+			node *Expression;
+		} Item;
+		struct {
+			node *TypeNode;
+			slice<node *> Items;
+			u32 Type;    // Set by semantic analyzer
+		} TypeList;
 		struct {
 			node *Expression;
 			u32 Type; // Set by semantic analyzer
@@ -127,11 +129,6 @@ struct node
 			u32 ToType;
 		} Cast;
 		struct {
-			slice<node *> Expressions;
-			u32 Type;    // Set by semantic analyzer
-			b32 IsEmpty; // Set by semantic analyzer
-		} ArrayList;
-		struct {
 			const_value Value;
 			u32 Type;
 		} Constant;
@@ -158,9 +155,6 @@ struct node
 			u32 Type; // Set by semantic analyzer
 			slice<u32> ArgTypes; // Set by semantic analyzer
 		} Call;
-		struct {
-			node *ID;
-		} BasicType;
 		struct {
 			node *Type;
 			node *Expression;
@@ -194,7 +188,7 @@ struct parse_result
 	slice<import> Imports;
 };
 
-node *AllocateNode(const error_info *ErrorInfo);
+node *AllocateNode(const error_info *ErrorInfo, node_type Type);
 parse_result ParseTokens(token *Tokens, string ModuleName);
 node *ParseNode(parser *Parser);
 node *ParseUnary(parser *Parser);

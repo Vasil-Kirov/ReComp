@@ -1,20 +1,19 @@
 main
 
-//get_num :: fn<T>(num: T) -> T {
-//    return num;
-//}
-
-printf :: fn #foreign(fmt: cstring, d: cstring) -> i32;
-
-main :: fn() -> i32 {
-    my_arr := {c"one", c"two", c"three"};
-
-    for num in my_arr {
-        printf(c"num: %s\n", num);
-    }
-    return 0;
+struct Foo {
+	x: [1024]fn(num1: i32, num2: i32) -> i32,
 }
 
+sum :: fn(a: i32, b: i32) -> i32 {
+	return a + b;
+}
+
+main :: fn() -> i32 {
+	foo := Foo { x = [1024]*{} };
+	foo.x[513] = sum;
+
+	return foo.x[513](3, -3);
+}
 // #import stuff as f2
 // 
 // struct BigStruct {

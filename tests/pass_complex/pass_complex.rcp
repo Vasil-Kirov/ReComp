@@ -11,8 +11,8 @@ struct SmallStruct {
 }
 
 make_bs :: fn(num: i32) -> BigStruct {
-    res := BigStruct { foo = {} };
-    for i := 0; i < 100;  i += 1 {
+    res := BigStruct { foo = [100]i32{} };
+    for i := 0; i < 100; i += 1 {
         res.foo[i] = num;
     }
 
@@ -25,7 +25,7 @@ make_ss :: fn(num: i32) -> SmallStruct {
 }
 
 make_array :: fn(num: i32) -> [100]i32 {
-    arr:[100]i32 = {};
+    arr := [100]i32{};
     for i := 0; i < 50; i += 1 {
         arr[i] = num;
     }

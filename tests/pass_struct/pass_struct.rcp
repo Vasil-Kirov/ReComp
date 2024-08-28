@@ -9,7 +9,7 @@ give_struct :: fn(foo: Foo) -> i32 {
 }
 
 main :: fn() -> i32 {
-	x := Foo { arr = {} };
+	x := Foo { arr = [1024]i8{} };
 	x.arr[5] = 32;
 	return give_struct(x) - 32;
 }

@@ -293,6 +293,7 @@ void AddKeyword(const char *TokenName, token_type Type)
 void InitializeLexer()
 {
 	KeywordTable = ArrCreate(keyword);
+	AddKeyword("break", T_BREAK);
 	AddKeyword("if",  T_IF);
 	AddKeyword("else",T_ELSE);
 	AddKeyword("for", T_FOR);

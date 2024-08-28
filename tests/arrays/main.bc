@@ -10,26 +10,25 @@ block_0:
 
 define i32 @"__main!main"() !dbg !4 {
 block_0:
-  %_array_list = alloca [4 x i64], align 8, !dbg !9
-  %0 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 0, !dbg !9
-  store i64 1, ptr %0, align 8, !dbg !9
-  %1 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 1, !dbg !9
-  store i64 2, ptr %1, align 8, !dbg !9
-  %2 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 2, !dbg !9
-  store i64 3, ptr %2, align 8, !dbg !9
-  %3 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 3, !dbg !9
-  store i64 4, ptr %3, align 8, !dbg !9
-  call void @llvm.dbg.declare(metadata ptr %_array_list, metadata !10, metadata !DIExpression()), !dbg !9
-  %4 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 3, !dbg !15
-  %5 = load i64, ptr %4, align 8, !dbg !15
-  %6 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 2, !dbg !15
-  %7 = load i64, ptr %6, align 8, !dbg !15
-  %8 = sub i64 %5, %7, !dbg !15
-  %9 = getelementptr [4 x i64], ptr %_array_list, i64 0, i64 0, !dbg !15
-  %10 = load i64, ptr %9, align 8, !dbg !15
-  %11 = sub i64 %8, %10, !dbg !15
-  %12 = trunc i64 %11 to i32, !dbg !15
-  ret i32 %12, !dbg !15
+  %0 = alloca [4 x i32], align 4, !dbg !9
+  %1 = getelementptr [4 x i32], ptr %0, i64 0, i64 0, !dbg !9
+  store i32 1, ptr %1, align 4, !dbg !9
+  %2 = getelementptr [4 x i32], ptr %0, i64 0, i64 1, !dbg !9
+  store i32 2, ptr %2, align 4, !dbg !9
+  %3 = getelementptr [4 x i32], ptr %0, i64 0, i64 2, !dbg !9
+  store i32 3, ptr %3, align 4, !dbg !9
+  %4 = getelementptr [4 x i32], ptr %0, i64 0, i64 3, !dbg !9
+  store i32 4, ptr %4, align 4, !dbg !9
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !9
+  %5 = getelementptr [4 x i32], ptr %0, i64 0, i64 3, !dbg !14
+  %6 = load i32, ptr %5, align 4, !dbg !14
+  %7 = getelementptr [4 x i32], ptr %0, i64 0, i64 2, !dbg !14
+  %8 = load i32, ptr %7, align 4, !dbg !14
+  %9 = sub i32 %6, %8, !dbg !14
+  %10 = getelementptr [4 x i32], ptr %0, i64 0, i64 0, !dbg !14
+  %11 = load i32, ptr %10, align 4, !dbg !14
+  %12 = sub i32 %9, %11, !dbg !14
+  ret i32 %12, !dbg !14
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
@@ -51,8 +50,7 @@ attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !8 = !{}
 !9 = !DILocation(line: 4, scope: !4)
 !10 = !DILocalVariable(name: "arr", scope: !4, file: !1, line: 4, type: !11)
-!11 = !DICompositeType(tag: DW_TAG_array_type, baseType: !12, size: 256, align: 64, elements: !13)
-!12 = !DIBasicType(name: "i64", size: 64, encoding: DW_ATE_signed)
-!13 = !{!14}
-!14 = !DISubrange(count: 4, lowerBound: 0)
-!15 = !DILocation(line: 5, scope: !4)
+!11 = !DICompositeType(tag: DW_TAG_array_type, baseType: !7, size: 128, align: 32, elements: !12)
+!12 = !{!13}
+!13 = !DISubrange(count: 4, lowerBound: 0)
+!14 = !DILocation(line: 5, scope: !4)

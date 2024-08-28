@@ -63,6 +63,7 @@ const type **InitializeTypeTable()
 }
 
 const type **TypeTable = InitializeTypeTable();
+u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
 b32 IsUntyped(const type *Type)
 {
@@ -458,11 +459,7 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		} break;
 		case TypeKind_Pointer:
 		{
-			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
-			{
-				return true;
-			}
-			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
+			return TypeCheckPointers(Left, Right, false);
 		} break;
 		case TypeKind_Struct:
 		{
@@ -489,6 +486,22 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			return false;
 		} break;
 	}
+}
+
+b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment)
+{
+	if(HAS_FLAG(L->Pointer.Flags, PointerFlag_Optional) &&
+			!HAS_FLAG(R->Pointer.Flags, PointerFlag_Optional) && !IsAssignment)
+		return false;
+
+	if(HAS_FLAG(R->Pointer.Flags, PointerFlag_Optional) &&
+			!HAS_FLAG(L->Pointer.Flags, PointerFlag_Optional) && IsAssignment)
+		return false;
+
+	if(L->Pointer.Pointed == INVALID_TYPE || R->Pointer.Pointed == INVALID_TYPE)
+		return true;
+
+	return TypesMustMatch(GetType(L->Pointer.Pointed), GetType(R->Pointer.Pointed));
 }
 
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
@@ -528,9 +541,7 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 		case TypeKind_Pointer:
 		{
-			if(Left->Pointer.Pointed == INVALID_TYPE || Right->Pointer.Pointed == INVALID_TYPE)
-				return true;
-			return TypesMustMatch(GetType(Left->Pointer.Pointed), GetType(Right->Pointer.Pointed));
+			return TypeCheckPointers(Left, Right, IsAssignment);
 		} break;
 		case TypeKind_Array:
 		{
@@ -658,16 +669,19 @@ string GetTypeNameAsString(const type *Type)
 		case TypeKind_Array:
 		{
 			string_builder Builder = MakeBuilder();
-			PushBuilderFormated(&Builder, "%s[%d]", GetTypeName(GetType(Type->Array.Type)), Type->Array.MemberCount);
+			PushBuilderFormated(&Builder, "[%d]%s", Type->Array.MemberCount, GetTypeName(GetType(Type->Array.Type)));
 			return MakeString(Builder);
 		} break;
 		case TypeKind_Pointer:
 		{
 			string_builder Builder = MakeBuilder();
+			if(Type->Pointer.Flags & PointerFlag_Optional)
+				Builder += '?';
+
 			if(Type->Pointer.Pointed != INVALID_TYPE)
 				PushBuilderFormated(&Builder, "*%s", GetTypeName(GetType(Type->Pointer.Pointed)));
 			else
-				PushBuilderFormated(&Builder, "*"); 
+				Builder += '*';
 			return MakeString(Builder);
 		} break;
 		case TypeKind_Struct:
@@ -715,11 +729,21 @@ const char *GetTypeName(const type *Type)
 }
 
 // @TODO: Maybe try to find it first... idk
-u32 GetPointerTo(u32 TypeIdx)
+u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 {
 	type *New = NewType(type);
 	New->Kind = TypeKind_Pointer;
 	New->Pointer.Pointed = TypeIdx;
+	New->Pointer.Flags = Flags;
+	return AddType(New);
+}
+
+u32 GetNonOptional(const type *OptionalPointer)
+{
+	Assert(OptionalPointer);
+	type *New = NewType(type);
+	*New = *OptionalPointer;
+	New->Pointer.Flags = New->Pointer.Flags & ~PointerFlag_Optional;
 	return AddType(New);
 }
 
@@ -928,6 +952,8 @@ b32 IsGeneric(const type *Type)
 		} break;
 		case TypeKind_Pointer:
 		{
+			if(Type->Pointer.Pointed == INVALID_TYPE)
+				return false;
 			Result = IsGeneric(Type->Pointer.Pointed);
 		} break;
 		case TypeKind_Array:

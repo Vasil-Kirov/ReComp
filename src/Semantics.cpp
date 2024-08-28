@@ -153,7 +153,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		case AST_PTRTYPE:
 		{
 			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed);
-			return GetPointerTo(Pointed);
+			return GetPointerTo(Pointed, TypeNode->PointerType.Flags);
 		} break;
 		case AST_ARRAYTYPE:
 		{
@@ -467,7 +467,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				case rs::Null:
 				{
-					Result = GetPointerTo(INVALID_TYPE);
+					Result = NULLType;
 				} break;
 				case rs::False:
 				case rs::True:
@@ -798,6 +798,20 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 		{
 			switch(Expr->Unary.Op)
 			{
+				case T_QMARK:
+				{
+					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					const type *Pointer = GetType(PointerIdx);
+					if(Pointer->Kind != TypeKind_Pointer)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot use ? operator on non pointer type %s", GetTypeName(Pointer));
+					}
+					if((Pointer->Pointer.Flags & PointerFlag_Optional) == 0)
+					{
+						RaiseError(*Expr->ErrorInfo, "Pointer is not optional, remove the ? operator");
+					}
+					return GetNonOptional(Pointer);
+				} break;
 				case T_PTR:
 				{
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
@@ -805,6 +819,10 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					if(Pointer->Kind != TypeKind_Pointer)
 					{
 						RaiseError(*Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
+					}
+					if(Pointer->Pointer.Flags & PointerFlag_Optional)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot derefrence optional pointer, mark it non optional with the prefix ? operator");
 					}
 					Expr->Unary.Type = Pointer->Pointer.Pointed;
 					return Pointer->Pointer.Pointed;
@@ -1169,9 +1187,15 @@ void AnalyzeIf(checker *Checker, node *Node)
 		RaiseError(*Node->ErrorInfo, "If statement expression cannot be evaluated to a boolean. It has a type of %s",
 				GetTypeName(ExprType));
 	}
-	if(ExprType->Kind != TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
+	if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
 	{
 		Node->If.Expression = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
+	}
+	else if(ExprType->Kind == TypeKind_Pointer)
+	{
+		node *Null = MakeReserve(Node->ErrorInfo, reserved::Null);
+		Null->Reserved.Type = NULLType;
+		Node->If.Expression = MakeBinary(Node->ErrorInfo, Node->If.Expression, Null, T_NEQ);
 	}
 	AnalyzeInnerBody(Checker, Node->If.Body);
 	if(Node->If.Else.IsValid())

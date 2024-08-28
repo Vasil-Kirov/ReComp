@@ -3,6 +3,8 @@
 #include "VString.h"
 #include "Dynamic.h"
 
+extern u32 NULLType;
+
 struct type;
 struct scope;
 #define INVALID_TYPE UINT32_MAX
@@ -103,9 +105,15 @@ struct function_type
 	int ArgCount;
 };
 
+enum pointer_flags
+{
+	PointerFlag_Optional = BIT(0)
+};
+
 struct pointer
 {
 	u32 Pointed;
+	u32 Flags;
 };
 
 struct array_type
@@ -169,7 +177,8 @@ b32 ShouldCopyType(const type *Type);
 b32 HasBasicFlag(const type *Type, u32 FlagMask); // Checks if the type is basic too
 b32 IsLoadableType(u32 Type);
 b32 IsLoadableType(const type *Type);
-u32 GetPointerTo(u32 Type);
+u32 GetPointerTo(u32 Type, u32 Flags = 0);
+u32 GetNonOptional(const type *OptionalPointer);
 uint GetTypeCount();
 b32 IsRetTypePassInPointer(u32 Type);
 b32 IsPassInAsIntType(const type *Type);
@@ -181,6 +190,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve);
 u32 GetGenericPart(u32 Resolved, u32 GenericID);
 u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
+b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 

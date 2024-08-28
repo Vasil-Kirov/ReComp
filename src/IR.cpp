@@ -519,6 +519,11 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					Assert(!IsLHS);
 					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, true);
 				} break;
+				case T_QMARK:
+				{
+					// @This is only for type checking, it doesn't actually do anything
+					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, IsLHS);
+				} break;
 				default: unreachable;
 			}
 		} break;

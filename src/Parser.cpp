@@ -181,6 +181,7 @@ node *MakePointerType(error_info *ErrorInfo, node *Pointed)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_PTRTYPE);
 	Result->PointerType.Pointed = Pointed;
+	Result->PointerType.Flags   = 0;
 	return Result;
 }
 
@@ -356,6 +357,18 @@ node *ParseType(parser *Parser, b32 ShouldError)
 		{
 			GetToken(Parser);
 			Result = ParseArrayType(Parser);
+		} break;
+		case T_QMARK:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Pointer = ParseType(Parser, false);
+			if(Pointer->Type != AST_PTRTYPE)
+			{
+				RaiseError(*ErrorInfo, "Optional need to be a pointer");
+			}
+			Pointer->PointerType.Flags |= PointerFlag_Optional;
+			Result = Pointer;
 		} break;
 		case T_PTR:
 		{
@@ -704,6 +717,7 @@ node *ParseUnary(parser *Parser)
 	ERROR_INFO;
 	switch(Token.Type)
 	{
+		case T_QMARK:
 		case T_ADDROF:
 		case T_PTR:
 		{

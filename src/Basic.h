@@ -27,6 +27,8 @@ typedef unsigned int uint;
 #define Assert(expression) {}
 #endif
 
+#define HAS_FLAG(x, f) (((x) & f) != 0)
+
 #define unreachable Assert(false); __builtin_unreachable()
 
 #define BIT(x) (1 << (x))

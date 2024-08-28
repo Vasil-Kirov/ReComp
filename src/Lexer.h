@@ -21,6 +21,7 @@ enum token_type
 	T_GREAT = '>',
 	T_COMMA = ',',
 	T_DOT   = '.',
+	T_QMARK = '?',
 	T_SEMICOL= ';',
 	T_EOF   = -1,
 	T_ID    = -2,

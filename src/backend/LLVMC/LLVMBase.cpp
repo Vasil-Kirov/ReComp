@@ -374,8 +374,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ALLOC:
 		{
+			int Size = GetTypeSize(I.Type);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 			LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
+			LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
+			LLVMValueRef LLVMSize = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), Size, false);
+
+			LLVMBuildMemSet(gen->bld, Val, Zero, LLVMSize, 0);
 			gen->map.Add(I.Result, Val);
 		} break;
 		case OP_ARG:

@@ -11,6 +11,7 @@ block_0:
 define i32 @"__main!main"() !dbg !4 {
 block_0:
   %0 = alloca [3 x i32], align 4, !dbg !9
+  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 12, i1 false), !dbg !9
   %1 = getelementptr [3 x i32], ptr %0, i64 0, i64 0, !dbg !9
   store i32 1, ptr %1, align 4, !dbg !9
   %2 = getelementptr [3 x i32], ptr %0, i64 0, i64 1, !dbg !9
@@ -19,13 +20,16 @@ block_0:
   store i32 3, ptr %3, align 4, !dbg !9
   call void @llvm.dbg.declare(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !9
   %4 = alloca i32, align 4, !dbg !14
+  call void @llvm.memset.p0.i32(ptr %4, i8 0, i32 4, i1 false), !dbg !14
   store i32 0, ptr %4, align 4, !dbg !14
   call void @llvm.dbg.declare(metadata ptr %4, metadata !15, metadata !DIExpression()), !dbg !14
   %5 = alloca i64, align 8, !dbg !16
+  call void @llvm.memset.p0.i32(ptr %5, i8 0, i32 8, i1 false), !dbg !16
   store i64 0, ptr %5, align 8, !dbg !16
   %6 = getelementptr [3 x i32], ptr %0, i64 0, i64 0, !dbg !16
   %7 = load i32, ptr %6, align 4, !dbg !16
   %8 = alloca i32, align 4, !dbg !16
+  call void @llvm.memset.p0.i32(ptr %8, i8 0, i32 4, i1 false), !dbg !16
   store i32 %7, ptr %8, align 4, !dbg !16
   call void @llvm.dbg.declare(metadata ptr %8, metadata !17, metadata !DIExpression()), !dbg !16
   br label %block_1, !dbg !16
@@ -57,10 +61,14 @@ block_4:                                          ; preds = %block_1
   ret i32 %19, !dbg !19
 }
 
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0
 
-attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}

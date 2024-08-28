@@ -21,7 +21,9 @@ block_0:
 define i32 @"__main!main"() !dbg !13 {
 block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !16
+  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 8192, i1 false), !dbg !16
   %1 = alloca [1024 x ptr], align 8, !dbg !16
+  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 8192, i1 false), !dbg !16
   %2 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !16
   call void @llvm.memcpy.p0.p0.i64(ptr align 8 %2, ptr align 8 %1, i64 8192, i1 false), !dbg !16
   call void @llvm.dbg.declare(metadata ptr %0, metadata !17, metadata !DIExpression()), !dbg !16
@@ -38,14 +40,18 @@ block_0:
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #1
+
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}

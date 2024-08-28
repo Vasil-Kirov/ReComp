@@ -18,6 +18,7 @@ block_0:
 define i32 @"__main!main"() !dbg !12 {
 block_0:
   %0 = alloca i32, align 4, !dbg !15
+  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 4, i1 false), !dbg !15
   store i32 2, ptr %0, align 4, !dbg !15
   call void @llvm.dbg.declare(metadata ptr %0, metadata !16, metadata !DIExpression()), !dbg !15
   %1 = load i32, ptr %0, align 4, !dbg !17
@@ -29,10 +30,14 @@ block_0:
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #1
+
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}

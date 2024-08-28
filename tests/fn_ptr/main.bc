@@ -21,9 +21,9 @@ block_0:
 define i32 @"__main!main"() !dbg !13 {
 block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !16
-  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 8192, i1 false), !dbg !16
   %1 = alloca [1024 x ptr], align 8, !dbg !16
-  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 8192, i1 false), !dbg !16
+  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 8192, i1 false), !dbg !16
+  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8192, i1 false), !dbg !16
   %2 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !16
   call void @llvm.memcpy.p0.p0.i64(ptr align 8 %2, ptr align 8 %1, i64 8192, i1 false), !dbg !16
   call void @llvm.dbg.declare(metadata ptr %0, metadata !17, metadata !DIExpression()), !dbg !16

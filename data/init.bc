@@ -12,13 +12,13 @@ declare void @"__init!global_initializers"()
 
 define i32 @main() !dbg !4 {
 block_0:
-  call void @"__init!global_initializers"(), !dbg !9
-  %0 = call i32 @"__main!main"(), !dbg !10
-  %1 = alloca i32, align 4, !dbg !10
-  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 4, i1 false), !dbg !10
-  store i32 %0, ptr %1, align 4, !dbg !10
-  call void @llvm.dbg.declare(metadata ptr %1, metadata !11, metadata !DIExpression()), !dbg !10
-  %2 = load i32, ptr %1, align 4, !dbg !12
+  %0 = alloca i32, align 4, !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %0, i8 0, i32 4, i1 false), !dbg !9
+  call void @"__init!global_initializers"(), !dbg !10
+  %1 = call i32 @"__main!main"(), !dbg !9
+  store i32 %1, ptr %0, align 4, !dbg !9
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !11, metadata !DIExpression()), !dbg !9
+  %2 = load i32, ptr %0, align 4, !dbg !12
   ret i32 %2, !dbg !12
 }
 
@@ -51,7 +51,7 @@ attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !6 = !{!7}
 !7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !8 = !{}
-!9 = !DILocation(line: 8, scope: !4)
-!10 = !DILocation(line: 9, scope: !4)
+!9 = !DILocation(line: 9, scope: !4)
+!10 = !DILocation(line: 8, scope: !4)
 !11 = !DILocalVariable(name: "res", scope: !4, file: !1, line: 9, type: !7)
 !12 = !DILocation(line: 11, scope: !4)

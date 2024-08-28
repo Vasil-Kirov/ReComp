@@ -13,15 +13,15 @@ block_0:
 define i32 @"__main!main"() !dbg !4 {
 block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !9
-  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 420, i1 false), !dbg !9
   %1 = alloca [100 x i32], align 4, !dbg !9
-  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 400, i1 false), !dbg !9
-  %2 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %2, ptr align 4 %1, i64 400, i1 false), !dbg !9
-  %3 = alloca [4 x i32], align 4, !dbg !9
-  call void @llvm.memset.p0.i32(ptr %3, i8 0, i32 16, i1 false), !dbg !9
+  %2 = alloca [4 x i32], align 4, !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 420, i1 false), !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 400, i1 false), !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %2, i8 0, i32 16, i1 false), !dbg !9
+  %3 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %3, ptr align 4 %1, i64 400, i1 false), !dbg !9
   %4 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %3, i64 16, i1 false), !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %2, i64 16, i1 false), !dbg !9
   %5 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !9
   store i32 2, ptr %5, align 4, !dbg !9
   call void @llvm.dbg.declare(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !9

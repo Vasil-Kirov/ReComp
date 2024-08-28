@@ -14,9 +14,9 @@ block_0:
 define i32 @"__main!main"() !dbg !4 {
 block_0:
   %0 = alloca %"__main!vv", align 8, !dbg !9
-  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 24, i1 false), !dbg !9
   %1 = alloca %"__main!v2", align 8, !dbg !9
-  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 16, i1 false), !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 24, i1 false), !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 16, i1 false), !dbg !9
   %2 = getelementptr inbounds %"__main!v2", ptr %1, i32 0, i32 0, !dbg !9
   store float 1.000000e+01, ptr %2, align 4, !dbg !9
   %3 = getelementptr inbounds %"__main!v2", ptr %1, i32 0, i32 1, !dbg !9

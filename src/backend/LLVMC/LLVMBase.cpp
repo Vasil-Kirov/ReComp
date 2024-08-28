@@ -114,6 +114,9 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_NOP:
 		{
 		} break;
+		case OP_ALLOC: // Handled before
+		{
+		} break;
 		case OP_CONST:
 		{
 			// @TODO:
@@ -375,17 +378,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
 			gen->map.Add(I.Result, Value);
 		} break;
-		case OP_ALLOC:
-		{
-			int Size = GetTypeSize(I.Type);
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-			LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
-			LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
-			LLVMValueRef LLVMSize = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), Size, false);
-
-			LLVMBuildMemSet(gen->bld, Val, Zero, LLVMSize, 0);
-			gen->map.Add(I.Result, Val);
-		} break;
 		case OP_ARG:
 		{
 			u64 Idx = I.BigRegister;
@@ -546,6 +538,53 @@ void RCGenerateFunction(generator *gen, function fn)
 		gen->blocks[Idx] = RCCreateBlock(gen, Block.ID, false);
 	}
 
+	gen->CurrentBlock = -1;
+	RCSetBlock(gen, 0);
+	ForArray(Idx, fn.Blocks)
+	{
+		basic_block Block = fn.Blocks[Idx];
+		ForArray(InstrIdx, Block.Code)
+		{
+			instruction I = Block.Code[InstrIdx];
+			if(I.Op == OP_ALLOC)
+			{
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
+
+				gen->map.Add(I.Result, Val);
+			}
+			else if(I.Op == OP_DEBUGINFO)
+			{
+				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+				if(Info->type == IR_DBG_LOCATION)
+					RCGenerateDebugInfo(gen, Info);
+			}
+		}
+		LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
+		ForArray(InstrIdx, Block.Code)
+		{
+			instruction I = Block.Code[InstrIdx];
+			if(I.Op == OP_ALLOC)
+			{
+				uint Size = GetTypeSize(I.Type);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				uint Alignment = LLVMPreferredAlignmentOfType(gen->data, LLVMType);
+
+				LLVMValueRef LLVMSize = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), Size, false);
+				LLVMValueRef Ptr = gen->map.Get(I.Result);
+
+				LLVMBuildMemSet(gen->bld, Ptr, Zero, LLVMSize, Alignment);
+			}
+			else if(I.Op == OP_DEBUGINFO)
+			{
+				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+				if(Info->type == IR_DBG_LOCATION)
+					RCGenerateDebugInfo(gen, Info);
+			}
+		}
+
+		
+	}
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -830,7 +869,8 @@ rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set)
 	rc_block Result;
 	char Buff[128] = {};
 	sprintf_s(Buff, 128, "block_%d", ID);
-	Result.Block = LLVMAppendBasicBlockInContext(gen->ctx, gen->fn, Buff);
+		Result.Block = LLVMAppendBasicBlockInContext(gen->ctx, gen->fn, Buff);
+
 	if(Set)
 		LLVMPositionBuilderAtEnd(gen->bld, Result.Block);
 
@@ -839,6 +879,9 @@ rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set)
 
 void RCSetBlock(generator *gen, int Index)
 {
+	if(gen->CurrentBlock == Index)
+		return;
+
 	gen->CurrentBlock = Index;
 	LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[Index].Block);
 }

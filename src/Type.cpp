@@ -159,6 +159,11 @@ int GetBasicTypeSize(const type *Type)
 	unreachable;
 }
 
+uint GetPaddingForAlignment(uint Size, uint Align)
+{
+	return (Align - ( Size % Align )) % Align;
+}
+
 int GetStructSize(const type *Type)
 {
 	Assert(Type->Kind == TypeKind_Struct);
@@ -176,7 +181,7 @@ int GetStructSize(const type *Type)
 		Result += MemberSize;
 	}
 	auto sa = GetTypeAlignment(Type);
-	Result += Result % sa;
+	Result += GetPaddingForAlignment(Result, sa);
 	return Result;
 }
 

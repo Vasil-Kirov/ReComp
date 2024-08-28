@@ -23,21 +23,21 @@ block_0:
 define i32 @"__main!main"() !dbg !19 {
 block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !22
-  call void @llvm.memset.p0.i32(ptr %0, i8 0, i32 1024, i1 false), !dbg !22
   %1 = alloca [1024 x i8], align 1, !dbg !22
-  call void @llvm.memset.p0.i32(ptr %1, i8 0, i32 1024, i1 false), !dbg !22
-  %2 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !22
-  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %2, ptr align 1 %1, i64 1024, i1 false), !dbg !22
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !23, metadata !DIExpression()), !dbg !22
-  %3 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !24
-  %4 = getelementptr [1024 x i8], ptr %3, i64 0, i64 5, !dbg !24
-  store i8 32, ptr %4, align 1, !dbg !24
-  %5 = alloca %"__main!Foo", align 8, !dbg !25
-  call void @llvm.memset.p0.i32(ptr %5, i8 0, i32 1024, i1 false), !dbg !25
-  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %5, ptr align 1 %0, i64 1024, i1 false), !dbg !25
-  %6 = call i32 @"__main!give_struct"(ptr %5), !dbg !25
-  %7 = sub i32 %6, 32, !dbg !25
-  ret i32 %7, !dbg !25
+  %2 = alloca %"__main!Foo", align 8, !dbg !23
+  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 1024, i1 false), !dbg !22
+  call void @llvm.memset.p0.i32(ptr align 1 %1, i8 0, i32 1024, i1 false), !dbg !22
+  call void @llvm.memset.p0.i32(ptr align 8 %2, i8 0, i32 1024, i1 false), !dbg !23
+  %3 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !22
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %3, ptr align 1 %1, i64 1024, i1 false), !dbg !22
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !24, metadata !DIExpression()), !dbg !22
+  %4 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !25
+  %5 = getelementptr [1024 x i8], ptr %4, i64 0, i64 5, !dbg !25
+  store i8 32, ptr %5, align 1, !dbg !25
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %2, ptr align 1 %0, i64 1024, i1 false), !dbg !23
+  %6 = call i32 @"__main!give_struct"(ptr %2), !dbg !23
+  %7 = sub i32 %6, 32, !dbg !23
+  ret i32 %7, !dbg !23
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
@@ -82,6 +82,6 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !20 = !DISubroutineType(types: !21)
 !21 = !{!7}
 !22 = !DILocation(line: 12, scope: !19)
-!23 = !DILocalVariable(name: "x", scope: !19, file: !1, line: 12, type: !8)
-!24 = !DILocation(line: 13, scope: !19)
-!25 = !DILocation(line: 14, scope: !19)
+!23 = !DILocation(line: 14, scope: !19)
+!24 = !DILocalVariable(name: "x", scope: !19, file: !1, line: 12, type: !8)
+!25 = !DILocation(line: 13, scope: !19)

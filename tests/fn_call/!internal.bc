@@ -4,11 +4,11 @@ target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:
 
 declare void @"__main!__GlobalInitializerFunction"()
 
-declare i32 @"__main!main"()
+declare void @"__init!__GlobalInitializerFunction"()
 
-define i32 @main() {
+define void @"__init!global_initializers"() {
 only_block:
   call void @"__main!__GlobalInitializerFunction"()
-  %0 = call i32 @"__main!main"()
-  ret i32 %0
+  call void @"__init!__GlobalInitializerFunction"()
+  ret void
 }

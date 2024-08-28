@@ -747,6 +747,19 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				case TypeKind_Pointer:
 				{
+					if(OperandType->Pointer.Flags & PointerFlag_Optional)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot index optional pointer. Check if it's null and then use the ? operator");
+					}
+					if(OperandType->Pointer.Pointed == INVALID_TYPE)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot index opaque pointer");
+					}
+					const type *Pointed = GetType(OperandType->Pointer.Pointed);
+					if(Pointed->Kind == TypeKind_Function)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot index function pointer");
+					}
 					Result = OperandType->Pointer.Pointed;
 				} break;
 				case TypeKind_Array:
@@ -822,7 +835,12 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					}
 					if(Pointer->Pointer.Flags & PointerFlag_Optional)
 					{
-						RaiseError(*Expr->ErrorInfo, "Cannot derefrence optional pointer, mark it non optional with the prefix ? operator");
+						RaiseError(*Expr->ErrorInfo, "Cannot derefrence optional pointer, check for null and then mark it non optional with the ? operator");
+					}
+					if(Pointer->Pointer.Pointed == INVALID_TYPE)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot derefrence opaque pointer");
+
 					}
 					Expr->Unary.Type = Pointer->Pointer.Pointed;
 					return Pointer->Pointer.Pointed;

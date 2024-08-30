@@ -179,6 +179,7 @@ struct node
 struct parser
 {
 	dynamic<import> Imported;
+	dynamic<string> ConfigIDs;
 	string ModuleName;
 	token *Tokens;
 	token *Current;
@@ -186,6 +187,7 @@ struct parser
 	b32 IsInBody;
 	b32 CurrentlyPublic;
 	b32 NoStructLists;
+	uint ExpectingCloseParen;
 };
 
 struct parse_result

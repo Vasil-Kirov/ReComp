@@ -135,5 +135,5 @@ attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !48 = !DILocation(line: 25, scope: !41)
 !49 = !DILocalVariable(name: "x", scope: !41, file: !1, line: 26, type: !7)
 !50 = !DILocation(line: 27, scope: !41)
-!51 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 31, type: !17, spFlags: DISPFlagDefinition, unit: !0)
-!52 = !DILocation(line: 36, scope: !51)
+!51 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 33, type: !17, spFlags: DISPFlagDefinition, unit: !0)
+!52 = !DILocation(line: 34, scope: !51)

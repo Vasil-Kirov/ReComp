@@ -276,17 +276,26 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 		return MakeToken(T_STR, StartErrorInfo,  MakeStringPointer(Tokinized));
 }
 
-token GetNextToken(string *String, error_info *ErrorInfo)
+void SkipWhiteSpace(string *String, error_info *ErrorInfo)
 {
 	while(isspace(PeekC(String)))
 	{
 		AdvanceC(String, ErrorInfo);
 		if(String->Size == 0)
 		{
-			return MakeToken(T_EOF, *ErrorInfo, NULL);
+			return;
 		}
 	}
 
+}
+
+token GetNextToken(string *String, error_info *ErrorInfo)
+{
+	SkipWhiteSpace(String, ErrorInfo);
+	if(String->Size == 0)
+	{
+		return MakeToken(T_EOF, *ErrorInfo, NULL);
+	}
 	char FirstChar = PeekC(String);
 
 	if(FirstChar == 'c' && String->Size > 1)
@@ -372,8 +381,9 @@ void InitializeLexer()
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
-	AddKeyword("#public", T_PUBLIC);
+	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
+	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("size_of", T_SIZEOF);
 	AddKeyword("type_of", T_TYPEOF);
 }

@@ -278,6 +278,19 @@ parse_result ParseTokens(token *Tokens, string ModuleName)
 	Parser.IsInBody = false;
 	Parser.CurrentlyPublic = true;
 
+	using pt = platform_target;
+	switch(PTarget)
+	{
+		case pt::Windows:
+		{
+			Parser.ConfigIDs.Push(STR_LIT("Windows"));
+		} break;
+		case pt::UnixBased:
+		{
+			Parser.ConfigIDs.Push(STR_LIT("Unix"));
+		} break;
+	}
+
 	size_t TokenCount = ArrLen(Tokens);
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
 	while(Parser.TokenIndex + 1 < TokenCount)
@@ -294,6 +307,11 @@ parse_result ParseTokens(token *Tokens, string ModuleName)
 		{
 			break;
 		}
+	}
+
+	if(Parser.ExpectingCloseParen > 0)
+	{
+		RaiseError(*Nodes[Nodes.Count-1]->ErrorInfo, "Unexpected EOF, unterminated #if");
 	}
 
 	parse_result Result = {};
@@ -1214,6 +1232,49 @@ node *ParseTopLevel(parser *Parser)
 				RaiseError(Parser->Current->ErrorInfo,
 						"In this language you do not put semicolons after struct declarations");
 			}
+		} break;
+		case T_CLOSEPAREN:
+		{
+			if(Parser->ExpectingCloseParen == 0)
+				RaiseError(Parser->Current->ErrorInfo, "Unexpected `)`");
+			Parser->ExpectingCloseParen--;
+		} break;
+		case T_PWDIF:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token ID = EatToken(Parser, T_ID);
+			EatToken(Parser, T_OPENPAREN);
+			b32 IsTrue = false;
+			ForArray(Idx, Parser->ConfigIDs)
+			{
+				if(*ID.ID == Parser->ConfigIDs[Idx])
+				{
+					IsTrue = true;
+					break;
+				}
+			}
+			if(IsTrue)
+				Parser->ExpectingCloseParen++;
+			else
+			{
+				int depth = 1;
+				while(depth > 0)
+				{
+					token_type Type = Parser->Current->Type;
+					if(Type == T_OPENPAREN)
+						depth++;
+					else if(Type == T_CLOSEPAREN)
+						depth--;
+					else if(Type == T_EOF)
+					{
+						RaiseError(*ErrorInfo, "#if is not terminated");
+					}
+					GetToken(Parser);
+				}
+			}
+
+			Result = (node *)0x1;
 		} break;
 		case T_EOF:
 		{

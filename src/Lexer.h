@@ -68,6 +68,7 @@ enum token_type
 	T_BREAK  = -43,
 	T_TYPEOF = -44,
 	T_VARARG = -45,
+	T_PWDIF  = -46,
 };
 
 struct token

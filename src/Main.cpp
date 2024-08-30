@@ -266,7 +266,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 	return File;
 }
 
-const char *GetStdMainFile()
+const char *GetStdDir()
 {
 	char *Path = (char *)AllocatePermanent(VMAX_PATH);
 	GetExePath(Path);
@@ -274,11 +274,39 @@ const char *GetStdMainFile()
 	for(i = 0; Path[i] != 0; ++i);
 	int size = i;
 	for(; Path[i] != '\\' && Path[i] != '/';--i);
-	memset(Path + i, 0, size - i);
-	strcat(Path, "/std/init.rcp");
+	memset(Path + i + 1, 0, size - i - 1);
 
 
 	return Path;
+}
+
+string GetFilePath(string Dir, const char *FileName)
+{
+	string_builder Builder = MakeBuilder();
+	Builder += Dir;
+	Builder += "std/";
+	Builder += FileName;
+	return MakeString(Builder);
+}
+
+void AddStdFiles(dynamic<file> &Files)
+{
+	const char *StdDir = GetStdDir();
+	string Dir = MakeString(StdDir);
+
+	string StdFiles[] = {
+		GetFilePath(Dir, "init.rcp"),
+		GetFilePath(Dir, "os.rcp"),
+		GetFilePath(Dir, "string.rcp"),
+	};
+
+	uint Count = ARR_LEN(StdFiles);
+	for(int i = 0; i < Count; ++i)
+	{
+		timers FileTimer = {};
+		file File = GetModule(StdFiles[i], &FileTimer);
+		Files.Push(File);
+	}
 }
 
 int
@@ -343,7 +371,6 @@ main(int ArgCount, char *Args[])
 
 			dynamic<file> Files = {};
 			compile_info *Info = (compile_info *)Out.ptr;
-			Info->FileNames[Info->FileCount++] = GetStdMainFile();
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
 				timers FileTimer = {};
@@ -351,6 +378,7 @@ main(int ArgCount, char *Args[])
 						&FileTimer);
 				Files.Push(File);
 			}
+			AddStdFiles(Files);
 			ResolveSymbols(Files);
 			ForArray(Idx, Files)
 			{

@@ -31,8 +31,9 @@ my_str :: fn(f: *SFloat) -> f32 {
 main :: fn() -> i32 {
     //some_slice :: []i32{1, 2};
 	//return sum_o(@i32 1);
-    foo := SFloat{a = 2, b = 2};
-    return @i32 my_str(&foo);
+    //foo := SFloat{a = 2, b = 2};
+    //return @i32 my_str(&foo);
+    return 0b1000_1111;
 }
 // #import stuff as f2
 // 

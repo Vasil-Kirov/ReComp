@@ -149,17 +149,49 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 
 token TokinizeNumber(string *String, error_info *ErrorInfo)
 {
-	const char *Start = String->Data;
 	error_info StartErrorInfo = *ErrorInfo;
 
-	b32 FoundDot = false;
-	while(IsNumCharacter(PeekC(String), &FoundDot))
-		AdvanceC(String, ErrorInfo);
+	if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'b')
+	{
+		string_builder Builder = MakeBuilder();
+		Builder += AdvanceC(String, ErrorInfo);
+		Builder += AdvanceC(String, ErrorInfo);
+		while(true)
+		{
+			char c = PeekC(String);
+			if(c == '_')
+			{
+				AdvanceC(String, ErrorInfo);
+				continue;
+			}
 
-	const char *End  = String->Data;
+			if(!isdigit(c))
+				break;
+			if(c != '0' && c != '1')
+			{
+				RaiseError(StartErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
+			}
+			Builder += c;
+			AdvanceC(String, ErrorInfo);
+		}
 
-	string Number = MakeString(Start, End - Start);
-	return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+		string Number = MakeString(Builder);
+		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+	}
+	else
+	{
+		b32 FoundDot = false;
+		string_builder Builder = MakeBuilder();
+		while(IsNumCharacter(PeekC(String), &FoundDot) || PeekC(String) == '_')
+		{
+			char c = AdvanceC(String, ErrorInfo);
+			if(c != '_')
+				Builder += c;
+		}
+
+		string Number = MakeString(Builder);
+		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+	}
 }
 
 token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)

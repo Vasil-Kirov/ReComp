@@ -1045,22 +1045,25 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			u32 Expression = -1;
 			u32 Type = Node->Return.TypeIdx;
-			const type *RT = GetType(Type);
-			if(Node->Return.Expression)
-					Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
-			if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
+			if(Type != INVALID_TYPE)
 			{
-				if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+				const type *RT = GetType(Type);
+				if(Node->Return.Expression)
+					Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
+				if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
 				{
-					Type = AllFloatsStructToReturnType(RT);
-					Expression = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Expression, Type, Builder));
-				}
-				else
-				{
-					Type = ComplexTypeToSizeType(RT);
-					Expression = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Expression, Type, Builder));
+					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+					{
+						Type = AllFloatsStructToReturnType(RT);
+						Expression = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Expression, Type, Builder));
+					}
+					else
+					{
+						Type = ComplexTypeToSizeType(RT);
+						Expression = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Expression, Type, Builder));
+					}
 				}
 			}
 			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));

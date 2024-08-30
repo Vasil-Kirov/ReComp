@@ -25,26 +25,12 @@ f64 FloatFromString(const string *String)
 
 i64 IntFromString(const string *String)
 {
-	char Buff[256] = {};
-	int BuffCount = 0;
-	for(int Idx = 0; Idx < String->Size; ++Idx)
-	{
-		if(String->Data[Idx] != '_')
-			Buff[BuffCount++] = String->Data[Idx];
-	}
-	return strtoll(Buff, NULL, 0);
+	return strtoll(String->Data, NULL, 0);
 }
 
 u64 UnsignedIntFromString(const string *String)
 {
-	char Buff[256] = {};
-	int BuffCount = 0;
-	for(int Idx = 0; Idx < String->Size; ++Idx)
-	{
-		if(String->Data[Idx] != '_')
-			Buff[BuffCount++] = String->Data[Idx];
-	}
-	return strtoull(Buff, NULL, 0);
+	return strtoull(String->Data, NULL, 0);
 }
 
 const_integer MakeConstInteger(const string *String, b32 IsSigned)
@@ -65,30 +51,55 @@ const_integer MakeConstInteger(const string *String, b32 IsSigned)
 
 const_value MakeConstValue(const string *String)
 {
+	enum {
+		Parse_Int,
+		Parse_Float,
+		Parse_Binary,
+	} ParseType = Parse_Int;
+
 	const_value Result = {};
-	b32 IsFloat = false;
 	int DigitCount = 0;
-	for(int Idx = 0; Idx < String->Size; ++Idx)
+	if(String->Size > 1 && String->Data[0] == '0' && String->Data[1] == 'b')
 	{
-		if(String->Data[Idx] == '.')
-		{
-			IsFloat = true;
-		}
-		else if(isdigit(String->Data[Idx]))
-		{
-			DigitCount++;
-		}
-	}
-	if(IsFloat)
-	{
-		Result.Type = const_type::Float;
-		Result.Float = FloatFromString(String);
+		ParseType = Parse_Binary;
 	}
 	else
 	{
-		b32 IsSigned = String->Data[0] == '-' || DigitCount < 19;
-		Result.Type = const_type::Integer;
-		Result.Int = MakeConstInteger(String, IsSigned);
+		for(int Idx = 0; Idx < String->Size; ++Idx)
+		{
+			if(String->Data[Idx] == '.')
+			{
+				ParseType = Parse_Float;
+			}
+			else if(isdigit(String->Data[Idx]))
+			{
+				DigitCount++;
+			}
+		}
+	}
+	switch(ParseType)
+	{
+		case Parse_Float:
+		{
+			Result.Type = const_type::Float;
+			Result.Float = FloatFromString(String);
+		} break;
+		case Parse_Int:
+		{
+			b32 IsSigned = String->Data[0] == '-' || DigitCount < 19;
+			Result.Type = const_type::Integer;
+			Result.Int = MakeConstInteger(String, IsSigned);
+		} break;
+		case Parse_Binary:
+		{
+			Result.Type = const_type::Integer;
+			Result.Int.IsSigned = false;
+			Result.Int.Unsigned = 0;
+			for(int i = 2; i < String->Size; ++i)
+			{
+				Result.Int.Unsigned |= (String->Data[i] - '0') << (i - 2);
+			}
+		} break;
 	}
 
 	return Result;

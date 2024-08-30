@@ -1,0 +1,17 @@
+string
+#import os
+
+
+index :: fn(data: *u8, count: int, i: int) -> u8 {
+    if i >= count {
+        os.abort();
+    }
+
+    byte_idx := 0;
+    char_idx := 0;
+    //for {
+    //    if data[byte_idx] & 0b_11
+    //}
+    return 0;
+}
+

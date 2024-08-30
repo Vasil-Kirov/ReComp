@@ -66,16 +66,7 @@ block_0:
 
 define i32 @"__main!main"() !dbg !51 {
 block_0:
-  %0 = alloca %"__main!SFloat", align 8, !dbg !52
-  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 8, i1 false), !dbg !52
-  %1 = getelementptr inbounds %"__main!SFloat", ptr %0, i32 0, i32 0, !dbg !52
-  store float 2.000000e+00, ptr %1, align 4, !dbg !52
-  %2 = getelementptr inbounds %"__main!SFloat", ptr %0, i32 0, i32 1, !dbg !52
-  store float 2.000000e+00, ptr %2, align 4, !dbg !52
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !53, metadata !DIExpression()), !dbg !52
-  %3 = call float @"__main!my_str"(ptr %0), !dbg !54
-  %4 = fptosi float %3 to i32, !dbg !54
-  ret i32 %4, !dbg !54
+  ret i32 241, !dbg !52
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
@@ -87,12 +78,8 @@ declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
-; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #2
-
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
-attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}
@@ -148,7 +135,5 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 !48 = !DILocation(line: 25, scope: !41)
 !49 = !DILocalVariable(name: "x", scope: !41, file: !1, line: 26, type: !7)
 !50 = !DILocation(line: 27, scope: !41)
-!51 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 31, type: !17, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !12)
-!52 = !DILocation(line: 34, scope: !51)
-!53 = !DILocalVariable(name: "foo", scope: !51, file: !1, line: 34, type: !7)
-!54 = !DILocation(line: 35, scope: !51)
+!51 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 31, type: !17, spFlags: DISPFlagDefinition, unit: !0)
+!52 = !DILocation(line: 36, scope: !51)

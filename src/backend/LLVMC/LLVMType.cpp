@@ -125,7 +125,24 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 		case TypeKind_Array:
 		{
-			return LLVMArrayType(ConvertToLLVMType(Context, CustomType->Array.Type), CustomType->Array.MemberCount);
+			return LLVMArrayType2(ConvertToLLVMType(Context, CustomType->Array.Type), CustomType->Array.MemberCount);
+		} break;
+
+		case TypeKind_Slice:
+		{
+			LLVMTypeRef Result = LLVMFindMapType(TypeID);
+			if(Result == NULL)
+			{
+				LLVMTypeRef Members[] = {
+					ConvertToLLVMType(Context, Basic_int),
+					ConvertToLLVMType(Context, GetPointerTo(CustomType->Slice.Type)),
+				};
+				Result = LLVMStructCreateNamed(Context, "slice");
+				LLVMStructSetBody(Result, Members, 2, false);
+				LLVMMapType(TypeID, Result);
+			}
+
+			return Result;
 		} break;
 
         case TypeKind_Function:
@@ -229,6 +246,39 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 				} break;
 				default: unreachable;
 			}
+		} break;
+		case TypeKind_Slice:
+		{
+			int Size = GetRegisterTypeSize() * 2;
+
+			LLVMMetadataRef Mem1 = LLVMDIBuilderCreateMemberType(
+					gen->dbg, gen->f_dbg,
+					"data", 4,
+					gen->f_dbg, 0,
+					Size / 2, Size / 2,
+					0, LLVMDIFlagZero,
+					ToDebugTypeLLVM(gen, GetPointerTo(CustomType->Slice.Type)));
+
+			LLVMMetadataRef Mem2 = LLVMDIBuilderCreateMemberType(
+					gen->dbg, gen->f_dbg,
+					"count", 5,
+					gen->f_dbg, 0,
+					Size / 2, Size / 2,
+					Size / 2, LLVMDIFlagZero,
+					ToDebugTypeLLVM(gen, Basic_int));
+
+			LLVMMetadataRef Elements[] = {
+				Mem1,
+				Mem2,
+			};
+
+			Made = LLVMDIBuilderCreateStructType(gen->dbg, gen->f_dbg,
+					"", 0,
+					gen->f_dbg, 0,
+					Size, GetRegisterTypeSize(),
+					LLVMDIFlagZero, NULL,
+					Elements, 2, 0,
+					NULL, NULL, 0);
 		} break;
 		case TypeKind_Array:
 		{
@@ -523,7 +573,7 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
-			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && PTarget != platform_target::Windows)
 				ReturnType = ConvertToLLVMType(Context, AllFloatsStructToReturnType(RT));
 			else
 				ReturnType = ConvertToLLVMType(Context, ComplexTypeToSizeType(RT));
@@ -550,7 +600,8 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 
 	if(Type->Function.Flags & SymbolFlag_VarFunc)
 	{
-		u32 VarArgType = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+		u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+		u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
 		ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
 	}
 

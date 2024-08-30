@@ -12,12 +12,14 @@ block_0:
 
 define i32 @"__main!give_struct"(ptr %0) !dbg !4 {
 block_0:
-  call void @llvm.dbg.value(metadata ptr %0, metadata !16, metadata !DIExpression()), !dbg !17
-  %1 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !18
-  %2 = getelementptr [1024 x i8], ptr %1, i64 0, i64 5, !dbg !18
-  %3 = load i8, ptr %2, align 1, !dbg !18
-  %4 = sext i8 %3 to i32, !dbg !18
-  ret i32 %4, !dbg !18
+  %1 = alloca [1024 x i8], align 1, !dbg !16
+  call void @llvm.dbg.value(metadata ptr %0, metadata !17, metadata !DIExpression()), !dbg !18
+  %2 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 1 %1, ptr align 1 %2, i64 1024, i1 false), !dbg !16
+  %3 = getelementptr [1024 x i8], ptr %1, i64 0, i64 5, !dbg !16
+  %4 = load i8, ptr %3, align 1, !dbg !16
+  %5 = sext i8 %4 to i32, !dbg !16
+  ret i32 %5, !dbg !16
 }
 
 define i32 @"__main!main"() !dbg !19 {
@@ -43,18 +45,18 @@ block_0:
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
-; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #1
-
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #2
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
 
 attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}
@@ -75,9 +77,9 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !13 = !{!14}
 !14 = !DISubrange(count: 1024, lowerBound: 0)
 !15 = !{}
-!16 = !DILocalVariable(name: "foo", scope: !4, file: !1, line: 7, type: !8)
-!17 = !DILocation(line: 7, scope: !4)
-!18 = !DILocation(line: 8, scope: !4)
+!16 = !DILocation(line: 8, scope: !4)
+!17 = !DILocalVariable(name: "foo", scope: !4, file: !1, line: 7, type: !8)
+!18 = !DILocation(line: 7, scope: !4)
 !19 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 11, type: !20, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !15)
 !20 = !DISubroutineType(types: !21)
 !21 = !{!7}

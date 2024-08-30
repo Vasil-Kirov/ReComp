@@ -1,0 +1,15 @@
+main
+
+get_sum :: fn(my_slice: []i32) -> i32 {
+    sum := 0;
+    for i in my_slice.count {
+        num := my_slice[i];
+        sum += num;
+    }
+    return @i32 sum;
+}
+
+main :: fn() -> i32 {
+    slice :: []i32{1, 2, 3, 6};
+	return get_sum(slice) - 12;
+}

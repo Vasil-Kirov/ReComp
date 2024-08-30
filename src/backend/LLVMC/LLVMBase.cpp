@@ -339,6 +339,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
 			}
+			else if(Type->Kind == TypeKind_Slice)
+			{
+				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
+			}
 			else
 			{
 				LDEBUG("%d", Type->Kind);
@@ -377,12 +381,24 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_LOAD:
 		{
+			const type *T = GetType(I.Type);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
 			Assert(Pointer);
 			Assert(LLVMType);
-			LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
-			gen->map.Add(I.Result, Value);
+			if(IsLoadableType(T))
+			{
+				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
+				gen->map.Add(I.Result, Value);
+			}
+			else
+			{
+				LLVMValueRef Value = gen->map.Get(I.Result);
+				uint Align = LLVMPreferredAlignmentOfType(gen->data, LLVMType);
+				uint Size = GetTypeSize(T);
+				LLVMValueRef LLVMSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
+				LLVMBuildMemCpy(gen->bld, Value, Align, Pointer, Align, LLVMSize);
+			}
 		} break;
 		case OP_ARG:
 		{
@@ -398,6 +414,15 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMBuildStore(gen->bld, Arg, AsArg);
 				gen->map.Add(I.Result, AsArg);
 			}
+#if 0
+			else if(Idx >= FnType->Function.ArgCount)
+			{
+				Assert(FnType->Function.Flags & SymbolFlag_VarFunc);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				Arg = LLVMBuildLoad2(gen->bld, LLVMType, Arg, "args");
+				gen->map.Add(I.Result, Arg);
+			}
+#endif
 			else
 			{
 				gen->map.Add(I.Result, Arg);
@@ -527,6 +552,7 @@ void RCGenerateFunction(generator *gen, function fn)
 {
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	gen->BlockCount = fn.Blocks.Count;
+	//gen->FnType = fn.Type;
 	if(fn.Type == INVALID_TYPE)
 	{
 		gen->IsCurrentFnRetInPtr = false;
@@ -553,18 +579,31 @@ void RCGenerateFunction(generator *gen, function fn)
 		ForArray(InstrIdx, Block.Code)
 		{
 			instruction I = Block.Code[InstrIdx];
-			if(I.Op == OP_ALLOC)
+			switch(I.Op)
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-				LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
+				case OP_ALLOC:
+				{
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+					LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
 
-				gen->map.Add(I.Result, Val);
-			}
-			else if(I.Op == OP_DEBUGINFO)
-			{
-				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
-				if(Info->type == IR_DBG_LOCATION)
-					RCGenerateDebugInfo(gen, Info);
+					gen->map.Add(I.Result, Val);
+				} break;
+				case OP_DEBUGINFO:
+				{
+					ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+					if(Info->type == IR_DBG_LOCATION)
+						RCGenerateDebugInfo(gen, Info);
+				} break;
+				case OP_LOAD:
+				{
+					if(!IsLoadableType(I.Type))
+					{
+						LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+						LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
+						gen->map.Add(I.Result, Val);
+					}
+				} break;
+				default: break;
 			}
 		}
 		LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
@@ -654,7 +693,6 @@ void RCGenerateCompilerTypes(generator *gen)
 	auto DebugType = LLMVDebugDefineStruct(gen, String);
 	LLVMMapType(Basic_string, LLVMType);
 	LLVMDebugMapType(Basic_string, DebugType);
-
 }
 
 void GetNameAndDirectory(char **OutName, char **OutDirectory, string Relative)

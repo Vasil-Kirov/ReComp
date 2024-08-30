@@ -271,6 +271,10 @@ int GetTypeSize(const type *Type)
 		{
 			return GetTypeSize(GetType(Type->Array.Type)) * Type->Array.MemberCount;
 		} break;
+		case TypeKind_Slice:
+		{
+			return GetRegisterTypeSize() / 4;
+		} break;
 		case TypeKind_Struct:
 		{
 			return GetStructSize(Type);
@@ -573,6 +577,10 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		{
 			return TypeCheckPointers(Left, Right, IsAssignment);
 		} break;
+		case TypeKind_Slice:
+		{
+			return TypesMustMatch(GetType(Left->Slice.Type), GetType(Right->Slice.Type));
+		} break;
 		case TypeKind_Array:
 		{
 			if(!IsAssignment)
@@ -677,6 +685,11 @@ b32 IsLoadableType(const type *Type)
 	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function;
 }
 
+b32 IsFn(const type *T)
+{
+	return T->Kind == TypeKind_Function;
+}
+
 b32 IsLoadableType(u32 TypeIdx)
 {
 	const type *Type = GetType(TypeIdx);
@@ -695,6 +708,12 @@ string GetTypeNameAsString(const type *Type)
 		case TypeKind_Basic:
 		{
 			return Type->Basic.Name;
+		} break;
+		case TypeKind_Slice:
+		{
+			string_builder Builder = MakeBuilder();
+			PushBuilderFormated(&Builder, "[]%s", GetTypeName(GetType(Type->Slice.Type)));
+			return MakeString(Builder);
 		} break;
 		case TypeKind_Array:
 		{
@@ -761,11 +780,27 @@ const char *GetTypeName(const type *Type)
 // @TODO: Maybe try to find it first... idk
 u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 {
-	type *New = NewType(type);
-	New->Kind = TypeKind_Pointer;
+	type *New = AllocType(TypeKind_Pointer);
 	New->Pointer.Pointed = TypeIdx;
 	New->Pointer.Flags = Flags;
 	return AddType(New);
+}
+
+u32 GetSliceType(u32 Type)
+{
+	type *SliceType = AllocType(TypeKind_Slice);
+	SliceType->Slice.Type = Type;
+
+	return AddType(SliceType);
+}
+
+u32 GetArrayType(u32 Type, u32 ElemCount)
+{
+	type *ArrayType = AllocType(TypeKind_Array);
+	ArrayType->Array.Type = Type;
+	ArrayType->Array.MemberCount = ElemCount;
+
+	return AddType(ArrayType);
 }
 
 u32 GetNonOptional(const type *OptionalPointer)
@@ -826,7 +861,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		case TypeKind_Vector:
 		{
 			return TypeID;
-		}
+		} break;
 		case TypeKind_Basic:
 		{
 			return TypeID;
@@ -845,6 +880,16 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 				type *NewT = AllocType(TypeKind_Array);
 				NewT->Array.Type = AT;
 				NewT->Array.MemberCount = Type->Array.MemberCount;
+				Result = AddType(NewT);
+			}
+		} break;
+		case TypeKind_Slice:
+		{
+			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve);
+			if(AT != Type->Slice.Type)
+			{
+				type *NewT = AllocType(TypeKind_Slice);
+				NewT->Slice.Type = AT;
 				Result = AddType(NewT);
 			}
 		} break;
@@ -936,6 +981,10 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 		{
 			Result = GetGenericPart(T->Pointer.Pointed, G->Pointer.Pointed);
 		} break;
+		case TypeKind_Slice:
+		{
+			Result = GetGenericPart(T->Slice.Type, G->Slice.Type);
+		} break;
 		case TypeKind_Array:
 		{
 			Result = GetGenericPart(T->Array.Type, G->Array.Type);
@@ -995,6 +1044,10 @@ b32 IsGeneric(const type *Type)
 		case TypeKind_Array:
 		{
 			Result = IsGeneric(Type->Array.Type);
+		} break;
+		case TypeKind_Slice:
+		{
+			Result = IsGeneric(Type->Slice.Type);
 		} break;
 		case TypeKind_Struct:
 		{

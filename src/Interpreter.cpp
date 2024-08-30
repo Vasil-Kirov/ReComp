@@ -250,6 +250,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					{
 						Result.ptr = *(void **)Value->ptr;
 					} break;
+					case TypeKind_Struct:
+					case TypeKind_Array:
+					{
+						uint Size = GetTypeSize(Type);
+						Result.ptr = VM->Stack.Peek().Allocate(Size);
+						memcpy(Result.ptr, Value->ptr, Size);
+					} break;
 					default: unreachable;
 				}
 				VM->Registers.AddValue(I.Result, Result);

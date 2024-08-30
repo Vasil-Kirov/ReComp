@@ -5,11 +5,6 @@ struct Arg {
     val: *,
 }
 
-struct ArgList {
-    count: int,
-    args: *Arg,
-}
-
 #import main as mn
 
 global_initializers :: fn();

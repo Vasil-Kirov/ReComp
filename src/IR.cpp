@@ -130,6 +130,29 @@ const ir_symbol *GetIRLocal(function *Function, const string *Name)
 	return Found;
 }
 
+u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, const type *SliceType = NULL, u32 Alloc = -1)
+{
+	if(SliceType == NULL)
+		SliceType = GetType(SliceTypeIdx);
+	if(Alloc == -1)
+	{
+		Alloc = PushInstruction(Builder,
+				Instruction(OP_ALLOC, -1, SliceTypeIdx, Builder));
+	}
+
+	u32 CountIdx = PushInstruction(Builder,
+			Instruction(OP_INDEX, Alloc, 0, SliceTypeIdx, Builder));
+	u32 DataIdx = PushInstruction(Builder,
+			Instruction(OP_INDEX, Alloc, 1, SliceTypeIdx, Builder));
+
+	PushInstruction(Builder,
+			InstructionStore(DataIdx, Ptr, GetPointerTo(SliceType->Slice.Type)));
+	PushInstruction(Builder,
+			InstructionStore(CountIdx, Size, Basic_int));
+
+	return Alloc;
+}
+
 u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
 {
 	u32 Ptr = PushAlloc(Type, Builder);
@@ -386,8 +409,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 PassedVarArgs = 0;
 			if(Type->Function.Flags & SymbolFlag_VarFunc)
 			{
-				VarArgStructType = FindStruct(STR_LIT("__init!ArgList"));
 				VarArgT          = FindStruct(STR_LIT("__init!Arg"));
+				VarArgStructType = GetSliceType(VarArgT);
 				VarArgAlloc = PushInstruction(Builder, 
 						Instruction(OP_ALLOC, -1, VarArgStructType, Builder));
 				u32 CountMemberLocation = PushInstruction(Builder, 
@@ -416,18 +439,32 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(Idx >= Type->Function.ArgCount)
 				{
 					// Var args
+					u32 ArgType = Node->Call.ArgTypes[Idx];
 					u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
 					u32 Index = PushInt(PassedVarArgs++, Builder);
+
+					/*
+					 * %0 = EXPR
+					 * %1 = alloc(ExprType)
+					 * %1 = store %0
+					 */
 					u32 ExprLocation = PushInstruction(Builder,
-							Instruction(OP_ALLOC, -1, Node->Call.ArgTypes[Idx], Builder));
+							Instruction(OP_ALLOC, -1, ArgType, Builder));
 					PushInstruction(Builder, InstructionStore(ExprLocation, Expr, Node->Call.ArgTypes[Idx]));
 
+					/*
+					 * %2 = INDEX %VarArgs idx
+					 * %3 = INDEX %2 0
+					 * %4 = INDEX %2 1
+					 * %3 = store type
+					 * %4 = store %1
+					 */
 					u32 ArgLocation = PushInstruction(Builder, Instruction(OP_INDEX, VarArgsArray, Index, VarArgArrayT, Builder));
 
 					u32 TypeLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 0, VarArgT, Builder));
 					u32 ValLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 1, VarArgT, Builder));
-					PushInstruction(Builder, InstructionStore(TypeLocation, PushInt(Node->Call.ArgTypes[Idx], Builder), Basic_type));
-					PushInstruction(Builder, InstructionStore(ValLocation, ExprLocation, GetPointerTo(Node->Call.ArgTypes[Idx])));
+					PushInstruction(Builder, InstructionStore(TypeLocation, PushInt(ArgType, Builder), Basic_type));
+					PushInstruction(Builder, InstructionStore(ValLocation, ExprLocation, GetPointerTo(ArgType)));
 				}
 				else
 				{
@@ -479,73 +516,112 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				break;
 			}
 			const type *Type = GetType(Node->TypeList.Type);
-			if(Type->Kind == TypeKind_Array)
+			switch(Type->Kind)
 			{
-				array_list_info *Info = NewType(array_list_info);
-				u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
-				ForArray(Idx, Node->TypeList.Items)
+				default: unreachable;
+				case TypeKind_Array:
 				{
-					u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
-					Registers[Idx] = Register;
-				}
-				Info->Alloc = Alloc;
-				Info->Registers = Registers;
-				Info->Count = Node->TypeList.Items.Count;
-				instruction I = Instruction(OP_ARRAYLIST, (u64)Info, Node->TypeList.Type, Builder);
-				PushInstruction(Builder, I);
-				break;
-			}
-			Assert(Type->Kind == TypeKind_Struct);
-			ForArray(Idx, Node->TypeList.Items)
-			{
-				node *Item = Node->TypeList.Items[Idx];
-				const string *NamePtr = Item->Item.Name;
-				int MemberIdx = Idx;
-				if(NamePtr)
-				{
-					string Name = *NamePtr;
-					int Found = -1;
-					ForArray(MIdx, Type->Struct.Members)
+					array_list_info *Info = NewType(array_list_info);
+					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
+					ForArray(Idx, Node->TypeList.Items)
 					{
-						struct_member Mem = Type->Struct.Members[MIdx];
-						if(Mem.ID == Name)
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+						Registers[Idx] = Register;
+					}
+					Info->Alloc = Alloc;
+					Info->Registers = Registers;
+					Info->Count = Node->TypeList.Items.Count;
+					instruction I = Instruction(OP_ARRAYLIST, (u64)Info, Node->TypeList.Type, Builder);
+					PushInstruction(Builder, I);
+				} break;
+				case TypeKind_Slice:
+				{
+					array_list_info *Info = NewType(array_list_info);
+					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
+					ForArray(Idx, Node->TypeList.Items)
+					{
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+						Registers[Idx] = Register;
+					}
+					u32 ArrayType = GetArrayType(Type->Slice.Type, Node->TypeList.Items.Count);
+					u32 ArrayPtr = PushInstruction(Builder,
+							Instruction(OP_ALLOC, -1, ArrayType, Builder));
+
+					Info->Alloc = ArrayPtr;
+					Info->Registers = Registers;
+					Info->Count = Node->TypeList.Items.Count;
+					instruction I = Instruction(OP_ARRAYLIST, (u64)Info, ArrayType, Builder);
+					PushInstruction(Builder, I);
+					BuildSlice(Builder, ArrayPtr,
+							PushInt(Node->TypeList.Items.Count, Builder),
+							Node->TypeList.Type, Type, Alloc);
+				} break;
+				case TypeKind_Struct:
+				{
+					ForArray(Idx, Node->TypeList.Items)
+					{
+						node *Item = Node->TypeList.Items[Idx];
+						const string *NamePtr = Item->Item.Name;
+						int MemberIdx = Idx;
+						if(NamePtr)
 						{
-							Found = MIdx;
-							break;
+							string Name = *NamePtr;
+							int Found = -1;
+							ForArray(MIdx, Type->Struct.Members)
+							{
+								struct_member Mem = Type->Struct.Members[MIdx];
+								if(Mem.ID == Name)
+								{
+									Found = MIdx;
+									break;
+								}
+							}
+							if(Found == -1)
+							{
+								RaiseError(*Item->ErrorInfo, "No member named %s in struct %s",
+										Name.Data, GetTypeName(Type));
+							}
+							MemberIdx = Found;
 						}
+						struct_member Mem = Type->Struct.Members[MemberIdx];
+						const type *MemberType = GetType(Mem.Type);
+						u32 Expr = BuildIRFromExpression(Builder, Item->Item.Expression, false);
+						if(MemberType->Kind == TypeKind_Basic && MemberType->Basic.Kind == Basic_string)
+						{
+							Expr = PushInstruction(Builder,
+									Instruction(OP_LOAD, 0, Expr, Mem.Type, Builder));
+						}
+						u32 Location = PushInstruction(Builder,
+								Instruction(OP_INDEX, Alloc, MemberIdx, Node->TypeList.Type, Builder));
+						PushInstruction(Builder,
+								InstructionStore(Location, Expr, Mem.Type));
 					}
-					if(Found == -1)
-					{
-						RaiseError(*Item->ErrorInfo, "No member named %s in struct %s",
-								Name.Data, GetTypeName(Type));
-					}
-					MemberIdx = Found;
-				}
-				struct_member Mem = Type->Struct.Members[MemberIdx];
-				const type *MemberType = GetType(Mem.Type);
-				u32 Expr = BuildIRFromExpression(Builder, Item->Item.Expression, false);
-				if(MemberType->Kind == TypeKind_Basic && MemberType->Basic.Kind == Basic_string)
-				{
-					Expr = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Expr, Mem.Type, Builder));
-				}
-				u32 Location = PushInstruction(Builder,
-						Instruction(OP_INDEX, Alloc, MemberIdx, Node->TypeList.Type, Builder));
-				PushInstruction(Builder,
-						InstructionStore(Location, Expr, Mem.Type));
+				} break;
 			}
-		} break;
+		}break;
 		case AST_INDEX:
 		{
+			const type *Type = GetType(Node->Index.OperandType);
 			b32 ShouldNotLoad = IsLHS;
-			if(GetType(Node->Index.OperandType)->Kind == TypeKind_Pointer)
-				ShouldNotLoad = false;
-
 			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, ShouldNotLoad);
 			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, false);
-			Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
-			if(!IsLHS && !Node->Index.ForceNotLoad)
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
+			if(Type->Kind == TypeKind_Pointer)
+				ShouldNotLoad = false;
+			if(Type->Kind == TypeKind_Slice)
+			{
+				u32 PtrToIdxed = GetPointerTo(Node->Index.IndexedType);
+				u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Index.OperandType, Builder));
+				u32 LoadedPtr = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, PtrToIdxed, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, LoadedPtr, Index, PtrToIdxed, Builder));
+				if(!IsLHS && !Node->Index.ForceNotLoad)
+					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
+			}
+			else
+			{
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
+				if(!IsLHS && !Node->Index.ForceNotLoad)
+					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
+			}
 		} break;
 		case AST_SELECTOR:
 		{
@@ -558,7 +634,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled);
 				const type *Type = GetType(Node->Selector.Type);
 				Result = Sym->Register;
-				if(!IsLHS && IsLoadableType(Type))
+				if(!IsLHS && !IsFn(Type))
 				{
 					Result = PushInstruction(Builder,
 							Instruction(OP_LOAD, 0, Result, Node->Selector.Type, Builder));
@@ -567,17 +643,35 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			else
 			{
 				u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
-
-				Result = PushInstruction(Builder, 
-						Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
-
 				const type *Type = GetType(Node->Selector.Type);
-				u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
-				const type *MemberType = GetType(MemberTypeIdx);
-				if(!IsLHS && IsLoadableType(MemberType))
+				
+				if(Type->Kind == TypeKind_Slice)
 				{
-					Result = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Result, Type->Struct.Members[Node->Selector.Index].Type, Builder));
+					Result = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Operand, 0, Node->Selector.Type, Builder));
+					Result = PushInstruction(Builder, 
+							Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
+				}
+				else
+				{
+					u32 TypeIdx = Node->Selector.Type;
+					if(Type->Kind == TypeKind_Pointer)
+					{
+						Operand = PushInstruction(Builder, 
+								Instruction(OP_LOAD, 0, Operand, Type->Pointer.Pointed, Builder));
+						TypeIdx = Type->Pointer.Pointed;
+						Type = GetType(Type->Pointer.Pointed);
+					}
+
+					Result = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
+
+					u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
+					if(!IsLHS)
+					{
+						Result = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Result, MemberTypeIdx, Builder));
+					}
 				}
 			}
 
@@ -639,11 +733,8 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
 					if(!IsLHS)
 					{
-						if(IsLoadableType(Node->Unary.Type))
-						{
-							instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
-							Result = PushInstruction(Builder, I);
-						}
+						instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
+						Result = PushInstruction(Builder, I);
 					}
 				} break;
 				case T_ADDROF:
@@ -707,7 +798,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			case '=':
 			{
 				I = InstructionStore(Left, Right, Node->Binary.ExpressionType);
-				if(NeedResult && !IsLHS && IsLoadableType(Node->Binary.ExpressionType))
+				if(NeedResult && !IsLHS)
 				{
 					PushInstruction(Builder, I);
 					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
@@ -823,42 +914,40 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 	u32 IAlloc, ItAlloc, Size, One, Array;
 
+	const type *T = GetType(Node->For.ArrayType);
+
 	// Init
 	{
-		const_value *ValSize = NewType(const_value);
-		ValSize->Type = const_type::Integer;
-		ValSize->Int.Unsigned = Node->For.ArraySize;
+		Array = BuildIRFromExpression(Builder, Node->For.Expr2);
 
-		Size = PushInstruction(Builder, 
-				Instruction(OP_CONST, (u64)ValSize, Basic_int, Builder));
+		if(T->Kind == TypeKind_Array)
+			Size = PushInt(T->Array.MemberCount, Builder);
+		else
+			Size = Array;
 
-		const_value *ValOne = NewType(const_value);
-		ValOne->Type = const_type::Integer;
-		ValOne->Int.Unsigned = 1;
-
-		One = PushInstruction(Builder, 
-				Instruction(OP_CONST, (u64)ValOne, Basic_int, Builder));
-
-		const_value *ValZero = NewType(const_value);
-		ValZero->Type = const_type::Integer;
-		ValZero->Int.Unsigned = 0;
+		One = PushInt(1, Builder);
 
 		IAlloc = PushInstruction(Builder,
 				Instruction(OP_ALLOC, -1, Basic_int, Builder));
-		u32 Zero = PushInstruction(Builder, 
-				Instruction(OP_CONST, (u64)ValZero, Basic_int, Builder));
+		u32 Zero = PushInt(0, Builder);
 		PushInstruction(Builder,
 				InstructionStore(IAlloc, Zero, Basic_int));
 
-		Array = BuildIRFromExpression(Builder, Node->For.Expr2);
+		if(T->Kind == TypeKind_Array)
+		{
+			u32 ElemPtr = PushInstruction(Builder,
+					Instruction(OP_INDEX, Array, Zero, Node->For.ArrayType, Builder));
 
-		u32 ElemPtr = PushInstruction(Builder,
-				Instruction(OP_INDEX, Array, Zero, Node->For.ArrayType, Builder));
+			u32 Elem = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
 
-		u32 Elem = PushInstruction(Builder, 
-				Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
+			ItAlloc = BuildIRStoreVariable(Builder, Elem, Node->For.ItType);
+		}
+		else
+		{
+			ItAlloc = IAlloc;
+		}
 
-		ItAlloc = BuildIRStoreVariable(Builder, Elem, Node->For.ItType);
 		IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
 				*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
 		PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
@@ -895,13 +984,16 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		PushInstruction(Builder,
 				InstructionStore(IAlloc, ToStore, Basic_int));
 
-		u32 ElemPtr = PushInstruction(Builder,
-				Instruction(OP_INDEX, Array, ToStore, Node->For.ArrayType, Builder));
+		if(T->Kind == TypeKind_Array)
+		{
+			u32 ElemPtr = PushInstruction(Builder,
+					Instruction(OP_INDEX, Array, ToStore, Node->For.ArrayType, Builder));
 
-		u32 Elem = PushInstruction(Builder, 
-				Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
+			u32 Elem = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
 
-		PushInstruction(Builder, InstructionStore(ItAlloc, Elem, Node->For.ItType));
+			PushInstruction(Builder, InstructionStore(ItAlloc, Elem, Node->For.ItType));
+		}
 
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	}
@@ -1119,9 +1211,12 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		ForArray(Idx, Args)
 		{
 			u32 Type = INVALID_TYPE;
+			b32 IsArg = true;
 			if(Idx >= FnType->Function.ArgCount)
 			{
-				Type = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+				u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+				Type = GetSliceType(ArgType);
+				IsArg = false;
 			}
 			else
 			{
@@ -1130,7 +1225,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			u32 Register = PushInstruction(&Builder,
 					Instruction(OP_ARG, Idx, Type, &Builder));
 			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
-					Type, true);
+					Type, IsArg);
 			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, Type);
 		}
 
@@ -1231,6 +1326,9 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 	ForArray(I, Block->Code)
 	{
 		instruction Instr = Block->Code[I];
+		if(Instr.Op == OP_DEBUGINFO)
+			continue;
+
 		const type *Type = NULL;
 		if(Instr.Type != INVALID_TYPE)
 			Type = GetType(Instr.Type);
@@ -1407,6 +1505,7 @@ INSIDE_EQ:
 						*Builder += "SCOPE";
 					} break;
 				}
+				
 			} break;
 			case OP_COUNT: unreachable;
 		}

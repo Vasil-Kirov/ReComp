@@ -15,33 +15,37 @@ block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !9
   %1 = alloca [100 x i32], align 4, !dbg !9
   %2 = alloca [4 x i32], align 4, !dbg !9
+  %3 = alloca [4 x i32], align 4, !dbg !10
+  %4 = alloca [100 x i32], align 4, !dbg !10
   call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 420, i1 false), !dbg !9
   call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 400, i1 false), !dbg !9
   call void @llvm.memset.p0.i32(ptr align 4 %2, i8 0, i32 16, i1 false), !dbg !9
-  %3 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %3, ptr align 4 %1, i64 400, i1 false), !dbg !9
-  %4 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %2, i64 16, i1 false), !dbg !9
-  %5 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !9
-  store i32 2, ptr %5, align 4, !dbg !9
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !9
-  %6 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !22
-  %7 = getelementptr [4 x i32], ptr %6, i64 0, i64 2, !dbg !22
-  store i32 3, ptr %7, align 4, !dbg !22
-  %8 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !23
-  %9 = getelementptr [100 x i32], ptr %8, i64 0, i64 50, !dbg !23
-  store i32 1, ptr %9, align 4, !dbg !23
-  %10 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !24
-  %11 = getelementptr [4 x i32], ptr %10, i64 0, i64 2, !dbg !24
-  %12 = load i32, ptr %11, align 4, !dbg !24
-  %13 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !24
-  %14 = getelementptr [100 x i32], ptr %13, i64 0, i64 50, !dbg !24
-  %15 = load i32, ptr %14, align 4, !dbg !24
-  %16 = sub i32 %12, %15, !dbg !24
-  %17 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !24
-  %18 = load i32, ptr %17, align 4, !dbg !24
-  %19 = sub i32 %16, %18, !dbg !24
-  ret i32 %19, !dbg !24
+  %5 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %5, ptr align 4 %1, i64 400, i1 false), !dbg !9
+  %6 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %6, ptr align 4 %2, i64 16, i1 false), !dbg !9
+  %7 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !9
+  store i32 2, ptr %7, align 4, !dbg !9
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !11, metadata !DIExpression()), !dbg !9
+  %8 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !23
+  %9 = getelementptr [4 x i32], ptr %8, i64 0, i64 2, !dbg !23
+  store i32 3, ptr %9, align 4, !dbg !23
+  %10 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !24
+  %11 = getelementptr [100 x i32], ptr %10, i64 0, i64 50, !dbg !24
+  store i32 1, ptr %11, align 4, !dbg !24
+  %12 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !10
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %3, ptr align 4 %12, i64 16, i1 false), !dbg !10
+  %13 = getelementptr [4 x i32], ptr %3, i64 0, i64 2, !dbg !10
+  %14 = load i32, ptr %13, align 4, !dbg !10
+  %15 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !10
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %15, i64 400, i1 false), !dbg !10
+  %16 = getelementptr [100 x i32], ptr %4, i64 0, i64 50, !dbg !10
+  %17 = load i32, ptr %16, align 4, !dbg !10
+  %18 = sub i32 %14, %17, !dbg !10
+  %19 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !10
+  %20 = load i32, ptr %19, align 4, !dbg !10
+  %21 = sub i32 %18, %20, !dbg !10
+  ret i32 %21, !dbg !10
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
@@ -70,18 +74,18 @@ attributes #2 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !8 = !{}
 !9 = !DILocation(line: 11, scope: !4)
-!10 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 11, type: !11)
-!11 = !DICompositeType(tag: DW_TAG_structure_type, name: "__main!Foo", scope: !1, file: !1, size: 3360, elements: !12)
-!12 = !{!13, !14, !18}
-!13 = !DIDerivedType(tag: DW_TAG_member, name: "x", scope: !1, file: !1, baseType: !7, size: 32, align: 32)
-!14 = !DIDerivedType(tag: DW_TAG_member, name: "arr", scope: !1, file: !1, baseType: !15, size: 3200, align: 32, offset: 32)
-!15 = !DICompositeType(tag: DW_TAG_array_type, baseType: !7, size: 3200, align: 32, elements: !16)
-!16 = !{!17}
-!17 = !DISubrange(count: 100, lowerBound: 0)
-!18 = !DIDerivedType(tag: DW_TAG_member, name: "bar", scope: !1, file: !1, baseType: !19, size: 128, align: 32, offset: 3232)
-!19 = !DICompositeType(tag: DW_TAG_array_type, baseType: !7, size: 128, align: 32, elements: !20)
-!20 = !{!21}
-!21 = !DISubrange(count: 4, lowerBound: 0)
-!22 = !DILocation(line: 12, scope: !4)
-!23 = !DILocation(line: 13, scope: !4)
-!24 = !DILocation(line: 14, scope: !4)
+!10 = !DILocation(line: 14, scope: !4)
+!11 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 11, type: !12)
+!12 = !DICompositeType(tag: DW_TAG_structure_type, name: "__main!Foo", scope: !1, file: !1, size: 3360, elements: !13)
+!13 = !{!14, !15, !19}
+!14 = !DIDerivedType(tag: DW_TAG_member, name: "x", scope: !1, file: !1, baseType: !7, size: 32, align: 32)
+!15 = !DIDerivedType(tag: DW_TAG_member, name: "arr", scope: !1, file: !1, baseType: !16, size: 3200, align: 32, offset: 32)
+!16 = !DICompositeType(tag: DW_TAG_array_type, baseType: !7, size: 3200, align: 32, elements: !17)
+!17 = !{!18}
+!18 = !DISubrange(count: 100, lowerBound: 0)
+!19 = !DIDerivedType(tag: DW_TAG_member, name: "bar", scope: !1, file: !1, baseType: !20, size: 128, align: 32, offset: 3232)
+!20 = !DICompositeType(tag: DW_TAG_array_type, baseType: !7, size: 128, align: 32, elements: !21)
+!21 = !{!22}
+!22 = !DISubrange(count: 4, lowerBound: 0)
+!23 = !DILocation(line: 12, scope: !4)
+!24 = !DILocation(line: 13, scope: !4)

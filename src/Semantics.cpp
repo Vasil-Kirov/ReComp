@@ -158,6 +158,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		case AST_ARRAYTYPE:
 		{
 			uint Size = 0;
+			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type);
 			if(TypeNode->ArrayType.Expression)
 			{
 				node *Expr = TypeNode->ArrayType.Expression;
@@ -174,18 +175,17 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 					RaiseError(*Expr->ErrorInfo, "Value given for array type size is too big, cannot reliably allocate it on the stack");
 				}
 				Size = Expr->Constant.Value.Int.Unsigned;
-			}
 
-			type *ArrayType = NewType(type);
-			ArrayType->Kind = TypeKind_Array;
-			ArrayType->Array.Type = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type);
-			ArrayType->Array.MemberCount = Size;
-			return AddType(ArrayType);
+				return GetArrayType(MemberType, Size);
+			}
+			else
+			{
+				return GetSliceType(MemberType);
+			}
 		} break;
 		case AST_FN:
 		{
-			type *FnType = NewType(type);
-			FnType->Kind = TypeKind_Function;
+			type *FnType = AllocType(TypeKind_Function);
 			if(TypeNode->Fn.ReturnType)
 				FnType->Function.Return = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnType);
 			else
@@ -419,7 +419,8 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		int I = FunctionType->Function.ArgCount;
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		u32 Type = GetPointerTo(FindStruct(STR_LIT("__init!ArgList")));
+		u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+		u32 Type = GetSliceType(ArgType);
 		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Decl.ID, NULL, flags);
 
 	}
@@ -428,7 +429,13 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	ForArray(Idx, Body)
 	{
 		if(Body[Idx]->Type == AST_RETURN)
+		{
+			if(Idx + 1 != Body.Count)
+			{
+				RaiseError(*Body[Idx]->ErrorInfo, "Code after return statement is unreachable");
+			}
 			FoundReturn = true;
+		}
 		AnalyzeNode(Checker, Body[Idx]);
 	}
 
@@ -633,12 +640,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			switch(Type->Kind)
 			{
 				case TypeKind_Array: 
+				case TypeKind_Slice:
 				case TypeKind_Struct:
 				break;
 
 				default:
 				{
-					RaiseError(*Expr->ErrorInfo, "Cannot create a list of type %s, not a struct or an array", GetTypeName(Type));
+					RaiseError(*Expr->ErrorInfo, "Cannot create a list of type %s, not a struct, array or slice", GetTypeName(Type));
 				} break;
 			}
 
@@ -670,7 +678,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 			}
 
-			if(NamedStatus == NS_NAMED && Type->Kind == TypeKind_Array)
+			if(NamedStatus == NS_NAMED && (Type->Kind == TypeKind_Array || Type->Kind == TypeKind_Slice))
 			{
 				RaiseError(*Expr->ErrorInfo, "Still haven't implemented named array lists");
 			}
@@ -687,6 +695,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					case TypeKind_Array: 
 					{
 						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression);
+					} break;
+					case TypeKind_Slice:
+					{
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Slice.Type, ItemType, NULL, &Item->Item.Expression);
 					} break;
 					case TypeKind_Struct:
 					{
@@ -770,6 +782,32 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				Expr->Selector.Type = TypeIdx;
 				const type *Type = GetType(TypeIdx);
+				if(Type->Kind == TypeKind_Slice)
+				{
+					if(*Expr->Selector.Member == STR_LIT("count"))
+					{
+					}
+					else
+					{
+						RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on a slice");
+					}
+					Result = Basic_int;
+					break;
+				}
+				if(Type->Kind == TypeKind_Pointer)
+				{
+
+					const type *Pointed = NULL;
+					if(Type->Pointer.Pointed != INVALID_TYPE)
+						Pointed = GetType(Type->Pointer.Pointed);
+					if(!Pointed || Pointed->Kind != TypeKind_Struct)
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
+							GetTypeName(Type));
+					}
+					Type = Pointed;
+				}
+
 				if(Type->Kind != TypeKind_Struct)
 				{
 					RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a non struct type %s",
@@ -825,6 +863,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				case TypeKind_Array:
 				{
 					Result = OperandType->Array.Type;
+				} break;
+				case TypeKind_Slice:
+				{
+					Result = OperandType->Slice.Type;
 				} break;
 				default:
 				{
@@ -1319,18 +1361,21 @@ void AnalyzeFor(checker *Checker, node *Node)
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Node->For.Expr2);
 			const type *T = GetType(TypeIdx);
-			if(T->Kind != TypeKind_Array)
+			if(T->Kind != TypeKind_Array && !HasBasicFlag(T, BasicFlag_Integer))
 			{
 				RaiseError(*Node->For.Expr2->ErrorInfo,
-						"Expression is of non array type %s, only array types support iterating", GetTypeName(T));
+						"Expression is of non iteratable type %s", GetTypeName(T));
 			}
 			Assert(Node->For.Expr1->Type == AST_ID);
-			u32 ItType = T->Array.Type;
+			u32 ItType = INVALID_TYPE;
+			if(T->Kind == TypeKind_Array)
+				ItType = T->Array.Type;
+			else
+				ItType = TypeIdx;
 			AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
 					Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
 			Node->For.ItType = ItType;
 			Node->For.ArrayType = TypeIdx;
-			Node->For.ArraySize = T->Array.MemberCount;
 		} break;
 		case ft::While:
 		{

@@ -30,6 +30,7 @@ enum type_kind
 	TypeKind_Struct  ,
 	TypeKind_Pointer ,
 	TypeKind_Array   ,
+	TypeKind_Slice   ,
 	TypeKind_Vector  ,
 	TypeKind_Generic ,
 };
@@ -104,6 +105,11 @@ struct struct_type
 	u32 Flags;
 };
 
+struct slice_type
+{
+	u32 Type;
+};
+
 struct function_type
 {
 	u32 Return;
@@ -158,6 +164,7 @@ struct type
 		function_type Function;
 		pointer Pointer;
 		array_type Array;
+		slice_type Slice;
 		vector_type Vector;
 		generic_type Generic;
 	};
@@ -198,6 +205,8 @@ b32 HasBasicFlag(const type *Type, u32 FlagMask); // Checks if the type is basic
 b32 IsLoadableType(u32 Type);
 b32 IsLoadableType(const type *Type);
 u32 GetPointerTo(u32 Type, u32 Flags = 0);
+u32 GetArrayType(u32 Type, u32 ElemCount);
+u32 GetSliceType(u32 Type);
 u32 GetNonOptional(const type *OptionalPointer);
 uint GetTypeCount();
 b32 IsRetTypePassInPointer(u32 Type);
@@ -214,6 +223,7 @@ b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 VarArgArrayType(u32 ElemCount);
+b32 IsFn(const type *T);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 

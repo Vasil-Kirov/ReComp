@@ -224,6 +224,7 @@ u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 VarArgArrayType(u32 ElemCount);
 b32 IsFn(const type *T);
+b32 IsString(const type *T, b32 OrCString = false);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 

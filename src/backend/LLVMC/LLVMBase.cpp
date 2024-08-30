@@ -244,6 +244,29 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			gen->map.Add(I.Result, Val);
 		} break;
+		case OP_SL:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			LLVMValueRef Val = LLVMBuildShl(gen->bld, LHS, RHS, "");
+			gen->map.Add(I.Result, Val);
+		} break;
+		case OP_SR:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			LLVMValueRef Val = NULL;
+			const type *T = GetType(I.Type);
+			if(HasBasicFlag(T, BasicFlag_Unsigned))
+			{
+				Val = LLVMBuildLShr(gen->bld, LHS, RHS, "");
+			}
+			else
+			{
+				Val = LLVMBuildAShr(gen->bld, LHS, RHS, "");
+			}
+			gen->map.Add(I.Result, Val);
+		} break;
 		case OP_FN:
 		{
 			function *Fn = (function *)I.BigRegister;
@@ -331,7 +354,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
-			else if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
+			else if(IsString(Type))
 			{
 				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
 			}
@@ -499,6 +522,58 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMIntPredicate Op = LLVMIntEQ;
 				Value = LLVMBuildICmp(gen->bld, Op, LHS, RHS, "");
 			}
+			gen->map.Add(I.Result, Value);
+		} break;
+		case OP_AND:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+
+			LLVMValueRef Value = LLVMBuildAnd(gen->bld, LHS, RHS, "");
+
+			gen->map.Add(I.Result, Value);
+		} break;
+		case OP_OR:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+
+			LLVMValueRef Value = LLVMBuildOr(gen->bld, LHS, RHS, "");
+
+			gen->map.Add(I.Result, Value);
+		} break;
+		case OP_XOR:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+
+			LLVMValueRef Value = LLVMBuildXor(gen->bld, LHS, RHS, "");
+
+			gen->map.Add(I.Result, Value);
+		} break;
+		case OP_LAND:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			LLVMValueRef Zero = LLVMConstNull(LLVMInt1TypeInContext(gen->ctx));
+			LLVMValueRef LNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, LHS, Zero, "");
+			LLVMValueRef RNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, RHS, Zero, "");
+
+			LLVMValueRef Value = LLVMBuildAnd(gen->bld, LNonZero, RNonZero, "");
+
+			gen->map.Add(I.Result, Value);
+		} break;
+		case OP_LOR:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			LLVMValueRef Zero = LLVMConstNull(LLVMInt1TypeInContext(gen->ctx));
+			LLVMValueRef LNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, LHS, Zero, "");
+			LLVMValueRef RNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, RHS, Zero, "");
+
+			LLVMValueRef Value = LLVMBuildOr(gen->bld, LNonZero, RNonZero, "");
+
+			gen->map.Add(I.Result, Value);
 			gen->map.Add(I.Result, Value);
 		} break;
 		case OP_CALL:

@@ -15,6 +15,14 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeCharLiteral(const error_info *ErrorInfo, char C)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_CHARLIT);
+	Result->CharLiteral.C = C;
+
+	return Result;
+}
+
 node *MakeReserve(const error_info *ErrorInfo, reserved ID)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_RESERVED);
@@ -718,6 +726,12 @@ node *ParseOperand(parser *Parser)
 				Result = MakeID(ErrorInfo, Name);
 			}
 		} break;
+		case T_CHAR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeCharLiteral(ErrorInfo, (u8)(u64)Token.ID);
+		} break;
 		case T_VAL:
 		{
 			Result = ParseNumber(Parser);
@@ -755,6 +769,7 @@ node *ParseUnary(parser *Parser)
 	ERROR_INFO;
 	switch(Token.Type)
 	{
+		case T_BANG:
 		case T_QMARK:
 		case T_ADDROF:
 		case T_PTR:

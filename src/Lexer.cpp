@@ -236,6 +236,8 @@ char GetEscapedChar(char ToEscape)
 		return '\\';
 		case 't':
 		return '\t';
+		case '\'':
+		return '\'';
 	}
 	return ToEscape;
 }
@@ -276,6 +278,29 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 		return MakeToken(T_STR, StartErrorInfo,  MakeStringPointer(Tokinized));
 }
 
+token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
+{
+	error_info StartErrorInfo = *ErrorInfo;
+	char c = AdvanceC(String, ErrorInfo);
+	Assert(c == '\'');
+	char inside = AdvanceC(String, ErrorInfo);
+	if(inside == '\\')
+	{
+		char escaped = AdvanceC(String, ErrorInfo);
+		inside = GetEscapedChar(escaped);
+		if(inside == escaped)
+		{
+			RaiseError(StartErrorInfo, "Unkown escape sequence \\%c", escaped);
+		}
+	}
+	char end = AdvanceC(String, ErrorInfo);
+	if(end != '\'')
+	{
+		RaiseError(StartErrorInfo, "Multi character literals are not supported");
+	}
+	return MakeToken(T_CHAR, StartErrorInfo, (string *)(u64)inside);
+}
+
 void SkipWhiteSpace(string *String, error_info *ErrorInfo)
 {
 	while(isspace(PeekC(String)))
@@ -313,6 +338,10 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	if(isdigit(FirstChar) || (FirstChar == '-' && isdigit(PeekCAhead(String, 1))))
 	{
 		return TokinizeNumber(String, ErrorInfo);
+	}
+	if(FirstChar == '\'')
+	{
+		return TokinizeCharLiteral(String, ErrorInfo);
 	}
 	if(FirstChar == '"')
 	{

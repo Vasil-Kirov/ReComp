@@ -267,7 +267,7 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		{
 			if(LHS->Unary.Op != T_PTR)
 				return false;
-			return true;
+			return IsLHSAssignable(Checker, LHS->Unary.Operand);
 		} break;
 		case AST_SELECTOR:
 		{
@@ -782,14 +782,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				Expr->Selector.Type = TypeIdx;
 				const type *Type = GetType(TypeIdx);
-				if(Type->Kind == TypeKind_Slice)
+				if(Type->Kind == TypeKind_Slice || IsString(Type))
 				{
 					if(*Expr->Selector.Member == STR_LIT("count"))
 					{
 					}
 					else
 					{
-						RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on a slice");
+						RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on this type");
 					}
 					Result = Basic_int;
 					break;
@@ -868,6 +868,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					Result = OperandType->Slice.Type;
 				} break;
+				case TypeKind_Basic:
+				{
+					if(!HasBasicFlag(OperandType, BasicFlag_CString))
+						RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
+					Result = Basic_u8;
+				} break;
 				default:
 				{
 					RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
@@ -881,6 +887,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Expr->Index.OperandType = OperandTypeIdx;
 			Expr->Index.IndexedType = Result;
+		} break;
+		case AST_CHARLIT:
+		{
+			Result = Basic_u8;
 		} break;
 		case AST_CONSTANT:
 		{
@@ -913,6 +923,16 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 		{
 			switch(Expr->Unary.Op)
 			{
+				case T_BANG:
+				{
+					u32 TypeIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					const type *Type = GetType(TypeIdx);
+					if(HasBasicFlag(Type, BasicFlag_Boolean))
+					{
+						RaiseError(*Expr->ErrorInfo, "Expected boolean, found %s", GetTypeName(Type));
+					}
+					return Basic_bool;
+				} break;
 				case T_QMARK:
 				{
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);

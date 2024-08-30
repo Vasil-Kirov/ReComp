@@ -1,17 +1,45 @@
 string
 #import os
 
-
-index :: fn(data: *u8, count: int, i: int) -> u8 {
-    if i >= count {
-        os.abort();
+format_uint :: fn(num_in: u64, out_count: *uint) -> [256]u8 {
+    buff := [256]u8{};
+    temp := [256]u8{};
+    num := num_in;
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + digit;
+        temp[count] = @u8 c;
+        count += 1;
     }
 
-    byte_idx := 0;
-    char_idx := 0;
-    //for {
-    //    if data[byte_idx] & 0b_11
-    //}
-    return 0;
+    for i in count {
+        buff[i] = temp[count - i - 1];
+    }
+    
+    out := out_count;
+    *out = @uint count;
+    return buff;
+}
+
+print_int :: fn(num: u32) {
+    count: uint;
+    buff := format_uint(num, &count);
+    os.print(&buff[0], @u32 count);
+}
+
+get_next :: fn(curr: *u8) -> u32 {
+    scan := curr;
+    codepoint := @u32 *scan;
+    for {
+        if (*scan & 0b1000_0000) != 0 {
+            scan = scan + 1;
+            codepoint = ((codepoint << 8) | @u32 *scan);
+        } else {
+            return codepoint;
+        }
+    }
+    return codepoint;
 }
 

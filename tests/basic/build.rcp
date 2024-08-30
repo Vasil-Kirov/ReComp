@@ -1,1 +1,7 @@
-build   compile :: fn(out: *CompileInfo) { 	to_fill := *out;  	to_fill.files[0] = c"basic.rcp";  	to_fill.file_count = 1;  	*out = to_fill; } 
+build
+
+compile :: fn(out: *CompileInfo) {
+    to_fill := out;
+    to_fill.files[0] = c"basic.rcp";
+    to_fill.file_count = 1;
+} 

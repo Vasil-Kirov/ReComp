@@ -23,6 +23,7 @@ enum class for_type
 enum node_type
 {
 	AST_INVALID,
+	AST_CHARLIT,
 	AST_CONSTANT,
 	AST_BINARY,
 	AST_UNARY,
@@ -133,6 +134,9 @@ struct node
 			u32 FromType;
 			u32 ToType;
 		} Cast;
+		struct {
+			char C;
+		} CharLiteral;
 		struct {
 			const_value Value;
 			u32 Type;

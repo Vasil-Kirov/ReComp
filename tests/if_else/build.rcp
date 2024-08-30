@@ -1,0 +1,7 @@
+build
+
+compile :: fn(out: *CompileInfo) {
+	to_fill := out;
+	to_fill.files[0] = c"if_else.rcp";
+	to_fill.file_count = 1;
+}

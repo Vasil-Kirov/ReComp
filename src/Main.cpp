@@ -444,26 +444,77 @@ main(int ArgCount, char *Args[])
 
 const char* GetTokenName(token_type Token) {
     switch (Token) {
-        case T_EOF:   return "End of File";
-        case T_ID:    return "Identifier";
-        case T_IF:    return "if";
-        case T_FOR:   return "for";
-        case T_VAL:   return "Number";
-        case T_STR:   return "String";
-        case T_NEQ:   return "!=";
-        case T_GEQ:   return ">=";
-        case T_LEQ:   return "<=";
-        case T_EQEQ:  return "==";
-        case T_ARR:   return "->";
-        case T_PPLUS: return "++";
-        case T_MMIN:  return "--";
-        default:
-		{
-			char *C = AllocateString(2);
-			C[0] = (char)Token;
-			C[1] = 0;
-			return C;
-		}
+		case T_PTR:         return "*";
+        case T_ADDROF:      return "&";
+		case T_DECL:        return ":";
+        case T_STARTSCOPE:  return "{";
+        case T_ENDSCOPE:    return "}";
+        case T_OPENPAREN:   return "(";
+        case T_CLOSEPAREN:  return ")";
+        case T_OPENBRACKET: return "[";
+        case T_CLOSEBRACKET:return "]";
+        case T_CAST:        return "Cast";
+        case T_EQ:          return "=";
+        case T_LESS:        return "<";
+        case T_GREAT:       return ">";
+        case T_COMMA:       return ",";
+        case T_DOT:         return ".";
+        case T_QMARK:       return "?";
+        case T_BANG:        return "!";
+        case T_SEMICOL:     return ";";
+        case T_EOF:         return "End of File";
+        case T_ID:          return "Identifier";
+        case T_IF:          return "if";
+        case T_ELSE:        return "else";
+        case T_FOR:         return "for";
+        case T_VAL:         return "Number";
+        case T_STR:         return "String";
+        case T_NEQ:         return "!=";
+		case T_GEQ:         return ">=";
+        case T_LEQ:         return "<=";
+        case T_EQEQ:        return "==";
+        case T_ARR:         return "->";
+        case T_PPLUS:       return "++";
+        case T_MMIN:        return "--";
+        case T_LOR:         return "||";
+        case T_LAND:        return "&&";
+        case T_SLEFT:       return "<<";
+        case T_SRIGHT:      return ">>";
+        case T_PEQ:         return "+=";
+        case T_MEQ:         return "-=";
+        case T_TEQ:         return "*=";
+        case T_DEQ:         return "/=";
+        case T_MODEQ:       return "%=";
+        case T_SLEQ:        return "<<=";
+        case T_SREQ:        return ">>=";
+        case T_ANDEQ:       return "&=";
+        case T_XOREQ:       return "^=";
+        case T_OREQ:        return "|=";
+        case T_FN:          return "fn";
+		case T_CONST:       return "::";
+        case T_SHADOW:      return "#shadow";
+        case T_RETURN:      return "return";
+        case T_AUTOCAST:    return "xx";
+        case T_FOREIGN:     return "#foreign";
+        case T_CSTR:        return "C String";
+        case T_STRUCT:      return "struct";
+        case T_IMPORT:      return "#import";
+        case T_AS:          return "as";
+        case T_PUBLIC:      return "#public";
+        case T_PRIVATE:     return "#private";
+        case T_SIZEOF:      return "size_of";
+        case T_IN:          return "in";
+        case T_BREAK:       return "break";
+        case T_TYPEOF:      return "type_of";
+        case T_VARARG:      return "...";
+        case T_PWDIF:       return "#if";
+        case T_CHAR:        return "Character";
+        default: {
+            char *C = AllocateString(2);
+            C[0] = (char)Token;
+            C[1] = 0;
+            return C;
+        }
     }
 }
 

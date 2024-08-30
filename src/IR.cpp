@@ -24,9 +24,9 @@ inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 	return Result;
 }
 
-inline u32 PushInt(u64 Value, block_builder *Builder)
+inline u32 PushInt(u64 Value, block_builder *Builder, u32 Type = Basic_int)
 {
-	return PushInstruction(Builder, Instruction(OP_CONSTINT, Value, Basic_int, Builder));
+	return PushInstruction(Builder, Instruction(OP_CONSTINT, Value, Type, Builder));
 }
 
 inline instruction InstructionDebugInfo(ir_debug_info *Info)
@@ -645,7 +645,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
 				const type *Type = GetType(Node->Selector.Type);
 				
-				if(Type->Kind == TypeKind_Slice)
+				if(Type->Kind == TypeKind_Slice || IsString(Type))
 				{
 					Result = PushInstruction(Builder, 
 							Instruction(OP_INDEX, Operand, 0, Node->Selector.Type, Builder));
@@ -657,8 +657,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					u32 TypeIdx = Node->Selector.Type;
 					if(Type->Kind == TypeKind_Pointer)
 					{
+						// @NOTE: Pointers to structs are a bit weird here
+						const type *Pointed = GetType(Type->Pointer.Pointed);
+						u32 LoadType = Type->Pointer.Pointed;
+						if(Pointed->Kind == TypeKind_Struct)
+							LoadType = GetPointerTo(Type->Pointer.Pointed);
+
 						Operand = PushInstruction(Builder, 
-								Instruction(OP_LOAD, 0, Operand, Type->Pointer.Pointed, Builder));
+								Instruction(OP_LOAD, 0, Operand, LoadType, Builder));
 						TypeIdx = Type->Pointer.Pointed;
 						Type = GetType(Type->Pointer.Pointed);
 					}
@@ -675,6 +681,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 			}
 
+		} break;
+		case AST_CHARLIT:
+		{
+			Result = PushInt(Node->CharLiteral.C, Builder, Basic_u8);
 		} break;
 		case AST_CONSTANT:
 		{
@@ -728,6 +738,13 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			switch(Node->Unary.Op)
 			{
+				case T_BANG:
+				{
+					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
+					u32 False = PushInt(0, Builder, Basic_bool);
+					instruction I = Instruction(OP_NEQ, Expr, False, Basic_bool, Builder);
+					Result = PushInstruction(Builder, I);
+				} break;
 				case T_PTR:
 				{
 					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
@@ -793,7 +810,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			} break;
 			case '%':
 			{
-				I = Instruction(OP_DIV, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_MOD, Left, Right, Node->Binary.ExpressionType, Builder);
 			} break;
 			case '=':
 			{
@@ -803,6 +820,26 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 					PushInstruction(Builder, I);
 					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
 				}
+			} break;
+			case '&':
+			{
+				I = Instruction(OP_AND, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case '|':
+			{
+				I = Instruction(OP_OR, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case '^':
+			{
+				I = Instruction(OP_XOR, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case T_SLEFT:
+			{
+				I = Instruction(OP_SL, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case T_SRIGHT:
+			{
+				I = Instruction(OP_SR, Left, Right, Node->Binary.ExpressionType, Builder);
 			} break;
 			case T_GREAT:
 			{
@@ -820,9 +857,17 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 				op Op = (op)((-Node->Binary.Op - -T_NEQ) + OP_NEQ);
 				I = Instruction(Op, Left, Right, Node->Binary.ExpressionType, Builder);
 			} break;
+			case T_LAND:
+			{
+				I = Instruction(OP_LAND, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
+			case T_LOR:
+			{
+				I = Instruction(OP_LOR, Left, Right, Node->Binary.ExpressionType, Builder);
+			} break;
 			default:
 			{
-				LDEBUG("%c", (char)Node->Binary.Op);
+				LDEBUG("%d", (int)Node->Binary.Op);
 				Assert(false);
 			} break;
 		};
@@ -865,8 +910,17 @@ u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx)
 void BuildIRFromDecleration(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
-	u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-	u32 Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
+	u32 Var = -1;
+	if(Node->Decl.Expression)
+	{
+		u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
+		Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
+	}
+	else
+	{
+		Var = PushInstruction(Builder,
+				Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+	}
 	IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.ID, Node->Decl.TypeIndex, Var);
 	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex);
 }
@@ -1478,7 +1532,14 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			CASE_OP(OP_GEQ,   ">=")
 			CASE_OP(OP_LESS,  "<")
 			CASE_OP(OP_LEQ,   "<=")
+			CASE_OP(OP_SL,    "<<")
+			CASE_OP(OP_SR,    ">>")
 			CASE_OP(OP_EQEQ,  "==")
+			CASE_OP(OP_LAND,  "&&")
+			CASE_OP(OP_LOR,   "||")
+			CASE_OP(OP_AND,   "&")
+			CASE_OP(OP_OR,    "|")
+			CASE_OP(OP_XOR,   "^")
 			goto INSIDE_EQ;
 			{
 INSIDE_EQ:

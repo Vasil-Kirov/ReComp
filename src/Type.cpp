@@ -685,6 +685,14 @@ b32 IsLoadableType(const type *Type)
 	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function;
 }
 
+b32 IsString(const type *T, b32 OrCString)
+{
+	if(OrCString && HasBasicFlag(T, BasicFlag_CString))
+		return true;
+
+	return HasBasicFlag(T, BasicFlag_String);
+}
+
 b32 IsFn(const type *T)
 {
 	return T->Kind == TypeKind_Function;

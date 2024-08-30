@@ -1,7 +1,27 @@
 os
 
-abort :: fn() {
+#if Windows
+(
+    STD_INPUT_HANDLE  :: @u32 -10;
+    STD_OUTPUT_HANDLE :: @u32 -11;
+    STD_ERROR_HANDLE  :: @u32 -12;
+    INVALID_HANDLE_VALUE :: @?* @u64 -1;
 
-    return;
-}
+    WriteFile :: fn #foreign(hFile: *, lpBuff: *, nBytesToWrite: u32, lpBytesWritten: *u32, lpOverlapped: ?*) -> bool;
+    GetStdHandle :: fn #foreign(Handle: u32) -> ?*;
+    ExitProcess :: fn #foreign(ExitCode: u32);
+
+    abort :: fn() {
+        ExitProcess(1);
+        return;
+    }
+
+    print :: fn(data: *u8, count: u32) {
+        handle := GetStdHandle(STD_OUTPUT_HANDLE);
+        written: u32;
+        if (handle != null) && (handle != INVALID_HANDLE_VALUE) {
+            WriteFile(?handle, data, count, &written, null);
+        }
+    }
+)
 

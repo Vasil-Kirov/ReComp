@@ -1,5 +1,7 @@
 main
 
+#import string
+
 struct Foo {
 	x: [1024]fn(a: ?*) -> i32,
 }
@@ -31,6 +33,7 @@ my_str :: fn(f: *SFloat) -> f32 {
 #if Windows
 (
     main :: fn() -> i32 {
+        string.print_int(102349);
         return 0b1000_1111;
     }
 )

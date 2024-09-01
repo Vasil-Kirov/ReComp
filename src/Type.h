@@ -241,6 +241,7 @@ u32 FindStruct(string Name);
 u32 VarArgArrayType(u32 ElemCount);
 u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
 b32 IsFn(const type *T);
+b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);
 
 uint GetPaddingForAlignment(uint Size, uint Align);

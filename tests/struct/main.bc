@@ -15,37 +15,40 @@ block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !9
   %1 = alloca [100 x i32], align 4, !dbg !9
   %2 = alloca [4 x i32], align 4, !dbg !9
-  %3 = alloca [4 x i32], align 4, !dbg !10
-  %4 = alloca [100 x i32], align 4, !dbg !10
+  %3 = alloca %"__main!Foo", align 8, !dbg !9
+  %4 = alloca [4 x i32], align 4, !dbg !10
+  %5 = alloca [100 x i32], align 4, !dbg !10
   call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 420, i1 false), !dbg !9
   call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 400, i1 false), !dbg !9
   call void @llvm.memset.p0.i32(ptr align 4 %2, i8 0, i32 16, i1 false), !dbg !9
-  %5 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %5, ptr align 4 %1, i64 400, i1 false), !dbg !9
-  %6 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !9
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %6, ptr align 4 %2, i64 16, i1 false), !dbg !9
-  %7 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !9
-  store i32 2, ptr %7, align 4, !dbg !9
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !11, metadata !DIExpression()), !dbg !9
-  %8 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !23
-  %9 = getelementptr [4 x i32], ptr %8, i64 0, i64 2, !dbg !23
-  store i32 3, ptr %9, align 4, !dbg !23
-  %10 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !24
-  %11 = getelementptr [100 x i32], ptr %10, i64 0, i64 50, !dbg !24
-  store i32 1, ptr %11, align 4, !dbg !24
-  %12 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !10
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %3, ptr align 4 %12, i64 16, i1 false), !dbg !10
-  %13 = getelementptr [4 x i32], ptr %3, i64 0, i64 2, !dbg !10
-  %14 = load i32, ptr %13, align 4, !dbg !10
-  %15 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !10
-  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %15, i64 400, i1 false), !dbg !10
-  %16 = getelementptr [100 x i32], ptr %4, i64 0, i64 50, !dbg !10
-  %17 = load i32, ptr %16, align 4, !dbg !10
-  %18 = sub i32 %14, %17, !dbg !10
-  %19 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !10
-  %20 = load i32, ptr %19, align 4, !dbg !10
-  %21 = sub i32 %18, %20, !dbg !10
-  ret i32 %21, !dbg !10
+  call void @llvm.memset.p0.i32(ptr align 8 %3, i8 0, i32 420, i1 false), !dbg !9
+  %6 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 1, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %6, ptr align 4 %1, i64 400, i1 false), !dbg !9
+  %7 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 2, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %7, ptr align 4 %2, i64 16, i1 false), !dbg !9
+  %8 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !9
+  store i32 2, ptr %8, align 4, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %3, ptr align 4 %0, i64 420, i1 false), !dbg !9
+  call void @llvm.dbg.declare(metadata ptr %3, metadata !11, metadata !DIExpression()), !dbg !9
+  %9 = getelementptr inbounds %"__main!Foo", ptr %3, i32 0, i32 2, !dbg !23
+  %10 = getelementptr [4 x i32], ptr %9, i64 0, i64 2, !dbg !23
+  store i32 3, ptr %10, align 4, !dbg !23
+  %11 = getelementptr inbounds %"__main!Foo", ptr %3, i32 0, i32 1, !dbg !24
+  %12 = getelementptr [100 x i32], ptr %11, i64 0, i64 50, !dbg !24
+  store i32 1, ptr %12, align 4, !dbg !24
+  %13 = getelementptr inbounds %"__main!Foo", ptr %3, i32 0, i32 2, !dbg !10
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %4, ptr align 4 %13, i64 16, i1 false), !dbg !10
+  %14 = getelementptr [4 x i32], ptr %4, i64 0, i64 2, !dbg !10
+  %15 = load i32, ptr %14, align 4, !dbg !10
+  %16 = getelementptr inbounds %"__main!Foo", ptr %3, i32 0, i32 1, !dbg !10
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %5, ptr align 4 %16, i64 400, i1 false), !dbg !10
+  %17 = getelementptr [100 x i32], ptr %5, i64 0, i64 50, !dbg !10
+  %18 = load i32, ptr %17, align 4, !dbg !10
+  %19 = sub i32 %15, %18, !dbg !10
+  %20 = getelementptr inbounds %"__main!Foo", ptr %3, i32 0, i32 0, !dbg !10
+  %21 = load i32, ptr %20, align 4, !dbg !10
+  %22 = sub i32 %19, %21, !dbg !10
+  ret i32 %22, !dbg !10
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)

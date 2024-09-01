@@ -12,47 +12,58 @@ block_0:
 
 define i32 @"__main!sum"(i32 %0, i32 %1) !dbg !4 {
 block_0:
-  call void @llvm.dbg.value(metadata i32 %0, metadata !9, metadata !DIExpression()), !dbg !10
-  call void @llvm.dbg.value(metadata i32 %1, metadata !11, metadata !DIExpression()), !dbg !10
-  %2 = add i32 %0, %1, !dbg !12
-  ret i32 %2, !dbg !12
+  %2 = alloca i32, align 4, !dbg !9
+  %3 = alloca i32, align 4, !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %2, i8 0, i32 4, i1 false), !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %3, i8 0, i32 4, i1 false), !dbg !9
+  store i32 %0, ptr %2, align 4, !dbg !9
+  call void @llvm.dbg.value(metadata ptr %2, metadata !10, metadata !DIExpression()), !dbg !9
+  store i32 %1, ptr %3, align 4, !dbg !9
+  call void @llvm.dbg.value(metadata ptr %3, metadata !11, metadata !DIExpression()), !dbg !9
+  %4 = load i32, ptr %2, align 4, !dbg !12
+  %5 = load i32, ptr %3, align 4, !dbg !12
+  %6 = add i32 %4, %5, !dbg !12
+  ret i32 %6, !dbg !12
 }
 
 define i32 @"__main!main"() !dbg !13 {
 block_0:
   %0 = alloca %"__main!Foo", align 8, !dbg !16
   %1 = alloca [1024 x ptr], align 8, !dbg !16
-  %2 = alloca [1024 x ptr], align 8, !dbg !17
+  %2 = alloca %"__main!Foo", align 8, !dbg !16
+  %3 = alloca [1024 x ptr], align 8, !dbg !17
   call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 8192, i1 false), !dbg !16
   call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8192, i1 false), !dbg !16
-  %3 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !16
-  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %3, ptr align 8 %1, i64 8192, i1 false), !dbg !16
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !18, metadata !DIExpression()), !dbg !16
-  %4 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !26
-  %5 = getelementptr [1024 x ptr], ptr %4, i64 0, i64 513, !dbg !26
-  store ptr @"__main!sum", ptr %5, align 8, !dbg !26
-  %6 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !17
-  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %2, ptr align 8 %6, i64 8192, i1 false), !dbg !17
-  %7 = getelementptr [1024 x ptr], ptr %2, i64 0, i64 513, !dbg !17
-  %8 = load ptr, ptr %7, align 8, !dbg !17
-  %9 = call i32 %8(i32 3, i32 -3), !dbg !17
-  ret i32 %9, !dbg !17
+  call void @llvm.memset.p0.i32(ptr align 8 %2, i8 0, i32 8192, i1 false), !dbg !16
+  %4 = getelementptr inbounds %"__main!Foo", ptr %0, i32 0, i32 0, !dbg !16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %4, ptr align 8 %1, i64 8192, i1 false), !dbg !16
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %2, ptr align 8 %0, i64 8192, i1 false), !dbg !16
+  call void @llvm.dbg.declare(metadata ptr %2, metadata !18, metadata !DIExpression()), !dbg !16
+  %5 = getelementptr inbounds %"__main!Foo", ptr %2, i32 0, i32 0, !dbg !26
+  %6 = getelementptr [1024 x ptr], ptr %5, i64 0, i64 513, !dbg !26
+  store ptr @"__main!sum", ptr %6, align 8, !dbg !26
+  %7 = getelementptr inbounds %"__main!Foo", ptr %2, i32 0, i32 0, !dbg !17
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %3, ptr align 8 %7, i64 8192, i1 false), !dbg !17
+  %8 = getelementptr [1024 x ptr], ptr %3, i64 0, i64 513, !dbg !17
+  %9 = load ptr, ptr %8, align 8, !dbg !17
+  %10 = call i32 %9(i32 3, i32 -3), !dbg !17
+  ret i32 %10, !dbg !17
 }
 
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.value(metadata, metadata, metadata) #0
-
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #1
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
 declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
 
 !llvm.dbg.cu = !{!0}
@@ -67,8 +78,8 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !6 = !{!7, !7, !7}
 !7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !8 = !{}
-!9 = !DILocalVariable(name: "a", scope: !4, file: !1, line: 7, type: !7)
-!10 = !DILocation(line: 7, scope: !4)
+!9 = !DILocation(line: 7, scope: !4)
+!10 = !DILocalVariable(name: "a", scope: !4, file: !1, line: 7, type: !7)
 !11 = !DILocalVariable(name: "b", arg: 1, scope: !4, file: !1, line: 7, type: !7)
 !12 = !DILocation(line: 8, scope: !4)
 !13 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 11, type: !14, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)

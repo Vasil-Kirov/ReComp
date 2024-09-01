@@ -10,33 +10,43 @@ block_0:
 
 define i32 @"__main!my_32_fn"(i32 %0) !dbg !4 {
 block_0:
-  call void @llvm.dbg.value(metadata i32 %0, metadata !9, metadata !DIExpression()), !dbg !10
+  %1 = alloca i32, align 4, !dbg !9
+  call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 4, i1 false), !dbg !9
+  store i32 %0, ptr %1, align 4, !dbg !9
+  call void @llvm.dbg.value(metadata ptr %1, metadata !10, metadata !DIExpression()), !dbg !9
   ret i32 32, !dbg !11
 }
 
 define i32 @"__main!my_16_fn"(i32 %0) !dbg !12 {
 block_0:
-  call void @llvm.dbg.value(metadata i32 %0, metadata !13, metadata !DIExpression()), !dbg !14
+  %1 = alloca i32, align 4, !dbg !13
+  call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 4, i1 false), !dbg !13
+  store i32 %0, ptr %1, align 4, !dbg !13
+  call void @llvm.dbg.value(metadata ptr %1, metadata !14, metadata !DIExpression()), !dbg !13
   ret i32 16, !dbg !15
 }
 
 define i32 @"__main!call_lambda"(ptr %0) !dbg !16 {
 block_0:
-  call void @llvm.dbg.value(metadata ptr %0, metadata !19, metadata !DIExpression()), !dbg !20
-  %1 = call i32 %0(i32 16), !dbg !21
-  ret i32 %1, !dbg !21
+  %1 = alloca ptr, align 8, !dbg !20
+  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8, i1 false), !dbg !20
+  store ptr %0, ptr %1, align 8, !dbg !20
+  call void @llvm.dbg.value(metadata ptr %1, metadata !21, metadata !DIExpression()), !dbg !20
+  %2 = load ptr, ptr %1, align 8, !dbg !22
+  %3 = call i32 %2(i32 16), !dbg !22
+  ret i32 %3, !dbg !22
 }
 
-define i32 @"__main!main"() !dbg !22 {
+define i32 @"__main!main"() !dbg !23 {
 block_0:
-  %0 = alloca ptr, align 8, !dbg !25
-  %1 = alloca ptr, align 8, !dbg !26
-  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 8, i1 false), !dbg !25
-  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8, i1 false), !dbg !26
-  store ptr @__lambda_lambda.rcp17, ptr %0, align 8, !dbg !25
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !27, metadata !DIExpression()), !dbg !25
-  store ptr @"__main!my_32_fn", ptr %1, align 8, !dbg !26
-  call void @llvm.dbg.declare(metadata ptr %1, metadata !29, metadata !DIExpression()), !dbg !26
+  %0 = alloca ptr, align 8, !dbg !26
+  %1 = alloca ptr, align 8, !dbg !27
+  call void @llvm.memset.p0.i32(ptr align 8 %0, i8 0, i32 8, i1 false), !dbg !26
+  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8, i1 false), !dbg !27
+  store ptr @__lambda_lambda.rcp17, ptr %0, align 8, !dbg !26
+  call void @llvm.dbg.declare(metadata ptr %0, metadata !28, metadata !DIExpression()), !dbg !26
+  store ptr @"__main!my_32_fn", ptr %1, align 8, !dbg !27
+  call void @llvm.dbg.declare(metadata ptr %1, metadata !30, metadata !DIExpression()), !dbg !27
   store ptr @"__main!my_16_fn", ptr %1, align 8, !dbg !31
   %2 = load ptr, ptr %0, align 8, !dbg !32
   %3 = call i32 %2(), !dbg !32
@@ -48,11 +58,11 @@ block_0:
   ret i32 %8, !dbg !32
 }
 
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.value(metadata, metadata, metadata) #0
-
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
-declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #1
+declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 
 define private i32 @__lambda_lambda.rcp17() !dbg !33 {
 block_0:
@@ -60,16 +70,20 @@ block_0:
 }
 
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 define private i32 @__lambda_lambda.rcp24(i32 %0) !dbg !35 {
 block_0:
-  call void @llvm.dbg.value(metadata i32 %0, metadata !36, metadata !DIExpression()), !dbg !37
-  ret i32 %0, !dbg !38
+  %1 = alloca i32, align 4, !dbg !36
+  call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 4, i1 false), !dbg !36
+  store i32 %0, ptr %1, align 4, !dbg !36
+  call void @llvm.dbg.value(metadata ptr %1, metadata !37, metadata !DIExpression()), !dbg !36
+  %2 = load i32, ptr %1, align 4, !dbg !38
+  ret i32 %2, !dbg !38
 }
 
-attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
+attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}
@@ -83,33 +97,33 @@ attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: write) }
 !6 = !{!7, !7}
 !7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !8 = !{}
-!9 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 3, type: !7)
-!10 = !DILocation(line: 3, scope: !4)
+!9 = !DILocation(line: 3, scope: !4)
+!10 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 3, type: !7)
 !11 = !DILocation(line: 4, scope: !4)
 !12 = distinct !DISubprogram(name: "my_16_fn", linkageName: "__main!my_16_fn", scope: !1, file: !1, line: 7, type: !5, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
-!13 = !DILocalVariable(name: "x", scope: !12, file: !1, line: 7, type: !7)
-!14 = !DILocation(line: 7, scope: !12)
+!13 = !DILocation(line: 7, scope: !12)
+!14 = !DILocalVariable(name: "x", scope: !12, file: !1, line: 7, type: !7)
 !15 = !DILocation(line: 8, scope: !12)
 !16 = distinct !DISubprogram(name: "call_lambda", linkageName: "__main!call_lambda", scope: !1, file: !1, line: 11, type: !17, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
 !17 = !DISubroutineType(types: !18)
-!18 = !{!7, !5}
-!19 = !DILocalVariable(name: "f", scope: !16, file: !1, line: 11, type: !5)
+!18 = !{!7, !19}
+!19 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn(i32) -> i32", baseType: !5, size: 64, align: 64, dwarfAddressSpace: 0)
 !20 = !DILocation(line: 11, scope: !16)
-!21 = !DILocation(line: 13, scope: !16)
-!22 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 16, type: !23, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
-!23 = !DISubroutineType(types: !24)
-!24 = !{!7}
-!25 = !DILocation(line: 17, scope: !22)
-!26 = !DILocation(line: 21, scope: !22)
-!27 = !DILocalVariable(name: "my_lambda", scope: !22, file: !1, line: 17, type: !28)
-!28 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn() -> i32", baseType: !23, size: 64, align: 64, dwarfAddressSpace: 0)
-!29 = !DILocalVariable(name: "fn_ptr", scope: !22, file: !1, line: 21, type: !30)
-!30 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn(i32) -> i32", baseType: !5, size: 64, align: 64, dwarfAddressSpace: 0)
-!31 = !DILocation(line: 22, scope: !22)
-!32 = !DILocation(line: 24, scope: !22)
-!33 = distinct !DISubprogram(name: "__lambda_lambda.rcp17", linkageName: "__main!__lambda_lambda.rcp17", scope: !1, file: !1, line: 17, type: !23, spFlags: DISPFlagDefinition, unit: !0)
+!21 = !DILocalVariable(name: "f", scope: !16, file: !1, line: 11, type: !19)
+!22 = !DILocation(line: 13, scope: !16)
+!23 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 16, type: !24, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
+!24 = !DISubroutineType(types: !25)
+!25 = !{!7}
+!26 = !DILocation(line: 17, scope: !23)
+!27 = !DILocation(line: 21, scope: !23)
+!28 = !DILocalVariable(name: "my_lambda", scope: !23, file: !1, line: 17, type: !29)
+!29 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*fn() -> i32", baseType: !24, size: 64, align: 64, dwarfAddressSpace: 0)
+!30 = !DILocalVariable(name: "fn_ptr", scope: !23, file: !1, line: 21, type: !19)
+!31 = !DILocation(line: 22, scope: !23)
+!32 = !DILocation(line: 24, scope: !23)
+!33 = distinct !DISubprogram(name: "__lambda_lambda.rcp17", linkageName: "__main!__lambda_lambda.rcp17", scope: !1, file: !1, line: 17, type: !24, spFlags: DISPFlagDefinition, unit: !0)
 !34 = !DILocation(line: 18, scope: !33)
 !35 = distinct !DISubprogram(name: "__lambda_lambda.rcp24", linkageName: "__main!__lambda_lambda.rcp24", scope: !1, file: !1, line: 24, type: !5, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !8)
-!36 = !DILocalVariable(name: "x", scope: !35, file: !1, line: 24, type: !7)
-!37 = !DILocation(line: 24, scope: !35)
+!36 = !DILocation(line: 24, scope: !35)
+!37 = !DILocalVariable(name: "x", scope: !35, file: !1, line: 24, type: !7)
 !38 = !DILocation(line: 25, scope: !35)

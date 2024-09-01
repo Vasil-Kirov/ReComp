@@ -11,12 +11,16 @@ block_0:
 define void @"__main!to_zero"(ptr %0) !dbg !4 {
 block_0:
   %1 = alloca ptr, align 8, !dbg !10
+  %2 = alloca ptr, align 8, !dbg !11
   call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8, i1 false), !dbg !10
-  call void @llvm.dbg.value(metadata ptr %0, metadata !11, metadata !DIExpression()), !dbg !12
+  call void @llvm.memset.p0.i32(ptr align 8 %2, i8 0, i32 8, i1 false), !dbg !11
   store ptr %0, ptr %1, align 8, !dbg !10
-  call void @llvm.dbg.declare(metadata ptr %1, metadata !13, metadata !DIExpression()), !dbg !10
-  %2 = load ptr, ptr %1, align 8, !dbg !14
-  store i32 0, ptr %2, align 4, !dbg !14
+  call void @llvm.dbg.value(metadata ptr %1, metadata !12, metadata !DIExpression()), !dbg !10
+  %3 = load ptr, ptr %1, align 8, !dbg !11
+  store ptr %3, ptr %2, align 8, !dbg !11
+  call void @llvm.dbg.declare(metadata ptr %2, metadata !13, metadata !DIExpression()), !dbg !11
+  %4 = load ptr, ptr %2, align 8, !dbg !14
+  store i32 0, ptr %4, align 4, !dbg !14
   ret void, !dbg !14
 }
 
@@ -56,9 +60,9 @@ attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !7 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*i32", baseType: !8, size: 64, align: 64, dwarfAddressSpace: 0)
 !8 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !9 = !{}
-!10 = !DILocation(line: 4, scope: !4)
-!11 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 3, type: !7)
-!12 = !DILocation(line: 3, scope: !4)
+!10 = !DILocation(line: 3, scope: !4)
+!11 = !DILocation(line: 4, scope: !4)
+!12 = !DILocalVariable(name: "x", scope: !4, file: !1, line: 3, type: !7)
 !13 = !DILocalVariable(name: "change", scope: !4, file: !1, line: 4, type: !7)
 !14 = !DILocation(line: 5, scope: !4)
 !15 = distinct !DISubprogram(name: "main", linkageName: "__main!main", scope: !1, file: !1, line: 8, type: !16, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !9)

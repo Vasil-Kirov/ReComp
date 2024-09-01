@@ -501,6 +501,12 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		*IdxOut = *IdxOut + 1;
 		return;
 	}
+	else if(ArgType->Kind == TypeKind_Slice)
+	{
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		*IdxOut = *IdxOut + 1;
+		return;
+	}
 
 	Assert(ArgType->Kind == TypeKind_Struct);
 	int Size = GetTypeSize(ArgType);

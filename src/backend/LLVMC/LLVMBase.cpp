@@ -414,6 +414,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
 				gen->map.Add(I.Result, Value);
 			}
+			else if(T->Kind == TypeKind_Function)
+			{
+				u32 FnPtr = GetPointerTo(I.Type);
+				LLVMType = ConvertToLLVMType(gen->ctx, FnPtr);
+				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
+				gen->map.Add(I.Result, Value);
+			}
 			else
 			{
 				LLVMValueRef Value = gen->map.Get(I.Result);
@@ -653,6 +660,7 @@ void RCGenerateFunction(generator *gen, function fn)
 
 	gen->CurrentBlock = -1;
 	RCSetBlock(gen, 0);
+	LDEBUG("Fn: %s", fn.Name->Data);
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];

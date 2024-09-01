@@ -100,14 +100,14 @@ basic_block AllocateBlock(block_builder *Builder)
 }
 
 // @TODO: no? like why no scope tracking
-void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, b32 IsArg = false)
+void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, u32 Flags)
 {
 	//LDEBUG("Pushing: %s", Name->Data);
 	ir_symbol Local;
 	Local.Register = Register;
 	Local.Name  = Name;
 	Local.Type  = Type;
-	Local.IsArg = IsArg;
+	Local.Flags = Flags;
 	Function->Locals[Function->LocalCount++] = Local;
 }
 
@@ -171,6 +171,12 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		return;
 	}
 	else if(ArgType->Kind == TypeKind_Function)
+	{
+		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		Args.Push(Res);
+		return;
+	}
+	else if(ArgType->Kind == TypeKind_Slice)
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
 		Args.Push(Res);
@@ -299,11 +305,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Result = Local->Register;
 
 			b32 ShouldLoad = true;
-			if(IsLHS || Local->IsArg)
+			if(IsLHS)
 				ShouldLoad = false;
 
 			const type *Type = GetType(Local->Type);
-			if(Type->Kind != TypeKind_Basic && Type->Kind != TypeKind_Pointer)
+			if(Type->Kind != TypeKind_Basic && Type->Kind != TypeKind_Pointer && Type->Kind != TypeKind_Enum)
 			{
 				ShouldLoad = false;
 			}
@@ -906,19 +912,11 @@ void IRPushDebugVariableInfo(block_builder *Builder, const error_info *ErrorInfo
 
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx)
 {
-	const type *Type = GetType(TypeIdx);
-	if(ShouldCopyType(Type))
-	{
-		u32 LocalRegister = PushInstruction(Builder,
-				Instruction(OP_ALLOC, -1, TypeIdx, Builder));
-		PushInstruction(Builder,
-				InstructionStore(LocalRegister, Expression, TypeIdx));
-		return LocalRegister;
-	}
-	else
-	{
-		return Expression;
-	}
+	u32 LocalRegister = PushInstruction(Builder,
+			Instruction(OP_ALLOC, -1, TypeIdx, Builder));
+	PushInstruction(Builder,
+			InstructionStore(LocalRegister, Expression, TypeIdx));
+	return LocalRegister;
 }
 
 void BuildIRFromDecleration(block_builder *Builder, node *Node)
@@ -936,7 +934,7 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 				Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
 	}
 	IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.ID, Node->Decl.TypeIndex, Var);
-	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex);
+	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
 }
 
 void Terminate(block_builder *Builder, basic_block GoTo)
@@ -1018,7 +1016,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 		IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
 				*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
-		PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
+		PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType, 0);
 
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	}
@@ -1213,7 +1211,7 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, slice<
 	{
 		symbol *s = Module.Globals[GIdx];
 		PushIRLocal(Fn, s->Name, Count++,
-				s->Type, s->Flags & SymbolFlag_Function);
+				s->Type, s->Flags);
 	}
 
 	ForArray(Idx, Imported)
@@ -1226,7 +1224,7 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, slice<
 
 			string *Mangled = StructToModuleNamePtr(sName, m.Name);
 			PushIRLocal(Fn, Mangled, Count++,
-					s->Type, s->Flags & SymbolFlag_Function);
+					s->Type, s->Flags);
 		}
 	}
 	Builder->LastRegister = Count;
@@ -1282,12 +1280,10 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		ForArray(Idx, Args)
 		{
 			u32 Type = INVALID_TYPE;
-			b32 IsArg = true;
 			if(Idx >= FnType->Function.ArgCount)
 			{
 				u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
 				Type = GetSliceType(ArgType);
-				IsArg = false;
 			}
 			else
 			{
@@ -1295,8 +1291,13 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			}
 			u32 Register = PushInstruction(&Builder,
 					Instruction(OP_ARG, Idx, Type, &Builder));
+			u32 Alloc = PushInstruction(&Builder, 
+					Instruction(OP_ALLOC, -1, Type, &Builder));
+			Register = PushInstruction(&Builder,
+					InstructionStore(Alloc, Register, Type));
+
 			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
-					Type, IsArg);
+					Type, Args[Idx]->Decl.Flags);
 			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, Type);
 		}
 

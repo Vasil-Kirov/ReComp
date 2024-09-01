@@ -3,9 +3,10 @@ source_filename = "var_args.rcp"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-%"__init!Arg" = type { i64, ptr }
 %slice.1 = type { i64, ptr }
+%"__init!Arg" = type { i64, ptr }
 %slice.2 = type { i64, ptr }
+%slice.3 = type { i64, ptr }
 
 define void @"__main!__GlobalInitializerFunction"() {
 block_0:
@@ -14,45 +15,51 @@ block_0:
 
 define i32 @"__main!foo"(ptr %0) !dbg !4 {
 block_0:
-  %1 = alloca i64, align 8, !dbg !9
+  %1 = alloca %slice.1, align 8, !dbg !9
   %2 = alloca i64, align 8, !dbg !10
-  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 8, i1 false), !dbg !9
+  %3 = alloca i64, align 8, !dbg !11
+  call void @llvm.memset.p0.i32(ptr align 8 %1, i8 0, i32 16, i1 false), !dbg !9
   call void @llvm.memset.p0.i32(ptr align 8 %2, i8 0, i32 8, i1 false), !dbg !10
-  %3 = alloca %"__init!Arg", align 8, !dbg !11
-  call void @llvm.dbg.value(metadata ptr %0, metadata !12, metadata !DIExpression()), !dbg !25
-  store i64 0, ptr %1, align 8, !dbg !9
-  call void @llvm.dbg.declare(metadata ptr %1, metadata !26, metadata !DIExpression()), !dbg !9
-  %4 = getelementptr inbounds %slice.1, ptr %0, i32 0, i32 0, !dbg !10
-  %5 = load i64, ptr %4, align 8, !dbg !10
+  call void @llvm.memset.p0.i32(ptr align 8 %3, i8 0, i32 8, i1 false), !dbg !11
+  %4 = alloca %"__init!Arg", align 8, !dbg !12
+  %5 = alloca %"__init!Arg", align 8, !dbg !12
+  call void @llvm.memset.p0.i32(ptr align 8 %5, i8 0, i32 16, i1 false), !dbg !12
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %1, ptr align 8 %0, i64 16, i1 false), !dbg !9
+  call void @llvm.dbg.value(metadata ptr %1, metadata !13, metadata !DIExpression()), !dbg !9
   store i64 0, ptr %2, align 8, !dbg !10
-  call void @llvm.dbg.declare(metadata ptr %2, metadata !28, metadata !DIExpression()), !dbg !10
-  br label %block_1, !dbg !10
+  call void @llvm.dbg.declare(metadata ptr %2, metadata !26, metadata !DIExpression()), !dbg !10
+  %6 = getelementptr inbounds %slice.2, ptr %1, i32 0, i32 0, !dbg !11
+  %7 = load i64, ptr %6, align 8, !dbg !11
+  store i64 0, ptr %3, align 8, !dbg !11
+  call void @llvm.dbg.declare(metadata ptr %3, metadata !28, metadata !DIExpression()), !dbg !11
+  br label %block_1, !dbg !11
 
 block_1:                                          ; preds = %block_3, %block_0
-  %6 = load i64, ptr %2, align 8, !dbg !10
-  %7 = icmp ult i64 %6, %5, !dbg !10
-  br i1 %7, label %block_2, label %block_4, !dbg !10
+  %8 = load i64, ptr %3, align 8, !dbg !11
+  %9 = icmp ult i64 %8, %7, !dbg !11
+  br i1 %9, label %block_2, label %block_4, !dbg !11
 
 block_2:                                          ; preds = %block_1
-  %8 = load i64, ptr %2, align 8, !dbg !11
-  %9 = getelementptr inbounds %slice.1, ptr %0, i32 0, i32 1, !dbg !11
-  %10 = load ptr, ptr %9, align 8, !dbg !11
-  %11 = getelementptr %"__init!Arg", ptr %10, i64 %8, !dbg !11
-  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %3, ptr align 8 %11, i64 16, i1 false), !dbg !11
-  call void @llvm.dbg.declare(metadata ptr %3, metadata !29, metadata !DIExpression()), !dbg !11
-  %12 = getelementptr inbounds %"__init!Arg", ptr %3, i32 0, i32 0, !dbg !30
-  %13 = load i64, ptr %12, align 8, !dbg !30
-  %14 = icmp eq i64 %13, 9, !dbg !30
-  br i1 %14, label %block_5, label %block_6, !dbg !30
+  %10 = load i64, ptr %3, align 8, !dbg !12
+  %11 = getelementptr inbounds %slice.2, ptr %1, i32 0, i32 1, !dbg !12
+  %12 = load ptr, ptr %11, align 8, !dbg !12
+  %13 = getelementptr %"__init!Arg", ptr %12, i64 %10, !dbg !12
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %4, ptr align 8 %13, i64 16, i1 false), !dbg !12
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %5, ptr align 8 %4, i64 16, i1 false), !dbg !12
+  call void @llvm.dbg.declare(metadata ptr %5, metadata !29, metadata !DIExpression()), !dbg !12
+  %14 = getelementptr inbounds %"__init!Arg", ptr %5, i32 0, i32 0, !dbg !30
+  %15 = load i64, ptr %14, align 8, !dbg !30
+  %16 = icmp eq i64 %15, 9, !dbg !30
+  br i1 %16, label %block_5, label %block_6, !dbg !30
 
 block_5:                                          ; preds = %block_2
-  %15 = load i64, ptr %1, align 8, !dbg !31
-  %16 = getelementptr inbounds %"__init!Arg", ptr %3, i32 0, i32 1, !dbg !31
-  %17 = load ptr, ptr %16, align 8, !dbg !31
-  %18 = load i32, ptr %17, align 4, !dbg !31
-  %19 = sext i32 %18 to i64, !dbg !31
-  %20 = add i64 %15, %19, !dbg !31
-  store i64 %20, ptr %1, align 8, !dbg !31
+  %17 = load i64, ptr %2, align 8, !dbg !31
+  %18 = getelementptr inbounds %"__init!Arg", ptr %5, i32 0, i32 1, !dbg !31
+  %19 = load ptr, ptr %18, align 8, !dbg !31
+  %20 = load i32, ptr %19, align 4, !dbg !31
+  %21 = sext i32 %20 to i64, !dbg !31
+  %22 = add i64 %17, %21, !dbg !31
+  store i64 %22, ptr %2, align 8, !dbg !31
   br label %block_7, !dbg !31
 
 block_6:                                          ; preds = %block_2
@@ -62,20 +69,20 @@ block_7:                                          ; preds = %block_6, %block_5
   br label %block_3, !dbg !31
 
 block_3:                                          ; preds = %block_7
-  %21 = load i64, ptr %2, align 8, !dbg !31
-  %22 = add i64 %21, 1, !dbg !31
-  store i64 %22, ptr %2, align 8, !dbg !31
+  %23 = load i64, ptr %3, align 8, !dbg !31
+  %24 = add i64 %23, 1, !dbg !31
+  store i64 %24, ptr %3, align 8, !dbg !31
   br label %block_1, !dbg !31
 
 block_4:                                          ; preds = %block_1
-  %23 = load i64, ptr %1, align 8, !dbg !32
-  %24 = trunc i64 %23 to i32, !dbg !32
-  ret i32 %24, !dbg !32
+  %25 = load i64, ptr %2, align 8, !dbg !32
+  %26 = trunc i64 %25 to i32, !dbg !32
+  ret i32 %26, !dbg !32
 }
 
 define i32 @"__main!main"() !dbg !33 {
 block_0:
-  %0 = alloca %slice.2, align 8, !dbg !34
+  %0 = alloca %slice.3, align 8, !dbg !34
   %1 = alloca [4 x %"__init!Arg"], align 8, !dbg !34
   %2 = alloca i64, align 8, !dbg !34
   %3 = alloca i32, align 4, !dbg !34
@@ -87,8 +94,8 @@ block_0:
   call void @llvm.memset.p0.i32(ptr align 4 %3, i8 0, i32 4, i1 false), !dbg !34
   call void @llvm.memset.p0.i32(ptr align 4 %4, i8 0, i32 4, i1 false), !dbg !34
   call void @llvm.memset.p0.i32(ptr align 8 %5, i8 0, i32 8, i1 false), !dbg !34
-  %6 = getelementptr inbounds %slice.2, ptr %0, i32 0, i32 0, !dbg !34
-  %7 = getelementptr inbounds %slice.2, ptr %0, i32 0, i32 1, !dbg !34
+  %6 = getelementptr inbounds %slice.3, ptr %0, i32 0, i32 0, !dbg !34
+  %7 = getelementptr inbounds %slice.3, ptr %0, i32 0, i32 1, !dbg !34
   store i64 4, ptr %6, align 8, !dbg !34
   store ptr %1, ptr %7, align 8, !dbg !34
   store i64 1, ptr %2, align 8, !dbg !34
@@ -123,18 +130,18 @@ block_0:
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
 declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0
 
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.value(metadata, metadata, metadata) #1
-
-; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
-
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
-declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #2
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.value(metadata, metadata, metadata) #2
+
+; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #2
 
 attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}
@@ -148,27 +155,27 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !6 = !{!7}
 !7 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
 !8 = !{}
-!9 = !DILocation(line: 4, scope: !4)
-!10 = !DILocation(line: 5, scope: !4)
-!11 = !DILocation(line: 6, scope: !4)
-!12 = !DILocalVariable(name: "list", scope: !4, file: !1, line: 3, type: !13)
-!13 = !DICompositeType(tag: DW_TAG_structure_type, scope: !1, file: !1, size: 128, align: 64, elements: !14)
-!14 = !{!15, !23}
-!15 = !DIDerivedType(tag: DW_TAG_member, name: "data", scope: !1, file: !1, baseType: !16, size: 64, align: 64)
-!16 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*__init!Arg", baseType: !17, size: 64, align: 64, dwarfAddressSpace: 0)
-!17 = !DICompositeType(tag: DW_TAG_structure_type, name: "__init!Arg", scope: !1, file: !1, size: 128, elements: !18)
-!18 = !{!19, !21}
-!19 = !DIDerivedType(tag: DW_TAG_member, name: "t", scope: !1, file: !1, baseType: !20, size: 64, align: 64)
-!20 = !DIBasicType(name: "type", size: 64, encoding: DW_ATE_unsigned)
-!21 = !DIDerivedType(tag: DW_TAG_member, name: "val", scope: !1, file: !1, baseType: !22, size: 64, align: 64, offset: 64)
-!22 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*void", baseType: null, size: 64, align: 64, dwarfAddressSpace: 0)
-!23 = !DIDerivedType(tag: DW_TAG_member, name: "count", scope: !1, file: !1, baseType: !24, size: 64, align: 64, offset: 64)
-!24 = !DIBasicType(name: "int", size: 64, encoding: DW_ATE_signed)
-!25 = !DILocation(line: 3, scope: !4)
+!9 = !DILocation(line: 3, scope: !4)
+!10 = !DILocation(line: 4, scope: !4)
+!11 = !DILocation(line: 5, scope: !4)
+!12 = !DILocation(line: 6, scope: !4)
+!13 = !DILocalVariable(name: "list", scope: !4, file: !1, line: 3, type: !14)
+!14 = !DICompositeType(tag: DW_TAG_structure_type, scope: !1, file: !1, size: 128, align: 64, elements: !15)
+!15 = !{!16, !24}
+!16 = !DIDerivedType(tag: DW_TAG_member, name: "data", scope: !1, file: !1, baseType: !17, size: 64, align: 64)
+!17 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*__init!Arg", baseType: !18, size: 64, align: 64, dwarfAddressSpace: 0)
+!18 = !DICompositeType(tag: DW_TAG_structure_type, name: "__init!Arg", scope: !1, file: !1, size: 128, elements: !19)
+!19 = !{!20, !22}
+!20 = !DIDerivedType(tag: DW_TAG_member, name: "t", scope: !1, file: !1, baseType: !21, size: 64, align: 64)
+!21 = !DIBasicType(name: "type", size: 64, encoding: DW_ATE_unsigned)
+!22 = !DIDerivedType(tag: DW_TAG_member, name: "val", scope: !1, file: !1, baseType: !23, size: 64, align: 64, offset: 64)
+!23 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*void", baseType: null, size: 64, align: 64, dwarfAddressSpace: 0)
+!24 = !DIDerivedType(tag: DW_TAG_member, name: "count", scope: !1, file: !1, baseType: !25, size: 64, align: 64, offset: 64)
+!25 = !DIBasicType(name: "int", size: 64, encoding: DW_ATE_signed)
 !26 = !DILocalVariable(name: "sum", scope: !4, file: !1, line: 4, type: !27)
 !27 = !DIBasicType(name: "i64", size: 64, encoding: DW_ATE_signed)
-!28 = !DILocalVariable(name: "i", scope: !4, file: !1, line: 5, type: !24)
-!29 = !DILocalVariable(name: "it", scope: !4, file: !1, line: 6, type: !17)
+!28 = !DILocalVariable(name: "i", scope: !4, file: !1, line: 5, type: !25)
+!29 = !DILocalVariable(name: "it", scope: !4, file: !1, line: 6, type: !18)
 !30 = !DILocation(line: 7, scope: !4)
 !31 = !DILocation(line: 8, scope: !4)
 !32 = !DILocation(line: 11, scope: !4)

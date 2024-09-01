@@ -116,7 +116,6 @@ struct ir_symbol
 	const string *Name;
 	u32 Register;
 	u32 Type;
-	b32 IsArg;
 	u32 Flags;
 };
 

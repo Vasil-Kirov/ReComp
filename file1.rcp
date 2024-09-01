@@ -1,34 +1,30 @@
 main
 
-#import string
-
-enum MyEnum: i32 {
-    SOME_NAME = 1,
-    OTHER_NAME = 2,
-    FINAL_NAME = 3,
+my_32_fn :: fn(x: i32) -> i32 {
+	return 32;
 }
 
-#if Windows
-(
-    main :: fn() -> i32 {
-        x := MyEnum.SOME_NAME;
-        if x == MyEnum.FINAL_NAME {
-            return 0;
-        } else if x == MyEnum.OTHER_NAME {
-            return 1;
-        } else {
-            return 2;
-        }
-        return 5;
-    }
-)
+my_16_fn :: fn(x: i32) -> i32 {
+	return 16;
+}
 
-#if Unix
-(
-    main :: fn() -> i32 {
-        return 0b1100_1111;
-    }
-)
+call_lambda :: fn(f: fn(x: i32) -> i32) -> i32
+{
+    return f(16);
+}
+
+main :: fn() -> i32 {
+	my_lambda := fn() -> i32 {
+		return 32;
+	};
+
+	fn_ptr := my_32_fn;
+	fn_ptr = my_16_fn;
+
+	return my_lambda() - call_lambda(fn_ptr) - call_lambda(fn(x: i32) -> i32 {
+        return x;
+    });
+}
 
 // #import stuff as f2
 // 

@@ -11,35 +11,42 @@ block_0:
 define i32 @"__main!main"() !dbg !4 {
 block_0:
   %0 = alloca [4 x i32], align 4, !dbg !9
+  %1 = alloca [4 x i32], align 4, !dbg !9
   call void @llvm.memset.p0.i32(ptr align 4 %0, i8 0, i32 16, i1 false), !dbg !9
-  %1 = getelementptr [4 x i32], ptr %0, i64 0, i64 0, !dbg !9
-  store i32 1, ptr %1, align 4, !dbg !9
-  %2 = getelementptr [4 x i32], ptr %0, i64 0, i64 1, !dbg !9
-  store i32 2, ptr %2, align 4, !dbg !9
-  %3 = getelementptr [4 x i32], ptr %0, i64 0, i64 2, !dbg !9
-  store i32 3, ptr %3, align 4, !dbg !9
-  %4 = getelementptr [4 x i32], ptr %0, i64 0, i64 3, !dbg !9
-  store i32 4, ptr %4, align 4, !dbg !9
-  call void @llvm.dbg.declare(metadata ptr %0, metadata !10, metadata !DIExpression()), !dbg !9
-  %5 = getelementptr [4 x i32], ptr %0, i64 0, i64 3, !dbg !14
-  %6 = load i32, ptr %5, align 4, !dbg !14
-  %7 = getelementptr [4 x i32], ptr %0, i64 0, i64 2, !dbg !14
-  %8 = load i32, ptr %7, align 4, !dbg !14
-  %9 = sub i32 %6, %8, !dbg !14
-  %10 = getelementptr [4 x i32], ptr %0, i64 0, i64 0, !dbg !14
-  %11 = load i32, ptr %10, align 4, !dbg !14
-  %12 = sub i32 %9, %11, !dbg !14
-  ret i32 %12, !dbg !14
+  call void @llvm.memset.p0.i32(ptr align 4 %1, i8 0, i32 16, i1 false), !dbg !9
+  %2 = getelementptr [4 x i32], ptr %0, i64 0, i64 0, !dbg !9
+  store i32 1, ptr %2, align 4, !dbg !9
+  %3 = getelementptr [4 x i32], ptr %0, i64 0, i64 1, !dbg !9
+  store i32 2, ptr %3, align 4, !dbg !9
+  %4 = getelementptr [4 x i32], ptr %0, i64 0, i64 2, !dbg !9
+  store i32 3, ptr %4, align 4, !dbg !9
+  %5 = getelementptr [4 x i32], ptr %0, i64 0, i64 3, !dbg !9
+  store i32 4, ptr %5, align 4, !dbg !9
+  call void @llvm.memcpy.p0.p0.i64(ptr align 4 %1, ptr align 4 %0, i64 16, i1 false), !dbg !9
+  call void @llvm.dbg.declare(metadata ptr %1, metadata !10, metadata !DIExpression()), !dbg !9
+  %6 = getelementptr [4 x i32], ptr %1, i64 0, i64 3, !dbg !14
+  %7 = load i32, ptr %6, align 4, !dbg !14
+  %8 = getelementptr [4 x i32], ptr %1, i64 0, i64 2, !dbg !14
+  %9 = load i32, ptr %8, align 4, !dbg !14
+  %10 = sub i32 %7, %9, !dbg !14
+  %11 = getelementptr [4 x i32], ptr %1, i64 0, i64 0, !dbg !14
+  %12 = load i32, ptr %11, align 4, !dbg !14
+  %13 = sub i32 %10, %12, !dbg !14
+  ret i32 %13, !dbg !14
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
 declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0
 
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: readwrite)
+declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias nocapture readonly, i64, i1 immarg) #1
+
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
+declare void @llvm.dbg.declare(metadata, metadata, metadata) #2
 
 attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
-attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+attributes #1 = { nocallback nofree nounwind willreturn memory(argmem: readwrite) }
+attributes #2 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2, !3}

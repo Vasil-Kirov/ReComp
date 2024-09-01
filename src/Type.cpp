@@ -279,6 +279,10 @@ int GetTypeSize(const type *Type)
 		{
 			return GetStructSize(Type);
 		} break;
+		case TypeKind_Enum:
+		{
+			return GetTypeSize(Type->Enum.Type);
+		} break;
 		default: {};
 	}
 	unreachable;
@@ -710,7 +714,7 @@ b32 ShouldCopyType(const type *Type)
 
 b32 IsLoadableType(const type *Type)
 {
-	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function;
+	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function && Type->Kind != TypeKind_Slice;
 }
 
 b32 IsString(const type *T, b32 OrCString)
@@ -724,6 +728,20 @@ b32 IsString(const type *T, b32 OrCString)
 b32 IsFn(const type *T)
 {
 	return T->Kind == TypeKind_Function;
+}
+
+b32 IsFnOrPtr(const type *T)
+{
+	if(IsFn(T))
+		return true;
+	if(T->Kind == TypeKind_Pointer)
+	{
+		if(T->Pointer.Pointed == INVALID_TYPE)
+			return false;
+		const type *P = GetType(T->Pointer.Pointed);
+		return IsFn(P);
+	}
+	return false;
 }
 
 b32 IsLoadableType(u32 TypeIdx)

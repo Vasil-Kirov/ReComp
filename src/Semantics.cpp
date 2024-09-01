@@ -399,6 +399,9 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Decl.Type);
+		const type *T = GetType(Function.Args[I]);
+		if(T->Kind == TypeKind_Function)
+			Function.Args[I] = GetPointerTo(Function.Args[I]);
 	}
 	
 	NewType->Function = Function;
@@ -433,7 +436,11 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	{
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, NULL, flags);
+		const type *ArgT = GetType(FunctionType->Function.Args[I]);
+		if(IsFnOrPtr(ArgT))
+			flags |= SymbolFlag_Function;
+		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, Arg, flags);
+		Arg->Decl.Flags = flags;
 	}
 	if(FunctionType->Function.Flags & SymbolFlag_VarFunc)
 	{
@@ -1399,6 +1406,9 @@ DECL_TYPE_ERROR:
 		FillUntypedStack(Checker, Type);
 	}
 	Node->Decl.TypeIndex = Type;
+	if(IsFnOrPtr(TypePtr))
+		Node->Decl.Flags |= SymbolFlag_Function;
+
 	AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Node->Decl.Flags);
 	return Type;
 }

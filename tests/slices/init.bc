@@ -3,8 +3,6 @@ source_filename = "init.rcp"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-%slice.7 = type { i64, ptr }
-
 define void @"__init!__GlobalInitializerFunction"() {
 block_0:
   ret void
@@ -24,7 +22,7 @@ block_0:
   ret i32 %2, !dbg !12
 }
 
-declare i32 @"__main!get_sum"(%slice.7)
+declare i32 @"__main!get_sum"(ptr)
 
 declare i32 @"__main!main"()
 

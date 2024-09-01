@@ -1,0 +1,3 @@
+
+[] - Make checking on binary expressions so you can't do dumb stuff like struct * struct;
+

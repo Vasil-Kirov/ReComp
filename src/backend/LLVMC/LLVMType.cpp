@@ -606,8 +606,8 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		const type *RT = GetType(Type->Function.Return);
 		if(IsRetTypePassInPointer(Type->Function.Return))
 		{
-					ReturnType = LLVMVoidTypeInContext(Context);
-					ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
+			ReturnType = LLVMVoidTypeInContext(Context);
+			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
 
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)

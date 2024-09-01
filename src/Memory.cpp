@@ -2,16 +2,7 @@
 #include "Threading.h"
 #include "VString.h"
 #include "Log.h"
-
-typedef struct _ap_memory
-{
-	u16 ChunkIndex;
-	void *Start;
-	void *End;
-	void *Current;
-	u64 ChunkSize;
-	u64 MaxSize;
-} ap_memory;
+#include "Platform.h"
 
 static ap_memory MemoryAllocators[2];
 
@@ -60,26 +51,50 @@ void *ToArena(void *Data, u64 Size, i8 Index)
 }
 
 void *
+InternalAllocateMemory(ap_memory *Arena, u64 Size, const char *NAME)
+{
+	void *Result = Arena->Current;
+	Arena->Current = (char *)Arena->Current + Size;
+	while((char *)Arena->Current >= (char *)Arena->End)
+	{
+		if(Arena->ChunkIndex * Arena->ChunkSize > Arena->MaxSize)
+		{
+			LFATAL("MEMORY OVERFLOW when allocating %s memory", NAME);
+		}
+		PlatformAllocateReserved((u8 *)Arena->Start + Arena->ChunkIndex * Arena->ChunkSize, Arena->ChunkSize);
+		Arena->ChunkIndex++;
+		Arena->End = (u8 *)Arena->End + Arena->ChunkSize;
+	}
+
+	memset(Result, 0, Size);
+	return Result;
+}
+
+void *
 AllocateMemory(u64 Size, i8 Index)
 {
 	LockMutex();
 
-	void *Result = MemoryAllocators[Index].Current;
-	MemoryAllocators[Index].Current = (char *)MemoryAllocators[Index].Current + Size;
-	while((char *)MemoryAllocators[Index].Current >= (char *)MemoryAllocators[Index].End)
-	{
-		if(MemoryAllocators[Index].ChunkIndex * MemoryAllocators[Index].ChunkSize > MemoryAllocators[Index].MaxSize)
-		{
-			const char *NAME[2] = { "permanent", "string" };
-			LFATAL("MEMORY OVERFLOW when allocating %s memory", NAME[Index]);
-		}
-		PlatformAllocateReserved((u8 *)MemoryAllocators[Index].Start + MemoryAllocators[Index].ChunkIndex * MemoryAllocators[Index].ChunkSize, MemoryAllocators[Index].ChunkSize);
-		MemoryAllocators[Index].ChunkIndex++;
-		MemoryAllocators[Index].End = (u8 *)MemoryAllocators[Index].End + MemoryAllocators[Index].ChunkSize;
-	}
+	const char *NAME[2] = { "permanent", "string" };
+	void *Result = InternalAllocateMemory(&MemoryAllocators[Index], Size, NAME[Index]);
 
 	UnlockMutex();
-	memset(Result, 0, Size);
 	return Result;
+}
+
+scratch_arena::scratch_arena()
+{
+	InitAPMem(&Arena, MB(1), KB(1));
+}
+
+scratch_arena::~scratch_arena()
+{
+	PlatformFreeMemory(Arena.Start);
+	Arena = {};
+}
+
+void *scratch_arena::Allocate(u64 Size)
+{
+	return InternalAllocateMemory(&Arena, Size, "SCRATCH");
 }
 

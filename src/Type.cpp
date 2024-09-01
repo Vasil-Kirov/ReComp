@@ -440,6 +440,22 @@ b32 IsCastValid(const type *From, const type *To)
 	if(From->Kind == TypeKind_Generic || To->Kind == TypeKind_Generic)
 		return true;
 
+	if(From->Kind == TypeKind_Struct || To->Kind == TypeKind_Struct)
+		return false;
+
+	if(From->Kind == TypeKind_Enum && To->Kind != TypeKind_Enum)
+	{
+		const type *T = GetType(From->Enum.Type);
+		const type *P = NULL;
+		return IsTypeCompatible(T, To, &P, false);
+	}
+	else if(To->Kind == TypeKind_Enum && From->Kind != TypeKind_Enum)
+	{
+		const type *T = GetType(To->Enum.Type);
+		const type *P = NULL;
+		return IsTypeCompatible(T, From, &P, false);
+	}
+
 	if(From->Kind != To->Kind)
 		return false;
 
@@ -464,6 +480,10 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 
 	switch(Left->Kind)
 	{
+		case TypeKind_Enum:
+		{
+			return Left->Enum.Name == Right->Enum.Name;
+		} break;
 		case TypeKind_Basic:
 		{
 			int LeftSize  = GetBasicTypeSize(Left);
@@ -569,6 +589,10 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 
 	switch(Left->Kind)
 	{
+		case TypeKind_Enum:
+		{
+			return TypesMustMatch(Left, Right);
+		} break;
 		case TypeKind_Basic:
 		{
 			return CheckBasicTypes(Left, Right, PotentialPromotion, IsAssignment);
@@ -657,6 +681,10 @@ b32 IsCastRedundant(const type *From, const type *To)
 			{
 				return TypesMustMatch(From, To);
 			} break;
+			case TypeKind_Enum:
+			{
+				return TypesMustMatch(From, To);
+			} break;
 			default:
 			{
 				Assert(false);
@@ -713,6 +741,28 @@ string GetTypeNameAsString(const type *Type)
 {
 	switch (Type->Kind)
 	{
+		case TypeKind_Enum:
+		{
+			return Type->Enum.Name;
+		} break;
+		case TypeKind_Vector:
+		{
+			string TypeString;
+			switch(Type->Vector.Kind)
+			{
+				case Vector_Float:
+				{
+					TypeString = STR_LIT("f32");
+				} break;
+				case Vector_Int:
+				{
+					TypeString = STR_LIT("i32");
+				} break;
+			}
+			string_builder Builder = MakeBuilder();
+			PushBuilderFormated(&Builder, "<%d x %s>", Type->Vector.ElementCount, TypeString.Data);
+			return MakeString(Builder);
+		} break;
 		case TypeKind_Basic:
 		{
 			return Type->Basic.Name;
@@ -767,7 +817,7 @@ string GetTypeNameAsString(const type *Type)
 			Builder += Type->Generic.Name;
 			return MakeString(Builder);
 		} break;
-		default:
+		case TypeKind_Invalid:
 		{
 			return STR_LIT("(Error! Unkown type name)");
 		} break;
@@ -866,10 +916,8 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 	u32 Result = TypeID;
 	switch(Type->Kind)
 	{
+		case TypeKind_Enum:
 		case TypeKind_Vector:
-		{
-			return TypeID;
-		} break;
 		case TypeKind_Basic:
 		{
 			return TypeID;
@@ -980,6 +1028,7 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 
 	switch(G->Kind)
 	{
+		case TypeKind_Enum:
 		case TypeKind_Vector:
 		case TypeKind_Basic:
 		{
@@ -1038,6 +1087,7 @@ b32 IsGeneric(const type *Type)
 	b32 Result = false;
 	switch(Type->Kind)
 	{
+		case TypeKind_Enum:
 		case TypeKind_Vector:
 		case TypeKind_Basic:
 		{
@@ -1198,5 +1248,15 @@ b32 IsStructAllFloats(const type *T)
 		}
 	}
 	return AllFloats;
+}
+
+u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type)
+{
+	type *T = AllocType(TypeKind_Enum);
+	T->Enum.Name = Name;
+	T->Enum.Members = Members;
+	T->Enum.Type = Type;
+
+	return AddType(T);
 }
 

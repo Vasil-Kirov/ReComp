@@ -729,10 +729,15 @@ void RCGenerateComplexTypes(generator *gen)
 	uint TypeCount = GetTypeCount();
 	for(uint Index = 0; Index < TypeCount; ++Index)
 	{
-		if(GetType(Index)->Kind == TypeKind_Struct)
+		const type *T = GetType(Index);
+		if(T->Kind == TypeKind_Struct)
 		{
 			LLVMCreateOpaqueStructType(gen->ctx, Index);
 			LLMVDebugOpaqueStruct(gen, Index);
+		}
+		else if(T->Kind == TypeKind_Enum)
+		{
+			LLVMDebugDefineEnum(gen, T, Index);
 		}
 	}
 	for(uint Index = 0; Index < TypeCount; ++Index)

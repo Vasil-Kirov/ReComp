@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic.h"
+#include "ConstVal.h"
 #include "VString.h"
 #include "Dynamic.h"
 
@@ -32,6 +33,7 @@ enum type_kind
 	TypeKind_Array   ,
 	TypeKind_Slice   ,
 	TypeKind_Vector  ,
+	TypeKind_Enum    ,
 	TypeKind_Generic ,
 };
 
@@ -154,6 +156,19 @@ struct generic_type
 	scope *Scope;
 };
 
+struct enum_member
+{
+	string Name;
+	const_value Value;
+};
+
+struct enum_type
+{
+	string Name;
+	slice<enum_member> Members;
+	u32 Type;
+};
+
 struct type
 {
 	type_kind Kind;
@@ -165,6 +180,7 @@ struct type
 		pointer Pointer;
 		array_type Array;
 		slice_type Slice;
+		enum_type Enum;
 		vector_type Vector;
 		generic_type Generic;
 	};
@@ -223,6 +239,7 @@ b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 VarArgArrayType(u32 ElemCount);
+u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
 b32 IsFn(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);
 

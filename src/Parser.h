@@ -43,6 +43,7 @@ enum node_type
 	AST_TYPELIST,
 	AST_INDEX,
 	AST_STRUCTDECL,
+	AST_ENUM,
 	AST_SELECTOR,
 	AST_SIZE,
 	AST_TYPEOF,
@@ -68,6 +69,11 @@ struct node
 		struct {
 			const string *Name;
 		} Generic;
+		struct {
+			const string *Name;
+			slice<node *> Items;
+			node *Type;
+		} Enum;
 		struct {
 			const string *Name; // @Nullable
 			node *Expression;

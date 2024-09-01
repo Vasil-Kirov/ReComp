@@ -10,6 +10,24 @@ enum AllocIndex
 	STR_INDEX = 1
 };
 
+typedef struct _ap_memory
+{
+	u16 ChunkIndex;
+	void *Start;
+	void *End;
+	void *Current;
+	u64 ChunkSize;
+	u64 MaxSize;
+} ap_memory;
+
+struct scratch_arena
+{
+	ap_memory Arena;
+	void *Allocate(u64 Size);
+	scratch_arena();
+	~scratch_arena();
+};
+
 b32
 InitializeMemory();
 

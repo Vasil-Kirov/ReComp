@@ -71,6 +71,7 @@ enum token_type
 	T_VARARG = -46,
 	T_PWDIF  = -47,
 	T_CHAR   = -48,
+	T_ENUM   = -49,
 };
 
 struct token

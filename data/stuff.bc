@@ -12,30 +12,36 @@ block_0:
   ret void
 }
 
-define private i64 @"__stuff!give_one"() !dbg !4 {
+define private i64 @"__stuff!give_one"() !dbg !10 {
 block_0:
-  ret i64 1, !dbg !8
+  ret i64 1, !dbg !14
 }
 
-define private i32 @"__stuff!give_two"() !dbg !9 {
+define private i32 @"__stuff!give_two"() !dbg !15 {
 block_0:
-  ret i32 2, !dbg !13
+  ret i32 2, !dbg !19
 }
 
 !llvm.dbg.cu = !{!0}
-!llvm.module.flags = !{!2, !3}
+!llvm.module.flags = !{!8, !9}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, splitDebugInlining: false)
 !1 = !DIFile(filename: "file2.rcp", directory: "D:\\Programming\\ReComp")
-!2 = !{i32 2, !"CodeView", i32 1}
-!3 = !{i32 2, !"Debug Info Version", i32 3}
-!4 = distinct !DISubprogram(name: "give_one", linkageName: "__stuff!give_one", scope: !1, file: !1, line: 11, type: !5, spFlags: DISPFlagDefinition, unit: !0)
-!5 = !DISubroutineType(types: !6)
-!6 = !{!7}
-!7 = !DIBasicType(name: "int", size: 64, encoding: DW_ATE_signed)
-!8 = !DILocation(line: 12, scope: !4)
-!9 = distinct !DISubprogram(name: "give_two", linkageName: "__stuff!give_two", scope: !1, file: !1, line: 15, type: !10, spFlags: DISPFlagDefinition, unit: !0)
-!10 = !DISubroutineType(types: !11)
-!11 = !{!12}
-!12 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
-!13 = !DILocation(line: 16, scope: !9)
+!2 = !{!3}
+!3 = !DICompositeType(tag: DW_TAG_enumeration_type, name: "__main!MyEnum", scope: !1, file: !1, size: 32, align: 32, elements: !4)
+!4 = !{!5, !6, !7}
+!5 = !DIEnumerator(name: "SOME_NAME", value: 1)
+!6 = !DIEnumerator(name: "OTHER_NAME", value: 2)
+!7 = !DIEnumerator(name: "FINAL_NAME", value: 3)
+!8 = !{i32 2, !"CodeView", i32 1}
+!9 = !{i32 2, !"Debug Info Version", i32 3}
+!10 = distinct !DISubprogram(name: "give_one", linkageName: "__stuff!give_one", scope: !1, file: !1, line: 11, type: !11, spFlags: DISPFlagDefinition, unit: !0)
+!11 = !DISubroutineType(types: !12)
+!12 = !{!13}
+!13 = !DIBasicType(name: "int", size: 64, encoding: DW_ATE_signed)
+!14 = !DILocation(line: 12, scope: !10)
+!15 = distinct !DISubprogram(name: "give_two", linkageName: "__stuff!give_two", scope: !1, file: !1, line: 15, type: !16, spFlags: DISPFlagDefinition, unit: !0)
+!16 = !DISubroutineType(types: !17)
+!17 = !{!18}
+!18 = !DIBasicType(name: "i32", size: 32, encoding: DW_ATE_signed)
+!19 = !DILocation(line: 16, scope: !15)

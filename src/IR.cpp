@@ -642,42 +642,56 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			else
 			{
-				u32 Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
 				const type *Type = GetType(Node->Selector.Type);
+				u32 Operand = -1;
+				if(Node->Selector.Operand)
+					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
 				
-				if(Type->Kind == TypeKind_Slice || IsString(Type))
+				switch(Type->Kind)
 				{
-					Result = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Operand, 0, Node->Selector.Type, Builder));
-					Result = PushInstruction(Builder, 
-							Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
-				}
-				else
-				{
-					u32 TypeIdx = Node->Selector.Type;
-					if(Type->Kind == TypeKind_Pointer)
+					case TypeKind_Basic:
+					Assert(IsString(Type));
+					case TypeKind_Slice: 
 					{
-						// @NOTE: Pointers to structs are a bit weird here
-						const type *Pointed = GetType(Type->Pointer.Pointed);
-						u32 LoadType = Type->Pointer.Pointed;
-						if(Pointed->Kind == TypeKind_Struct)
-							LoadType = GetPointerTo(Type->Pointer.Pointed);
-
-						Operand = PushInstruction(Builder, 
-								Instruction(OP_LOAD, 0, Operand, LoadType, Builder));
-						TypeIdx = Type->Pointer.Pointed;
-						Type = GetType(Type->Pointer.Pointed);
-					}
-
-					Result = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
-
-					u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
-					if(!IsLHS)
+						Result = PushInstruction(Builder, 
+								Instruction(OP_INDEX, Operand, 0, Node->Selector.Type, Builder));
+						Result = PushInstruction(Builder, 
+								Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
+					} break;
+					case TypeKind_Enum:
 					{
-						Result = PushInstruction(Builder,
-								Instruction(OP_LOAD, 0, Result, MemberTypeIdx, Builder));
-					}
+						enum_member M = Type->Enum.Members[Node->Selector.Index];
+						Result = PushInt(M.Value.Int.Unsigned, Builder, Type->Enum.Type);
+					} break;
+					case TypeKind_Pointer:
+					case TypeKind_Struct:
+					{
+						u32 TypeIdx = Node->Selector.Type;
+						if(Type->Kind == TypeKind_Pointer)
+						{
+							// @NOTE: Pointers to structs are a bit weird here
+							const type *Pointed = GetType(Type->Pointer.Pointed);
+							u32 LoadType = Type->Pointer.Pointed;
+							if(Pointed->Kind == TypeKind_Struct)
+								LoadType = GetPointerTo(Type->Pointer.Pointed);
+
+							Operand = PushInstruction(Builder, 
+									Instruction(OP_LOAD, 0, Operand, LoadType, Builder));
+							TypeIdx = Type->Pointer.Pointed;
+							Type = GetType(Type->Pointer.Pointed);
+						}
+
+						Result = PushInstruction(Builder, 
+								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
+
+						u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
+						if(!IsLHS)
+						{
+							Result = PushInstruction(Builder,
+									Instruction(OP_LOAD, 0, Result, MemberTypeIdx, Builder));
+						}
+					} break;
+					default: unreachable;
 				}
 			}
 
@@ -1314,6 +1328,7 @@ function GlobalLevelIR(node *Node, slice<import> Imported, import Module)
 			}
 		} break;
 		case AST_DECL:
+		case AST_ENUM:
 		case AST_STRUCTDECL:
 		{
 			// do nothing
@@ -1461,7 +1476,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			} break;
 			case OP_MOD:
 			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d % %%%d", Instr.Result, GetTypeName(Type),
+				PushBuilderFormated(Builder, "%%%d = %s %%%d %% %%%d", Instr.Result, GetTypeName(Type),
 						Instr.Left, Instr.Right);
 			} break;
 			case OP_LOAD:

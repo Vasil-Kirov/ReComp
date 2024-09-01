@@ -2,39 +2,24 @@ main
 
 #import string
 
-struct Foo {
-	x: [1024]fn(a: ?*) -> i32,
-}
-
-struct SFloat {
-    a: f32,
-    b: f32,
-}
-
-something :: fn(arg: SFloat) -> SFloat {
-    return arg;
-}
-
-sum_o :: fn(list: ...) -> i32 {
-    return *@*i32 list[0].val;
-}
-
-sum :: fn(list: ...) -> i32 {
-    res := list[0];
-    return *@*i32 res.val;
-}
-
-my_str :: fn(f: *SFloat) -> f32 {
-    x := *f;
-    x.a = 1;
-    return f.a;
+enum MyEnum: i32 {
+    SOME_NAME = 1,
+    OTHER_NAME = 2,
+    FINAL_NAME = 3,
 }
 
 #if Windows
 (
     main :: fn() -> i32 {
-        string.print_int(102349);
-        return 0b1000_1111;
+        x := MyEnum.OTHER_NAME;
+        if x == MyEnum.SOME_NAME {
+            return 0;
+        } else if x == MyEnum.OTHER_NAME {
+            return 1;
+        } else {
+            return 2;
+        }
+        return 5;
     }
 )
 

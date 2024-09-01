@@ -23,6 +23,7 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID);
 LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID);
 void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID);
 LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID);
+LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID);
 LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID);
 
 LLVMOpcode RCCast(const type *From, const type *To);

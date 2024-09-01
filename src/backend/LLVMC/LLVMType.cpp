@@ -170,6 +170,11 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 			}
 		} break;
 
+		case TypeKind_Enum:
+		{
+			return ConvertToLLVMType(Context, CustomType->Enum.Type);
+		} break;
+
         case TypeKind_Pointer:
 		{
 			if(CustomType->Pointer.Pointed == INVALID_TYPE)
@@ -388,6 +393,34 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 	LLVMDebugMapType(TypeID, Made);
 }
 
+LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
+{
+	scratch_arena S;
+
+	uint Size  = GetTypeSize(T->Enum.Type) * 8;
+	uint Align = GetTypeAlignment(T->Enum.Type) * 8;
+
+	LLVMMetadataRef *Elements = (LLVMMetadataRef *)S.Allocate(T->Enum.Members.Count *
+			sizeof(LLVMMetadataRef));
+	ForArray(Idx, T->Enum.Members)
+	{
+		enum_member M = T->Enum.Members[Idx];
+		
+		Elements[Idx] = LLVMDIBuilderCreateEnumerator(gen->dbg,
+				M.Name.Data, M.Name.Size, M.Value.Int.Signed, !M.Value.Int.IsSigned);
+	}
+
+	LLVMMetadataRef Made = LLVMDIBuilderCreateEnumerationType(
+			gen->dbg, gen->f_dbg,
+			T->Enum.Name.Data, T->Enum.Name.Size,
+			gen->f_dbg, 0,
+			Size, Align,
+			Elements, T->Enum.Members.Count,
+			NULL);
+	LLVMDebugMapType(TypeID, Made);
+	return Made;
+}
+
 LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 {
 	const type *CustomType = GetType(TypeID);
@@ -479,7 +512,7 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 	}
 
 	b32 AllFloats = IsStructAllFloats(ArgType);
-	if(AllFloats)
+	if(AllFloats && PTarget != platform_target::Windows)
 	{
 		type *Type = AllocType(TypeKind_Vector);
 		Type->Vector.Kind = Vector_Float;

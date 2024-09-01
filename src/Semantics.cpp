@@ -96,6 +96,27 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 					return I;
 				}
 			} break;
+			case TypeKind_Enum:
+			{
+				if(AsModule.Data == NULL)
+				{
+					string ModuleName;
+					if(ModuleNameOptional == NULL)
+					{
+						ModuleName = Checker->Module->Name;
+					}
+					else
+					{
+						ModuleName = *ModuleNameOptional;
+					}
+					AsModule = StructToModuleName(N, ModuleName);
+				}
+
+				if(AsModule == Type->Enum.Name)
+				{
+					return I;
+				}
+			} break;
 			case TypeKind_Generic:
 			{
 				if(ScopesMatch(Checker->CurrentScope, Type->Generic.Scope))
@@ -223,7 +244,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		default:
 		{
 			RaiseError(*TypeNode->ErrorInfo, "Expected valid type!");
-			return NULL;
+			return INVALID_TYPE;
 		} break;
 	}
 }
@@ -782,51 +803,116 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				Expr->Selector.Type = TypeIdx;
 				const type *Type = GetType(TypeIdx);
-				if(Type->Kind == TypeKind_Slice || IsString(Type))
+				switch(Type->Kind)
 				{
-					if(*Expr->Selector.Member == STR_LIT("count"))
+					case TypeKind_Basic:
+					if(HasBasicFlag(Type, BasicFlag_TypeID))
 					{
-					}
-					else
-					{
-						RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on this type");
-					}
-					Result = Basic_int;
-					break;
-				}
-				if(Type->Kind == TypeKind_Pointer)
-				{
+						if(Expr->Selector.Operand->Type != AST_ID)
+						{
+							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
+						}
+						u32 TIdx = FindType(Checker, Expr->Selector.Operand->ID.Name);
+						if(TIdx == INVALID_TYPE)
+						{
+							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
+						}
 
-					const type *Pointed = NULL;
-					if(Type->Pointer.Pointed != INVALID_TYPE)
-						Pointed = GetType(Type->Pointer.Pointed);
-					if(!Pointed || Pointed->Kind != TypeKind_Struct)
-					{
-						RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
-							GetTypeName(Type));
-					}
-					Type = Pointed;
-				}
+						const type *T = GetType(TIdx);
+						if(T->Kind != TypeKind_Enum)
+						{
+							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a direct type %s", GetTypeName(T));
+						}
 
-				if(Type->Kind != TypeKind_Struct)
-				{
-					RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a non struct type %s",
-							GetTypeName(Type));
-				}
-
-				Result = INVALID_TYPE;
-				ForArray(Idx, Type->Struct.Members)
-				{
-					if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
-					{
-						Expr->Selector.Index = Idx;
-						Result = Type->Struct.Members[Idx].Type;
+						Result = INVALID_TYPE;
+						ForArray(Idx, T->Enum.Members)
+						{
+							if(T->Enum.Members[Idx].Name == *Expr->Selector.Member)
+							{
+								Expr->Selector.Operand = NULL;
+								Expr->Selector.Index = Idx;
+								Expr->Selector.Type = TIdx;
+								Result = TIdx;
+								break;
+							}
+						}
+						if(Result == INVALID_TYPE)
+						{
+							RaiseError(*Expr->ErrorInfo, "Members %s is not in enum %s, invalid `.` selector",
+									Expr->Selector.Member->Data, GetTypeName(T));
+						}
+						break;
 					}
-				}
-				if(Result == INVALID_TYPE)
-				{
-					RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
-							Expr->Selector.Member->Data, GetTypeName(Type));
+					if(IsString(Type))
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
+					}
+					// fallthrough
+					case TypeKind_Slice:
+					{
+						if(*Expr->Selector.Member == STR_LIT("count"))
+						{
+						}
+						else
+						{
+							RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on this type");
+						}
+						Result = Basic_int;
+					} break;
+					case TypeKind_Enum:
+					{
+						Result = INVALID_TYPE;
+						ForArray(Idx, Type->Enum.Members)
+						{
+							if(Type->Enum.Members[Idx].Name == *Expr->Selector.Member)
+							{
+								Expr->Selector.Index = Idx;
+								Result = TypeIdx;
+								break;
+							}
+						}
+						if(Result == INVALID_TYPE)
+						{
+							RaiseError(*Expr->ErrorInfo, "Members %s is not enum %s, invalid `.` selector",
+									Expr->Selector.Member->Data, GetTypeName(Type));
+						}
+					} break;
+					case TypeKind_Pointer:
+					{
+
+						const type *Pointed = NULL;
+						if(Type->Pointer.Pointed != INVALID_TYPE)
+							Pointed = GetType(Type->Pointer.Pointed);
+						if(!Pointed || Pointed->Kind != TypeKind_Struct)
+						{
+							RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
+									GetTypeName(Type));
+						}
+						Type = Pointed;
+					} // fallthrough
+					case TypeKind_Struct:
+					{
+						Result = INVALID_TYPE;
+						ForArray(Idx, Type->Struct.Members)
+						{
+							if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
+							{
+								Expr->Selector.Index = Idx;
+								Result = Type->Struct.Members[Idx].Type;
+								break;
+							}
+						}
+						if(Result == INVALID_TYPE)
+						{
+							RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
+									Expr->Selector.Member->Data, GetTypeName(Type));
+						}
+					} break;
+					default:
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on %s",
+								GetTypeName(Type));
+					} break;
 				}
 			}
 		} break;
@@ -1457,6 +1543,108 @@ u32 FixPotentialFunctionPointer(u32 Type)
 	}
 }
 
+void AnalyzeEnum(checker *Checker, node *Node)
+{
+	if(Node->Enum.Items.Count == 0)
+		RaiseError(*Node->ErrorInfo, "Empty enums are not allowed");
+
+	u32 AlreadyDefined = FindType(Checker, Node->Enum.Name);
+	if(AlreadyDefined != INVALID_TYPE)
+	{
+		RaiseError(*Node->ErrorInfo, "Enum %s is a redefinition, original type is %s",
+				Node->Enum.Name->Data, GetTypeName(AlreadyDefined));
+	}
+
+
+	u32 Type = INVALID_TYPE;
+	if(Node->Enum.Type)
+	{
+		Type = GetTypeFromTypeNode(Checker, Node->Enum.Type);
+		Assert(Type != INVALID_TYPE);
+		const type *T = GetType(Type);
+		if(!HasBasicFlag(T, BasicFlag_Integer))
+		{
+			RaiseError(*Node->ErrorInfo, "Enum type must be integral, cannot use %s",
+					GetTypeName(T));
+		}
+		
+	}
+	else
+	{
+		Type = Basic_int;
+	}
+	
+
+	dynamic<enum_member> Members = {};
+	enum {
+		WITH_EXPR,
+		NO_EXPR,
+	} EnumType = Node->Enum.Items[0]->Item.Expression ? WITH_EXPR : NO_EXPR;
+	ForArray(Idx, Node->Enum.Items)
+	{
+		auto Item = Node->Enum.Items[Idx];
+		if(EnumType == WITH_EXPR)
+		{
+			if(!Item->Item.Expression)
+			{
+				RaiseError(*Item->ErrorInfo, "Missing value. Other members in the enum use values and mixing is not allowed");
+			}
+		}
+		else
+		{
+			if(Item->Item.Expression)
+			{
+				RaiseError(*Item->ErrorInfo, "Using expression in an enum in which other members don't use expressions is not allowed");
+
+			}
+		}
+	}
+
+	ForArray(Idx, Node->Enum.Items)
+	{
+		enum_member Member = {};
+		auto Item = Node->Enum.Items[Idx]->Item;
+		Member.Name = *Item.Name;
+		if(Item.Expression)
+		{
+			switch(Item.Expression->Type)
+			{
+				case AST_CONSTANT:
+				{
+					Member.Value = Item.Expression->Constant.Value;
+					if(Member.Value.Type != const_type::Integer)
+					{
+						RaiseError(*Item.Expression->ErrorInfo, "Enum member value must be an integer");
+					}
+				} break;
+				case AST_CHARLIT:
+				{
+					const_value Value = {};
+					Value.Type = const_type::Integer;
+					Value.Int.IsSigned = false;
+					Value.Int.Unsigned = Node->CharLiteral.C;
+					Member.Value = Value;
+				} break;
+				default:
+				{
+					RaiseError(*Item.Expression->ErrorInfo, "Enum member value must be a constant integer");
+				} break;
+			}
+		}
+		else
+		{
+			const_value Value = {};
+			Value.Type = const_type::Integer;
+			Value.Int.IsSigned = false;
+			Value.Int.Unsigned = Idx;
+			Member.Value = Value;
+		}
+		Members.Push(Member);
+	}
+
+	MakeEnumType(*Node->Enum.Name, SliceFromArray(Members), Type);
+}
+
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
@@ -1574,9 +1762,31 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, import &Module)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
+			string Name = *Nodes[I]->StructDecl.Name;
 			type *New = NewType(type);
 			New->Kind = TypeKind_Struct;
-			New->Struct.Name = *Nodes[I]->StructDecl.Name;
+			New->Struct.Name = Name;
+
+			uint Count = GetTypeCount();
+			string SymbolName = StructToModuleName(Name, Module.Name);
+			for(int i = 0; i < Count; ++i)
+			{
+				const type *T = GetType(i);
+				if(T->Kind == TypeKind_Struct)
+				{
+					if(T->Struct.Name == SymbolName)
+					{
+						RaiseError(*Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+					}
+				}
+				else if(T->Kind == TypeKind_Enum)
+				{
+					if(T->Enum.Name == SymbolName)
+					{
+						RaiseError(*Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+					}
+				}
+			}
 
 			AddType(New);
 		}
@@ -1640,6 +1850,13 @@ checker AnalyzeFunctionDecls(slice<node *>Nodes, import *ThisModule)
 
 void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 {
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_ENUM)
+		{
+			AnalyzeEnum(Checker, Nodes[I]);
+		}
+	}
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)

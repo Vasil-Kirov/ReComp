@@ -71,6 +71,16 @@ node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Mem
 	return Result;
 }
 
+node *MakeEnum(const error_info *ErrorInfo, const string *Name, slice<node *> Items, node *T)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_ENUM);
+	Result->Enum.Name = Name;
+	Result->Enum.Items = Items;
+	Result->Enum.Type = T;
+
+	return Result;
+}
+
 node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_STRUCTDECL);
@@ -599,7 +609,7 @@ node *ParseList(parser *Parser, node *Operand)
 			const string *Name = NULL;
 			if(PeekToken(Parser, 1).Type == T_EQ)
 			{
-				Name = GetToken(Parser).ID;
+				Name = EatToken(Parser, T_ID).ID;
 				EatToken(Parser, T_EQ);
 			}
 			node *Expression = ParseExpression(Parser);
@@ -1020,7 +1030,7 @@ node *ParseNode(parser *Parser)
 			if(PeekToken(Parser).Type == T_ELSE)
 			{
 				GetToken(Parser);
-				ParseMaybeBody(Parser, Result->If.Body);
+				ParseMaybeBody(Parser, Result->If.Else);
 			}
 
 			ExpectSemicolon = false;
@@ -1222,6 +1232,45 @@ node *ParseTopLevel(parser *Parser)
 			import Imported = {.Name = *T.ID, .As = As ? *As : STR_LIT("")};
 			Parser->Imported.Push(Imported);
 			Result = (node *)0x1;
+		} break;
+		case T_ENUM:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token NameT = GetToken(Parser);
+			if(NameT.Type != T_ID)
+			{
+				RaiseError(*ErrorInfo, "Expected enum name after `enum` keyword");
+			}
+			node *TypeNode = NULL;
+			if(Parser->Current->Type == T_DECL)
+			{
+				EatToken(Parser, T_DECL);
+				TypeNode = ParseType(Parser);
+			}
+
+			EatToken(Parser, T_STARTSCOPE);
+			auto ParseEnumMembers = [](parser *Parser) -> node* {
+				if(Parser->Current->Type == T_ENDSCOPE)
+					return NULL;
+
+				ERROR_INFO;
+				token Name = EatToken(Parser, T_ID);
+				node *Expression = NULL;
+				if(Parser->Current->Type == T_EQ)
+				{
+					EatToken(Parser, T_EQ);
+					Expression = ParseExpression(Parser);
+				}
+				return MakeListItem(ErrorInfo, Name.ID, Expression);
+			};
+			
+			slice<node *> Items = Delimited(Parser, ',', ParseEnumMembers);
+			EatToken(Parser, T_ENDSCOPE);
+
+			string *Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
+
+			Result = MakeEnum(ErrorInfo, Name, Items, TypeNode);
 		} break;
 		case T_STRUCT:
 		{

@@ -512,6 +512,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef LHS = gen->map.Get(I.Left);
 			LLVMValueRef RHS = gen->map.Get(I.Right);
 			const type *Type = GetType(I.Type);
+			if(Type->Kind == TypeKind_Enum)
+			{
+				Type = GetType(Type->Enum.Type);
+			}
+
 			LLVMValueRef Value;
 			if(Type->Basic.Flags & BasicFlag_Float)
 			{

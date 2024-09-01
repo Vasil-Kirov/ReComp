@@ -11,8 +11,8 @@ enum MyEnum: i32 {
 #if Windows
 (
     main :: fn() -> i32 {
-        x := MyEnum.OTHER_NAME;
-        if x == MyEnum.SOME_NAME {
+        x := MyEnum.SOME_NAME;
+        if x == MyEnum.FINAL_NAME {
             return 0;
         } else if x == MyEnum.OTHER_NAME {
             return 1;

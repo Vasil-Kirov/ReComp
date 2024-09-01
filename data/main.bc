@@ -10,14 +10,14 @@ block_0:
 
 define i32 @"__main!main"() !dbg !10 {
 block_0:
-  call void @llvm.dbg.declare(metadata i32 2, metadata !15, metadata !DIExpression()), !dbg !16
+  call void @llvm.dbg.declare(metadata i32 1, metadata !15, metadata !DIExpression()), !dbg !16
   br i1 false, label %block_1, label %block_2, !dbg !17
 
 block_1:                                          ; preds = %block_0
   ret i32 0, !dbg !18
 
 block_2:                                          ; preds = %block_0
-  br i1 true, label %block_4, label %block_5, !dbg !19
+  br i1 false, label %block_4, label %block_5, !dbg !19
 
 block_4:                                          ; preds = %block_2
   ret i32 1, !dbg !20

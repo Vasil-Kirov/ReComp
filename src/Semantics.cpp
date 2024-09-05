@@ -895,6 +895,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
 									GetTypeName(Type));
 						}
+						if(Type->Pointer.Flags & PointerFlag_Optional)
+						{
+							RaiseError(*Expr->ErrorInfo, "Cannot derefrence optional pointer, check for null and then mark it non optional with the ? operator");
+						}
 						Type = Pointed;
 					} // fallthrough
 					case TypeKind_Struct:

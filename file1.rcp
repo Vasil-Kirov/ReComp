@@ -1,29 +1,13 @@
 main
 
-my_32_fn :: fn(x: i32) -> i32 {
-	return 32;
-}
-
-my_16_fn :: fn(x: i32) -> i32 {
-	return 16;
-}
-
-call_lambda :: fn(f: fn(x: i32) -> i32) -> i32
-{
-    return f(16);
+struct Foo {
+	foo: [100]i32
 }
 
 main :: fn() -> i32 {
-	my_lambda := fn() -> i32 {
-		return 32;
-	};
-
-	fn_ptr := my_32_fn;
-	fn_ptr = my_16_fn;
-
-	return my_lambda() - call_lambda(fn_ptr) - call_lambda(fn(x: i32) -> i32 {
-        return x;
-    });
+	x := Foo {};
+	my_x := null;
+	return my_x.foo[0];
 }
 
 // #import stuff as f2

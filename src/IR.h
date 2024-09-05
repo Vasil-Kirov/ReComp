@@ -39,6 +39,15 @@ enum op
 	OP_MEMSET,
 	OP_COUNT,
 	OP_DEBUGINFO,
+	OP_SWITCHINT,
+};
+
+struct ir_switchint
+{
+	slice<u32> Cases;
+	slice<u32> OnValues;
+	u32 Matcher;
+	u32 After;
 };
 
 enum ir_debug_type
@@ -164,4 +173,5 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		slice<import> Imported, import Module);
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
+void BuildIRFunctionLevel(block_builder *Builder, node *Node);
 

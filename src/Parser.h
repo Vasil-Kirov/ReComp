@@ -51,6 +51,8 @@ enum node_type
 	AST_RESERVED,
 	AST_BREAK,
 	AST_LISTITEM,
+	AST_MATCH,
+	AST_CASE,
 };
 
 struct node
@@ -78,6 +80,16 @@ struct node
 			const string *Name; // @Nullable
 			node *Expression;
 		} Item;
+		struct {
+			node *Expression;
+			slice<node *> Cases;
+			u32 MatchType; // Set by semantic analyzer
+			u32 ReturnType; // Set by semantic analyzer
+		} Match;
+		struct {
+			node *Value;
+			slice<node *> Body;
+		} Case;
 		struct {
 			node *TypeNode;
 			slice<node *> Items;

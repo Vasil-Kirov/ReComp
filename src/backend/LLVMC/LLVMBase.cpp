@@ -484,6 +484,20 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMBuildRetVoid(gen->bld);
 			}
 		} break;
+		case OP_SWITCHINT:
+		{
+			ir_switchint *Info = (ir_switchint *)I.BigRegister;
+			LLVMValueRef Matcher = gen->map.Get(Info->Matcher);
+			LLVMValueRef Switch = LLVMBuildSwitch(gen->bld, Matcher, gen->blocks[Info->After].Block, Info->Cases.Count);
+
+			ForArray(Idx, Info->Cases)
+			{
+				u32 Case = Info->Cases[Idx];
+				LLVMValueRef V = gen->map.Get(Info->OnValues[Idx]);
+				LLVMAddCase(Switch, V, gen->blocks[Case].Block);
+			}
+
+		} break;
 		case OP_IF:
 		{
 			LLVMValueRef Cond = gen->map.Get(I.Result);
@@ -660,7 +674,7 @@ void RCGenerateFunction(generator *gen, function fn)
 
 	gen->CurrentBlock = -1;
 	RCSetBlock(gen, 0);
-	LDEBUG("Fn: %s", fn.Name->Data);
+	//LDEBUG("Fn: %s", fn.Name->Data);
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];

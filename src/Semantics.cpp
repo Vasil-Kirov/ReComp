@@ -526,6 +526,85 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_MATCH:
+		{
+			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Match.Expression);
+			const type *ExprType = GetType(ExprTypeIdx);
+			if(IsUntyped(ExprType))
+			{
+				ExprTypeIdx = UntypedGetType(ExprType);
+				FillUntypedStack(Checker, ExprTypeIdx);
+				ExprType = GetType(ExprTypeIdx);
+			}
+
+			IsTypeMatchable(ExprType);
+			if(Expr->Match.Cases.Count == 0)
+			{
+				RaiseError(*Expr->ErrorInfo, "`match` expression has no cases");
+			}
+
+			ForArray(Idx, Expr->Match.Cases)
+			{
+				node *Case = Expr->Match.Cases[Idx];
+
+				u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
+				TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value);
+			}
+
+			Result = InvalidType;
+			b32 HasResult = false;
+
+			ForArray(Idx, Expr->Match.Cases)
+			{
+				node *Case = Expr->Match.Cases[Idx];
+				if(!Case->Case.Body.IsValid())
+				{
+					RaiseError(*Case->ErrorInfo, "Missing body for case in match statement");
+				}
+
+				Checker->CurrentDepth++;
+				b32 CaseReturns = false;
+				for(int BodyIdx = 0; BodyIdx < Case->Case.Body.Count; ++BodyIdx)
+				{
+					node *Node = Case->Case.Body[BodyIdx];
+					AnalyzeNode(Checker, Node);
+					if(Node->Type == AST_RETURN)
+					{
+						if(!Node->Return.Expression)
+						{
+							RaiseError(*Case->ErrorInfo, "Empty return is not allowed in a match statement");
+						}
+						CaseReturns = true;
+						if(!HasResult)
+						{
+							HasResult = true;
+							if(Idx != 0)
+							{
+								RaiseError(*Case->ErrorInfo, "Previous cases do not return a value but this one does");
+							}
+							Result = Node->Return.TypeIdx;
+							const type *T = GetType(Result);
+							if(IsUntyped(T))
+							{
+								Result = UntypedGetType(T);
+								FillUntypedStack(Checker, Result);
+							}
+						}
+						else
+						{
+							TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Node->Return.TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx]);
+						}
+					}
+				}
+				if(!CaseReturns && HasResult)
+				{
+					RaiseError(*Case->ErrorInfo, "Missing return in a match that returns a value");
+				}
+				PopScope(Checker);
+			}
+			Expr->Match.MatchType = ExprTypeIdx;
+			Expr->Match.ReturnType = Result;
+		} break;
 		case AST_RESERVED:
 		{
 			using rs = reserved;
@@ -1352,6 +1431,11 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 	{
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
 		const type *ExprTypePointer = GetType(ExprType);
+		if(ExprTypePointer->Kind == TypeKind_Invalid)
+		{
+			RaiseError(*Node->ErrorInfo, "Expression does not give a value for the assignment");
+		}
+
 		if(Type != INVALID_TYPE)
 		{
 			const type *TypePointer = GetType(Type);
@@ -1394,13 +1478,14 @@ DECL_TYPE_ERROR:
 		// like:
 		// Foo := 0xFF_FF_FF_FF;
 		// Bar := $i32 Foo;
+		// This also happens in the AST_MATCH type checking
 		if(TypePtr->Basic.Flags & BasicFlag_Integer)
 		{
-			Type = Basic_i64;
+			Type = Basic_int;
 		}
 		else if(TypePtr->Basic.Flags & BasicFlag_Float)
 		{
-			Type = Basic_f64;
+			Type = Basic_f32;
 		}
 		else
 		{

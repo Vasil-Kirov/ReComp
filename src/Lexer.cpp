@@ -411,6 +411,7 @@ void InitializeLexer()
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
+	AddKeyword("match",  T_MATCH);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
 	AddKeyword("#if",      T_PWDIF);

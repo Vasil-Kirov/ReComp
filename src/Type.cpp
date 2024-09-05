@@ -43,6 +43,8 @@ const type BasicTypes[] = {
 
 static const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
+const type InvalidTypeImpl = {TypeKind_Invalid, {}};
+u32 InvalidType    = INVALID_TYPE;
 const type *BasicBool      = &BasicTypes[Basic_bool];
 const type *UntypedInteger = &BasicTypes[Basic_UntypedInteger];
 const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
@@ -60,6 +62,8 @@ const type **InitializeTypeTable()
 	{
 		Types[TypeCount++] = &BasicTypes[I];
 	}
+	InvalidType = TypeCount;
+	Types[TypeCount++] = &InvalidTypeImpl;
 
 	return Types;
 }
@@ -1278,5 +1282,32 @@ u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type)
 	T->Enum.Type = Type;
 
 	return AddType(T);
+}
+
+b32 IsTypeMatchable(const type *T)
+{
+	if(T->Kind == TypeKind_Basic)
+	{
+		return HasBasicFlag(T, BasicFlag_Integer) || HasBasicFlag(T, BasicFlag_Float);
+	}
+
+	return T->Kind == TypeKind_Enum;
+}
+
+u32 UntypedGetType(const type *T)
+{
+	Assert(IsUntyped(T));
+	if(HasBasicFlag(T, BasicFlag_Integer))
+	{
+		return Basic_int;
+	}
+	else if(HasBasicFlag(T, BasicFlag_Float))
+	{
+		return Basic_f32;
+	}
+	else
+	{
+		unreachable;
+	}
 }
 

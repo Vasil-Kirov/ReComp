@@ -243,6 +243,8 @@ u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
 b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);
+b32 IsTypeMatchable(const type *T);
+u32 UntypedGetType(const type *T);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 
@@ -253,4 +255,5 @@ u32 GetGenericReplacement();
 b32 IsStructAllFloats(const type *T);
 
 extern platform_target PTarget;
+extern u32 InvalidType;
 

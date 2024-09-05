@@ -15,6 +15,24 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeCase(const error_info *ErrorInfo, node *Value, slice<node *> Body)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_CASE);
+	Result->Case.Value = Value;
+	Result->Case.Body = Body;
+
+	return Result;
+}
+
+node *MakeMatch(const error_info *ErrorInfo, node *Expression, slice<node *> Cases)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_MATCH);
+	Result->Match.Expression = Expression;
+	Result->Match.Cases = Cases;
+
+	return Result;
+}
+
 node *MakeCharLiteral(const error_info *ErrorInfo, char C)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_CHARLIT);
@@ -703,6 +721,30 @@ node *ParseOperand(parser *Parser)
 			{
 				ParseBody(Parser, Result->Fn.Body);
 			}
+		} break;
+		case T_MATCH:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			b32 NoStructLists = Parser->NoStructLists;
+			Parser->NoStructLists = true;
+			node *Expr = ParseExpression(Parser);
+			Parser->NoStructLists = NoStructLists;
+			EatToken(Parser, T_STARTSCOPE);
+			auto ParseFn = [](parser *Parser) -> node*{
+				ERROR_INFO;
+				if(Parser->Current->Type == T_ENDSCOPE)
+					return NULL;
+
+				node *Value = ParseExpression(Parser);
+				EatToken(Parser, ':');
+				dynamic<node *> Body = {};
+				ParseBody(Parser, Body);
+				return MakeCase(ErrorInfo, Value, SliceFromArray(Body));
+			};
+			slice<node *> Cases = Delimited(Parser, ',', ParseFn);
+			EatToken(Parser, T_ENDSCOPE);
+			Result = MakeMatch(ErrorInfo, Expr, Cases);
 		} break;
 		case T_OPENBRACKET:
 		{

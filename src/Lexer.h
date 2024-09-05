@@ -72,6 +72,7 @@ enum token_type
 	T_PWDIF  = -47,
 	T_CHAR   = -48,
 	T_ENUM   = -49,
+	T_MATCH  = -50,
 };
 
 struct token

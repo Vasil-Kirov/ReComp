@@ -1,13 +1,16 @@
 main
 
-struct Foo {
-	foo: [100]i32
-}
-
 main :: fn() -> i32 {
-	x := Foo {};
-	my_x := null;
-	return my_x.foo[0];
+	x := 4;
+	res := match x {
+		4: {
+			return 10;
+		},
+		5: {
+			return 5;
+		},
+	};
+	return res;
 }
 
 // #import stuff as f2

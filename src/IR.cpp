@@ -8,6 +8,13 @@
 #include "vlib.h"
 #include "Log.h"
 
+void Terminate(block_builder *Builder, basic_block GoTo)
+{
+	Builder->CurrentBlock.HasTerminator = true;
+	Builder->Function->Blocks.Push(Builder->CurrentBlock);
+	Builder->CurrentBlock = GoTo;
+}
+
 inline u32 PushAlloc(u32 Type, block_builder *Builder)
 {
 	return PushInstruction(Builder,
@@ -284,6 +291,94 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	Args.Push(Pass);
 }
 
+u32 BuildIRIntMatch(block_builder *Builder, node *Node)
+{
+	Assert(Node->Type == AST_MATCH);
+
+	u32 Result = PushInstruction(Builder,
+			Instruction(OP_ALLOC, -1, Node->Match.ReturnType, Builder));
+
+	u32 StartBlock = Builder->CurrentBlock.ID;
+
+	u32 Matcher = BuildIRFromExpression(Builder, Node->Match.Expression);
+	basic_block After = AllocateBlock(Builder);
+	dynamic<u32> CaseBlocks = {};
+	dynamic<u32> OnValues = {};
+	ForArray(Idx, Node->Match.Cases)
+	{
+		node *Case = Node->Match.Cases[Idx];
+		u32 Value = BuildIRFromExpression(Builder, Case->Case.Value);
+		OnValues.Push(Value);
+	}
+	ForArray(Idx, Node->Match.Cases)
+	{
+		basic_block CaseBlock = AllocateBlock(Builder);
+		Terminate(Builder, CaseBlock);
+		node *Case = Node->Match.Cases[Idx];
+		ForArray(BodyIdx, Case->Case.Body)
+		{
+			node *Node = Case->Case.Body[BodyIdx];
+			if(Node->Type == AST_RETURN)
+			{
+				u32 Expr = BuildIRFromExpression(Builder, Node->Return.Expression);
+				PushInstruction(Builder, 
+						InstructionStore(Result, Expr, Node->Return.TypeIdx));
+			}
+			else
+			{
+				BuildIRFunctionLevel(Builder, Node);
+			}
+		}
+
+		PushInstruction(Builder,
+				Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+		CaseBlocks.Push(CaseBlock.ID);
+	}
+	Terminate(Builder, After);
+
+	for(int i = 0; i < Builder->Function->Blocks.Count; ++i)
+	{
+		if(Builder->Function->Blocks[i].ID == StartBlock)
+		{
+			ir_switchint *Info = NewType(ir_switchint);
+			Info->OnValues = SliceFromArray(OnValues);
+			Info->Cases    = SliceFromArray(CaseBlocks);
+			Info->After    = After.ID;
+			Info->Matcher  = Matcher;
+			instruction I = Instruction(OP_SWITCHINT, (u64)Info, Node->Match.ReturnType, Builder);
+			Builder->Function->Blocks.Data[i].Code.Push(I);
+			break;
+		}
+	}
+
+	Result = PushInstruction(Builder,
+			Instruction(OP_LOAD, 0, Result, Node->Match.MatchType, Builder));
+	return Result;
+}
+
+u32 BuildIRMatch(block_builder *Builder, node *Node)
+{
+	Assert(Node->Type == AST_MATCH);
+	Assert(Node->Match.Cases.Count != 0);
+	//u32 Matcher = BuildIRFromExpression(Builder, Node->Match.Expression);
+
+	u32 Result = -1;
+
+	const type *MT = GetType(Node->Match.MatchType);
+	if(HasBasicFlag(MT, BasicFlag_Integer))
+	{
+		Result = BuildIRIntMatch(Builder, Node);
+	}
+	else
+	{
+		Assert(false);
+	}
+
+
+	return Result;
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -321,6 +416,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			
 			if(ShouldLoad)
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
+		} break;
+		case AST_MATCH:
+		{
+			Result = BuildIRMatch(Builder, Node);
 		} break;
 		case AST_RESERVED:
 		{
@@ -937,13 +1036,6 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
 }
 
-void Terminate(block_builder *Builder, basic_block GoTo)
-{
-	Builder->CurrentBlock.HasTerminator = true;
-	Builder->Function->Blocks.Push(Builder->CurrentBlock);
-	Builder->CurrentBlock = GoTo;
-}
-
 void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block Then);
 
 void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
@@ -1512,9 +1604,25 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 				//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
 				PushBuilderFormated(Builder, "%%%d = CALL %d", Instr.Result, CallInfo->Operand);
 			} break;
+			case OP_SWITCHINT:
+			{
+				ir_switchint *Info = (ir_switchint *)Instr.BigRegister;
+				PushBuilderFormated(Builder, "%%%d = switch %%%d [", Instr.Result, Info->Matcher);
+				ForArray(Idx, Info->Cases)
+				{
+					u32 Case = Info->Cases[Idx];
+					u32 Val  = Info->OnValues[Idx];
+					PushBuilderFormated(Builder, "%%%d block_%d", Val, Case);
+					if(Idx + 1 != Info->Cases.Count)
+					{
+						*Builder += ", ";
+					}
+				}
+				*Builder += ']';
+			} break;
 			case OP_IF:
 			{
-				PushBuilderFormated(Builder, "IF %%%d goto %d, else goto %d", Instr.Result, Instr.Left, Instr.Right);
+				PushBuilderFormated(Builder, "IF %%%d goto block_%d, else goto block_%d", Instr.Result, Instr.Left, Instr.Right);
 			} break;
 			case OP_JMP:
 			{

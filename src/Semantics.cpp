@@ -456,16 +456,14 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	b32 FoundReturn = false;
 	ForArray(Idx, Body)
 	{
-		if(Body[Idx]->Type == AST_RETURN)
-		{
-			if(Idx + 1 != Body.Count)
-			{
-				RaiseError(*Body[Idx]->ErrorInfo, "Code after return statement is unreachable");
-			}
+		node *Node = Body[Idx];
+		if(Node->Type == AST_RETURN)
 			FoundReturn = true;
-		}
-		AnalyzeNode(Checker, Body[Idx]);
+		AnalyzeNode(Checker, Node);
 	}
+
+	slice<node *>BodySlice = SliceFromArray(Body);
+	CheckBodyForUnreachableCode(BodySlice);
 
 	if(!FoundReturn && Body.Count != 0)
 	{
@@ -600,6 +598,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					RaiseError(*Case->ErrorInfo, "Missing return in a match that returns a value");
 				}
+				CheckBodyForUnreachableCode(Case->Case.Body);
 				PopScope(Checker);
 			}
 			Expr->Match.MatchType = ExprTypeIdx;
@@ -1502,7 +1501,7 @@ DECL_TYPE_ERROR:
 	return Type;
 }
 
-void AnalyzeInnerBody(checker *Checker, dynamic<node *> &Body)
+void AnalyzeInnerBody(checker *Checker, slice<node *> Body)
 {
 	Assert(Body.IsValid());
 	Checker->CurrentDepth++;
@@ -1510,6 +1509,7 @@ void AnalyzeInnerBody(checker *Checker, dynamic<node *> &Body)
 	{
 		AnalyzeNode(Checker, Body[Idx]);
 	}
+	CheckBodyForUnreachableCode(Body);
 	PopScope(Checker);
 }
 
@@ -1532,10 +1532,12 @@ void AnalyzeIf(checker *Checker, node *Node)
 		Null->Reserved.Type = NULLType;
 		Node->If.Expression = MakeBinary(Node->ErrorInfo, Node->If.Expression, Null, T_NEQ);
 	}
-	AnalyzeInnerBody(Checker, Node->If.Body);
+	slice<node *> IfBody = SliceFromArray(Node->If.Body); 
+	AnalyzeInnerBody(Checker, IfBody);
 	if(Node->If.Else.IsValid())
 	{
-		AnalyzeInnerBody(Checker, Node->If.Else);
+		slice<node *> IfElse = SliceFromArray(Node->If.Else); 
+		AnalyzeInnerBody(Checker, IfElse);
 	}
 }
 
@@ -1597,7 +1599,10 @@ void AnalyzeFor(checker *Checker, node *Node)
 	}
 
 	if(Node->For.Body.IsValid())
-		AnalyzeInnerBody(Checker, Node->For.Body);
+	{
+		slice<node *> ForBody = SliceFromArray(Node->For.Body);
+		AnalyzeInnerBody(Checker, ForBody);
+	}
 	PopScope(Checker);
 }
 
@@ -1784,6 +1789,22 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	New.Struct.Members = SliceFromArray(Members);
 	New.Struct.Flags = 0; // not supported rn
 	FillOpaqueStruct(OpaqueType, New);
+}
+
+void CheckBodyForUnreachableCode(slice<node *> Body)
+{
+	ForArray(Idx, Body)
+	{
+		node *Node = Body[Idx];
+		if(Node->Type == AST_RETURN && Idx + 1 != Body.Count)
+		{
+			RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after return statement");
+		}
+		if(Node->Type == AST_BREAK && Idx + 1 != Body.Count)
+		{
+			RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after break statement");
+		}
+	}
 }
 
 void AnalyzeNode(checker *Checker, node *Node)

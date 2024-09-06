@@ -61,4 +61,5 @@ promotion_description PromoteType(const type *Promotion, const type *Left, const
 u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode);
 scope *AllocScope(node *Node, scope *Parent=NULL);
 b32 ScopesMatch(scope *A, scope *B);
+void CheckBodyForUnreachableCode(slice<node *> Body);
 

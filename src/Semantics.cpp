@@ -1571,6 +1571,11 @@ void AnalyzeFor(checker *Checker, node *Node)
 				RaiseError(*Node->For.Expr2->ErrorInfo,
 						"Expression is of non iteratable type %s", GetTypeName(T));
 			}
+			if(IsUntyped(T))
+			{
+				TypeIdx = Basic_int;
+				T = GetType(TypeIdx);
+			}
 			Assert(Node->For.Expr1->Type == AST_ID);
 			u32 ItType = INVALID_TYPE;
 			if(T->Kind == TypeKind_Array)
@@ -1797,9 +1802,21 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_BREAK:
 		{
-			if(!Checker->CurrentScope || Checker->CurrentScope->ScopeNode->Type != AST_FOR)
+			b32 FoundBreakableScope = false;
+			scope *Current = Checker->CurrentScope;
+
+			while(Current)
 			{
-				RaiseError(*Node->ErrorInfo, "Invalid context for break, not a loop or a switch statement");
+				if(Current->ScopeNode->Type == AST_FOR)
+				{
+					FoundBreakableScope = true;
+					break;
+				}
+				Current = Current->Parent;
+			}
+			if(!FoundBreakableScope)
+			{
+				RaiseError(*Node->ErrorInfo, "Invalid context for break, not a loop or a match statement");
 			}
 		} break;
 		case AST_FOR:

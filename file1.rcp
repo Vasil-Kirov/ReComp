@@ -1,16 +1,41 @@
 main
 
+// main :: fn() -> i32 {
+// 	x := 4;
+// 	res := match x {
+// 		4: {
+// 			return 10;
+// 		},
+// 		5: {
+// 			return 5;
+// 		},
+// 	};
+// 	return res;
+// }
+
 main :: fn() -> i32 {
-	x := 4;
-	res := match x {
-		4: {
-			return 10;
-		},
-		5: {
-			return 5;
-		},
-	};
-	return res;
+	i := 0;
+	for {
+		if i == 5 {
+			break;
+		}
+		i += 1;
+	}
+
+	for i < 10 {
+		i += 1;
+	}
+
+	for idx := 0; idx < 10; idx += 1 {
+		i += 1;
+	}
+
+
+	for num in 10 {
+		i += 1;
+	}
+
+	return @i32 i;
 }
 
 // #import stuff as f2

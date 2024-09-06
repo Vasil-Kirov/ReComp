@@ -6,12 +6,9 @@ mkdir %1
 echo build
 echo.
 echo compile :: fn^(out: *CompileInfo^) {
-echo 	to_fill := *out;
+echo 	to_fill := out;
 echo 	to_fill.files[0] = c"%1.rcp";
-echo.
 echo 	to_fill.file_count = 1;
-echo.
-echo 	*out = to_fill;
 echo }
 ) > %1/build.rcp
 

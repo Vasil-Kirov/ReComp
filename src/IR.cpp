@@ -1251,6 +1251,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_BREAK:
 		{
 			PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
+			Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_FOR:
 		{

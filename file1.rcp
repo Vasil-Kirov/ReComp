@@ -14,31 +14,15 @@ main
 // 	return res;
 // }
 
+puts :: fn #foreign(str: cstring);
+
+return_same :: fn<T>(x: T) -> T {
+    return x;
+}
+
 main :: fn() -> i32 {
-    i := 0;
-    foo := c"foo";
-
-    for {
-        if i == 5 {
-            break;
-        }
-        i += 1;
-    }
-
-    for i < 10 {
-        i += 1;
-	}
-
-	for idx := 0; idx < 10; idx += 1 {
-		i += 1;
-	}
-
-
-	for num in 10 {
-		i += 1;
-	}
-
-	return @i32 i;
+    puts(return_same(c"hello"));
+    return @i32 return_same(10);
 }
 
 // #import stuff as f2

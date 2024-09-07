@@ -1,0 +1,7 @@
+memory
+
+struct Allocator {
+    alloc: fn(size: int, this: *) -> *,
+    data: *,
+};
+

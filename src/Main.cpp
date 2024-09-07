@@ -116,8 +116,7 @@ void ResolveSymbols(dynamic<file> Files)
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
-		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		*File->Checker = AnalyzeFunctionDecls(NodeSlice, File->Module);
+		*File->Checker = AnalyzeFunctionDecls(&File->Nodes, File->Module);
 	}
 	ResolveModules(Files);
 	b32 FoundMain = false;
@@ -259,7 +258,7 @@ file CompileBuildFile(string Name, timers *Timers, u32 *CompileInfoTypeIdx)
 
 	auto NodeSlice = SliceFromArray(File.Nodes);
 	AnalyzeForModuleStructs(NodeSlice, *File.Module);
-	*File.Checker = AnalyzeFunctionDecls(NodeSlice, File.Module);
+	*File.Checker = AnalyzeFunctionDecls(&File.Nodes, File.Module);
 	File.Checker->Imported = &File.Imported;
 	ParseAndAnalyzeFile(&File, Timers, 0);
 

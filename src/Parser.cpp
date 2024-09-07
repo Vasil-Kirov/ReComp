@@ -1398,3 +1398,246 @@ node *ParseTopLevel(parser *Parser)
 	return Result;
 }
 
+dynamic<node *> CopyNodeDynamic(dynamic<node *> Body)
+{
+	dynamic<node *> Result = {};
+	ForArray(Idx, Body)
+	{
+		Result.Push(CopyASTNode(Body[Idx]));
+	}
+
+	return Result;
+}
+
+slice<node *> CopyNodeSlice(slice<node *> Body)
+{
+	dynamic<node *> Result = {};
+	ForArray(Idx, Body)
+	{
+		Result.Push(CopyASTNode(Body[Idx]));
+	}
+
+	return SliceFromArray(Result);
+}
+
+node *CopyASTNode(node *N)
+{
+	if(!N) return NULL;
+
+	node *R = AllocateNode(N->ErrorInfo, N->Type);
+	
+	switch (N->Type)
+	{
+		case AST_INVALID: 
+			unreachable; 
+			break;
+
+		case AST_CHARLIT:
+		{
+			R->CharLiteral.C = N->CharLiteral.C;
+		} break;
+
+		case AST_CONSTANT:
+		{
+			R->Constant.Value = N->Constant.Value;
+			R->Constant.Type = N->Constant.Type;
+		} break;
+
+		case AST_BINARY:
+		{
+			R->Binary.Left = CopyASTNode(N->Binary.Left);
+			R->Binary.Right = CopyASTNode(N->Binary.Right);
+			R->Binary.Op = N->Binary.Op;
+			R->Binary.ExpressionType = N->Binary.ExpressionType;
+		} break;
+
+		case AST_UNARY:
+		{
+			R->Unary.Operand = CopyASTNode(N->Unary.Operand);
+			R->Unary.Op = N->Unary.Op;
+			R->Unary.Type = N->Unary.Type;
+		} break;
+
+		case AST_IF:
+		{
+			R->If.Expression = CopyASTNode(N->If.Expression);
+			R->If.Body = CopyNodeDynamic(N->If.Body);
+			R->If.Else = CopyNodeDynamic(N->If.Else);
+		} break;
+
+		case AST_FOR:
+		{
+			R->For.Expr1 = CopyASTNode(N->For.Expr1);
+			R->For.Expr2 = CopyASTNode(N->For.Expr2);
+			R->For.Expr3 = CopyASTNode(N->For.Expr3);
+			R->For.Body = CopyNodeDynamic(N->For.Body);
+			R->For.Kind = N->For.Kind;
+			R->For.ArrayType = N->For.ArrayType;
+			R->For.ItType = N->For.ItType;
+		} break;
+
+		case AST_FUNCTION:
+		{
+			R->Fn.Name = N->Fn.Name;
+			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
+			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
+			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
+			R->Fn.MaybeGenric = CopyASTNode(N->Fn.MaybeGenric);
+			R->Fn.TypeIdx = N->Fn.TypeIdx;
+			R->Fn.Flags = N->Fn.Flags;
+		} break;
+
+		case AST_ID:
+		{
+			R->ID.Name = N->ID.Name;
+			R->ID.Type = N->ID.Type;
+		} break;
+
+		case AST_DECL:
+		{
+			R->Decl.ID = N->Decl.ID;
+			R->Decl.Expression = CopyASTNode(N->Decl.Expression);
+			R->Decl.Type = CopyASTNode(N->Decl.Type);
+			R->Decl.TypeIndex = N->Decl.TypeIndex;
+			R->Decl.Flags = N->Decl.Flags;
+		} break;
+
+		case AST_CALL:
+		{
+			R->Call.Fn = CopyASTNode(N->Call.Fn);
+			R->Call.Args = CopyNodeSlice(N->Call.Args);
+			R->Call.SymName = N->Call.SymName;
+			R->Call.Type = N->Call.Type;
+			R->Call.ArgTypes = N->Call.ArgTypes; // Shallow-copied
+		} break;
+
+		case AST_RETURN:
+		{
+			R->Return.Expression = CopyASTNode(N->Return.Expression);
+			R->Return.TypeIdx = N->Return.TypeIdx;
+		} break;
+
+		case AST_PTRTYPE:
+		{
+			R->PointerType.Pointed = CopyASTNode(N->PointerType.Pointed);
+			R->PointerType.Flags = N->PointerType.Flags;
+		} break;
+
+		case AST_ARRAYTYPE:
+		{
+			R->ArrayType.Type = CopyASTNode(N->ArrayType.Type);
+			R->ArrayType.Expression = CopyASTNode(N->ArrayType.Expression);
+		} break;
+
+		case AST_FN:
+		{
+			R->Fn.Name = N->Fn.Name;
+			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
+			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
+			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
+			R->Fn.MaybeGenric = CopyASTNode(N->Fn.MaybeGenric);
+			R->Fn.TypeIdx = N->Fn.TypeIdx;
+			R->Fn.Flags = N->Fn.Flags;
+		} break;
+
+		case AST_CAST:
+		{
+			R->Cast.Expression = CopyASTNode(N->Cast.Expression);
+			R->Cast.TypeNode = CopyASTNode(N->Cast.TypeNode);
+			R->Cast.FromType = N->Cast.FromType;
+			R->Cast.ToType = N->Cast.ToType;
+		} break;
+
+		case AST_TYPELIST:
+		{
+			R->TypeList.TypeNode = CopyASTNode(N->TypeList.TypeNode);
+			R->TypeList.Items = CopyNodeSlice(N->TypeList.Items);
+			R->TypeList.Type = N->TypeList.Type;
+		} break;
+
+		case AST_INDEX:
+		{
+			R->Index.Operand = CopyASTNode(N->Index.Operand);
+			R->Index.Expression = CopyASTNode(N->Index.Expression);
+			R->Index.OperandType = N->Index.OperandType;
+			R->Index.IndexedType = N->Index.IndexedType;
+			R->Index.ForceNotLoad = N->Index.ForceNotLoad;
+		} break;
+
+		case AST_STRUCTDECL:
+		{
+			R->StructDecl.Name = N->StructDecl.Name;
+			R->StructDecl.Members = CopyNodeSlice(N->StructDecl.Members);
+		} break;
+
+		case AST_ENUM:
+		{
+			R->Enum.Name = N->Enum.Name;
+			R->Enum.Items = CopyNodeSlice(N->Enum.Items);
+			R->Enum.Type = CopyASTNode(N->Enum.Type);
+		} break;
+
+		case AST_SELECTOR:
+		{
+			R->Selector.Operand = CopyASTNode(N->Selector.Operand);
+			R->Selector.Member = N->Selector.Member;
+			R->Selector.Index = N->Selector.Index;
+			R->Selector.Type = N->Selector.Type;
+		} break;
+
+		case AST_SIZE:
+		{
+			R->Size.Expression = CopyASTNode(N->Size.Expression);
+			R->Size.Type = N->Size.Type;
+		} break;
+
+		case AST_TYPEOF:
+		{
+			R->TypeOf.Expression = CopyASTNode(N->TypeOf.Expression);
+			R->TypeOf.Type = N->TypeOf.Type;
+		} break;
+
+		case AST_GENERIC:
+		{
+			R->Generic.Name = N->Generic.Name;
+		} break;
+
+		case AST_RESERVED:
+		{
+			R->Reserved.ID = N->Reserved.ID;
+			R->Reserved.Type = N->Reserved.Type;
+		} break;
+
+		case AST_BREAK:
+			// No additional data to copy
+			break;
+
+		case AST_LISTITEM:
+		{
+			R->Item.Name = N->Item.Name;
+			R->Item.Expression = CopyASTNode(N->Item.Expression);
+		} break;
+
+		case AST_MATCH:
+		{
+			R->Match.Expression = CopyASTNode(N->Match.Expression);
+			R->Match.Cases = CopyNodeSlice(N->Match.Cases);
+			R->Match.MatchType = N->Match.MatchType;
+			R->Match.ReturnType = N->Match.ReturnType;
+		} break;
+
+		case AST_CASE:
+		{
+			R->Case.Value = CopyASTNode(N->Case.Value);
+			R->Case.Body = CopyNodeSlice(N->Case.Body);
+		} break;
+
+		default: 
+			// Handle any missing cases as needed
+			break;
+	}
+
+
+	return R;
+}
+

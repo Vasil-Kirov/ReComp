@@ -233,6 +233,7 @@ node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
 node *ParseTopLevel(parser *Parser);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 node *ParseType(parser *Parser, b32 ShouldError = true);
+node *CopyASTNode(node *N);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
 

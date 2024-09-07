@@ -35,10 +35,10 @@ struct symbol
 struct checker
 {
 	dynamic<symbol> Symbols;
-	dynamic<node *> GenericExpressions;
 	import *Module;
 	slice<import> *Imported;
 	stack<u32 *> UntypedStack;
+	dynamic<node *> *Nodes;
 	scope *CurrentScope;
 	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;
@@ -62,4 +62,5 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 scope *AllocScope(node *Node, scope *Parent=NULL);
 b32 ScopesMatch(scope *A, scope *B);
 void CheckBodyForUnreachableCode(slice<node *> Body);
+node *AnalyzeGenericExpression(checker *Checker, node *Generic);
 

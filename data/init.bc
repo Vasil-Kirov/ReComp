@@ -22,6 +22,8 @@ block_0:
   ret i32 %2, !dbg !12
 }
 
+declare void @puts(ptr)
+
 declare i32 @"__main!main"()
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)

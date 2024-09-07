@@ -1195,6 +1195,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 	IRPushDebugLocation(Builder, Node->ErrorInfo);
 	switch(Node->Type)
 	{
+		case AST_NOP: {};
 		case AST_DECL:
 		{
 			BuildIRFromDecleration(Builder, Node);
@@ -1416,7 +1417,7 @@ function GlobalLevelIR(node *Node, slice<import> Imported, import Module)
 		{
 			Assert(Node->Fn.Name);
 
-			if(Node->Fn.MaybeGenric == NULL)
+			if((Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
 				Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, Module);
 			}

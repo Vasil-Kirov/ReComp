@@ -65,7 +65,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	string N = *Name;
 	for(int I = 0; I < TypeCount; ++I)
 	{
-		const type *Type = GetType(I);
+		const type *Type = GetTypeRaw(I);
 		switch(Type->Kind)
 		{
 			case TypeKind_Basic:
@@ -119,10 +119,13 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 			} break;
 			case TypeKind_Generic:
 			{
-				if(ScopesMatch(Checker->CurrentScope, Type->Generic.Scope))
+				if(IsScopeInOrEq(Type->Generic.Scope, Checker->CurrentScope))
 				{
 					if(N == Type->Generic.Name)
 					{
+						u32 Replacement = GetGenericReplacement();
+						if(Replacement != INVALID_TYPE)
+							return Replacement;
 						return I;
 					}
 				}
@@ -352,6 +355,22 @@ scope *AllocScope(node *Node, scope *Parent)
 	return S;
 }
 
+b32 IsScopeInOrEq(scope *SearchingFor, scope *S)
+{
+	if(!SearchingFor || !S)
+		return SearchingFor == S;
+
+	while(S)
+	{
+		if(S->ScopeNode == SearchingFor->ScopeNode)
+		{
+			return true;
+		}
+		S = S->Parent;
+	}
+	return false;
+}
+
 b32 ScopesMatch(scope *A, scope *B)
 {
 	if(!A || !B)
@@ -364,12 +383,6 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	scope *Save = Checker->CurrentScope;
 	scope *FnScope = AllocScope(FnNode);
 	Checker->CurrentScope = FnScope;
-	if(FnNode->Fn.MaybeGenric)
-	{
-		FnNode->Fn.Flags |= SymbolFlag_Generic;
-		Assert(FnNode->Fn.MaybeGenric->Type == AST_GENERIC);
-		MakeGeneric(FnScope, *FnNode->Fn.MaybeGenric->Generic.Name);
-	}
 
 	u32 Flags = FnNode->Fn.Flags;
 	ForArray(Idx, FnNode->Fn.Args)
@@ -387,12 +400,9 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	type *NewType = NewType(type);
 	NewType->Kind = TypeKind_Function;
 	function_type Function;
-	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
 	Function.ArgCount = FnNode->Fn.Args.Count - ((Flags & SymbolFlag_VarFunc) ? 1 : 0);
 	Function.Args = NULL;
 	Function.Flags = Flags;
-	if(FnNode->Fn.MaybeGenric)
-		Function.Flags |= SymbolFlag_Generic;
 
 	if(Function.ArgCount > 0)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
@@ -403,7 +413,14 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
 			Function.Args[I] = GetPointerTo(Function.Args[I]);
+		else if(HasBasicFlag(T, BasicFlag_TypeID))
+		{
+			FnNode->Fn.Flags |= SymbolFlag_Generic;
+			Function.Flags |= SymbolFlag_Generic;
+			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Decl.ID);
+		}
 	}
+	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
 	
 	NewType->Function = Function;
 	Checker->CurrentScope = Save;
@@ -423,11 +440,14 @@ void PopScope(checker *Checker)
 	}
 }
 
-void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx)
+void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL)
 {
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
 	scope *SaveScope = Checker->CurrentScope;
-	Checker->CurrentScope = AllocScope(FnNode);
+	if(!ScopeNode)
+		Checker->CurrentScope = AllocScope(FnNode);
+	else
+		Checker->CurrentScope = AllocScope(ScopeNode);
 
 	Checker->CurrentDepth++;
 	const type *FunctionType = GetType(FunctionTypeIdx);
@@ -702,7 +722,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(IsGeneric(CallType))
 			{
 				Expr = AnalyzeGenericExpression(Checker, Expr);
-				Checker->Nodes->Push(Expr->Call.Fn);
+				//Checker->Nodes->Push(Expr->Call.Fn);
 				CallType = GetType(Expr->Call.Type);
 			}
 
@@ -1810,6 +1830,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 {
 	switch(Node->Type)
 	{
+		case AST_NOP: {} break;
 		case AST_DECL:
 		{
 			AnalyzeDeclerations(Checker, Node);
@@ -2020,7 +2041,7 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
 	return DupeType(Result, string);
 }
 
-node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType)
+node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode)
 {
 	node *Result = FnNode;
 	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
@@ -2032,7 +2053,8 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType)
 	u32 Save = GetGenericReplacement();
 
 	SetGenericReplacement(ResolvedType);
-	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx);
+	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx, OriginalNode);
+	FnNode->Fn.Flags |= SymbolFlag_NoAnalyze;
 	SetGenericReplacement(Save);
 
 	return Result;
@@ -2059,13 +2081,15 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 			Assert(FnSym);
 			const type *T = GetType(FnSym->Type);
 			u32 ResolvedType = INVALID_TYPE;
-			u32 GenericID = INVALID_TYPE;
 			for(int i = 0; i < T->Function.ArgCount; ++i)
 			{
-				if(IsGeneric(T->Function.Args[i]))
+				const type *ArgT = GetType(T->Function.Args[i]);
+				if(HasBasicFlag(ArgT, BasicFlag_TypeID))
 				{
 					if(ResolvedType != INVALID_TYPE)
 					{
+						RaiseError(*Expr->ErrorInfo, "Cannot pass more than 1 generic argument");
+#if 0
 						const type *L = GetType(ResolvedType);
 						const type *R = GetType(Expr->Call.ArgTypes[i]);
 						if(!TypesMustMatch(L, R))
@@ -2073,9 +2097,20 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 							RaiseError(*Expr->ErrorInfo,
 									"Passing parameters of different types for generic expression %s and %s", GetTypeName(L), GetTypeName(R));
 						}
+						GenericID = T->Function.Args[i];
+						ResolvedType = Expr->Call.ArgTypes[i];
+#endif
 					}
-					GenericID = T->Function.Args[i];
-					ResolvedType = Expr->Call.ArgTypes[i];
+					else
+					{
+						node *Arg = Expr->Call.Args[i];
+						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
+						if(ResolvedType == INVALID_TYPE)
+						{
+							RaiseError(*Arg->ErrorInfo,
+									"Couldn't resolve generic call with type from argument #%d", i);
+						}
+					}
 				}
 			}
 			if(ResolvedType == INVALID_TYPE)
@@ -2084,19 +2119,16 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 						"Couldn't resolve generic function call");
 			}
 
-			u32 ResolvedFully = GetGenericPart(ResolvedType, GenericID);
-			Assert(ResolvedFully != INVALID_TYPE);
-
 			{
-				const type *RF = GetType(ResolvedFully);
-				if(IsUntyped(RF))
+				const type *RT = GetType(ResolvedType);
+				if(IsUntyped(RT))
 				{
-					ResolvedFully = UntypedGetType(RF);
+					ResolvedType = UntypedGetType(RT);
 				}
 			}
 
 			node *FnNode = CopyASTNode(FnSym->Node);
-			node *NewFn = AnalyzeGenericFunction(Checker, FnNode, ResolvedFully);
+			node *NewFn = AnalyzeGenericFunction(Checker, FnNode, ResolvedType, FnSym->Node);
 			Expr->Call.Fn = NewFn;
 			Expr->Call.Type = NewFn->Fn.TypeIdx;
 			return Expr;
@@ -2112,7 +2144,8 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
+			if((Node->Fn.Flags & SymbolFlag_NoAnalyze) == 0)
+				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}
 }

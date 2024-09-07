@@ -15,6 +15,13 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeNop(const error_info *ErrorInfo)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_NOP);
+
+	return Result;
+}
+
 node *MakeCase(const error_info *ErrorInfo, node *Value, slice<node *> Body)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_CASE);
@@ -186,12 +193,11 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, node *MaybeGeneric, u32 Flags)
+node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_FN);
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
-	Result->Fn.MaybeGenric = MaybeGeneric;
 	Result->Fn.Flags = Flags;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
@@ -488,25 +494,12 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 	return Delimited(Parser, (token_type)Deliminator, Fn);
 }
 
-node *ParseGeneric(parser *Parser)
-{
-	ERROR_INFO;
-	EatToken(Parser, T_LESS);
-	token ID = EatToken(Parser, T_ID);
-	EatToken(Parser, T_GREAT);
-	return MakeGeneric(ErrorInfo, ID.ID);
-}
-
 node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
 	u32 Flags = 0;
 	EatToken(Parser, T_FN);
-	node *MaybeGeneric = NULL;
-	if(Parser->Current->Type == T_LESS)
-	{
-		MaybeGeneric = ParseGeneric(Parser);
-	}
+
 	if(Parser->Current->Type == T_FOREIGN)
 	{
 		GetToken(Parser);
@@ -525,11 +518,12 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(ErrorInfo, Args, ReturnType, MaybeGeneric, Flags);
+	return MakeFunction(ErrorInfo, Args, ReturnType, Flags);
 }
 
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 {
+	ERROR_INFO;
 	b32 WasInBody = Parser->IsInBody;
 	Parser->IsInBody = true;
 
@@ -539,6 +533,10 @@ void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 		node *Node = ParseNode(Parser);
 		if(Node == NULL)
 		{
+			if(!OutBody.IsValid())
+			{
+				OutBody.Push(MakeNop(ErrorInfo));
+			}
 			EatToken(Parser, T_ENDSCOPE);
 			break;
 		}
@@ -1476,17 +1474,6 @@ node *CopyASTNode(node *N)
 			R->For.ItType = N->For.ItType;
 		} break;
 
-		case AST_FUNCTION:
-		{
-			R->Fn.Name = N->Fn.Name;
-			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
-			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
-			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
-			R->Fn.MaybeGenric = CopyASTNode(N->Fn.MaybeGenric);
-			R->Fn.TypeIdx = N->Fn.TypeIdx;
-			R->Fn.Flags = N->Fn.Flags;
-		} break;
-
 		case AST_ID:
 		{
 			R->ID.Name = N->ID.Name;
@@ -1535,7 +1522,6 @@ node *CopyASTNode(node *N)
 			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
 			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
-			R->Fn.MaybeGenric = CopyASTNode(N->Fn.MaybeGenric);
 			R->Fn.TypeIdx = N->Fn.TypeIdx;
 			R->Fn.Flags = N->Fn.Flags;
 		} break;
@@ -1608,6 +1594,7 @@ node *CopyASTNode(node *N)
 			R->Reserved.Type = N->Reserved.Type;
 		} break;
 
+		case AST_NOP:
 		case AST_BREAK:
 			// No additional data to copy
 			break;

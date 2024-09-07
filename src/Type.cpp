@@ -11,7 +11,7 @@ platform_target PTarget = platform_target::Windows;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
-	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,       1, STR_LIT("bool")}},
+	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,       1,  STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
 	{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
@@ -101,7 +101,7 @@ u32 FindStruct(string Name)
 				return i;
 		}
 	}
-	Assert(false);
+	unreachable;
 }
 
 generic_replacement GenericReplacement = {};
@@ -116,6 +116,11 @@ u32 GetGenericReplacement() { return GenericReplacement.TypeID; }
 void ClearGenericReplacement()
 {
 	GenericReplacement.TypeID = INVALID_TYPE;
+}
+
+inline const type *GetTypeRaw(u32 TypeIdx)
+{
+	return TypeTable[TypeIdx];
 }
 
 inline const type *GetType(u32 TypeIdx)

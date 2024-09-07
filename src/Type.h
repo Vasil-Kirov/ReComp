@@ -189,9 +189,9 @@ struct type
 u32 AddType(type *Type);
 void FillOpaqueStruct(u32 TypeIdx, type T);
 
-// @Note: I don't know if I need this but I'm wondering if later on accessing a global variable could
-// have some problems with threading, shouldn't hurt to have it for now
 const type *GetType(u32 TypeIdx);
+
+const type *GetTypeRaw(u32 TypeIdx);
 
 const char *GetTypeName(const type *Type);
 const char *GetTypeName(u32 TypeIdx);

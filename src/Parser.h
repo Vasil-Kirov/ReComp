@@ -23,13 +23,13 @@ enum class for_type
 enum node_type
 {
 	AST_INVALID,
+	AST_NOP,
 	AST_CHARLIT,
 	AST_CONSTANT,
 	AST_BINARY,
 	AST_UNARY,
 	AST_IF,
 	AST_FOR,
-	AST_FUNCTION,
 	AST_ID,
 	AST_DECL,
 	
@@ -171,7 +171,6 @@ struct node
 			slice<node *> Args;
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
-			node *MaybeGenric;
 			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
 		} Fn; // Used for fn type and fn declaration as it's the same thing
@@ -225,7 +224,7 @@ node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
-node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, node *MaybeGeneric, u32 Flags);
+node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags);
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags);
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
 node *MakeReserve(const error_info *ErrorInfo, reserved ID);

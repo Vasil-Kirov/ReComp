@@ -16,13 +16,14 @@ main
 
 puts :: fn #foreign(str: cstring);
 
-return_same :: fn<T>(x: T) -> T {
-    return x;
+make_slice :: fn(T: type) -> []T {
+    return []T{1, 2, 3};
 }
 
 main :: fn() -> i32 {
-    puts(return_same(c"hello"));
-    return @i32 return_same(10);
+    puts(c"hellos");
+    x := make_slice(i32);
+    return @i32 x.count;
 }
 
 // #import stuff as f2

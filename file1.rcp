@@ -3,9 +3,16 @@ main
 #import memory as m
 
 puts :: fn #foreign(str: cstring);
+malloc :: fn #foreign(size: int) -> *;
+
+allocator_alloc :: fn(size: int, this: *m.Allocator) -> * {
+    return malloc(size);
+}
 
 main :: fn() -> i32 {
-    alloc := m.Allocator {};
+    alloc := m.Allocator {
+        alloc = allocator_alloc,
+    };
     x := m.make_slice(&alloc, i32, 10);
     return @i32 x.count;
 }

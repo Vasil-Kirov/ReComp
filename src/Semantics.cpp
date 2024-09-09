@@ -496,6 +496,8 @@ void PopScope(checker *Checker)
 
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL)
 {
+	dynamic<symbol> SaveSymbols = Checker->Symbols;
+	Checker->Symbols = {};
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
 	scope *SaveScope = Checker->CurrentScope;
 	if(!ScopeNode)
@@ -552,6 +554,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	PopScope(Checker);
 	Checker->CurrentScope = SaveScope;
 	Checker->CurrentFnReturnTypeIdx = Save;
+	Checker->Symbols = SaveSymbols;
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -1990,12 +1993,12 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	return Sym;
 }
 
-checker AnalyzeFunctionDecls(dynamic<node *> *NodesPtr, import *ThisModule)
+void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, import *ThisModule)
 {
-	checker Checker = {.Nodes = NodesPtr};
-	Checker.Module = ThisModule;
-	Checker.CurrentDepth = 0;
-	Checker.CurrentFnReturnTypeIdx = INVALID_TYPE;
+	Checker->Nodes = NodesPtr;
+	Checker->Module = ThisModule;
+	Checker->CurrentDepth = 0;
+	Checker->CurrentFnReturnTypeIdx = INVALID_TYPE;
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
 
@@ -2005,18 +2008,18 @@ checker AnalyzeFunctionDecls(dynamic<node *> *NodesPtr, import *ThisModule)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			symbol *Sym = AnalyzeFunctionDecl(&Checker, Node);
+			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
 			GlobalSymbols.Push(Sym);
 		}
 	}
-	Checker.Module->Globals = SliceFromArray(GlobalSymbols);
+	Checker->Module->Globals = SliceFromArray(GlobalSymbols);
 
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
-			u32 Type = AnalyzeDeclerations(&Checker, Node);
+			u32 Type = AnalyzeDeclerations(Checker, Node);
 			symbol *Sym = NewType(symbol);
 			Sym->Name = Node->Decl.ID;
 			Sym->Type = Type;
@@ -2028,8 +2031,7 @@ checker AnalyzeFunctionDecls(dynamic<node *> *NodesPtr, import *ThisModule)
 		}
 	}
 
-	Checker.Module->Globals = SliceFromArray(GlobalSymbols);
-	return Checker;
+	Checker->Module->Globals = SliceFromArray(GlobalSymbols);
 }
 
 void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)

@@ -24,6 +24,10 @@ block_0:
 
 declare void @puts(ptr)
 
+declare ptr @malloc(i64)
+
+declare ptr @"__main!allocator_alloc"(i64, ptr)
+
 declare i32 @"__main!main"()
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)

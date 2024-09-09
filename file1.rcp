@@ -14,8 +14,10 @@ main :: fn() -> i32 {
         alloc = allocator_alloc,
     };
     x := m.make_slice(&alloc, i32, 10);
-    return @i32 x.count;
+    x[1] = 4;
+    return x[1];
 }
+
 
 // #import stuff as f2
 // 

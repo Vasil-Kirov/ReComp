@@ -985,6 +985,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		} break;
 		case TypeKind_Struct:
 		{
+			return TypeID;
 			dynamic<struct_member> NewTypes = {};
 			b32 NeedsNew = false;
 			ForArray(Idx, Type->Struct.Members)

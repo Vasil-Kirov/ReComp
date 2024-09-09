@@ -500,10 +500,13 @@ node *ParseFunctionType(parser *Parser)
 	u32 Flags = 0;
 	EatToken(Parser, T_FN);
 
-	if(Parser->Current->Type == T_FOREIGN)
+	while(Parser->Current->Type == T_FOREIGN || Parser->Current->Type == T_INTR)
 	{
-		GetToken(Parser);
-		Flags |= SymbolFlag_Foreign;
+		token T = GetToken(Parser);
+		if(T.Type == T_FOREIGN)
+			Flags |= SymbolFlag_Foreign;
+		else if(T.Type == T_INTR)
+			Flags |= SymbolFlag_Intrinsic;
 	}
 	EatToken(Parser, '(');
 	slice<node *> Args{};

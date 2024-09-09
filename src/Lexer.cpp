@@ -409,6 +409,7 @@ void InitializeLexer()
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#import", T_IMPORT);
 	AddKeyword("#foreign",  T_FOREIGN);
+	AddKeyword("#intr",  T_INTR);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
 	AddKeyword("match",  T_MATCH);

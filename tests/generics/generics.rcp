@@ -1,0 +1,13 @@
+main
+
+get_num :: fn(T: type, m: T) -> T {
+    x: T = 10;
+    y: T = 20;
+    return (x + y) * m;
+}
+
+main :: fn() -> i32 {
+    foo := get_num(int, 3);
+    bar := get_num(i32, 1);
+	return @i32 foo - (bar * 3);
+}

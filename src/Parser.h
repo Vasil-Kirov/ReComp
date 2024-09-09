@@ -180,6 +180,7 @@ struct node
 			const string *SymName; // Set by semantic analyzer if not calling a function pointer
 			u32 Type; // Set by semantic analyzer
 			slice<u32> ArgTypes; // Set by semantic analyzer
+			slice<u32> GenericTypes; // Set by semantic analyzer
 		} Call;
 		struct {
 			node *Type;

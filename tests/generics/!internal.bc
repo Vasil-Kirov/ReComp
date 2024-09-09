@@ -1,0 +1,23 @@
+; ModuleID = '!internal'
+source_filename = "!internal"
+target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+
+declare void @"__main!__GlobalInitializerFunction"()
+
+declare void @"__init!__GlobalInitializerFunction"()
+
+declare void @"__os!__GlobalInitializerFunction"()
+
+declare void @"__string!__GlobalInitializerFunction"()
+
+declare void @"__memory!__GlobalInitializerFunction"()
+
+define void @"__init!global_initializers"() {
+only_block:
+  call void @"__main!__GlobalInitializerFunction"()
+  call void @"__init!__GlobalInitializerFunction"()
+  call void @"__os!__GlobalInitializerFunction"()
+  call void @"__string!__GlobalInitializerFunction"()
+  call void @"__memory!__GlobalInitializerFunction"()
+  ret void
+}

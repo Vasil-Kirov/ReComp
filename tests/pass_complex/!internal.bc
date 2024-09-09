@@ -10,11 +10,14 @@ declare void @"__os!__GlobalInitializerFunction"()
 
 declare void @"__string!__GlobalInitializerFunction"()
 
+declare void @"__memory!__GlobalInitializerFunction"()
+
 define void @"__init!global_initializers"() {
 only_block:
   call void @"__main!__GlobalInitializerFunction"()
   call void @"__init!__GlobalInitializerFunction"()
   call void @"__os!__GlobalInitializerFunction"()
   call void @"__string!__GlobalInitializerFunction"()
+  call void @"__memory!__GlobalInitializerFunction"()
   ret void
 }

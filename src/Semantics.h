@@ -13,7 +13,7 @@ enum SymbolFlag
 	SymbolFlag_Foreign = BIT(4),
 	SymbolFlag_VarFunc = BIT(5),
 	SymbolFlag_Generic = BIT(6),
-	SymbolFlag_NoAnalyze = BIT(7),
+	SymbolFlag_Intrinsic = BIT(7),
 };
 
 struct scope
@@ -65,4 +65,5 @@ b32 ScopesMatch(scope *A, scope *B);
 void CheckBodyForUnreachableCode(slice<node *> Body);
 node *AnalyzeGenericExpression(checker *Checker, node *Generic);
 b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
+string MakeNonGenericName(string GenericName);
 

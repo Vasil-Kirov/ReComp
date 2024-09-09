@@ -73,6 +73,7 @@ enum token_type
 	T_CHAR   = -48,
 	T_ENUM   = -49,
 	T_MATCH  = -50,
+	T_INTR   = -60,
 };
 
 struct token

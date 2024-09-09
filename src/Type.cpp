@@ -341,6 +341,9 @@ b32 IsCallable(const type *Type)
 		return true;
 	if(Type->Kind == TypeKind_Pointer)
 	{
+		if(Type->Pointer.Pointed == INVALID_TYPE)
+			return false;
+
 		const type *Pointed = GetType(Type->Pointer.Pointed);
 		return Pointed->Kind == TypeKind_Function;
 	}
@@ -953,6 +956,8 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		} break;
 		case TypeKind_Pointer:
 		{
+			if(Type->Pointer.Pointed == INVALID_TYPE)
+				break;
 			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve);
 			if(Pointed != Type->Pointer.Pointed)
 				Result = GetPointerTo(Pointed);

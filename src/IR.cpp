@@ -479,6 +479,47 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
+			if(Node->Call.Fn->Type == AST_ID || Node->Call.Fn->Type == AST_FN)
+			{
+				static const string Intrinsics[] = {
+					STR_LIT("__raw_slice"),
+				};
+
+				string Name = {};
+				if(Node->Call.Fn->Type == AST_ID) {
+					Name = *Node->Call.Fn->ID.Name;
+				}
+				else if(Node->Call.Fn->Type == AST_FN) {
+					Name = *Node->Call.Fn->Fn.Name;
+				}
+				else {
+					unreachable;
+				}
+
+				Name = MakeNonGenericName(Name);
+				int Size = ARR_LEN(Intrinsics);
+				b32 Found = false;
+				for(int i = 0; i < Size; ++i)
+				{
+					if(Name == Intrinsics[i])
+					{
+						Found = true;
+						switch(i)
+						{
+							case 0:
+							{
+								u32 Type = GetSliceType(Node->Call.GenericTypes[0]);
+								u32 Ptr = BuildIRFromExpression(Builder, Node->Call.Args[1]);
+								u32 Size = BuildIRFromExpression(Builder, Node->Call.Args[2]);
+								Result = BuildSlice(Builder, Ptr, Size, Type);
+							} break;
+							default: unreachable;
+						}
+					}
+				}
+				if(Found) break;
+			}
+
 			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
 
 			const type *Type = GetType(Node->Call.Type);

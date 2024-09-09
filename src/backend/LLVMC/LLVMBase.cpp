@@ -1111,7 +1111,7 @@ void RCGenerateCode(slice<file> Files, llvm_init_info Machine, b32 OutputBC)
 		file *File = &Files.Data[Idx];
 		RCGenerateFile(File, Machine, OutputBC);
 
-		// NOT THREAD SAFE
+		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}
 }

@@ -1,28 +1,12 @@
 main
 
-
-// main :: fn() -> i32 {
-// 	x := 4;
-// 	res := match x {
-// 		4: {
-// 			return 10;
-// 		},
-// 		5: {
-// 			return 5;
-// 		},
-// 	};
-// 	return res;
-// }
+#import memory as m
 
 puts :: fn #foreign(str: cstring);
 
-make_slice :: fn(T: type) -> []T {
-    return []T{1, 2, 3};
-}
-
 main :: fn() -> i32 {
-    puts(c"hellos");
-    x := make_slice(i32);
+    alloc := m.Allocator {};
+    x := m.make_slice(&alloc, i32, 10);
     return @i32 x.count;
 }
 

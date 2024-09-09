@@ -72,11 +72,13 @@ struct array {
 };
 
 struct symbol;
+struct checker;
 struct import
 {
 	string Name;
 	string As;
 	slice<symbol *> Globals;
+	checker *Checker;
 };
 
 struct checker;

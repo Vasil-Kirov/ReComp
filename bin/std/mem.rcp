@@ -3,5 +3,11 @@ memory
 struct Allocator {
     alloc: fn(size: int, this: *) -> *,
     data: *,
-};
+}
+
+__raw_slice :: fn #intr (F: type, data: *F, size_s: int) -> []F;
+
+make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
+    return __raw_slice(T, allocator.alloc(size, allocator), size);
+}
 

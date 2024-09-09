@@ -157,6 +157,60 @@ b32 FindImportedModule(checker *Checker, string &ModuleName, import *Out)
 	return false;
 }
 
+symbol *FindSymbolFromNode(checker *Checker, node *Node, import *OutModule = NULL)
+{
+	switch(Node->Type)
+	{
+		case AST_ID:
+		{
+			ForArray(Idx, Checker->Module->Globals)
+			{
+				symbol *Sym = Checker->Module->Globals[Idx];
+				if(*Sym->Name == *Node->ID.Name)
+				{
+					return Sym;
+				}
+			}
+			return NULL;
+		} break;
+		case AST_SELECTOR:
+		{
+			Node->Selector.Index = -1;
+			if(Node->Selector.Operand->Type != AST_ID)
+			{
+				RaiseError(*Node->Selector.Operand->ErrorInfo,
+						"Invalid use of module");
+			}
+			string ModuleName = *Node->Selector.Operand->ID.Name;
+			import m;
+			if(!FindImportedModule(Checker, ModuleName, &m))
+			{
+				RaiseError(*Node->ErrorInfo, "Couldn't find module %s\n", ModuleName.Data);
+			}
+			if(OutModule)
+				*OutModule = m;
+			ForArray(Idx, m.Globals)
+			{
+				symbol *s = m.Globals[Idx];
+				if(*s->Name == *Node->Selector.Member)
+				{
+					if((s->Flags & SymbolFlag_Public) == 0)
+					{
+						RaiseError(*Node->ErrorInfo,
+								"Cannot access private member %s in module %s",
+								Node->Selector.Member->Data, ModuleName.Data);
+					}
+					Node->Selector.Operand->ID.Name = DupeType(m.Name, string);
+					return s;
+				}
+			}
+			Node->Selector.Operand->ID.Name = DupeType(m.Name, string);
+			return NULL;
+		} break;
+		default: unreachable;
+	}
+}
+
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 {
 	if(TypeNode == NULL)
@@ -719,7 +773,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Expr->Call.Type = CallTypeIdx;
 
-			if(IsGeneric(CallType))
+			if(CallType->Function.Flags & SymbolFlag_Generic)
 			{
 				Expr = AnalyzeGenericExpression(Checker, Expr);
 				//Checker->Nodes->Push(Expr->Call.Fn);
@@ -876,44 +930,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
 			if(TypeIdx == Basic_module)
 			{
-				Expr->Selector.Index = -1;
-				if(Expr->Selector.Operand->Type != AST_ID)
-				{
-					RaiseError(*Expr->Selector.Operand->ErrorInfo,
-							"Invalid use of module");
-				}
-				string ModuleName = *Expr->Selector.Operand->ID.Name;
-				import m;
-				if(!FindImportedModule(Checker, ModuleName, &m))
-				{
-					unreachable;
-				}
-				b32 Found = false;
-				ForArray(Idx, m.Globals)
-				{
-					symbol *s = m.Globals[Idx];
-					if(*s->Name == *Expr->Selector.Member)
-					{
-						if((s->Flags & SymbolFlag_Public) == 0)
-						{
-							RaiseError(*Expr->ErrorInfo,
-									"Cannot access private member %s in module %s",
-									Expr->Selector.Member->Data, ModuleName.Data);
-						}
-						Result = s->Type;
-						Expr->Selector.Type = s->Type;
-						Found = true;
-						break;
-					}
-				}
-				if(!Found)
+				Assert(Expr->Selector.Operand->Type == AST_ID);
+				symbol *s = FindSymbolFromNode(Checker, Expr);
+				if(!s)
 				{
 					RaiseError(*Expr->ErrorInfo,
 							"Cannot find public symbol %s in module %s",
-							Expr->Selector.Member->Data, ModuleName.Data);
+							Expr->Selector.Member->Data, Expr->Selector.Member->Data);
 				}
-				Assert(Expr->Selector.Operand->Type == AST_ID);
-				Expr->Selector.Operand->ID.Name = DupeType(m.Name, string);
+				Result = s->Type;
+				Expr->Selector.Type = s->Type;
 			}
 			else
 			{
@@ -2024,6 +2050,32 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	}
 }
 
+string MakeNonGenericName(string GenericName)
+{
+	b32 IsNameGeneric = false;
+	for(int i = 0; i < GenericName.Size; ++i)
+	{
+		if(GenericName.Data[i] == '@')
+		{
+			IsNameGeneric = true;
+			break;
+		}
+	}
+	if(!IsNameGeneric)
+		return GenericName;
+
+	string_builder Builder = MakeBuilder();
+	for(int i = 0; i < GenericName.Size; ++i)
+	{
+		if(GenericName.Data[i] == '@')
+			break;
+
+		Builder += GenericName.Data[i];
+	}
+
+	return MakeString(Builder);
+}
+
 string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
 {
 	const type *T = GetType(FnTypeNonGeneric);
@@ -2036,7 +2088,10 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
 		Builder += '_';
 	}
 	Builder += '@';
-	Builder += GetTypeNameAsString(T->Function.Return);
+	if(T->Function.Return == INVALID_TYPE)
+		Builder += "void";
+	else
+		Builder += GetTypeNameAsString(T->Function.Return);
 	string Result = MakeString(Builder);
 	return DupeType(Result, string);
 }
@@ -2054,7 +2109,6 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, n
 
 	SetGenericReplacement(ResolvedType);
 	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx, OriginalNode);
-	FnNode->Fn.Flags |= SymbolFlag_NoAnalyze;
 	SetGenericReplacement(Save);
 
 	return Result;
@@ -2067,20 +2121,16 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 	{
 		case AST_CALL:
 		{
-			Assert(Expr->Call.Fn->Type == AST_ID);
-			symbol *FnSym = NULL;
-			ForArray(Idx, Checker->Module->Globals)
+			import MaybeMod = {};
+			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
+			if(!FnSym)
 			{
-				symbol *Sym = Checker->Module->Globals[Idx];
-				if(*Sym->Name == *Expr->Call.Fn->ID.Name)
-				{
-					FnSym = Sym;
-					break;
-				}
+				RaiseError(*Expr->ErrorInfo, "Couldn't resolve generic function");
 			}
-			Assert(FnSym);
+
 			const type *T = GetType(FnSym->Type);
 			u32 ResolvedType = INVALID_TYPE;
+			dynamic<u32> GenericTypes = {};
 			for(int i = 0; i < T->Function.ArgCount; ++i)
 			{
 				const type *ArgT = GetType(T->Function.Args[i]);
@@ -2105,6 +2155,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 					{
 						node *Arg = Expr->Call.Args[i];
 						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
+						GenericTypes.Push(ResolvedType);
 						if(ResolvedType == INVALID_TYPE)
 						{
 							RaiseError(*Arg->ErrorInfo,
@@ -2127,10 +2178,16 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 				}
 			}
 
+			// @THREADING: NOT THREAD SAFE
+			checker *PassChecker = Checker;
+			if(MaybeMod.Checker)
+				PassChecker = MaybeMod.Checker;
+
 			node *FnNode = CopyASTNode(FnSym->Node);
-			node *NewFn = AnalyzeGenericFunction(Checker, FnNode, ResolvedType, FnSym->Node);
+			node *NewFn = AnalyzeGenericFunction(PassChecker, FnNode, ResolvedType, FnSym->Node);
 			Expr->Call.Fn = NewFn;
 			Expr->Call.Type = NewFn->Fn.TypeIdx;
+			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
 			return Expr;
 		} break;
 		default: unreachable;
@@ -2144,7 +2201,7 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			if((Node->Fn.Flags & SymbolFlag_NoAnalyze) == 0)
+			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0)
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}

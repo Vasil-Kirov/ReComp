@@ -285,7 +285,7 @@ string GetFilePath(string Dir, const char *FileName)
 {
 	string_builder Builder = MakeBuilder();
 	Builder += Dir;
-	Builder += "std/";
+	Builder += "../std/";
 	Builder += FileName;
 	return MakeString(Builder);
 }

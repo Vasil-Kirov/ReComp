@@ -15,6 +15,17 @@ main :: fn() -> i32 {
     };
     x := m.make_slice(&alloc, i32, 10);
     x[1] = 4;
+
+    defer puts(c"1");
+    defer puts(c"2");
+    defer puts(c"3");
+    {
+        defer puts(c"33");
+        defer puts(c"22");
+        defer puts(c"11");
+    }
+
+
     return x[1];
 }
 

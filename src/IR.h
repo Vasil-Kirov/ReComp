@@ -1,5 +1,6 @@
 #pragma once
 #include "Parser.h"
+#include "Stack.h"
 
 enum op
 {
@@ -144,11 +145,17 @@ struct function
 	u32 Type;
 };
 
+struct defer_scope
+{
+	dynamic<node *> Expressions;
+};
+
 struct block_builder
 {
 	basic_block CurrentBlock;
 	function *Function; // @NOTE: DO NOT USE AFTER THE FUNCTION IS GENERATED
 	slice<import> Imported;
+	stack<defer_scope> Defered;
 	import Module;
 	u32 BreakBlockID;
 	u32 LastRegister;

@@ -7,6 +7,13 @@ target triple = "x86_64-pc-windows-msvc"
 %slice = type { i64, ptr }
 %slice.1 = type { i64, ptr }
 
+@0 = private unnamed_addr constant [3 x i8] c"11\00", align 1
+@1 = private unnamed_addr constant [3 x i8] c"22\00", align 1
+@2 = private unnamed_addr constant [3 x i8] c"33\00", align 1
+@3 = private unnamed_addr constant [2 x i8] c"3\00", align 1
+@4 = private unnamed_addr constant [2 x i8] c"2\00", align 1
+@5 = private unnamed_addr constant [2 x i8] c"1\00", align 1
+
 define void @"__main!__GlobalInitializerFunction"() {
 block_0:
   ret void
@@ -50,13 +57,19 @@ block_0:
   call void @llvm.dbg.declare(metadata ptr %3, metadata !31, metadata !DIExpression()), !dbg !29
   %5 = getelementptr inbounds %slice, ptr %3, i32 0, i32 1, !dbg !37
   %6 = load ptr, ptr %5, align 8, !dbg !37
-  %7 = getelementptr i32, ptr %6, i64 9, !dbg !37
+  %7 = getelementptr i32, ptr %6, i64 1, !dbg !37
   store i32 4, ptr %7, align 4, !dbg !37
-  %8 = getelementptr inbounds %slice, ptr %3, i32 0, i32 1, !dbg !38
-  %9 = load ptr, ptr %8, align 8, !dbg !38
-  %10 = getelementptr i32, ptr %9, i64 1, !dbg !38
-  %11 = load i32, ptr %10, align 4, !dbg !38
-  ret i32 %11, !dbg !38
+  call void @puts(ptr @0), !dbg !38
+  call void @puts(ptr @1), !dbg !39
+  call void @puts(ptr @2), !dbg !40
+  call void @puts(ptr @3), !dbg !41
+  call void @puts(ptr @4), !dbg !42
+  call void @puts(ptr @5), !dbg !43
+  %8 = getelementptr inbounds %slice, ptr %3, i32 0, i32 1, !dbg !43
+  %9 = load ptr, ptr %8, align 8, !dbg !43
+  %10 = getelementptr i32, ptr %9, i64 1, !dbg !43
+  %11 = load i32, ptr %10, align 4, !dbg !43
+  ret i32 %11, !dbg !43
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
@@ -71,36 +84,36 @@ declare void @llvm.memcpy.p0.p0.i64(ptr noalias nocapture writeonly, ptr noalias
 ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
-define private void @"make_slice@*__memory!Allocator_type_int_@[]i32"(ptr %0, ptr %1, i64 %2, i64 %3) !dbg !39 {
+define private void @"make_slice@*__memory!Allocator_type_int_@[]i32"(ptr %0, ptr %1, i64 %2, i64 %3) !dbg !44 {
 block_0:
-  %4 = alloca ptr, align 8, !dbg !43
-  %5 = alloca i64, align 8, !dbg !43
-  %6 = alloca i64, align 8, !dbg !43
-  %7 = alloca %slice.1, align 8, !dbg !44
-  call void @llvm.memset.p0.i32(ptr align 8 %4, i8 0, i32 8, i1 false), !dbg !43
-  call void @llvm.memset.p0.i32(ptr align 8 %5, i8 0, i32 8, i1 false), !dbg !43
-  call void @llvm.memset.p0.i32(ptr align 8 %6, i8 0, i32 8, i1 false), !dbg !43
-  call void @llvm.memset.p0.i32(ptr align 8 %7, i8 0, i32 16, i1 false), !dbg !44
-  store ptr %1, ptr %4, align 8, !dbg !43
-  call void @llvm.dbg.value(metadata ptr %4, metadata !45, metadata !DIExpression()), !dbg !43
-  store i64 %2, ptr %5, align 8, !dbg !43
-  call void @llvm.dbg.value(metadata ptr %5, metadata !46, metadata !DIExpression()), !dbg !43
-  store i64 %3, ptr %6, align 8, !dbg !43
-  call void @llvm.dbg.value(metadata ptr %6, metadata !47, metadata !DIExpression()), !dbg !43
-  %8 = load ptr, ptr %4, align 8, !dbg !44
-  %9 = getelementptr inbounds %"__memory!Allocator", ptr %8, i32 0, i32 0, !dbg !44
-  %10 = load ptr, ptr %9, align 8, !dbg !44
-  %11 = load i64, ptr %6, align 8, !dbg !44
-  %12 = load ptr, ptr %4, align 8, !dbg !44
-  %13 = call ptr %10(i64 %11, ptr %12), !dbg !44
-  %14 = load i64, ptr %6, align 8, !dbg !44
-  %15 = mul i64 %14, 8, !dbg !44
-  %16 = getelementptr inbounds %slice.1, ptr %7, i32 0, i32 0, !dbg !44
-  %17 = getelementptr inbounds %slice.1, ptr %7, i32 0, i32 1, !dbg !44
-  store ptr %13, ptr %17, align 8, !dbg !44
-  store i64 %15, ptr %16, align 8, !dbg !44
-  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %0, ptr align 8 %7, i64 16, i1 false), !dbg !44
-  ret void, !dbg !44
+  %4 = alloca ptr, align 8, !dbg !48
+  %5 = alloca i64, align 8, !dbg !48
+  %6 = alloca i64, align 8, !dbg !48
+  %7 = alloca %slice.1, align 8, !dbg !49
+  call void @llvm.memset.p0.i32(ptr align 8 %4, i8 0, i32 8, i1 false), !dbg !48
+  call void @llvm.memset.p0.i32(ptr align 8 %5, i8 0, i32 8, i1 false), !dbg !48
+  call void @llvm.memset.p0.i32(ptr align 8 %6, i8 0, i32 8, i1 false), !dbg !48
+  call void @llvm.memset.p0.i32(ptr align 8 %7, i8 0, i32 16, i1 false), !dbg !49
+  store ptr %1, ptr %4, align 8, !dbg !48
+  call void @llvm.dbg.value(metadata ptr %4, metadata !50, metadata !DIExpression()), !dbg !48
+  store i64 %2, ptr %5, align 8, !dbg !48
+  call void @llvm.dbg.value(metadata ptr %5, metadata !51, metadata !DIExpression()), !dbg !48
+  store i64 %3, ptr %6, align 8, !dbg !48
+  call void @llvm.dbg.value(metadata ptr %6, metadata !52, metadata !DIExpression()), !dbg !48
+  %8 = load ptr, ptr %4, align 8, !dbg !49
+  %9 = getelementptr inbounds %"__memory!Allocator", ptr %8, i32 0, i32 0, !dbg !49
+  %10 = load ptr, ptr %9, align 8, !dbg !49
+  %11 = load i64, ptr %6, align 8, !dbg !49
+  %12 = load ptr, ptr %4, align 8, !dbg !49
+  %13 = call ptr %10(i64 %11, ptr %12), !dbg !49
+  %14 = load i64, ptr %6, align 8, !dbg !49
+  %15 = mul i64 %14, 8, !dbg !49
+  %16 = getelementptr inbounds %slice.1, ptr %7, i32 0, i32 0, !dbg !49
+  %17 = getelementptr inbounds %slice.1, ptr %7, i32 0, i32 1, !dbg !49
+  store ptr %13, ptr %17, align 8, !dbg !49
+  store i64 %15, ptr %16, align 8, !dbg !49
+  call void @llvm.memcpy.p0.p0.i64(ptr align 8 %0, ptr align 8 %7, i64 16, i1 false), !dbg !49
+  ret void, !dbg !49
 }
 
 attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
@@ -148,13 +161,18 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !35 = !DIDerivedType(tag: DW_TAG_pointer_type, name: "*i32", baseType: !27, size: 64, align: 64, dwarfAddressSpace: 0)
 !36 = !DIDerivedType(tag: DW_TAG_member, name: "count", scope: !1, file: !1, baseType: !8, size: 64, align: 64, offset: 64)
 !37 = !DILocation(line: 17, scope: !24)
-!38 = !DILocation(line: 18, scope: !24)
-!39 = distinct !DISubprogram(name: "make_slice@*__memory!Allocator_type_int_@[]i32", linkageName: "__main!make_slice@*__memory!Allocator_type_int_@[]i32", scope: !1, file: !1, line: 10, type: !40, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !19)
-!40 = !DISubroutineType(types: !41)
-!41 = !{!32, !9, !42, !8}
-!42 = !DIBasicType(name: "type", size: 64, encoding: DW_ATE_unsigned)
-!43 = !DILocation(line: 10, scope: !39)
-!44 = !DILocation(line: 11, scope: !39)
-!45 = !DILocalVariable(name: "allocator", scope: !39, file: !1, line: 10, type: !9)
-!46 = !DILocalVariable(name: "T", arg: 1, scope: !39, file: !1, line: 10, type: !42)
-!47 = !DILocalVariable(name: "size", arg: 2, scope: !39, file: !1, line: 10, type: !8)
+!38 = !DILocation(line: 25, scope: !24)
+!39 = !DILocation(line: 24, scope: !24)
+!40 = !DILocation(line: 23, scope: !24)
+!41 = !DILocation(line: 21, scope: !24)
+!42 = !DILocation(line: 20, scope: !24)
+!43 = !DILocation(line: 19, scope: !24)
+!44 = distinct !DISubprogram(name: "make_slice@*__memory!Allocator_type_int_@[]i32", linkageName: "__main!make_slice@*__memory!Allocator_type_int_@[]i32", scope: !1, file: !1, line: 10, type: !45, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !19)
+!45 = !DISubroutineType(types: !46)
+!46 = !{!32, !9, !47, !8}
+!47 = !DIBasicType(name: "type", size: 64, encoding: DW_ATE_unsigned)
+!48 = !DILocation(line: 10, scope: !44)
+!49 = !DILocation(line: 11, scope: !44)
+!50 = !DILocalVariable(name: "allocator", scope: !44, file: !1, line: 10, type: !9)
+!51 = !DILocalVariable(name: "T", arg: 1, scope: !44, file: !1, line: 10, type: !47)
+!52 = !DILocalVariable(name: "size", arg: 2, scope: !44, file: !1, line: 10, type: !8)

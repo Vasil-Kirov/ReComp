@@ -53,6 +53,8 @@ enum node_type
 	AST_LISTITEM,
 	AST_MATCH,
 	AST_CASE,
+	AST_DEFER,
+	AST_SCOPE,
 };
 
 struct node
@@ -64,6 +66,12 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			b32 IsUp; // is {
+		} ScopeDelimiter;
+		struct {
+			slice<node *> Body;
+		} Defer;
 		struct {
 			reserved ID;
 			u32 Type; // Set by semantic analyzer
@@ -206,9 +214,9 @@ struct parser
 	token *Tokens;
 	token *Current;
 	u64 TokenIndex;
-	b32 IsInBody;
 	b32 CurrentlyPublic;
 	b32 NoStructLists;
+	uint ScopeLevel;
 	uint ExpectingCloseParen;
 };
 

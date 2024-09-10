@@ -512,6 +512,7 @@ const char* GetTokenName(token_type Token) {
         case T_PWDIF:       return "#if";
         case T_CHAR:        return "Character";
 		case T_ENUM:        return "Enum";
+		case T_DEFER:       return "defer";
         default: {
             char *C = AllocateString(2);
             C[0] = (char)Token;

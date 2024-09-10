@@ -15,6 +15,23 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeScope(const error_info *ErrorInfo, b32 IsUp)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_SCOPE);
+	Result->ScopeDelimiter.IsUp = IsUp;
+
+
+	return Result;
+}
+
+node *MakeDefer(const error_info *ErrorInfo, dynamic<node *> Body)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_DEFER);
+	Result->Defer.Body = SliceFromArray(Body);
+
+	return Result;
+}
+
 node *MakeNop(const error_info *ErrorInfo)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_NOP);
@@ -317,7 +334,6 @@ parse_result ParseTokens(token *Tokens, string ModuleName)
 	Parser.TokenIndex = 0;
 	Parser.Current = Tokens;
 	Parser.ModuleName = ModuleName;
-	Parser.IsInBody = false;
 	Parser.CurrentlyPublic = true;
 
 	using pt = platform_target;
@@ -527,26 +543,33 @@ node *ParseFunctionType(parser *Parser)
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 {
 	ERROR_INFO;
-	b32 WasInBody = Parser->IsInBody;
-	Parser->IsInBody = true;
+	uint EnterLevel = Parser->ScopeLevel;
 
 	EatToken(Parser, T_STARTSCOPE);
+	OutBody.Push(MakeScope(ErrorInfo, true));
+
+	Parser->ScopeLevel++;
 	while(true)
 	{
 		node *Node = ParseNode(Parser);
-		if(Node == NULL)
+		OutBody.Push(Node);
+		if(Parser->ScopeLevel == EnterLevel)
 		{
-			if(!OutBody.IsValid())
-			{
-				OutBody.Push(MakeNop(ErrorInfo));
-			}
-			EatToken(Parser, T_ENDSCOPE);
 			break;
 		}
-		OutBody.Push(Node);
 	}
+}
 
-	Parser->IsInBody = WasInBody;
+void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
+{
+	if(PeekToken(Parser).Type == T_STARTSCOPE)
+	{
+		ParseBody(Parser, OutBody);
+	}
+	else
+	{
+		OutBody.Push(ParseNode(Parser));
+	}
 }
 
 node *ParseFunctionCall(parser *Parser, node *Operand)
@@ -992,18 +1015,6 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 	return MakeDecl(ErrorInfo, ID.ID, Expression, MaybeTypeNode, Flags);
 }
 
-void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
-{
-	if(PeekToken(Parser).Type == T_STARTSCOPE)
-	{
-		ParseBody(Parser, OutBody);
-	}
-	else
-	{
-		OutBody.Push(ParseNode(Parser));
-	}
-}
-
 node *ParseNode(parser *Parser)
 {
 	token Token = PeekToken(Parser);
@@ -1011,6 +1022,15 @@ node *ParseNode(parser *Parser)
 	b32 ExpectSemicolon = true;
 	switch(Token.Type)
 	{
+		case T_DEFER:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			dynamic<node *> Body = {};
+			ParseMaybeBody(Parser, Body);
+			Result = MakeDefer(ErrorInfo, Body);
+			ExpectSemicolon = false;
+		} break;
 		case T_SHADOW:
 		{
 			GetToken(Parser);
@@ -1180,13 +1200,24 @@ node *ParseNode(parser *Parser)
 			ParseMaybeBody(Parser, Result->For.Body);
 			ExpectSemicolon = false;
 		} break;
+		case T_STARTSCOPE:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeScope(ErrorInfo, true);
+			Parser->ScopeLevel++;
+			ExpectSemicolon = false;
+		} break;
 		case T_ENDSCOPE:
 		{
-			if(!Parser->IsInBody)
+			ERROR_INFO;
+			GetToken(Parser);
+			if(Parser->ScopeLevel-- == 0)
 			{
 				RaiseError(Token.ErrorInfo, "No matching opening '{' for '}'");
 			}
 			ExpectSemicolon = false;
+			Result = MakeScope(ErrorInfo, false);
 		} break;
 		default:
 		{
@@ -1622,9 +1653,16 @@ node *CopyASTNode(node *N)
 			R->Case.Body = CopyNodeSlice(N->Case.Body);
 		} break;
 
-		default: 
-			// Handle any missing cases as needed
-			break;
+		case AST_DEFER:
+		{
+			R->Defer.Body = CopyNodeSlice(N->Defer.Body);
+		} break;
+
+		case AST_SCOPE:
+		{
+			R->ScopeDelimiter.IsUp = N->ScopeDelimiter.IsUp;
+		} break;
+
 	}
 
 

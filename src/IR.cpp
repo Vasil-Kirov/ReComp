@@ -1233,10 +1233,39 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
-	IRPushDebugLocation(Builder, Node->ErrorInfo);
+	if(Node->Type != AST_SCOPE)
+		IRPushDebugLocation(Builder, Node->ErrorInfo);
+
 	switch(Node->Type)
 	{
 		case AST_NOP: {};
+		case AST_SCOPE:
+		{
+			if(!Node->ScopeDelimiter.IsUp)
+			{
+				auto s = Builder->Defered.Pop();
+				
+				if(!Builder->CurrentBlock.HasTerminator)
+				{
+					ForArray(Idx, s.Expressions)
+					{
+						int ActualIdx = s.Expressions.Count - 1 - Idx;
+						BuildIRFunctionLevel(Builder, s.Expressions[ActualIdx]);
+					}
+				}
+			}
+			else
+			{
+				Builder->Defered.Push({});
+			}
+		} break;
+		case AST_DEFER:
+		{
+			ForArray(Idx, Node->Defer.Body)
+			{
+				Builder->Defered.Peek().Expressions.Push(Node->Defer.Body[Idx]);
+			}
+		} break;
 		case AST_DECL:
 		{
 			BuildIRFromDecleration(Builder, Node);
@@ -1245,6 +1274,19 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			u32 Expression = -1;
 			u32 Type = Node->Return.TypeIdx;
+				
+			ForArray(Idx, Builder->Defered.Data)
+			{
+				int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
+				auto s = Builder->Defered.Data[ActualIdx];
+
+				ForArray(SIdx, s.Expressions)
+				{
+					int ActualSIdx = s.Expressions.Count - 1 - SIdx;
+					BuildIRFunctionLevel(Builder, s.Expressions[ActualSIdx]);
+				}
+			}
+
 			if(Type != INVALID_TYPE)
 			{
 				const type *RT = GetType(Type);

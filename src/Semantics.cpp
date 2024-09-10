@@ -1552,13 +1552,11 @@ DECL_TYPE_ERROR:
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body)
 {
 	Assert(Body.IsValid());
-	Checker->CurrentDepth++;
 	for(int Idx = 0; Idx < Body.Count; ++Idx)
 	{
 		AnalyzeNode(Checker, Body[Idx]);
 	}
 	CheckBodyForUnreachableCode(Body);
-	PopScope(Checker);
 }
 
 void AnalyzeIf(checker *Checker, node *Node)
@@ -1839,18 +1837,37 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	FillOpaqueStruct(OpaqueType, New);
 }
 
+b32 IsNodeEndScope(node *Node)
+{
+	return Node->Type == AST_SCOPE && Node->ScopeDelimiter.IsUp == false;
+}
+
 void CheckBodyForUnreachableCode(slice<node *> Body)
 {
 	ForArray(Idx, Body)
 	{
 		node *Node = Body[Idx];
-		if(Node->Type == AST_RETURN && Idx + 1 != Body.Count)
+		if(Node->Type == AST_RETURN)
 		{
-			RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after return statement");
+			b32 DeadCode = false;
+			if(Idx + 1 != Body.Count)
+			{
+				if(!IsNodeEndScope(Body[Idx+1]) || Idx + 2 != Body.Count)
+					DeadCode = true;
+			}
+			if(DeadCode)
+				RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after return statement");
 		}
 		if(Node->Type == AST_BREAK && Idx + 1 != Body.Count)
 		{
-			RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after break statement");
+			b32 DeadCode = false;
+			if(Idx + 1 != Body.Count)
+			{
+				if(!IsNodeEndScope(Body[Idx+1]) || Idx + 2 != Body.Count)
+					DeadCode = true;
+			}
+			if(DeadCode)
+				RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after break statement");
 		}
 	}
 }
@@ -1863,6 +1880,10 @@ void AnalyzeNode(checker *Checker, node *Node)
 		case AST_DECL:
 		{
 			AnalyzeDeclerations(Checker, Node);
+		} break;
+		case AST_DEFER:
+		{
+			AnalyzeInnerBody(Checker, Node->Defer.Body);
 		} break;
 		case AST_IF:
 		{
@@ -1934,6 +1955,13 @@ RetErr:
 				RaiseError(*Node->ErrorInfo, "Function expects a return value, invalid empty return!");
 			}
 			Node->Return.TypeIdx = Checker->CurrentFnReturnTypeIdx;
+		} break;
+		case AST_SCOPE:
+		{
+			if(Node->ScopeDelimiter.IsUp)
+				Checker->CurrentDepth++;
+			else
+				PopScope(Checker);
 		} break;
 		default:
 		{

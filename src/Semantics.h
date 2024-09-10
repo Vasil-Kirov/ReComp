@@ -66,4 +66,5 @@ void CheckBodyForUnreachableCode(slice<node *> Body);
 node *AnalyzeGenericExpression(checker *Checker, node *Generic);
 b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
 string MakeNonGenericName(string GenericName);
+void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 

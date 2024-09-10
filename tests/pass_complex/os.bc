@@ -69,7 +69,7 @@ block_2:                                          ; preds = %block_0
   br label %block_3, !dbg !25
 
 block_3:                                          ; preds = %block_2, %block_1
-  ret void, !dbg !24
+  ret void, !dbg !26
 }
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
@@ -113,3 +113,4 @@ attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memo
 !23 = !DILocalVariable(name: "written", scope: !9, file: !1, line: 21, type: !14)
 !24 = !DILocation(line: 22, scope: !9)
 !25 = !DILocation(line: 23, scope: !9)
+!26 = !DILocation(line: 25, scope: !9)

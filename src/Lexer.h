@@ -74,6 +74,7 @@ enum token_type
 	T_ENUM   = -49,
 	T_MATCH  = -50,
 	T_INTR   = -60,
+	T_DEFER  = -61,
 };
 
 struct token

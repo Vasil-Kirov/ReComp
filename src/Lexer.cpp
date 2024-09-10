@@ -412,6 +412,7 @@ void InitializeLexer()
 	AddKeyword("#intr",  T_INTR);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
+	AddKeyword("defer",  T_DEFER);
 	AddKeyword("match",  T_MATCH);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);

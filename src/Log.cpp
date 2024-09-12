@@ -33,7 +33,7 @@ Log(log_level Level, const char *Format, ...)
 	va_list Args;
 	va_start(Args, Format);
 	
-	vsnprintf_s(FinalFormat, 4096, FormatCopy.Data, Args);
+	vsnprintf(FinalFormat, 4096, FormatCopy.Data, Args);
 	
 	va_end(Args);
 
@@ -54,7 +54,7 @@ Log(log_level Level, const char *Format, ...)
 	if(Level == LOG_FATAL)
 	{
 #if DEBUG
-		__debugbreak();
+		BREAK;
 #endif
 //		platform_message_box("Error", ToPrint);
 		exit(1);

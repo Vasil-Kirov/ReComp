@@ -83,7 +83,7 @@ RaiseError(error_info ErrorInfo, const char *_ErrorMessage, ...)
 	va_list Args;
 	va_start(Args, _ErrorMessage);
 	
-	vsnprintf_s(FinalFormat, 4096, ErrorMessage.Data, Args);
+	vsnprintf(FinalFormat, 4096, ErrorMessage.Data, Args);
 	
 	va_end(Args);
 	

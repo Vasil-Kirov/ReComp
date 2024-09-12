@@ -865,7 +865,9 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
 			CodeView.Data, CodeView.Size, IntToMeta(&Gen, 1));
 #elif defined (CM_LINUX)
-	backend.module->addModuleFlag(Module::Warning, "Dwarf Version", 13);
+	string DwarV = STR_LIT("Dwarf Version");
+	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
+			DwarV.Data, DwarV.Size, IntToMeta(&Gen, 13));
 #else
 #error Unkown debug fromat for this OS
 #endif
@@ -1026,7 +1028,7 @@ rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set)
 {
 	rc_block Result;
 	char Buff[128] = {};
-	sprintf_s(Buff, 128, "block_%d", ID);
+	snprintf(Buff, 128, "block_%d", ID);
 		Result.Block = LLVMAppendBasicBlockInContext(gen->ctx, gen->fn, Buff);
 
 	if(Set)

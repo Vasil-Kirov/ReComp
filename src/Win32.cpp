@@ -34,6 +34,7 @@ string ReadEntireFile(string Path)
 	size_t Size = FileSize.QuadPart;
 	
 	char *Data = (char *)malloc(FileSize.QuadPart + 1);
+	memset(Data, 0, FileSize.QuadPart+1);
 	u64 HaveRead = 0;
 	while(FileSize.QuadPart > 0)
 	{

@@ -6,6 +6,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Log.h"
 #include "VString.h"
+#include "DynamicLib.h"
 #include "Platform.h"
 #include "Lexer.h"
 #include "Errors.h"
@@ -31,6 +32,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Memory.cpp"
 #include "VString.cpp"
+#include "DynamicLib.cpp"
 #include "Log.cpp"
 #include "Lexer.cpp"
 #include "Errors.cpp"
@@ -56,6 +58,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #if defined(_WIN32)
 #include "Win32.cpp"
+#elif defined(CM_LINUX)
+#include "Linux.cpp"
 #else
 #error unsupported platform
 #endif
@@ -327,17 +331,26 @@ main(int ArgCount, char *Args[])
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
 
-	HMODULE DLLs[256] = {};
+	DLIB DLLs[256] = {};
 	int DLLCount = 0;
 
-	DLLs[DLLCount++] = LoadLibrary("kernel32");
-	DLLs[DLLCount++] = LoadLibrary("user32");
-	DLLs[DLLCount++] = LoadLibrary("ntdll");
-	DLLs[DLLCount++] = LoadLibrary("msvcrt");
-	DLLs[DLLCount++] = LoadLibrary("ucrtbase");
+#if _WIN32
+	DLLs[DLLCount++] = OpenLibrary("kernel32");
+	DLLs[DLLCount++] = OpenLibrary("user32");
+	DLLs[DLLCount++] = OpenLibrary("ntdll");
+	DLLs[DLLCount++] = OpenLibrary("msvcrt");
+	DLLs[DLLCount++] = OpenLibrary("ucrtbase");
+#else
+
+#endif
 	ForArray(Idx, CommandLine.ImportDLLs)
 	{
-		DLLs[DLLCount++] = LoadLibrary(CommandLine.ImportDLLs[Idx].Data);
+		 DLIB Lib = OpenLibrary(CommandLine.ImportDLLs[Idx].Data);
+		 if(!Lib)
+		 {
+			 LFATAL("Passed shared library %s could not be found", CommandLine.ImportDLLs[Idx].Data);
+		 }
+		 DLLs[DLLCount++] = Lib;
 	}
 
 	auto CompileFunction = STR_LIT("compile");

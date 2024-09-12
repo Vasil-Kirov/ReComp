@@ -41,7 +41,7 @@ const type BasicTypes[] = {
 
 //#pragma clang diagnostic pop
 
-static const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
+const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
 const type InvalidTypeImpl = {TypeKind_Invalid, {}};
 u32 InvalidType    = INVALID_TYPE;

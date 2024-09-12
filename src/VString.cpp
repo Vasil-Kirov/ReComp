@@ -64,7 +64,7 @@ void PushBuilderFormated(string_builder *Builder, const char *Format, ...)
 	va_list Args;
 	va_start(Args, Format);
 	
-	vsnprintf_s(ToPush, 4096, Format, Args);
+	vsnprintf(ToPush, 4096, Format, Args);
 	
 	va_end(Args);
 	PushBuilder(Builder, ToPush);

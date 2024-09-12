@@ -294,7 +294,7 @@ GetExePath(char *Out)
 #if defined(_WIN32)
 	return GetModuleFileNameA(NULL, Out, VMAX_PATH) != 0;
 #else
-#error Implement GetExePath
+	return readlink("/proc/self/exe", Out, VMAX_PATH) != -1;
 #endif
 }
 

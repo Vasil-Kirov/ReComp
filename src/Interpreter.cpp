@@ -1,3 +1,4 @@
+#include "DynamicLib.h"
 #include "IR.h"
 #include "vlib.h"
 #include <Interpreter.h>
@@ -18,11 +19,15 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 {
 	value *Operand = VM->Registers.GetValue(Info->Operand);
 
-	typedef u64 (__stdcall *inter_fn)(void *, value *);
+	typedef u64 (*inter_fn)(void *, value *);
 
 	assembler Asm = MakeAssembler(KB(1));
+	//  Windows:
 	//  rcx = operand
 	//  rdx = value *args
+	//  Linux:
+	//  rdi = operand
+	//  rsi = value *args
 	// 
 	//  
 	//  push rbp
@@ -57,8 +62,16 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 	Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
 	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand(128));
 
+
+#if _WIN32
 	Asm.Push(RegisterOperand(reg_c));
 	Asm.Push(RegisterOperand(reg_d));
+#elif CM_LINUX
+	Asm.Push(RegisterOperand(reg_di));
+	Asm.Push(RegisterOperand(reg_si));
+#else
+#error "Unknown calling convention"
+#endif
 
 	const type *FnType = GetType(Operand->Type);
 
@@ -388,7 +401,7 @@ interpret_result Interpret(code_chunk Chunk)
 	return Result;
 }
 
-interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HMODULE *DLLs, u32 DLLCount)
+interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
 	interpreter VM = {};
 	VM.Registers.Init(MaxRegisters);
@@ -401,10 +414,10 @@ interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HM
 		{
 			for(int Idx = 0; Idx < DLLCount; ++Idx)
 			{
-				FARPROC Proc = GetProcAddress(DLLs[Idx], Symbol.Name->Data);
+				void *Proc = GetSymLibrary(DLLs[Idx], Symbol.Name->Data);
 				if(Proc)
 				{
-					Value.ptr = (void *)Proc;
+					Value.ptr = Proc;
 					break;
 				}
 			}

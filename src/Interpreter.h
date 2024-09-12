@@ -1,6 +1,7 @@
 #pragma once
 #include <IR.h>
 #include <Stack.h>
+#include "DynamicLib.h"
 
 enum interpret_result_kind
 {
@@ -75,8 +76,7 @@ struct interpreter
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
 interpret_result Interpret(code_chunk Chunk);
-// @TODO: Don't use windows functions directly, some dll abstraction
-interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, HMODULE *DLLs, u32 DLLCount);
+interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\

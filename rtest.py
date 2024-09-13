@@ -1,6 +1,7 @@
 import os
 import sys
 from os.path import isdir
+from sys import platform
 import subprocess
 from time import time
 
@@ -12,9 +13,9 @@ def right_pad(str, len_s):
         str += ' '
     return str
 
-def remove_file():
-    if os.path.isfile('a.exe'):
-        os.remove('a.exe')
+def remove_file(path):
+    if os.path.isfile(path):
+        os.remove(path)
 
 def remove_newlines(string):
     string = string.replace('\n', '')
@@ -25,25 +26,34 @@ def get_tests():
     paths = ['arrays', 'basic', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda', 'pass_complex', 'iterators', 'slices', 'var_args', 'loop_and_if', 'generics', 'defer']
     return paths
 
-
+dir_path = os.path.dirname(os.path.realpath(__file__))
 tests = get_tests()
 os.chdir('tests')
 for test in tests:
     os.chdir(test)
 
+    exe_name = ''
+    if platform == 'linux':
+        exe_name = 'a'
+    elif platform == 'win32':
+        exe_name = 'a.exe'
+    else:
+        exit(1)
+
     c_start_time = time()
-    command_line = ['rcp', 'build.rcp']
+    command_line = [dir_path + '/bin/rcp', 'build.rcp']
     process = subprocess.Popen(command_line, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     c_end_time = time()
 
-    if not os.path.isfile('a.exe'):
+    full_path = dir_path + '/tests/' + test + '/' + exe_name
+    if not os.path.isfile(full_path):
         print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Time: {c_end_time - c_start_time:.2f}s')
         print(f'Output: {stderr.decode()}\n{stdout.decode()}')
     else:
         # Run the compiled program
         start_time = time()
-        command_line = ['a.exe']
+        command_line = [full_path]
         process = subprocess.Popen(command_line)
         process.wait()
         end_time = time()
@@ -53,7 +63,7 @@ for test in tests:
             print(f'{ok_str}Compile: {c_end_time - c_start_time:.2f}s Execute: {end_time - start_time:.2f}s')
         else:
             print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Got: {process.returncode}')
-    remove_file()
+    remove_file(full_path)
 
     os.chdir('..')
 

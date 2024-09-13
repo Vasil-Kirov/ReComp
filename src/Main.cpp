@@ -206,7 +206,14 @@ void ParseAndAnalyzeFile(file *File, timers *Timers, uint Flag)
 string MakeLinkCommand(command_line CMD, slice<file> Files)
 {
 	string_builder Builder = MakeBuilder();
+#if _WIN32
 	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj /DEBUG ";
+#elif CM_LINUX
+	Builder += "ld !internal.obj -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+	Builder += FindObjectFiles();
+#else
+#error Implement Link Command
+#endif
 
 	ForArray(Idx, Files)
 	{
@@ -222,10 +229,13 @@ string MakeLinkCommand(command_line CMD, slice<file> Files)
 
 	if(CMD.LinkArgs.Count == 0)
 	{
+#if _WIN32
 		Builder += "/DEFAULTLIB:MSVCRT ";
+#endif
 	}
 
 
+	LDEBUG(Builder.Data);
 	return MakeString(Builder);
 }
 
@@ -328,6 +338,14 @@ main(int ArgCount, char *Args[])
 	{
 		LFATAL("Expected arguments");
 	}
+
+#if _WIN32
+	PTarget = platform_target::Windows;
+#elif CM_LINUX
+	PTarget = platform_target::UnixBased;
+#else
+#error SET DEFAULT Target
+#endif
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
 

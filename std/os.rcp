@@ -25,3 +25,11 @@ os
     }
 )
 
+#if Unix
+(
+	write :: fn #foreign(fd: i32, buff: *, size: uint) -> int;
+	print :: fn(data: *u8, count: u32) {
+		write(1, data, count);
+	}
+)
+

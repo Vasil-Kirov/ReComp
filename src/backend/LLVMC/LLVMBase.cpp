@@ -867,7 +867,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 #elif defined (CM_LINUX)
 	string DwarV = STR_LIT("Dwarf Version");
 	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
-			DwarV.Data, DwarV.Size, IntToMeta(&Gen, 13));
+			DwarV.Data, DwarV.Size, IntToMeta(&Gen, 5));
 #else
 #error Unkown debug fromat for this OS
 #endif

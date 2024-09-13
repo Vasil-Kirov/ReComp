@@ -1,7 +1,7 @@
 ; ModuleID = 'memory'
 source_filename = "mem.rcp"
-target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-windows-msvc"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-redhat-linux-gnu"
 
 define void @"__memory!__GlobalInitializerFunction"() {
 block_0:
@@ -12,6 +12,6 @@ block_0:
 !llvm.module.flags = !{!2, !3}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false)
-!1 = !DIFile(filename: "mem.rcp", directory: "E:\\C_Projects\\ReComp\\bin\\std")
-!2 = !{i32 2, !"CodeView", i32 1}
+!1 = !DIFile(filename: "mem.rcp", directory: "/home/vasko/Programming/ReComp/std")
+!2 = !{i32 2, !"Dwarf Version", i32 5}
 !3 = !{i32 2, !"Debug Info Version", i32 3}

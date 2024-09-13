@@ -1,6 +1,9 @@
 #include "Basic.h"
+#include "Log.h"
 #include "Platform.h"
 #include "VString.h"
+#include <cstdio>
+#include <cstdlib>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -42,22 +45,70 @@ string ReadEntireFile(string Path)
 
 void *PlatformReserveMemory(size_t Size)
 {
-	return mmap(NULL, Size, PROT_NONE, MAP_NORESERVE, 0, 0);
+	void *map = mmap(NULL, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+	if(map == MAP_FAILED)
+	{
+		perror("mmap reserve failed");
+		return NULL;
+	}
+	return map;
 }
 
 void PlatformAllocateReserved(void *Memory, size_t Size)
 {
-	mremap(Memory, Size, size_t new_len, int flags, ...);
-	Assert(false);
+	mmap(Memory, Size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 }
 
 void PlatformOutputString(string String, log_level Level)
 {
-	Assert(false);
+	int out_fd = 1;
+	if(Level <= LOG_ERROR)
+		out_fd = 2;
+
+	const char *Colors[] = {
+		"\u001b[35m ",
+		"\u001b[31m ",
+		"\u001b[33m ",
+		"\u001b[36m ",
+		"\u001b[32m ",
+	};
+	write(out_fd, Colors[Level], sizeof(Colors[Level])-1);
+	write(out_fd, String.Data, String.Size);
 }
 
-void PlatformFreeMemory(void *Mem)
+void PlatformFreeMemory(void *Mem, uint Size)
 {
-	Assert(false);
+	munmap(Mem, Size);
+}
+
+string RunCommand(const char *Command)
+{
+	FILE *fp = popen(Command, "r");
+	if(!fp)
+	{
+		LFATAL("Failed to run command %s", Command);
+		exit(1);
+	}
+	string_builder Builder = MakeBuilder();
+	char buff[1024] = {};
+	while(fgets(buff, sizeof(buff), fp) != NULL) {
+		Builder += buff;
+		memset(buff, 0, 1024);
+	}
+	
+	pclose(fp);
+
+	return MakeString(Builder);
+}
+
+string FindObjectFiles()
+{
+	string_builder Builder = MakeBuilder();
+	// Builder += RunCommand("find / -name crt1.o 2>/dev/null");
+	// Builder += RunCommand("find / -name crti.o 2>/dev/null");
+	Builder += "/usr/lib64/crt1.o ";
+	//Builder += "/usr/lib64/crti.o ";
+
+	return MakeString(Builder);
 }
 

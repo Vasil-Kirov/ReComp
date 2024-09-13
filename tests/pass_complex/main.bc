@@ -1,7 +1,7 @@
 ; ModuleID = 'main'
 source_filename = "pass_complex.rcp"
-target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-pc-windows-msvc"
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-redhat-linux-gnu"
 
 %"__main!BigStruct" = type { [100 x i32] }
 %"__main!SmallStruct" = type { i16, i16 }
@@ -246,8 +246,8 @@ attributes #2 = { nocallback nofree nounwind willreturn memory(argmem: readwrite
 !llvm.module.flags = !{!2, !3}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "RCP Compiler", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, splitDebugInlining: false)
-!1 = !DIFile(filename: "pass_complex.rcp", directory: "E:\\C_Projects\\ReComp\\tests\\pass_complex")
-!2 = !{i32 2, !"CodeView", i32 1}
+!1 = !DIFile(filename: "pass_complex.rcp", directory: "/home/vasko/Programming/ReComp/tests/pass_complex")
+!2 = !{i32 2, !"Dwarf Version", i32 5}
 !3 = !{i32 2, !"Debug Info Version", i32 3}
 !4 = distinct !DISubprogram(name: "make_bs", linkageName: "__main!make_bs", scope: !1, file: !1, line: 13, type: !5, spFlags: DISPFlagDefinition, unit: !0, retainedNodes: !14)
 !5 = !DISubroutineType(types: !6)

@@ -9,8 +9,8 @@ static ap_memory MemoryAllocators[2];
 #define PERM_SIZE GB(4)
 #define STR_SIZE  MB(64)
 
-#define PERM_CHUNK MB(128)
-#define STR_CHUNK  MB(1)
+#define PERM_CHUNK KB(4) * 4096
+#define STR_CHUNK  KB(4) * 256
 
 void
 InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
@@ -89,7 +89,7 @@ scratch_arena::scratch_arena()
 
 scratch_arena::~scratch_arena()
 {
-	PlatformFreeMemory(Arena.Start);
+	PlatformFreeMemory(Arena.Start, Arena.MaxSize);
 	Arena = {};
 }
 

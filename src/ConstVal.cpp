@@ -1,5 +1,6 @@
 #include "ConstVal.h"
 #include "Type.h"
+#include <cmath>
 #include <stdlib.h>
 
 const_value MakeConstString(const string *String)
@@ -55,6 +56,7 @@ const_value MakeConstValue(const string *String)
 		Parse_Int,
 		Parse_Float,
 		Parse_Binary,
+		Parse_Hex,
 	} ParseType = Parse_Int;
 
 	const_value Result = {};
@@ -62,6 +64,10 @@ const_value MakeConstValue(const string *String)
 	if(String->Size > 1 && String->Data[0] == '0' && String->Data[1] == 'b')
 	{
 		ParseType = Parse_Binary;
+	}
+	else if(String->Size > 1 && String->Data[0] == '0' && String->Data[1] == 'x')
+	{
+		ParseType = Parse_Hex;
 	}
 	else
 	{
@@ -98,6 +104,29 @@ const_value MakeConstValue(const string *String)
 			for(int i = 2; i < String->Size; ++i)
 			{
 				Result.Int.Unsigned |= (String->Data[i] - '0') << (i - 2);
+			}
+		} break;
+		case Parse_Hex:
+		{
+			Result.Type = const_type::Integer;
+			Result.Int.IsSigned = false;
+			Result.Int.Unsigned = 0;
+			int Position = 0;
+			for(int i = String->Size-1; i >= 2; --i)
+			{
+				char c = String->Data[i];
+				int val = 0;
+				if(isalpha(c))
+				{
+					val = (tolower(c) - 'a') + 10;
+				}
+				else
+				{
+					val = c - '0';
+				}
+
+				int mul = pow(16, Position++);
+				Result.Int.Unsigned += val * mul;
 			}
 		} break;
 	}

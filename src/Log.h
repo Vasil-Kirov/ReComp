@@ -13,6 +13,7 @@ typedef enum _log_level
 } log_level;
 
 void Log(log_level Level, const char *Format, ...);
+void SetLogLevel(log_level);
 
 void InitializeLogger();
 

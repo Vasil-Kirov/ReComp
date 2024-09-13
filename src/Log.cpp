@@ -8,6 +8,7 @@ static const char * const LevelLabels[] = {
 };
 
 static char LogFile[260];
+static log_level MinLevel = LOG_INFO;
 
 void
 InitializeLogger()
@@ -19,9 +20,17 @@ InitializeLogger()
 #endif
 }
 
+void SetLogLevel(log_level Level)
+{
+	MinLevel = Level;
+}
+
 void
 Log(log_level Level, const char *Format, ...)
 {
+	if(Level > MinLevel)
+		return;
+
 	string_builder Builder = MakeBuilder();
 	PushBuilder(&Builder, LevelLabels[Level]);
 	PushBuilder(&Builder, Format);

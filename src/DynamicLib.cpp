@@ -1,5 +1,6 @@
 #include "DynamicLib.h"
 #if _WIN32
+#include <Windows.h>
 #else
 #include <dlfcn.h>
 #endif
@@ -8,7 +9,7 @@
 DLIB OpenLibrary(const char *Name)
 {
 #if _WIN32
-#error IMPLEMENT
+	return LoadLibrary(Name);
 #else
 	return dlopen(Name, RTLD_NOW | RTLD_GLOBAL);
 #endif
@@ -17,7 +18,7 @@ DLIB OpenLibrary(const char *Name)
 void *GetSymLibrary(DLIB Lib, const char *FnName)
 {
 #if _WIN32
-#error IMPLEMENT
+	return (void *)GetProcAddress((HMODULE)Lib, FnName);
 #else
 	return dlsym(Lib, FnName);
 #endif

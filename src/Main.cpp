@@ -334,6 +334,8 @@ main(int ArgCount, char *Args[])
 	InitializeLogger();
 	InitializeLexer();
 
+	SetLogLevel(LOG_WARN);
+
 	if(ArgCount < 2)
 	{
 		LFATAL("Expected arguments");
@@ -463,13 +465,13 @@ main(int ArgCount, char *Args[])
 
 	if(CommandLine.Flags & CommandFlag_time)
 	{
-		LDEBUG("Compiling Finished...");
-		LDEBUG("Parsing:                   %lldms", ParseTime                / 1000);
-		LDEBUG("Type Checking:             %lldms", TypeCheckTime            / 1000);
-		LDEBUG("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
-		LDEBUG("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
-		LDEBUG("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
-		LDEBUG("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
+		LWARN("Compiling Finished...");
+		LWARN("Parsing:                   %lldms", ParseTime                / 1000);
+		LWARN("Type Checking:             %lldms", TypeCheckTime            / 1000);
+		LWARN("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
+		LWARN("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
+		LWARN("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
+		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}
 
 	return 0;

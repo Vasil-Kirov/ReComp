@@ -41,7 +41,16 @@ for test in tests:
         exit(1)
 
     c_start_time = time()
-    command_line = [dir_path + '/bin/rcp', 'build.rcp']
+    command_line = []
+
+
+    if platform == 'linux':
+        command_line = [dir_path + '/bin/rcp', 'build.rcp']
+    elif platform == 'win32':
+        command_line = [dir_path + '/bin/rcp.exe', 'build.rcp']
+    else:
+        exit(1)
+
     process = subprocess.Popen(command_line, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = process.communicate()
     c_end_time = time()

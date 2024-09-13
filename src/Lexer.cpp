@@ -175,6 +175,46 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 			AdvanceC(String, ErrorInfo);
 		}
 
+		if(Builder.Size == 2)
+		{
+			RaiseError(StartErrorInfo, "Invalid binary number");
+		}
+
+		string Number = MakeString(Builder);
+		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+	}
+	else if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'x')
+	{
+		string_builder Builder = MakeBuilder();
+		Builder += AdvanceC(String, ErrorInfo);
+		Builder += AdvanceC(String, ErrorInfo);
+		while(true)
+		{
+			char c = PeekC(String);
+			if(c == '_')
+			{
+				AdvanceC(String, ErrorInfo);
+				continue;
+			}
+
+			if(!isalnum(c))
+				break;
+
+			if((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
+			{}
+			else
+			{
+				RaiseError(StartErrorInfo, "Invalid character in hex number: %c", c);
+			}
+			Builder += c;
+			AdvanceC(String, ErrorInfo);
+		}
+
+		if(Builder.Size == 2)
+		{
+			RaiseError(StartErrorInfo, "Invalid hex number");
+		}
+
 		string Number = MakeString(Builder);
 		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
 	}

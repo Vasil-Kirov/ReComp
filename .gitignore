@@ -1,5 +1,5 @@
-*.ilk
-*.pdb
+# LLVM
+*.bc
 
 # RemedyBG
 *.rdbg
@@ -12,6 +12,8 @@
 *.lo
 *.o
 *.obj
+*.ilk
+*.pdb
 
 # Precompiled Headers
 *.gch

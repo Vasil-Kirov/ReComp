@@ -1,6 +1,6 @@
 #pragma once
 #include "Basic.h"
-#include "VString.h"
+#include "Log.h"
 
 // Dynamic array that doesn't need / use constructors and destructors
 #include <initializer_list>
@@ -69,28 +69,6 @@ struct array {
 		Count = _Count;
 		Data = (T *)VAlloc(Count * sizeof(T));
 	}
-};
-
-struct symbol;
-struct checker;
-struct import
-{
-	string Name;
-	string As;
-	slice<symbol *> Globals;
-	checker *Checker;
-};
-
-struct checker;
-struct file
-{
-	token *Tokens;
-	dynamic<node *>Nodes;
-	ir *IR;
-	checker *Checker;
-	import *Module;
-	slice<import> Imported;
-	string Name;
 };
 
 template <typename T>

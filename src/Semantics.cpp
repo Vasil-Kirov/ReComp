@@ -3,6 +3,7 @@
 #include "Dynamic.h"
 #include "Errors.h"
 #include "Lexer.h"
+#include "Log.h"
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
@@ -138,26 +139,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	return INVALID_TYPE;
 }
 
-b32 FindImportedModule(checker *Checker, string &ModuleName, import *Out)
-{
-	if(Checker->Imported == NULL)
-		return false;
-
-	auto Imports = *Checker->Imported;
-	ForArray(Idx, Imports)
-	{
-		import Imported = Imports[Idx];
-		if(Imported.Name == ModuleName
-				|| Imported.As == ModuleName)
-		{
-			*Out = Imported;
-			return true;
-		}
-	}
-	return false;
-}
-
-symbol *FindSymbolFromNode(checker *Checker, node *Node, import *OutModule = NULL)
+symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NULL)
 {
 	switch(Node->Type)
 	{
@@ -182,16 +164,18 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, import *OutModule = NUL
 						"Invalid use of module");
 			}
 			string ModuleName = *Node->Selector.Operand->ID.Name;
-			import m;
-			if(!FindImportedModule(Checker, ModuleName, &m))
+			import Import;
+			if(!FindImportedModule(Checker->Imported, ModuleName, &Import))
 			{
 				RaiseError(*Node->ErrorInfo, "Couldn't find module %s\n", ModuleName.Data);
 			}
 			if(OutModule)
-				*OutModule = m;
-			ForArray(Idx, m.Globals)
+				*OutModule = Import.M;
+
+			module *m = Import.M;
+			ForArray(Idx, m->Globals)
 			{
-				symbol *s = m.Globals[Idx];
+				symbol *s = m->Globals[Idx];
 				if(*s->Name == *Node->Selector.Member)
 				{
 					if((s->Flags & SymbolFlag_Public) == 0)
@@ -200,11 +184,11 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, import *OutModule = NUL
 								"Cannot access private member %s in module %s",
 								Node->Selector.Member->Data, ModuleName.Data);
 					}
-					Node->Selector.Operand->ID.Name = DupeType(m.Name, string);
+					Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
 					return s;
 				}
 			}
-			Node->Selector.Operand->ID.Name = DupeType(m.Name, string);
+			Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
 			return NULL;
 		} break;
 		default: unreachable;
@@ -285,13 +269,13 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			{
 				RaiseError(*Operand->ErrorInfo, "Expected module name in selector");
 			}
-			import Module;
+			import Import;
 			string SearchName = *Operand->ID.Name;
-			if(!FindImportedModule(Checker, SearchName, &Module))
+			if(!FindImportedModule(Checker->Imported, SearchName, &Import))
 			{
 				RaiseError(*Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
 			}
-			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Module.Name);
+			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Import.M->Name);
 			if(Type == INVALID_TYPE)
 			{
 				RaiseError(*TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member->Data, TypeNode->Selector.Operand->ID.Name->Data);
@@ -358,15 +342,15 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 							"Invalid use of module");
 				}
 				string ModuleName = *LHS->Selector.Operand->ID.Name;
-				import m;
-				if(!FindImportedModule(Checker, ModuleName, &m))
+				import Import;
+				if(!FindImportedModule(Checker->Imported, ModuleName, &Import))
 				{
 					unreachable;
 				}
 				b32 Found = false;
-				ForArray(Idx, m.Globals)
+				ForArray(Idx, Import.M->Globals)
 				{
-					symbol *s = m.Globals[Idx];
+					symbol *s = Import.M->Globals[Idx];
 					if(*s->Name == *LHS->Selector.Member)
 					{
 						return (s->Flags & SymbolFlag_Public) &&
@@ -579,9 +563,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 				if(Result == INVALID_TYPE)
 				{
-					import m;
+					import Import;
 					string Name = *Expr->ID.Name;
-					if(FindImportedModule(Checker, Name, &m))
+					if(FindImportedModule(Checker->Imported, Name, &Import))
 					{
 						Result = Basic_module;
 					}
@@ -1468,6 +1452,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 	Symbol.Name    = ID;
 	Symbol.Type    = Type;
 	Symbol.Flags   = Flags;
+	Symbol.Checker = Checker;
 
 	if((Flags & SymbolFlag_Function) == 0)
 	{
@@ -1970,7 +1955,7 @@ RetErr:
 	}
 }
 
-void AnalyzeForModuleStructs(slice<node *>Nodes, import &Module)
+void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -1982,7 +1967,7 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, import &Module)
 			New->Struct.Name = Name;
 
 			uint Count = GetTypeCount();
-			string SymbolName = StructToModuleName(Name, Module.Name);
+			string SymbolName = StructToModuleName(Name, Module->Name);
 			for(int i = 0; i < Count; ++i)
 			{
 				const type *T = GetType(i);
@@ -2012,6 +1997,7 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	u32 FnType = CreateFunctionType(Checker, Node);
 	Node->Fn.TypeIdx = FnType;
 	symbol *Sym = NewType(symbol);
+	Sym->Checker = Checker;
 	Sym->Name = Node->Fn.Name;
 	Sym->Type = FnType;
 	Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
@@ -2021,7 +2007,7 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	return Sym;
 }
 
-void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, import *ThisModule)
+void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
 {
 	Checker->Nodes = NodesPtr;
 	Checker->Module = ThisModule;
@@ -2030,17 +2016,15 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, import *T
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
 
-	dynamic<symbol *> GlobalSymbols = {};
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
 			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
-			GlobalSymbols.Push(Sym);
+			Checker->Module->Globals.Push(Sym);
 		}
 	}
-	Checker->Module->Globals = SliceFromArray(GlobalSymbols);
 
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -2049,17 +2033,16 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, import *T
 			node *Node = Nodes[I];
 			u32 Type = AnalyzeDeclerations(Checker, Node);
 			symbol *Sym = NewType(symbol);
+			Sym->Checker = Checker;
 			Sym->Name = Node->Decl.ID;
 			Sym->Type = Type;
 			Sym->Hash = murmur3_32(Node->Decl.ID->Data, Node->Decl.ID->Size, 
 					HASH_SEED);
 			Sym->Depth = 0;
 			Sym->Flags = Node->Decl.Flags;
-			GlobalSymbols.Push(Sym);
+			Checker->Module->Globals.Push(Sym);
 		}
 	}
-
-	Checker->Module->Globals = SliceFromArray(GlobalSymbols);
 }
 
 void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
@@ -2151,7 +2134,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 	{
 		case AST_CALL:
 		{
-			import MaybeMod = {};
+			module *MaybeMod = NULL;
 			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
 			if(!FnSym)
 			{
@@ -2209,15 +2192,12 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 			}
 
 			// @THREADING: NOT THREAD SAFE
-			checker *PassChecker = Checker;
-			if(MaybeMod.Checker)
-				PassChecker = MaybeMod.Checker;
-
 			node *FnNode = CopyASTNode(FnSym->Node);
-			node *NewFn = AnalyzeGenericFunction(PassChecker, FnNode, ResolvedType, FnSym->Node);
+			node *NewFn = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node);
 			Expr->Call.Fn = NewFn;
 			Expr->Call.Type = NewFn->Fn.TypeIdx;
 			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
+
 			return Expr;
 		} break;
 		default: unreachable;

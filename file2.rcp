@@ -1,4 +1,4 @@
-stuff
+main
 
 struct x {
 	y: int,

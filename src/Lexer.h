@@ -2,6 +2,7 @@
 #include "Basic.h"
 #include "VString.h"
 #include "Errors.h"
+#include "Module.h"
 #include <Dynamic.h>
 
 enum token_type
@@ -90,8 +91,6 @@ struct keyword
 	token_type Type;
 };
 
-
-file StringToTokens(string String, error_info ErrorInfo);
 
 token GetNextToken(string *String, error_info *ErrorInfo);
 

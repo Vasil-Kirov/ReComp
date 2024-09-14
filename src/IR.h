@@ -156,7 +156,7 @@ struct block_builder
 	function *Function; // @NOTE: DO NOT USE AFTER THE FUNCTION IS GENERATED
 	slice<import> Imported;
 	stack<defer_scope> Defered;
-	import Module;
+	module *Module;
 	u32 BreakBlockID;
 	u32 LastRegister;
 	u32 LastBlock;
@@ -177,7 +177,7 @@ instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Bui
 u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
-		slice<import> Imported, import Module);
+		slice<import> Imported, module *Module);
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);

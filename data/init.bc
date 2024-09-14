@@ -3,7 +3,9 @@ source_filename = "init.rcp"
 target datalayout = "e-m:w-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"
 
-define void @"__init!__GlobalInitializerFunction"() {
+@"__main!foo" = external global i64
+
+define void @"__init!__GlobalInitializerFunction.0"() {
 block_0:
   ret void
 }
@@ -29,6 +31,10 @@ declare ptr @malloc(i64)
 declare ptr @"__main!allocator_alloc"(i64, ptr)
 
 declare i32 @"__main!main"()
+
+declare i64 @"__main!give_one"()
+
+declare i32 @"__main!give_two"()
 
 ; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
 declare void @llvm.memset.p0.i32(ptr nocapture writeonly, i8, i32, i1 immarg) #0

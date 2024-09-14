@@ -1,4 +1,5 @@
 #include "LLVMBase.h"
+#include "Module.h"
 #include "Parser.h"
 #include "Semantics.h"
 #include "Basic.h"
@@ -827,20 +828,22 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC)
 {
-	LDEBUG("Generating file: %s", File->Module->Name.Data);
-	ir *IR = File->IR;
+	LDEBUG("Generating module: %s", M->Name.Data);
+
+	generator Gen = {};
+	//file *File = M->Files[0];
+	Gen.ctx = Machine.Context;
+	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
+
 
 	char *FileName = NULL;
 	char *FileDirectory = NULL;
-	GetNameAndDirectory(&FileName, &FileDirectory, File->Name);
-
-	generator Gen = {};
-	Gen.ctx = Machine.Context;
-	Gen.mod = LLVMModuleCreateWithNameInContext(File->Module->Name.Data, Gen.ctx);
+	GetNameAndDirectory(&FileName, &FileDirectory, M->Files[0]->Name);
 	LLVMSetSourceFileName(Gen.mod, FileName, strlen(FileName));
 	LLVMSetTarget(Gen.mod, LLVMGetDefaultTargetTriple());
+	Gen.map = {};
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
 	Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
 	Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
@@ -850,7 +853,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
 	string CompilerName = STR_LIT("RCP Compiler");
-	
+
 
 	LLVMDIBuilderCreateCompileUnit(
 			Gen.dbg,
@@ -879,21 +882,30 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 	RCGenerateCompilerTypes(&Gen);
 	RCGenerateComplexTypes(&Gen);
 
-	dynamic<LLVMValueRef> Functions = {};
+	struct gen_fn_info {
+		LLVMValueRef LLVM;
+		string Name;
+	};
 
-	// Generate internal function
+	dynamic<gen_fn_info> Functions = {};
+
+	// Generate internal functions
+	ForArray(FIdx, M->Files)
 	{
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
-		string LinkName = STR_LIT("__GlobalInitializerFunction");
-		LinkName = StructToModuleName(LinkName, File->Module->Name);
+
+		string_builder StrBuilder = MakeBuilder();
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FIdx);
+		string BaseName = MakeString(StrBuilder);
+		string LinkName = StructToModuleName(BaseName, M->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
-		Functions.Push(Fn);
+		Functions.Push({.LLVM = Fn, .Name = BaseName});
 	}
 
 	uint Count = 0;
-	ForArray(GIdx, File->Module->Globals)
+	ForArray(GIdx, M->Globals)
 	{
-		symbol *s = File->Module->Globals[GIdx];
+		symbol *s = M->Globals[GIdx];
 		if(s->Flags & SymbolFlag_Generic) {
 			Gen.map.Add(Count++, NULL);
 			continue;
@@ -909,12 +921,12 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 			string fnName = *s->Name;
 			string LinkName = fnName;
 			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(fnName, File->Module->Name);
+				LinkName = StructToModuleName(fnName, M->Name);
 			//LLVMCreateFunctionType(Gen.ctx, s->Type);
 			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 					ConvertToLLVMType(Gen.ctx, s->Type));
 			LLVMSetLinkage(Fn, Linkage);
-			Functions.Push(Fn);
+			Functions.Push({.LLVM = Fn, .Name = fnName});
 			Gen.map.Add(Count++, Fn);
 		}
 		else
@@ -922,7 +934,7 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 			string Name = *s->Name;
 			string LinkName = Name;
 			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(Name, File->Module->Name);
+				LinkName = StructToModuleName(Name, M->Name);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
 			LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 			LLVMSetLinkage(Global, Linkage);
@@ -931,63 +943,83 @@ void RCGenerateFile(file *File, llvm_init_info Machine, b32 OutputBC)
 		}
 	}
 
-	ForArray(Idx, File->Imported)
+	ForArray(FIdx, M->Files)
 	{
-		auto m = File->Imported[Idx];
-		ForArray(GIdx, m.Globals)
+		file *File = M->Files[FIdx];
+		ForArray(Idx, File->Imported)
 		{
-			symbol *s = m.Globals[GIdx];
-			if(s->Flags & SymbolFlag_Generic) {
-				Gen.map.Add(Count++, NULL);
-				continue;
-			}
-
-			if(s->Flags & SymbolFlag_Function)
+			auto m = File->Imported[Idx].M;
+			ForArray(GIdx, m->Globals)
 			{
-				LLVMCreateFunctionType(Gen.ctx, s->Type);
-				string fnName = *s->Name;
-				string LinkName = fnName;
-				if((s->Flags & SymbolFlag_Foreign) == 0)
-					LinkName = StructToModuleName(fnName, m.Name);
-				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
-						ConvertToLLVMType(Gen.ctx, s->Type));
-				Functions.Push(Fn);
-				Gen.map.Add(Count++, Fn);
-			}
-			else
-			{
-				string Name = *s->Name;
-				string LinkName = Name;
-				if((s->Flags & SymbolFlag_Foreign) == 0)
-					LinkName = StructToModuleName(Name, m.Name);
-				LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
-				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
-				Gen.map.Add(Count++, Global);
+				symbol *s = m->Globals[GIdx];
+				if(s->Flags & SymbolFlag_Generic) {
+					Gen.map.Add(Count++, NULL);
+					continue;
+				}
 
-			} 
+				if(s->Flags & SymbolFlag_Function)
+				{
+					LLVMCreateFunctionType(Gen.ctx, s->Type);
+					string fnName = *s->Name;
+					string LinkName = fnName;
+					if((s->Flags & SymbolFlag_Foreign) == 0)
+						LinkName = StructToModuleName(fnName, m->Name);
+					LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
+							ConvertToLLVMType(Gen.ctx, s->Type));
+					Functions.Push({.LLVM = Fn, .Name = fnName});
+					Gen.map.Add(Count++, Fn);
+				}
+				else
+				{
+					string Name = *s->Name;
+					string LinkName = Name;
+					if((s->Flags & SymbolFlag_Foreign) == 0)
+						LinkName = StructToModuleName(Name, m->Name);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
+					LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
+					Gen.map.Add(Count++, Global);
+
+				} 
+			}
 		}
 	}
 	Gen.map.LockBottom();
-	ForArray(Idx, IR->Functions)
+
+	ForArray(FIdx, M->Files)
 	{
-		if(IR->Functions[Idx].Blocks.Count != 0)
+		ir *IR = M->Files[FIdx]->IR;
+		ForArray(Idx, IR->Functions)
 		{
-			Gen.fn = Functions[Idx];
-			RCGenerateFunction(&Gen, IR->Functions[Idx]);
-			Gen.map.Clear();
+			if(IR->Functions[Idx].Blocks.Count != 0)
+			{
+				string Name = *IR->Functions[Idx].Name;
+				ForArray(LLVMFnIdx, Functions)
+				{
+					if(Functions[LLVMFnIdx].Name == Name)
+					{
+						Gen.fn = Functions[LLVMFnIdx].LLVM;
+						break;
+					}
+				}
+				Assert(Gen.fn);
+
+				RCGenerateFunction(&Gen, IR->Functions[Idx]);
+				Gen.map.Clear();
+				Gen.fn = NULL;
+			}
 		}
 	}
 
 	LLVMDIBuilderFinalize(Gen.dbg);
 
-	RCEmitFile(Machine.Target, Gen.mod, File->Module->Name, OutputBC);
+	RCEmitFile(Machine.Target, Gen.mod, M->Name, OutputBC);
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
 	LLVMShutdown();
 }
 
-void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC)
+void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)
 {
 	char *Error = NULL;
 
@@ -1002,7 +1034,7 @@ void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleNa
 	if(OutputBC)
 	{
 		string_builder BCFileBuilder = MakeBuilder();
-		BCFileBuilder += ModuleName;
+		BCFileBuilder += FileName;
 		BCFileBuilder += ".bc";
 		string BCFile = MakeString(BCFileBuilder);
 
@@ -1014,7 +1046,7 @@ void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleNa
 	}
 
 	string_builder Obj = MakeBuilder();
-	Obj += ModuleName;
+	Obj += FileName;
 	Obj += ".obj";
 
 	if(LLVMTargetMachineEmitToFile(Machine, Mod, MakeString(Obj).Data, LLVMObjectFile, (char **)&Error))
@@ -1081,10 +1113,14 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
 
 	LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
-	string GlobalInit = STR_LIT("__GlobalInitializerFunction");
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
+		int FileIndex = GetFileIndex(File->Module, File);
+
+		string_builder StrBuilder = MakeBuilder();
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
+		string GlobalInit = MakeString(StrBuilder);
 		string InitFnName = StructToModuleName(GlobalInit, File->Module->Name);
 		FileFns[Idx] = LLVMAddFunction(Gen.mod, InitFnName.Data, FnType);
 	}
@@ -1106,13 +1142,11 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	return Machine;
 }
 
-void RCGenerateCode(slice<file> Files, llvm_init_info Machine, b32 OutputBC)
+void RCGenerateCode(dynamic<module> Modules, llvm_init_info Machine, b32 OutputBC)
 {
-	ForArray(Idx, Files)
+	ForArray(Idx, Modules)
 	{
-		file *File = &Files.Data[Idx];
-		RCGenerateFile(File, Machine, OutputBC);
-
+		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC);
 		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}

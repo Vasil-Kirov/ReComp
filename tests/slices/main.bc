@@ -6,7 +6,7 @@ target triple = "x86_64-pc-windows-msvc"
 %slice = type { i64, ptr }
 %slice.1 = type { i64, ptr }
 
-define void @"__main!__GlobalInitializerFunction"() {
+define void @"__main!__GlobalInitializerFunction.0"() {
 block_0:
   ret void
 }

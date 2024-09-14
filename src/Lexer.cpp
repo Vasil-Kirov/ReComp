@@ -84,7 +84,7 @@ char PeekC(string *String)
 	return *String->Data;
 }
 
-file StringToTokens(string String, error_info ErrorInfo)
+file StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
 {
 	file Result = {};
 	token ModuleName = GetNextToken(&String, &ErrorInfo);
@@ -92,8 +92,7 @@ file StringToTokens(string String, error_info ErrorInfo)
 	{
 		RaiseError(ModuleName.ErrorInfo, "Expected module name at the start of file"); 
 	}
-	import Module = { .Name = *ModuleName.ID, .As = STR_LIT("") };
-	Result.Module = DupeType(Module, import);
+	*OutModuleName = *ModuleName.ID;
 	token *Tokens = ArrCreate(token);
 	while(String.Size > 0)
 	{

@@ -8,7 +8,7 @@ target triple = "x86_64-pc-windows-msvc"
 @"__os!STD_ERROR_HANDLE" = global i32 0
 @"__os!INVALID_HANDLE_VALUE" = global ptr null
 
-define void @"__os!__GlobalInitializerFunction"() {
+define void @"__os!__GlobalInitializerFunction.0"() {
 block_0:
   store i32 -10, ptr @"__os!STD_INPUT_HANDLE", align 4
   store i32 -11, ptr @"__os!STD_OUTPUT_HANDLE", align 4

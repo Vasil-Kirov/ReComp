@@ -27,6 +27,7 @@ struct symbol
 {
 	const string *Name;
 	node *Node;
+	checker *Checker;
 	u32 Type;
 	u32 Hash;
 	u32 Depth;
@@ -36,8 +37,8 @@ struct symbol
 struct checker
 {
 	dynamic<symbol> Symbols;
-	import *Module;
-	slice<import> *Imported;
+	module *Module;
+	slice<import> Imported;
 	stack<u32 *> UntypedStack;
 	dynamic<node *> *Nodes;
 	scope *CurrentScope;

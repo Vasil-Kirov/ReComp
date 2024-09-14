@@ -4,7 +4,7 @@
 #include "Platform.h"
 
 static const char * const LevelLabels[] = {
-	"[FATAL] ", "[ERROR] ", "[WARNING] ", "[DEBUG] ", "[INFO] "
+	"[FATAL] ", "[ERROR] ", "[WARNING] ", "[INFO] ", "[DEBUG] "
 };
 
 static char LogFile[260];

@@ -325,15 +325,15 @@ token EatToken(parser *Parser, char C)
 	return EatToken(Parser, (token_type)C);
 }
 
-parse_result ParseTokens(token *Tokens, string ModuleName)
+parse_result ParseTokens(file *F)
 {
 	dynamic<node *>Nodes = {};
 
 	parser Parser = {};
-	Parser.Tokens = Tokens;
+	Parser.Tokens = F->Tokens;
 	Parser.TokenIndex = 0;
-	Parser.Current = Tokens;
-	Parser.ModuleName = ModuleName;
+	Parser.Current = F->Tokens;
+	Parser.ModuleName = F->Module->Name;
 	Parser.CurrentlyPublic = true;
 
 	using pt = platform_target;
@@ -349,7 +349,7 @@ parse_result ParseTokens(token *Tokens, string ModuleName)
 		} break;
 	}
 
-	size_t TokenCount = ArrLen(Tokens);
+	size_t TokenCount = ArrLen(F->Tokens);
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
 	while(Parser.TokenIndex + 1 < TokenCount)
 	{
@@ -1295,6 +1295,7 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_IMPORT:
 		{
+			ERROR_INFO;
 			GetToken(Parser);
 			token T = EatToken(Parser, T_ID);
 			string *As = NULL;
@@ -1303,7 +1304,13 @@ node *ParseTopLevel(parser *Parser)
 				GetToken(Parser);
 				As = EatToken(Parser, T_ID).ID;
 			}
-			import Imported = {.Name = *T.ID, .As = As ? *As : STR_LIT("")};
+
+			needs_resolving_import Imported = {
+				.Name = *T.ID,
+				.As = As ? *As : STR_LIT(""),
+				.ErrorInfo = ErrorInfo,
+			};
+
 			Parser->Imported.Push(Imported);
 			Result = (node *)0x1;
 		} break;

@@ -1381,27 +1381,32 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 	Builder->CurrentBlock = Then;
 }
 
-void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, slice<import> Imported, import Module)
+void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module *Module)
 {
 	uint Count = 0;
-	ForArray(GIdx, Module.Globals)
+	ForArray(GIdx, Module->Globals)
 	{
-		symbol *s = Module.Globals[GIdx];
+		symbol *s = Module->Globals[GIdx];
 		PushIRLocal(Fn, s->Name, Count++,
 				s->Type, s->Flags);
 	}
 
-	ForArray(Idx, Imported)
+	ForArray(FIdx, Module->Files)
 	{
-		auto m = Imported[Idx];
-		ForArray(GIdx, m.Globals)
+		// pushing unreachable symbols cuz it makes it simpler for generating code in the backend
+		file *File = Module->Files[FIdx];
+		ForArray(Idx, File->Imported)
 		{
-			symbol *s = m.Globals[GIdx];
-			string sName = *s->Name;
+			auto m = File->Imported[Idx];
+			ForArray(GIdx, m.M->Globals)
+			{
+				symbol *s = m.M->Globals[GIdx];
+				string sName = *s->Name;
 
-			string *Mangled = StructToModuleNamePtr(sName, m.Name);
-			PushIRLocal(Fn, Mangled, Count++,
-					s->Type, s->Flags);
+				string *Mangled = StructToModuleNamePtr(sName, m.M->Name);
+				PushIRLocal(Fn, Mangled, Count++,
+						s->Type, s->Flags);
+			}
 		}
 	}
 	Builder->LastRegister = Count;
@@ -1433,13 +1438,13 @@ void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
 }
 
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
-		slice<import> Imported, import Module)
+		slice<import> Imported, module *Module)
 {
 	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
 	Function.LineNo = Node->ErrorInfo->Line;
-	Function.ModuleName = Module.Name;
+	Function.ModuleName = Module->Name;
 	if(Body.IsValid())
 	{
 		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
@@ -1453,7 +1458,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		const type *FnType = GetType(TypeIdx);
 		IRPushDebugLocation(&Builder, Node->ErrorInfo);
 
-		IRPushGlobalSymbolsForFunction(&Builder, &Function, Imported, Module);
+		IRPushGlobalSymbolsForFunction(&Builder, &Function, Module);
 		ForArray(Idx, Args)
 		{
 			u32 Type = INVALID_TYPE;
@@ -1491,7 +1496,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	return Function;
 }
 
-function GlobalLevelIR(node *Node, slice<import> Imported, import Module)
+function GlobalLevelIR(node *Node, slice<import> Imported, module *Module)
 {
 	function Result = {};
 	switch(Node->Type)
@@ -1523,44 +1528,46 @@ ir BuildIR(file *File)
 {
 	ir IR = {};
 	u32 NodeCount = File->Nodes.Count;
+	int FileIndex = GetFileIndex(File->Module, File);
 
-	string GlobalFnName = STR_LIT("__GlobalInitializerFunction");
-	function GlobalInitializers = {};
-	GlobalInitializers.Name = DupeType(GlobalFnName, string);
-	GlobalInitializers.Type = INVALID_TYPE;
-	GlobalInitializers.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
-	GlobalInitializers.LocalCount = 0;
-
-	block_builder Builder = {};
-	Builder.Function = &GlobalInitializers;
-	Builder.CurrentBlock = AllocateBlock(&Builder);
-
-	IRPushGlobalSymbolsForFunction(&Builder, &GlobalInitializers, 
-			*File->Checker->Imported, *File->Checker->Module);
-
-	for(int I = 0; I < NodeCount; ++I)
 	{
-		node *Node = File->Nodes[I];
-		if(Node->Type == AST_DECL)
+		string_builder StrBuilder = MakeBuilder();
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
+		string GlobalFnName = MakeString(StrBuilder);
+		function GlobalInitializers = {};
+		GlobalInitializers.Name = DupeType(GlobalFnName, string);
+		GlobalInitializers.Type = INVALID_TYPE;
+		GlobalInitializers.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
+		GlobalInitializers.LocalCount = 0;
+
+		block_builder Builder = {};
+		Builder.Function = &GlobalInitializers;
+		Builder.CurrentBlock = AllocateBlock(&Builder);
+		IRPushGlobalSymbolsForFunction(&Builder, &GlobalInitializers, File->Module);
+
+		for(int I = 0; I < NodeCount; ++I)
 		{
-			u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
-			const ir_symbol *Sym =GetIRLocal(Builder.Function, Node->Decl.ID);
-			Assert(Sym);
-			PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+			node *Node = File->Nodes[I];
+			if(Node->Type == AST_DECL)
+			{
+				u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
+				const ir_symbol *Sym =GetIRLocal(Builder.Function, Node->Decl.ID);
+				Assert(Sym);
+				PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+			}
 		}
+		PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
+		Terminate(&Builder, {});
+
+		IR.Functions.Push(GlobalInitializers);
+		Builder.Function = NULL;
+
+		VFree(GlobalInitializers.Locals);
 	}
-	PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
-	Terminate(&Builder, {});
-
-	IR.Functions.Push(GlobalInitializers);
-
-	Builder.Function = NULL;
-
-	VFree(GlobalInitializers.Locals);
 
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		function MaybeFunction = GlobalLevelIR(File->Nodes[I], *File->Checker->Imported, *File->Checker->Module);
+		function MaybeFunction = GlobalLevelIR(File->Nodes[I], File->Checker->Imported, File->Module);
 		if(MaybeFunction.LastRegister > IR.MaxRegisters)
 			IR.MaxRegisters = MaybeFunction.LastRegister;
 

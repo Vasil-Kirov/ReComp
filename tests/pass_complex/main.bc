@@ -6,7 +6,7 @@ target triple = "x86_64-pc-windows-msvc"
 %"__main!BigStruct" = type { [100 x i32] }
 %"__main!SmallStruct" = type { i16, i16 }
 
-define void @"__main!__GlobalInitializerFunction"() {
+define void @"__main!__GlobalInitializerFunction.0"() {
 block_0:
   ret void
 }

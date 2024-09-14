@@ -6,7 +6,7 @@ target triple = "x86_64-pc-windows-msvc"
 %"__main!vv" = type { %"__main!v2", i64 }
 %"__main!v2" = type { float, i64 }
 
-define void @"__main!__GlobalInitializerFunction"() {
+define void @"__main!__GlobalInitializerFunction.0"() {
 block_0:
   ret void
 }

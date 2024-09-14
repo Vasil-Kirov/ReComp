@@ -5,7 +5,7 @@ target triple = "x86_64-pc-windows-msvc"
 
 %"__main!Foo" = type { i32, [100 x i32], [4 x i32] }
 
-define void @"__main!__GlobalInitializerFunction"() {
+define void @"__main!__GlobalInitializerFunction.0"() {
 block_0:
   ret void
 }

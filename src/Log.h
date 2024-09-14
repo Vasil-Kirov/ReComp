@@ -8,8 +8,8 @@ typedef enum _log_level
 	LOG_FATAL,
 	LOG_ERROR,
 	LOG_WARN,
+	LOG_INFO,
 	LOG_DEBUG,
-	LOG_INFO
 } log_level;
 
 void Log(log_level Level, const char *Format, ...);

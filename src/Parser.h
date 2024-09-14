@@ -206,9 +206,16 @@ struct node
 	const error_info *ErrorInfo;
 };
 
+struct needs_resolving_import
+{
+	string Name;
+	string As;
+	error_info *ErrorInfo;
+};
+
 struct parser
 {
-	dynamic<import> Imported;
+	dynamic<needs_resolving_import> Imported;
 	dynamic<string> ConfigIDs;
 	string ModuleName;
 	token *Tokens;
@@ -223,7 +230,7 @@ struct parser
 struct parse_result
 {
 	dynamic<node *>Nodes;
-	slice<import> Imports;
+	slice<needs_resolving_import> Imports;
 };
 
 node *AllocateNode(const error_info *ErrorInfo, node_type Type);

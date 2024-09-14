@@ -7,6 +7,7 @@ enum command_flags
 	CommandFlag_time = BIT(0),
 	CommandFlag_ir   = BIT(1),
 	CommandFlag_link = BIT(2),
+	CommandFlag_llvm = BIT(3),
 };
 
 struct command_line

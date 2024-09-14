@@ -422,7 +422,7 @@ main(int ArgCount, char *Args[])
 			ModuleArray = SliceFromArray(Modules);
 			FileArray = SliceFromArray(Files);
 			llvm_init_info Machine = RCGenerateMain(FileArray);
-			RCGenerateCode(Modules, Machine, true);
+			RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
 			VLibStopTimer(&FileTimer.LLVM);
 			Timers.Push(FileTimer);
 
@@ -439,10 +439,18 @@ main(int ArgCount, char *Args[])
 
 	VLibStopTimer(&VMBuildTimer);
 
-
-
 	auto LinkTimer = VLibStartTimer("Linking");
 	system(MakeLinkCommand(CommandLine, ModuleArray).Data);
+
+	/* Clean up */
+	ForArray(Idx, ModuleArray)
+	{
+		string_builder Builder = MakeBuilder();
+		Builder += ModuleArray[Idx].Name;
+		Builder += ".obj ";
+		string Path = MakeString(Builder);
+		PlatformDeleteFile(Path.Data);
+	}
 	VLibStopTimer(&LinkTimer);
 
 

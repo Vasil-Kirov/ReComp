@@ -1,6 +1,7 @@
 #include "CommandLine.h"
 #include "Basic.h"
 #include "Log.h"
+#include "VString.h"
 
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rcp
@@ -30,7 +31,8 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--time"),
 		STR_LIT("--help"),
 		STR_LIT("--ir"),
-		STR_LIT("--LINK"),
+		STR_LIT("--link"),
+		STR_LIT("--llvm"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -75,6 +77,10 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		else if(StringsMatchNoCase(Arg, CompileCommands[4]))
 		{
 			Result.Flags |= CommandFlag_link;
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[5]))
+		{
+			Result.Flags |= CommandFlag_llvm;
 		}
 		else
 		{

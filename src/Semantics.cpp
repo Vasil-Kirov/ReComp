@@ -1874,7 +1874,9 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 			{
 				RaiseError(*Node->ErrorInfo, "Structs cannot have more than 1 generic type");
 			}
-			New.Struct.Flags |= StructFlag_Generic;
+			// @HACK
+			if(!(New.Struct.Name == STR_LIT("__init!Arg")))
+				New.Struct.Flags |= StructFlag_Generic;
 			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Decl.ID);
 		}
 
@@ -2117,6 +2119,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 					HASH_SEED);
 			Sym->Depth = 0;
 			Sym->Flags = Node->Decl.Flags;
+			Sym->Node = Node;
 			Checker->Module->Globals.Push(Sym);
 		}
 	}
@@ -2229,7 +2232,7 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, n
 		NewFT->Function.Return = ToNonGeneric(TypeIdx, ResolvedType, TypeIdx);
 		if(NewFT->Function.Return == INVALID_TYPE || IsGeneric(GetType(NewFT->Function.Return)))
 		{
-			//RaiseError(*FnNode->ErrorInfo, "Couldn't resolve the generic return type of the function");
+			RaiseError(*FnNode->ErrorInfo, "Couldn't resolve the generic return type of the function");
 		}
 	}
 

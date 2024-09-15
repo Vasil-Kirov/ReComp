@@ -79,48 +79,48 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 		return LLVMVoidTypeInContext(Context);
 	const type *CustomType = GetType(TypeID);
 
-    Assert(Context);
+	Assert(Context);
 	Assert(CustomType);
 
-    switch (CustomType->Kind) {
-        case TypeKind_Basic:
+	switch (CustomType->Kind) {
+		case TypeKind_Basic:
 		{
-            switch (CustomType->Basic.Kind) {
-                case Basic_bool:
-                    return LLVMInt1TypeInContext(Context);
-                case Basic_u8:
-                    return LLVMInt8TypeInContext(Context);
-                case Basic_u16:
-                    return LLVMInt16TypeInContext(Context);
-                case Basic_u32:
-                    return LLVMInt32TypeInContext(Context);
-                case Basic_u64:
-                    return LLVMInt64TypeInContext(Context);
-                case Basic_i8:
-                    return LLVMInt8TypeInContext(Context);
-                case Basic_i16:
-                    return LLVMInt16TypeInContext(Context);
-                case Basic_i32:
-                    return LLVMInt32TypeInContext(Context);
-                case Basic_i64:
-                    return LLVMInt64TypeInContext(Context);
-                case Basic_f32:
-                    return LLVMFloatTypeInContext(Context);
-                case Basic_f64:
-                    return LLVMDoubleTypeInContext(Context);
+			switch (CustomType->Basic.Kind) {
+				case Basic_bool:
+				return LLVMInt1TypeInContext(Context);
+				case Basic_u8:
+				return LLVMInt8TypeInContext(Context);
+				case Basic_u16:
+				return LLVMInt16TypeInContext(Context);
+				case Basic_u32:
+				return LLVMInt32TypeInContext(Context);
+				case Basic_u64:
+				return LLVMInt64TypeInContext(Context);
+				case Basic_i8:
+				return LLVMInt8TypeInContext(Context);
+				case Basic_i16:
+				return LLVMInt16TypeInContext(Context);
+				case Basic_i32:
+				return LLVMInt32TypeInContext(Context);
+				case Basic_i64:
+				return LLVMInt64TypeInContext(Context);
+				case Basic_f32:
+				return LLVMFloatTypeInContext(Context);
+				case Basic_f64:
+				return LLVMDoubleTypeInContext(Context);
 				case Basic_int:
-					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
+				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
 				case Basic_uint:
-					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
-                case Basic_string:
-					return LLVMFindMapType(TypeID);
-                case Basic_cstring:
-                    return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
+				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
+				case Basic_string:
+				return LLVMFindMapType(TypeID);
+				case Basic_cstring:
+				return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
 				case Basic_type:
-					return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
-                default:
-                    return NULL;
-            }
+				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
+				default:
+				return NULL;
+			}
 		} break;
 
 		case TypeKind_Array:
@@ -145,15 +145,15 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 			return Result;
 		} break;
 
-        case TypeKind_Function:
+		case TypeKind_Function:
 		{
 			return LLVMCreateFunctionType(Context, TypeID);
-        } break;
+		} break;
 
-        case TypeKind_Struct:
+		case TypeKind_Struct:
 		{
 			return LLVMFindMapType(TypeID);
-        } break;
+		} break;
 
 		case TypeKind_Vector:
 		{
@@ -175,17 +175,18 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 			return ConvertToLLVMType(Context, CustomType->Enum.Type);
 		} break;
 
-        case TypeKind_Pointer:
+		case TypeKind_Pointer:
 		{
 			if(CustomType->Pointer.Pointed == INVALID_TYPE)
 				return LLVMPointerType(LLVMVoidTypeInContext(Context), 0);
-            return LLVMPointerType(ConvertToLLVMType(Context, CustomType->Pointer.Pointed), 0);
+			LLVMTypeRef Pointed = ConvertToLLVMType(Context, CustomType->Pointer.Pointed);
+			return LLVMPointerType(Pointed, 0);
 		} break;
 
-        case TypeKind_Invalid:
-        default:
-            return NULL;
-    }
+		case TypeKind_Invalid:
+		default:
+		return NULL;
+	}
 	Assert(false);
 	return NULL;
 }
@@ -202,8 +203,8 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 	const type *CustomType = GetType(TypeID);
 	LLVMMetadataRef Made = NULL;
 
-    Assert(gen);
-    Assert(TypeID != INVALID_TYPE);
+	Assert(gen);
+	Assert(TypeID != INVALID_TYPE);
 	Assert(CustomType);
 	switch(CustomType->Kind)
 	{
@@ -243,7 +244,7 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 				case Basic_cstring:
 				{
 					Made = LLVMDIBuilderCreatePointerType
-					(
+						(
 						 gen->dbg,
 						 ToDebugTypeLLVM(gen, Basic_u8),
 						 Size, 0, 0,
@@ -362,7 +363,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 	string Name = GetTypeNameAsString(CustomType);
 	int Size = GetTypeSize(CustomType) * 8;
 	int Align = GetTypeAlignment(CustomType) * 8;
-	
+
 	LLVMMetadataRef Made = LLVMDIBuilderCreateForwardDecl(gen->dbg,
 			DW_TAG_structure_type,
 			Name.Data, Name.Size,
@@ -372,23 +373,23 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 			"", 0);
 
 	/*
-	LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
-			gen->f_dbg,
-			Name.Data,
-			Name.Size,
-			gen->f_dbg,
-			0,
-			0,
-			0,
-			LLVMDIFlagFwdDecl,
-			NULL,
-			NULL,
-			0,
-			0,
-			NULL,
-			NULL,
-			0);
-			*/
+	   LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
+	   gen->f_dbg,
+	   Name.Data,
+	   Name.Size,
+	   gen->f_dbg,
+	   0,
+	   0,
+	   0,
+	   LLVMDIFlagFwdDecl,
+	   NULL,
+	   NULL,
+	   0,
+	   0,
+	   NULL,
+	   NULL,
+	   0);
+	   */
 
 	LLVMDebugMapType(TypeID, Made);
 }
@@ -405,7 +406,7 @@ LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
 	ForArray(Idx, T->Enum.Members)
 	{
 		enum_member M = T->Enum.Members[Idx];
-		
+
 		Elements[Idx] = LLVMDIBuilderCreateEnumerator(gen->dbg,
 				M.Name.Data, M.Name.Size, M.Value.Int.Signed, !M.Value.Int.IsSigned);
 	}

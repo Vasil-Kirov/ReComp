@@ -6,7 +6,7 @@ struct x {
 
 #private
 
-foo := give_one();
+//foo := give_one();
 
 give_one :: fn() -> int {
 	return 1;

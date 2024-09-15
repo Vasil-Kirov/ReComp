@@ -1,5 +1,6 @@
 init
 
+// @This is not generic, the compiler has a special case for it
 struct Arg {
     t: type,
     val: *,

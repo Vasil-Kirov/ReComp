@@ -758,8 +758,12 @@ void RCGenerateComplexTypes(generator *gen)
 	for(uint Index = 0; Index < TypeCount; ++Index)
 	{
 		const type *T = GetType(Index);
-		if(T->Kind == TypeKind_Struct  && (T->Struct.Flags & StructFlag_Generic) == 0)
+		if(T->Kind == TypeKind_Struct)
 		{
+			if(T->Struct.Flags & StructFlag_Generic)
+			{
+				continue;
+			}
 			LLVMCreateOpaqueStructType(gen->ctx, Index);
 			LLMVDebugOpaqueStruct(gen, Index);
 		}

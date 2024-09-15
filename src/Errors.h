@@ -24,4 +24,9 @@ raise_parsing_unexpected_token(const char *expected_tok, File_Contents *f);
 void
 RaiseError(error_info ErrorInfo, const char *ErrorMessage, ...);
 
+void
+SetBonusMessage(string S);
+
+extern string BonusErrorMessage;
+
 #endif // _ERRORS_H

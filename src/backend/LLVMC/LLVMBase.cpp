@@ -758,7 +758,7 @@ void RCGenerateComplexTypes(generator *gen)
 	for(uint Index = 0; Index < TypeCount; ++Index)
 	{
 		const type *T = GetType(Index);
-		if(T->Kind == TypeKind_Struct)
+		if(T->Kind == TypeKind_Struct  && (T->Struct.Flags & StructFlag_Generic) == 0)
 		{
 			LLVMCreateOpaqueStructType(gen->ctx, Index);
 			LLMVDebugOpaqueStruct(gen, Index);
@@ -770,7 +770,8 @@ void RCGenerateComplexTypes(generator *gen)
 	}
 	for(uint Index = 0; Index < TypeCount; ++Index)
 	{
-		if(GetType(Index)->Kind == TypeKind_Struct)
+		const type *T = GetType(Index);
+		if(T->Kind == TypeKind_Struct && (T->Struct.Flags & StructFlag_Generic) == 0)
 		{
 			LLVMDefineStructType(gen->ctx, Index);
 			LLMVDebugDefineStruct(gen, Index);
@@ -1137,7 +1138,7 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	}
 
 	LLVMBuildRetVoid(Gen.bld);
-	RCEmitFile(Machine.Target, Gen.mod, STR_LIT("!internal"), true) ;
+	RCEmitFile(Machine.Target, Gen.mod, STR_LIT("!internal"), false);
 	VFree(FileFns);
 	return Machine;
 }

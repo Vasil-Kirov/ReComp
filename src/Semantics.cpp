@@ -7,6 +7,7 @@
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
+#include "VString.h"
 extern const type BasicTypes[];
 extern const int  BasicTypesCount;
 
@@ -35,6 +36,9 @@ void RaiseBinaryTypeError(const error_info *ErrorInfo, const type *Left, const t
 void FillUntypedStack(checker *Checker, u32 Type)
 {
 	const type *TypePtr = GetType(Type);
+	if(IsGeneric(TypePtr))
+		return;
+
 	if(TypePtr->Kind == TypeKind_Pointer)
 		Type = Basic_i64;
 	while(!Checker->UntypedStack.IsEmpty())
@@ -457,6 +461,11 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			Function.Flags |= SymbolFlag_Generic;
 			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Decl.ID);
 		}
+		else if(T->Kind == TypeKind_Struct && T->Struct.Flags & StructFlag_Generic)
+		{
+			FnNode->Fn.Flags |= SymbolFlag_Generic;
+			Function.Flags |= SymbolFlag_Generic;
+		}
 	}
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
 	
@@ -833,6 +842,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				NS_NAMED,
 				NS_NOT_NAMED,
 			} NamedStatus = NS_UNKNOWN;
+
 			ForArray(Idx, Expr->TypeList.Items)
 			{
 				node *Item = Expr->TypeList.Items[Idx];
@@ -861,6 +871,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(*Expr->ErrorInfo, "Still haven't implemented named array lists");
 			}
 
+			if(Expr->TypeList.Items.Count == 0 && Type->Kind == TypeKind_Struct &&
+					(Type->Struct.Flags & StructFlag_Generic))
+			{
+				RaiseError(*Expr->ErrorInfo, "Cannot 0 initialize generic struct %s", GetTypeName(Type));
+			}
+
+			node *Filled[4096] = {};
+			u32 ExprTypes[4096] = {};
 			ForArray(Idx, Expr->TypeList.Items)
 			{
 				node *Item = Expr->TypeList.Items[Idx];
@@ -872,10 +890,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					case TypeKind_Array: 
 					{
+						Filled[Idx] = Item;
 						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression);
 					} break;
 					case TypeKind_Slice:
 					{
+						Filled[Idx] = Item;
 						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Slice.Type, ItemType, NULL, &Item->Item.Expression);
 					} break;
 					case TypeKind_Struct:
@@ -901,13 +921,59 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							MemberIdx = Found;
 						}
+						Filled[MemberIdx] = Item;
+						ExprTypes[MemberIdx] = ItemType;
 						struct_member Mem = Type->Struct.Members[MemberIdx];
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression);
+						PromotedUntyped = INVALID_TYPE;
+						if(!IsGeneric(Mem.Type))
+							PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression);
 					} break;
 					default: unreachable;
 				}
 
-				FillUntypedStack(Checker, PromotedUntyped);
+				if(PromotedUntyped != INVALID_TYPE)
+					FillUntypedStack(Checker, PromotedUntyped);
+			}
+			if(Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic)
+			{
+				dynamic<struct_member> Members = {};
+				u32 GenericResolved = INVALID_TYPE;
+				ForArray(Idx, Type->Struct.Members)
+				{
+					struct_member Member = Type->Struct.Members[Idx];
+					struct_member NewMember = {};
+					NewMember.ID = Member.ID;
+					NewMember.Type = Member.Type;
+					const type *MT = GetType(Member.Type);
+					if(HasBasicFlag(MT, BasicFlag_TypeID))
+					{
+						if(Filled[Idx] == NULL) {
+							RaiseError(*Expr->ErrorInfo,
+									"Type field needs to be specified in initialization of struct %s",
+									GetTypeName(Type));
+						}
+						node *Expr = Filled[Idx]->Item.Expression;
+						GenericResolved = GetTypeFromTypeNode(Checker, Expr);
+						FillUntypedStack(Checker, GenericResolved);
+					}
+					Members.Push(NewMember);
+				}
+				ForArray(Idx, Type->Struct.Members)
+				{
+					struct_member Member = Type->Struct.Members[Idx];
+					const type *MT = GetType(Member.Type);
+					if(IsGeneric(MT))
+					{
+						// @NOTE: This shouldn't be able to happen because it's checked previously
+						Assert(GenericResolved != INVALID_TYPE);
+						u32 NonGeneric = ToNonGeneric(Member.Type, GenericResolved, Member.Type);
+						TypeCheckAndPromote(Checker, Expr->ErrorInfo, NonGeneric, ExprTypes[Idx], NULL,
+								&Filled[Idx]->Item.Expression);
+						Members.Data[Idx].Type = NonGeneric;
+					}
+				}
+
+				TypeIdx = MakeStruct(SliceFromArray(Members), Type->Struct.Name, Type->Struct.Flags & (~StructFlag_Generic));
 			}
 			Expr->TypeList.Type = TypeIdx;
 			Result = TypeIdx;
@@ -1789,6 +1855,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
+	scope *StructScope = AllocScope(Node, Checker->CurrentScope);
+	Checker->CurrentScope = StructScope;
 
 	type New = {};
 	New.Kind = TypeKind_Struct;
@@ -1799,7 +1867,16 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	{
 		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Decl.Type);
 		Type = FixPotentialFunctionPointer(Type);
-
+		const type *T = GetType(Type);
+		if(HasBasicFlag(T, BasicFlag_TypeID))
+		{
+			if(New.Struct.Flags & StructFlag_Generic)
+			{
+				RaiseError(*Node->ErrorInfo, "Structs cannot have more than 1 generic type");
+			}
+			New.Struct.Flags |= StructFlag_Generic;
+			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Decl.ID);
+		}
 
 		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Decl.ID;
 		Members.Data[Idx].Type = Type;
@@ -1818,8 +1895,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	}
 
 	New.Struct.Members = SliceFromArray(Members);
-	New.Struct.Flags = 0; // not supported rn
 	FillOpaqueStruct(OpaqueType, New);
+	Checker->CurrentScope = Checker->CurrentScope->Parent;
 }
 
 b32 IsNodeEndScope(node *Node)
@@ -2089,14 +2166,30 @@ string MakeNonGenericName(string GenericName)
 	return MakeString(Builder);
 }
 
-string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
+string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric)
 {
+	const type *FG = GetType(FnTypeGeneric);
 	const type *T = GetType(FnTypeNonGeneric);
 	string_builder Builder = MakeBuilder();
 	Builder += BaseName;
 	Builder += '@';
 	for(int i = 0; i < T->Function.ArgCount; ++i)
 	{
+		if(IsGeneric(FG->Function.Args[i]))
+		{
+			u32 ResolvedGenericID = GetGenericPart(T->Function.Args[i], FG->Function.Args[i]);
+			const type *RG = GetType(ResolvedGenericID);
+			if(RG->Kind == TypeKind_Struct)
+			{
+				Builder += "@@";
+				ForArray(Idx, RG->Struct.Members)
+				{
+					Builder += GetTypeNameAsString(RG->Struct.Members[Idx].Type);
+					Builder += '_';
+				}
+				Builder += "@@";
+			}
+		}
 		Builder += GetTypeNameAsString(T->Function.Args[i]);
 		Builder += '_';
 	}
@@ -2109,13 +2202,40 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric)
 	return DupeType(Result, string);
 }
 
-node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode)
+node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode, node *Call)
 {
 	node *Result = FnNode;
 	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
 
-	u32 NewFnType = ToNonGeneric(FnNode->Fn.TypeIdx, ResolvedType);
-	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType);
+	const type *Old = GetType(FnNode->Fn.TypeIdx);
+	type *NewFT = AllocType(TypeKind_Function);
+	NewFT->Function.Return = Old->Function.Return;
+	NewFT->Function.Flags = Old->Function.Flags & ~SymbolFlag_Generic;
+	NewFT->Function.ArgCount = Old->Function.ArgCount;
+	NewFT->Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Old->Function.ArgCount);
+	for(int i = 0; i < Old->Function.ArgCount; ++i)
+	{
+		u32 TypeIdx = Old->Function.Args[i];
+		const type *T = GetType(TypeIdx);
+		if(IsGeneric(T))
+		{
+			TypeIdx = ToNonGeneric(TypeIdx, ResolvedType, Call->Call.ArgTypes[i]);
+		}
+		NewFT->Function.Args[i] = TypeIdx;
+	}
+	u32 TypeIdx = Old->Function.Return;
+	if(TypeIdx != INVALID_TYPE)
+	{
+		NewFT->Function.Return = ToNonGeneric(TypeIdx, ResolvedType, TypeIdx);
+		if(NewFT->Function.Return == INVALID_TYPE || IsGeneric(GetType(NewFT->Function.Return)))
+		{
+			//RaiseError(*FnNode->ErrorInfo, "Couldn't resolve the generic return type of the function");
+		}
+	}
+
+	u32 NewFnType = AddType(NewFT);
+
+	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType, FnNode->Fn.TypeIdx);
 	Result->Fn.TypeIdx = NewFnType;
 
 	u32 Save = GetGenericReplacement();
@@ -2177,14 +2297,17 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 					}
 				}
 			}
-			if(ResolvedType == INVALID_TYPE)
-			{
-				RaiseError(*Expr->ErrorInfo,
-						"Couldn't resolve generic function call");
-			}
 
+			if(ResolvedType != INVALID_TYPE)
 			{
 				const type *RT = GetType(ResolvedType);
+#if 0
+				if(IsGeneric(RT))
+				{
+					RaiseError(*Expr->ErrorInfo,
+							"Cannot resolve generic type with another generic type %s", GetTypeName(RT));
+				}
+#endif
 				if(IsUntyped(RT))
 				{
 					ResolvedType = UntypedGetType(RT);
@@ -2193,11 +2316,16 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 
 			// @THREADING: NOT THREAD SAFE
 			node *FnNode = CopyASTNode(FnSym->Node);
-			node *NewFn = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node);
+			string_builder Builder = MakeBuilder();
+			PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
+					FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
+			SetBonusMessage(MakeString(Builder));
+			node *NewFn = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr);
 			Expr->Call.Fn = NewFn;
 			Expr->Call.Type = NewFn->Fn.TypeIdx;
 			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
 
+			SetBonusMessage(STR_LIT(""));
 			return Expr;
 		} break;
 		default: unreachable;
@@ -2211,7 +2339,7 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		if(Nodes[I]->Type == AST_FN)
 		{
 			node *Node = Nodes[I];
-			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0)
+			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0 && (Node->Fn.Flags & SymbolFlag_Generic) == 0)
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
 	}

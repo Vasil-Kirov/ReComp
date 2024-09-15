@@ -2,6 +2,11 @@ main
 
 #import memory as m
 
+struct foo {
+    F: type,
+    a: []F,
+}
+
 puts :: fn #foreign(str: cstring);
 malloc :: fn #foreign(size: int) -> *;
 
@@ -9,12 +14,21 @@ allocator_alloc :: fn(size: int, this: *m.Allocator) -> * {
     return malloc(size);
 }
 
+do_foo :: fn(f: foo) {
+    x := f;
+    x.a[5] = 7;
+}
+
 main :: fn() -> i32 {
-    // alloc := m.Allocator {
-    //     alloc = allocator_alloc,
-    // };
+    alloc := m.Allocator {
+        alloc = allocator_alloc,
+    };
     // x := m.make_slice(&alloc, i32, 10);
     // x[1] = 4;
+
+    x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
+    x.a[-5] = 10;
+    do_foo(x);
 
     defer puts(c"1");
     defer puts(c"2");
@@ -26,7 +40,7 @@ main :: fn() -> i32 {
     }
 
 
-    return @i32 give_one();
+    return @i32 x.a[5];
 }
 
 

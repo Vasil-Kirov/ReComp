@@ -307,6 +307,7 @@ main(int ArgCount, char *Args[])
 	InitializeLexer();
 
 	SetLogLevel(LOG_WARN);
+	SetBonusMessage(STR_LIT(""));
 
 	if(ArgCount < 2)
 	{
@@ -451,6 +452,7 @@ main(int ArgCount, char *Args[])
 		string Path = MakeString(Builder);
 		PlatformDeleteFile(Path.Data);
 	}
+	PlatformDeleteFile("!internal.obj");
 	VLibStopTimer(&LinkTimer);
 
 

@@ -303,6 +303,7 @@ int GetTypeAlignment(const type *Type)
 	{
 		case TypeKind_Basic:
 		return GetBasicTypeSize(Type);
+		case TypeKind_Slice:
 		case TypeKind_Function:
 		case TypeKind_Pointer:
 		return GetRegisterTypeSize() / 8;
@@ -942,9 +943,12 @@ b32 IsPassInAsIntType(const type *Type)
 	}
 }
 
-u32 ToNonGeneric(u32 TypeID, u32 Resolve)
+u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 {
 	const type *Type = GetType(TypeID);
+	const type *AR = GetType(ArgResolve);
+	if(Type->Kind != TypeKind_Generic)
+		Assert(Type->Kind == AR->Kind);
 	u32 Result = TypeID;
 	switch(Type->Kind)
 	{
@@ -958,13 +962,13 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		{
 			if(Type->Pointer.Pointed == INVALID_TYPE)
 				break;
-			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve);
+			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve, AR->Pointer.Pointed);
 			if(Pointed != Type->Pointer.Pointed)
 				Result = GetPointerTo(Pointed);
 		} break;
 		case TypeKind_Array:
 		{
-			u32 AT = ToNonGeneric(Type->Array.Type, Resolve);
+			u32 AT = ToNonGeneric(Type->Array.Type, Resolve, AR->Array.Type);
 			if(AT != Type->Array.Type)
 			{
 				type *NewT = AllocType(TypeKind_Array);
@@ -975,7 +979,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		} break;
 		case TypeKind_Slice:
 		{
-			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve);
+			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve, AR->Array.Type);
 			if(AT != Type->Slice.Type)
 			{
 				type *NewT = AllocType(TypeKind_Slice);
@@ -985,31 +989,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		} break;
 		case TypeKind_Struct:
 		{
-			return TypeID;
-			dynamic<struct_member> NewTypes = {};
-			b32 NeedsNew = false;
-			ForArray(Idx, Type->Struct.Members)
-			{
-				u32 MemberType = Type->Struct.Members[Idx].Type;
-				u32 NonGeneric = ToNonGeneric(MemberType, Resolve);
-				NewTypes.Push((struct_member){.Type = NonGeneric});
-				if(MemberType != NonGeneric)
-					NeedsNew = true;
-			}
-			// @LEAK: maybe can free NewTypes idk if it matters who cares
-			if(NeedsNew)
-			{
-				ForArray(Idx, NewTypes)
-				{
-					NewTypes.Data[Idx].ID = Type->Struct.Members[Idx].ID;
-				}
-
-				type *NT = AllocType(TypeKind_Struct);
-				NT->Struct.Name = Type->Struct.Name;
-				NT->Struct.Flags = Type->Struct.Flags;
-				NT->Struct.Members = SliceFromArray(NewTypes);
-				Result = AddType(NT);
-			}
+			Result = ArgResolve;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1018,14 +998,14 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 			b32 NeedsNew = false;
 			for(int i = 0; i < ArgCount; ++i)
 			{
-				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve);
+				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve, AR->Function.Args[i]);
 				if(NArgs[i] != Type->Function.Args[i])
 					NeedsNew = true;
 			}
 			u32 RetTypeIdx = Type->Function.Return;
 
 			if(RetTypeIdx != INVALID_TYPE)
-				RetTypeIdx = ToNonGeneric(Type->Function.Return, Resolve);
+				RetTypeIdx = ToNonGeneric(Type->Function.Return, Resolve, AR->Function.Return);
 
 			if(RetTypeIdx != Type->Function.Return)
 				NeedsNew = true;
@@ -1083,12 +1063,19 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 		} break;
 		case TypeKind_Struct:
 		{
-			ForArray(Idx, G->Struct.Members)
+			if(G->Struct.Flags & StructFlag_Generic)
 			{
-				if(IsGeneric(G->Struct.Members[Idx].Type))
+				Result = Resolved;
+			}
+			else
+			{
+				ForArray(Idx, G->Struct.Members)
 				{
-					Result = GetGenericPart(T->Struct.Members[Idx].Type, G->Struct.Members[Idx].Type);
-					break;
+					if(IsGeneric(G->Struct.Members[Idx].Type))
+					{
+						Result = GetGenericPart(T->Struct.Members[Idx].Type, G->Struct.Members[Idx].Type);
+						break;
+					}
 				}
 			}
 		} break;
@@ -1144,14 +1131,7 @@ b32 IsGeneric(const type *Type)
 		} break;
 		case TypeKind_Struct:
 		{
-			ForArray(Idx, Type->Struct.Members)
-			{
-				if(IsGeneric(Type->Struct.Members[Idx].Type))
-				{
-					Result = true;
-					break;
-				}
-			}
+			Result = (Type->Struct.Flags & StructFlag_Generic) != 0;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1320,5 +1300,15 @@ u32 UntypedGetType(const type *T)
 	{
 		unreachable;
 	}
+}
+
+u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags)
+{
+	type *T = AllocType(TypeKind_Struct);
+	T->Struct.Members = Members;
+	T->Struct.Name    = Name;
+	T->Struct.Flags   = Flags;
+
+	return AddType(T);
 }
 

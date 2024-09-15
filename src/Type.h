@@ -84,6 +84,7 @@ enum basic_flags
 enum struct_flags
 {
 	StructFlag_Packed = BIT(0),
+	StructFlag_Generic= BIT(1),
 };
 
 struct basic_type
@@ -231,7 +232,7 @@ type *AllocType(type_kind Kind);
 u32 MakeGeneric(scope *Scope, string Name);
 b32 IsGeneric(const type *Type);
 b32 IsGeneric(u32 Type);
-u32 ToNonGeneric(u32 TypeID, u32 Resolve);
+u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve);
 u32 GetGenericPart(u32 Resolved, u32 GenericID);
 u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
@@ -240,6 +241,7 @@ u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 VarArgArrayType(u32 ElemCount);
 u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
+u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags);
 b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);
@@ -253,6 +255,7 @@ const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_k
 void SetGenericReplacement(u32 ToReplace);
 u32 GetGenericReplacement();
 b32 IsStructAllFloats(const type *T);
+u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
 
 extern platform_target PTarget;
 extern u32 InvalidType;

@@ -2,6 +2,13 @@
 #include "Basic.h"
 #include "Log.h"
 
+string BonusErrorMessage = {};
+
+void SetBonusMessage(string S)
+{
+	BonusErrorMessage = S;
+}
+
 void AdvanceString(string *String)
 {
 	String->Data++;
@@ -88,7 +95,9 @@ RaiseError(error_info ErrorInfo, const char *_ErrorMessage, ...)
 	va_end(Args);
 	
 	string ErrorSegment = GetErrorSegment(ErrorInfo);
-	LFATAL("%s (%d, %d):\n%s\n\n%s",
+	
+	LFATAL("\n%s%s (%d, %d):\n%s\n\n%s",
+			BonusErrorMessage.Data,
 			ErrorInfo.FileName, ErrorInfo.Line, ErrorInfo.Character, FinalFormat, ErrorSegment.Data);
 }
 

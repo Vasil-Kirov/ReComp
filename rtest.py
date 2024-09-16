@@ -23,7 +23,8 @@ def remove_newlines(string):
     return string
 
 def get_tests():
-    paths = ['arrays', 'basic', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda', 'pass_complex', 'iterators', 'slices', 'var_args', 'loop_and_if', 'generics', 'defer']
+    paths = ['arrays', 'basic', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda', 'pass_complex', 'iterators', 'slices', 'var_args', 'loop_and_if', 'generics', 'defer', 'if_else']
+    paths.sort()
     return paths
 
 dir_path = os.path.dirname(os.path.realpath(__file__))

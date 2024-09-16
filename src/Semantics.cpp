@@ -780,8 +780,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(CallType->Function.Flags & SymbolFlag_Generic)
 			{
-				Expr = AnalyzeGenericExpression(Checker, Expr);
-				//Checker->Nodes->Push(Expr->Call.Fn);
+				b32 ShouldPush = false;
+				node *Node = AnalyzeGenericExpression(Checker, Expr, &ShouldPush);
+				if(ShouldPush)
+					Checker->GeneratedGlobalNodes.Push(Node);
+				Expr->Call.Fn = MakeID(Expr->ErrorInfo, Node->Fn.Name);
+				Expr->Call.Type = Node->Fn.TypeIdx;
 				CallType = GetType(Expr->Call.Type);
 			}
 
@@ -2100,19 +2104,36 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 	}
 }
 
-symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
+symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 {
-	u32 FnType = CreateFunctionType(Checker, Node);
-	Node->Fn.TypeIdx = FnType;
 	symbol *Sym = NewType(symbol);
 	Sym->Checker = Checker;
 	Sym->Name = Node->Fn.Name;
-	Sym->Type = FnType;
+	Sym->Type = Node->Fn.TypeIdx;
 	Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
 	Sym->Depth = 0;
 	Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
 	Sym->Node = Node;
 	return Sym;
+}
+
+symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
+{
+	u32 FnType = CreateFunctionType(Checker, Node);
+	Node->Fn.TypeIdx = FnType;
+	return CreateFunctionSymbol(Checker, Node);
+}
+
+symbol *FindGlobalInModule(string Name, module *m)
+{
+	ForArray(Idx, m->Globals)
+	{
+		if(*m->Globals[Idx]->Name == Name)
+		{
+			return m->Globals[Idx];
+		}
+	}
+	return NULL;
 }
 
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
@@ -2239,12 +2260,8 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 	return DupeType(Result, string);
 }
 
-node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode, node *Call)
+u32 FunctionTypeGetNonGeneric(const type *Old, u32 ResolvedType, node *Call, node *FnError)
 {
-	node *Result = FnNode;
-	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
-
-	const type *Old = GetType(FnNode->Fn.TypeIdx);
 	type *NewFT = AllocType(TypeKind_Function);
 	NewFT->Function.Return = Old->Function.Return;
 	NewFT->Function.Flags = Old->Function.Flags & ~SymbolFlag_Generic;
@@ -2266,25 +2283,32 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, n
 		NewFT->Function.Return = ToNonGeneric(TypeIdx, ResolvedType, TypeIdx);
 		if(NewFT->Function.Return == INVALID_TYPE || IsGeneric(GetType(NewFT->Function.Return)))
 		{
-			RaiseError(*FnNode->ErrorInfo, "Couldn't resolve the generic return type of the function");
+			RaiseError(*FnError->ErrorInfo, "Couldn't resolve the generic return type of the function");
 		}
 	}
 
-	u32 NewFnType = AddType(NewFT);
+	return AddType(NewFT);
+}
 
-	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType, FnNode->Fn.TypeIdx, Call);
+node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode, node *Call,
+		u32 NewFnType, string *GenericName)
+{
+	node *Result = FnNode;
+	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
+	Result->Fn.Name = GenericName;
 	Result->Fn.TypeIdx = NewFnType;
 
 	u32 Save = GetGenericReplacement();
-
 	SetGenericReplacement(ResolvedType);
+
 	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx, OriginalNode);
+
 	SetGenericReplacement(Save);
 
 	return Result;
 }
 
-node *AnalyzeGenericExpression(checker *Checker, node *Generic)
+node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 {
 	node *Expr = Generic;
 	switch(Expr->Type)
@@ -2379,19 +2403,35 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 				}
 			}
 
-			// @THREADING: NOT THREAD SAFE
-			node *FnNode = CopyASTNode(FnSym->Node);
-			string_builder Builder = MakeBuilder();
-			PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
-					FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
-			SetBonusMessage(MakeString(Builder));
-			node *NewFn = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr);
-			Expr->Call.Fn = NewFn;
-			Expr->Call.Type = NewFn->Fn.TypeIdx;
+			const type *Old = GetType(FnSym->Node->Fn.TypeIdx);
+			u32 NewFnType = FunctionTypeGetNonGeneric(Old, ResolvedType, Expr, FnSym->Node);
+			string *GenericName = MakeGenericName(FnSym->Name ? *FnSym->Name : STR_LIT(""), NewFnType, FnSym->Node->Fn.TypeIdx, Expr);
+			symbol *Found = FindGlobalInModule(*GenericName, Checker->Module);
+			node *NewFnNode = NULL;
+			if(Found)
+			{
+				NewFnNode = Found->Node;
+				*ShouldPush = false;
+			}
+			else
+			{
+				// @THREADING: NOT THREAD SAFE
+				node *FnNode = CopyASTNode(FnSym->Node);
+				string_builder Builder = MakeBuilder();
+				PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
+						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
+				SetBonusMessage(MakeString(Builder));
+				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
+						NewFnType, GenericName);
+				SetBonusMessage(STR_LIT(""));
+				Checker->Module->Globals.Push(CreateFunctionSymbol(Checker, FnNode));
+				*ShouldPush = true;
+			}
+			Expr->Call.Fn = NewFnNode;
+			Expr->Call.Type = NewFnType;
 			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
 
-			SetBonusMessage(STR_LIT(""));
-			return Expr;
+			return NewFnNode;
 		} break;
 		default: unreachable;
 	}
@@ -2407,6 +2447,10 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0 && (Node->Fn.Flags & SymbolFlag_Generic) == 0)
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 		}
+	}
+	ForArray(Idx, Checker->GeneratedGlobalNodes)
+	{
+		Nodes.Push(Checker->GeneratedGlobalNodes[Idx]);
 	}
 }
 

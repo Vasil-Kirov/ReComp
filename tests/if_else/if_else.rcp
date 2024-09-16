@@ -2,8 +2,11 @@ main
 
 main :: fn() -> i32 {
     some_condition := 1 > 0;
-    foo := 0;
 
-    if some
-	return 0;
+    if some_condition
+        return 0;
+    else
+        return 1;
+
+    return 3;
 }

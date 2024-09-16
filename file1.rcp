@@ -29,6 +29,8 @@ main :: fn() -> i32 {
     x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
     x.a[5] = 10;
     do_foo(x.a);
+    do_foo(x.a);
+    do_foo(x.a);
 
     defer puts(c"1");
     defer puts(c"2");

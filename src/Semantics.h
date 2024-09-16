@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic.h"
+#include "Module.h"
 #include "Parser.h"
 #include "Type.h"
 #include "Stack.h"
@@ -41,6 +42,7 @@ struct checker
 	slice<import> Imported;
 	stack<u32 *> UntypedStack;
 	dynamic<node *> *Nodes;
+	dynamic<node *> GeneratedGlobalNodes;
 	scope *CurrentScope;
 	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;
@@ -64,7 +66,7 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 scope *AllocScope(node *Node, scope *Parent=NULL);
 b32 ScopesMatch(scope *A, scope *B);
 void CheckBodyForUnreachableCode(slice<node *> Body);
-node *AnalyzeGenericExpression(checker *Checker, node *Generic);
+node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *OutShouldPush);
 b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
 string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);

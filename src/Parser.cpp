@@ -237,7 +237,7 @@ node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_typ
 	return Result;
 }
 
-node *MakeID(error_info *ErrorInfo, const string *ID)
+node *MakeID(const error_info *ErrorInfo, const string *ID)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_ID);
 	Result->ID.Name = ID;

@@ -245,6 +245,7 @@ node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, 
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
 node *MakeReserve(const error_info *ErrorInfo, reserved ID);
 node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
+node *MakeID(const error_info *ErrorInfo, const string *ID);
 node *ParseTopLevel(parser *Parser);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 node *ParseType(parser *Parser, b32 ShouldError = true);

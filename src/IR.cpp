@@ -884,9 +884,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Result = PushInstruction(Builder,
 					Instruction(OP_FN, (u64)DupeType(fn, function), fn.Type, Builder));
 			/*
-			PushIRLocal(Builder->Function, fn.Name, Result,
-					fn.Type, SymbolFlag_Function);
-					*/
+			   PushIRLocal(Builder->Function, fn.Name, Result,
+			   fn.Type, SymbolFlag_Function);
+			   */
 		} break;
 		default:
 		{

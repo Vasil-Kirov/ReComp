@@ -14,58 +14,34 @@ allocator_alloc :: fn(size: int, this: *m.Allocator) -> * {
     return malloc(size);
 }
 
-do_thing :: fn(x: $T) -> T {
-    return x;
-}
-
-foo :: fn(list: ...) -> i32 {
-    sum := 0;
-    for i in list.count {
-        it := list[i];
-        if it.t == i32 {
-            sum += *@*i32 it.val;
-        }
-    }
-    return @i32 sum;
-}
-
-get_num :: fn(T: type, m: T) -> T {
-    x: T = 10;
-    y: T = 20;
-    return (x + y) * m;
+do_foo :: fn(s: []$T) {
+    x := s;
+    x[5] = 5;
 }
 
 main :: fn() -> i32 {
-    x: i32 = 2;
-    foo := get_num(int, 3);
-    bar := get_num(i32, 1);
-    do_thing(3);
-	return @i32 foo - (bar * 3);
-}
+    alloc := m.Allocator {
+        alloc = allocator_alloc,
+    };
+    // x := m.make_slice(&alloc, i32, 10);
+    // x[1] = 4;
 
-// main :: fn() -> i32 {
-//     alloc := m.Allocator {
-//         alloc = allocator_alloc,
-//     };
-//     // x := m.make_slice(&alloc, i32, 10);
-//     // x[1] = 4;
-// 
-//     x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
-//     x.a[-5] = 10;
-//     do_foo(x);
-// 
-//     defer puts(c"1");
-//     defer puts(c"2");
-//     defer puts(c"3");
-//     {
-//         defer puts(c"33");
-//         defer puts(c"22");
-//         defer puts(c"11");
-//     }
-// 
-// 
-//     return @i32 x.a[5];
-// }
+    x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
+    x.a[5] = 10;
+    do_foo(x.a);
+
+    defer puts(c"1");
+    defer puts(c"2");
+    defer puts(c"3");
+    {
+        defer puts(c"33");
+        defer puts(c"22");
+        defer puts(c"11");
+    }
+
+
+    return @i32 x.a.count;
+}
 
 
 // #import stuff as f2

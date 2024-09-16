@@ -489,6 +489,10 @@ b32 IsCastValid(const type *From, const type *To)
 
 b32 TypesMustMatch(const type *Left, const type *Right)
 {
+	// I think this is fine?
+	if(Left->Kind == TypeKind_Generic || Right->Kind == TypeKind_Generic)
+		return true;
+
 	if(Left->Kind != Right->Kind)
 		return false;
 
@@ -544,12 +548,14 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			const type *RightArray = GetType(Right->Array.Type);
 			return TypesMustMatch(LeftArray, RightArray);
 		} break;
+#if 0
 		case TypeKind_Generic:
 		{
 			if(!ScopesMatch(Left->Generic.Scope, Right->Generic.Scope))
 				return false;
 			return Left->Generic.ID == Right->Generic.ID;
 		} break;
+#endif
 		default:
 		{
 			LERROR("Unknown type kind: %d", Left->Kind);
@@ -696,7 +702,7 @@ b32 IsCastRedundant(const type *From, const type *To)
 			} break;
 			case TypeKind_Generic:
 			{
-				return TypesMustMatch(From, To);
+				return From->Generic.Name == To->Generic.Name && From->Generic.Scope == To->Generic.Scope;
 			} break;
 			case TypeKind_Enum:
 			{

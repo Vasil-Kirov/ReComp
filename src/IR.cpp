@@ -799,10 +799,17 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Assert(IsString(Type));
 					case TypeKind_Slice: 
 					{
+						u32 SelectType = Basic_int;
+						if(Node->Selector.Index == 1)
+							SelectType = GetPointerTo(Type->Slice.Type);
+
 						Result = PushInstruction(Builder, 
-								Instruction(OP_INDEX, Operand, 0, Node->Selector.Type, Builder));
-						Result = PushInstruction(Builder, 
-								Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
+								Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
+						if(!IsLHS)
+						{
+							Result = PushInstruction(Builder, 
+									Instruction(OP_LOAD, 0, Result, SelectType, Builder));
+						}
 					} break;
 					case TypeKind_Enum:
 					{

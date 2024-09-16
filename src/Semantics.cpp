@@ -1010,58 +1010,69 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				switch(Type->Kind)
 				{
 					case TypeKind_Basic:
-					if(HasBasicFlag(Type, BasicFlag_TypeID))
 					{
-						if(Expr->Selector.Operand->Type != AST_ID)
+						if(HasBasicFlag(Type, BasicFlag_TypeID))
 						{
-							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
-						}
-						u32 TIdx = FindType(Checker, Expr->Selector.Operand->ID.Name);
-						if(TIdx == INVALID_TYPE)
-						{
-							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
-						}
-
-						const type *T = GetType(TIdx);
-						if(T->Kind != TypeKind_Enum)
-						{
-							RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a direct type %s", GetTypeName(T));
-						}
-
-						Result = INVALID_TYPE;
-						ForArray(Idx, T->Enum.Members)
-						{
-							if(T->Enum.Members[Idx].Name == *Expr->Selector.Member)
+							if(Expr->Selector.Operand->Type != AST_ID)
 							{
-								Expr->Selector.Operand = NULL;
-								Expr->Selector.Index = Idx;
-								Expr->Selector.Type = TIdx;
-								Result = TIdx;
-								break;
+								RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
+							}
+							u32 TIdx = FindType(Checker, Expr->Selector.Operand->ID.Name);
+							if(TIdx == INVALID_TYPE)
+							{
+								RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
+							}
+
+							const type *T = GetType(TIdx);
+							if(T->Kind != TypeKind_Enum)
+							{
+								RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a direct type %s", GetTypeName(T));
+							}
+
+							Result = INVALID_TYPE;
+							ForArray(Idx, T->Enum.Members)
+							{
+								if(T->Enum.Members[Idx].Name == *Expr->Selector.Member)
+								{
+									Expr->Selector.Operand = NULL;
+									Expr->Selector.Index = Idx;
+									Expr->Selector.Type = TIdx;
+									Result = TIdx;
+									break;
+								}
+							}
+							if(Result == INVALID_TYPE)
+							{
+								RaiseError(*Expr->ErrorInfo, "Members %s is not in enum %s, invalid `.` selector",
+										Expr->Selector.Member->Data, GetTypeName(T));
 							}
 						}
-						if(Result == INVALID_TYPE)
+						else
 						{
-							RaiseError(*Expr->ErrorInfo, "Members %s is not in enum %s, invalid `.` selector",
-									Expr->Selector.Member->Data, GetTypeName(T));
+							RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
 						}
-						break;
-					}
-					if(IsString(Type))
-					{
-						RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
-					}
-					// fallthrough
+#if 0
+						if(IsString(Type))
+						{
+						}
+#endif
+					} break;
 					case TypeKind_Slice:
 					{
 						if(*Expr->Selector.Member == STR_LIT("count"))
 						{
+							Expr->Selector.Index = 0;
+							Result = Basic_int;
+						}
+						else if(*Expr->Selector.Member == STR_LIT("data"))
+						{
+							Expr->Selector.Index = 1;
+							Result = GetPointerTo(Type->Slice.Type);
 						}
 						else
 						{
-							RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on this type");
+							RaiseError(*Expr->ErrorInfo, "Only .count and .data can be accessed on this type");
 						}
-						Result = Basic_int;
 					} break;
 					case TypeKind_Enum:
 					{

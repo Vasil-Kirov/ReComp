@@ -8,6 +8,9 @@ struct Allocator {
 __raw_slice :: fn #intr (T: type, data: *T, size: int) -> []T;
 
 make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
-    return __raw_slice(T, allocator.alloc(size, allocator), size * size_of T);
+    res := []T{};
+    res.data  = allocator.alloc(size, allocator);
+    res.count = size;
+    return res;
 }
 

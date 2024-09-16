@@ -922,7 +922,8 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, dynamic<mod
 			if(s->Flags & SymbolFlag_Public)
 				Linkage = LLVMExternalLinkage;
 			else
-				Linkage = LLVMPrivateLinkage;
+				Linkage = /*LLVMPrivateLinkage*/ LLVMExternalLinkage;
+			// @NOTE: Currently there are some probems with gneerating generic functions so all symbols will be public
 
 			if(s->Flags & SymbolFlag_Function)
 			{
@@ -975,6 +976,17 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, dynamic<mod
 				Gen.map.Clear();
 				Gen.fn = NULL;
 			}
+		}
+
+		if(FIdx + 1 != M->Files.Count)
+		{
+			char *FileName = NULL;
+			char *FileDirectory = NULL;
+			LDEBUG("yey: %s", FileName);
+			GetNameAndDirectory(&FileName, &FileDirectory, M->Files[FIdx+1]->Name);
+			Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
+					FileName, VStrLen(FileName),
+					FileDirectory, VStrLen(FileDirectory));
 		}
 	}
 

@@ -14,9 +14,8 @@ allocator_alloc :: fn(size: int, this: *m.Allocator) -> * {
     return malloc(size);
 }
 
-do_foo :: fn(f: foo) {
-    x := f;
-    x.a[5] = 7;
+do_thing :: fn(x: $T) -> T {
+    return x;
 }
 
 foo :: fn(list: ...) -> i32 {
@@ -30,8 +29,18 @@ foo :: fn(list: ...) -> i32 {
     return @i32 sum;
 }
 
+get_num :: fn(T: type, m: T) -> T {
+    x: T = 10;
+    y: T = 20;
+    return (x + y) * m;
+}
+
 main :: fn() -> i32 {
-	return foo(1, @i32 2, @i32 3, 4) - 5;
+    x: i32 = 2;
+    foo := get_num(int, 3);
+    bar := get_num(i32, 1);
+    do_thing(3);
+	return @i32 foo - (bar * 3);
 }
 
 // main :: fn() -> i32 {

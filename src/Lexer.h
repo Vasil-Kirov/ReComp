@@ -2,7 +2,6 @@
 #include "Basic.h"
 #include "VString.h"
 #include "Errors.h"
-#include "Module.h"
 #include <Dynamic.h>
 
 enum token_type
@@ -25,6 +24,7 @@ enum token_type
 	T_QMARK = '?',
 	T_BANG  = '!',
 	T_SEMICOL= ';',
+	T_DOLLAR= '$',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,

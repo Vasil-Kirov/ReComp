@@ -4,6 +4,7 @@
 #include "Errors.h"
 #include "Lexer.h"
 #include "Log.h"
+#include "Module.h"
 #include "Parser.h"
 #include "Type.h"
 #include "Memory.h"
@@ -286,6 +287,14 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			}
 			return Type;
 		} break;
+		case AST_GENERIC:
+		{
+			if(!Checker->CurrentScope || (Checker->CurrentScope->ScopeNode->Type != AST_FN))
+			{
+				RaiseError(*TypeNode->ErrorInfo, "Declaring generic type outside of function arguments is not allowed");
+			}
+			return MakeGeneric(Checker->CurrentScope, *TypeNode->Generic.Name);
+		} break;
 		default:
 		{
 			RaiseError(*TypeNode->ErrorInfo, "Expected valid type!");
@@ -461,7 +470,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			Function.Flags |= SymbolFlag_Generic;
 			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Decl.ID);
 		}
-		else if(T->Kind == TypeKind_Struct && T->Struct.Flags & StructFlag_Generic)
+		else if(IsGeneric(T))
 		{
 			FnNode->Fn.Flags |= SymbolFlag_Generic;
 			Function.Flags |= SymbolFlag_Generic;
@@ -2023,9 +2032,18 @@ RetErr:
 		case AST_SCOPE:
 		{
 			if(Node->ScopeDelimiter.IsUp)
+			{
+				Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
 				Checker->CurrentDepth++;
+			}
 			else
+			{
+				if(!Checker->CurrentScope || !Checker->CurrentScope->Parent)
+				{
+					RaiseError(*Node->ErrorInfo, "Unexpected scope closing }");
+				}
 				PopScope(Checker);
+			}
 		} break;
 		default:
 		{
@@ -2169,7 +2187,7 @@ string MakeNonGenericName(string GenericName)
 	return MakeString(Builder);
 }
 
-string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric)
+string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric, node *ErrorNode)
 {
 	const type *FG = GetType(FnTypeGeneric);
 	const type *T = GetType(FnTypeNonGeneric);
@@ -2181,6 +2199,11 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 		if(IsGeneric(FG->Function.Args[i]))
 		{
 			u32 ResolvedGenericID = GetGenericPart(T->Function.Args[i], FG->Function.Args[i]);
+			if(ResolvedGenericID == INVALID_TYPE)
+			{
+				// @NOTE: I think this is checked earilier but just to be sure
+				RaiseError(*ErrorNode->ErrorInfo, "Invalid type for generic declaration");
+			}
 			const type *RG = GetType(ResolvedGenericID);
 			if(RG->Kind == TypeKind_Struct)
 			{
@@ -2238,7 +2261,7 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, n
 
 	u32 NewFnType = AddType(NewFT);
 
-	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType, FnNode->Fn.TypeIdx);
+	Result->Fn.Name = MakeGenericName(Result->Fn.Name ? *Result->Fn.Name : STR_LIT(""), NewFnType, FnNode->Fn.TypeIdx, Call);
 	Result->Fn.TypeIdx = NewFnType;
 
 	u32 Save = GetGenericReplacement();
@@ -2267,6 +2290,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 			const type *T = GetType(FnSym->Type);
 			u32 ResolvedType = INVALID_TYPE;
 			dynamic<u32> GenericTypes = {};
+			string ResolvedName = {};
 			for(int i = 0; i < T->Function.ArgCount; ++i)
 			{
 				const type *ArgT = GetType(T->Function.Args[i]);
@@ -2290,6 +2314,13 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 					else
 					{
 						node *Arg = Expr->Call.Args[i];
+						if(ResolvedType != INVALID_TYPE)
+						{
+							if(ResolvedName.Data && ResolvedName != *FnSym->Node->Fn.Args[i]->Decl.ID)
+								RaiseError(*Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
+						}
+						ResolvedName = *FnSym->Node->Fn.Args[i]->Decl.ID;
+
 						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
 						GenericTypes.Push(ResolvedType);
 						if(ResolvedType == INVALID_TYPE)
@@ -2298,6 +2329,26 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic)
 									"Couldn't resolve generic call with type from argument #%d", i);
 						}
 					}
+				}
+				else if(IsGeneric(ArgT))
+				{
+					node *Arg = Expr->Call.Args[i];
+					u32 GenericID = GetGenericPart(T->Function.Args[i], T->Function.Args[i]);
+					const type *G = GetType(GenericID);
+					if(ResolvedType != INVALID_TYPE)
+					{
+						if(ResolvedName.Data && ResolvedName != G->Generic.Name)
+							RaiseError(*Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
+					}
+					ResolvedName = G->Generic.Name;
+					ResolvedType = Expr->Call.ArgTypes[i];
+					const type *CallArgT = GetType(Expr->Call.ArgTypes[i]);
+					if(IsUntyped(CallArgT))
+					{
+						ResolvedType = UntypedGetType(CallArgT);
+					}
+
+					ResolvedType = GetGenericPart(ResolvedType, T->Function.Args[i]);
 				}
 			}
 

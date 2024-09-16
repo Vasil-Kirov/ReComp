@@ -415,7 +415,6 @@ string MakeLambdaName(error_info *Info)
 	return MakeString(Builder);
 }
 
-// @Todo: type types
 node *ParseType(parser *Parser, b32 ShouldError)
 {
 	token ErrorToken = PeekToken(Parser);
@@ -465,6 +464,13 @@ node *ParseType(parser *Parser, b32 ShouldError)
 		case T_FN:
 		{
 			Result = ParseFunctionType(Parser);
+		} break;
+		case T_DOLLAR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token ID = EatToken(Parser, T_ID);
+			Result = MakeGeneric(ErrorInfo, ID.ID);
 		} break;
 		default:
 		{

@@ -1038,8 +1038,8 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 	u32 Result = INVALID_TYPE;
 	const type *T = GetType(Resolved);
 	const type *G = GetType(GenericID);
-	if(G->Kind != TypeKind_Generic)
-		Assert(T->Kind == G->Kind);
+	if(G->Kind != TypeKind_Generic && T->Kind != G->Kind)
+		return INVALID_TYPE;
 
 	switch(G->Kind)
 	{

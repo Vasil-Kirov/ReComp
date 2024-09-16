@@ -17,6 +17,14 @@ struct string
 		return memcmp(this->Data, B.Data, B.Size) == 0;
 	}
 
+	bool operator!=(const string& B) const
+	{
+		if(this->Size == B.Size)
+			return false;
+
+		return memcmp(this->Data, B.Data, B.Size) != 0;
+	}
+
 };
 
 struct string_builder

@@ -6,8 +6,12 @@ get_num :: fn(T: type, m: T) -> T {
     return (x + y) * m;
 }
 
+get_other_num :: fn(m: $T) -> T {
+    return m + 3;
+}
+
 main :: fn() -> i32 {
     foo := get_num(int, 3);
     bar := get_num(i32, 1);
-	return @i32 foo - (bar * 3);
+	return @i32 foo - (bar * get_other_num(@i32 0));
 }

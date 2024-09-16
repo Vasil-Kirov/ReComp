@@ -33,6 +33,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--ir"),
 		STR_LIT("--link"),
 		STR_LIT("--llvm"),
+		STR_LIT("--log"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -81,6 +82,10 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		else if(StringsMatchNoCase(Arg, CompileCommands[5]))
 		{
 			Result.Flags |= CommandFlag_llvm;
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[6]))
+		{
+			SetLogLevel(LOG_DEBUG);
 		}
 		else
 		{

@@ -101,3 +101,17 @@ void AnalyzeModuleForRedifinitions(module *m)
 	}
 }
 
+u32 AssignIRRegistersForModuleSymbols(dynamic<module> Modules)
+{
+	u32 Count = 0;
+	ForArray(ModuleIdx, Modules)
+	{
+		module m = Modules[ModuleIdx];
+		ForArray(Idx, m.Globals)
+		{
+			m.Globals[Idx]->IRRegister = Count++;
+		}
+	}
+	return Count;
+}
+

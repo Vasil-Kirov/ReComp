@@ -435,6 +435,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	scope *FnScope = AllocScope(FnNode);
 	Checker->CurrentScope = FnScope;
 
+	FnNode->Fn.FnModule = Checker->Module;
+
 	u32 Flags = FnNode->Fn.Flags;
 	ForArray(Idx, FnNode->Fn.Args)
 	{
@@ -784,6 +786,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				node *Node = AnalyzeGenericExpression(Checker, Expr, &ShouldPush);
 				if(ShouldPush)
 					Checker->GeneratedGlobalNodes.Push(Node);
+
 				Expr->Call.Fn = MakeID(Expr->ErrorInfo, Node->Fn.Name);
 				Expr->Call.Type = Node->Fn.TypeIdx;
 				CallType = GetType(Expr->Call.Type);
@@ -2417,6 +2420,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 			{
 				// @THREADING: NOT THREAD SAFE
 				node *FnNode = CopyASTNode(FnSym->Node);
+				FnNode->Fn.FnModule = FnSym->Checker->Module;
 				string_builder Builder = MakeBuilder();
 				PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
 						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
@@ -2424,7 +2428,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
 						NewFnType, GenericName);
 				SetBonusMessage(STR_LIT(""));
-				Checker->Module->Globals.Push(CreateFunctionSymbol(Checker, FnNode));
+				Checker->Module->Globals.Push(CreateFunctionSymbol(FnSym->Checker, FnNode));
 				*ShouldPush = true;
 			}
 			Expr->Call.Fn = NewFnNode;

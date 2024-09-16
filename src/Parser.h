@@ -179,6 +179,7 @@ struct node
 			slice<node *> Args;
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
+			struct module *FnModule;
 			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
 		} Fn; // Used for fn type and fn declaration as it's the same thing

@@ -1571,6 +1571,7 @@ node *CopyASTNode(node *N)
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
 			R->Fn.TypeIdx = N->Fn.TypeIdx;
 			R->Fn.Flags = N->Fn.Flags;
+			R->Fn.FnModule = N->Fn.FnModule;
 		} break;
 
 		case AST_CAST:

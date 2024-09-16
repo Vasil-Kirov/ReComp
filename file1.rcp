@@ -29,17 +29,17 @@ main :: fn() -> i32 {
     x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
     x.a[5] = 10;
     do_foo(x.a);
-    do_foo(x.a);
-    do_foo(x.a);
+    // do_foo(x.a);
+    // do_foo(x.a);
 
-    defer puts(c"1");
-    defer puts(c"2");
-    defer puts(c"3");
-    {
-        defer puts(c"33");
-        defer puts(c"22");
-        defer puts(c"11");
-    }
+    // defer puts(c"1");
+    // defer puts(c"2");
+    // defer puts(c"3");
+    // {
+    //     defer puts(c"33");
+    //     defer puts(c"22");
+    //     defer puts(c"11");
+    // }
 
 
     return @i32 x.a.count;

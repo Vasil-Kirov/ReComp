@@ -33,6 +33,7 @@ struct symbol
 	u32 Hash;
 	u32 Depth;
 	u32 Flags;
+	u32 IRRegister;
 };
 
 struct checker

@@ -833,7 +833,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, dynamic<module> Modules)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -904,87 +904,50 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC)
 		string BaseName = MakeString(StrBuilder);
 		string LinkName = StructToModuleName(BaseName, M->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
-		Functions.Push({.LLVM = Fn, .Name = BaseName});
+		Functions.Push({.LLVM = Fn, .Name = LinkName});
 	}
 
-	uint Count = 0;
-	ForArray(GIdx, M->Globals)
+	ForArray(MIdx, Modules)
 	{
-		symbol *s = M->Globals[GIdx];
-		if(s->Flags & SymbolFlag_Generic) {
-			Gen.map.Add(Count++, NULL);
-			continue;
-		}
+		// shadow
+		module m = Modules[MIdx];
+		ForArray(GIdx, m.Globals)
+		{
+			symbol *s = m.Globals[GIdx];
+			if(s->Flags & SymbolFlag_Generic) {
+				continue;
+			}
 
-		LLVMLinkage Linkage;
-		if(s->Flags & SymbolFlag_Public)
-			Linkage = LLVMExternalLinkage;
-		else
-			Linkage = LLVMPrivateLinkage;
-		if(s->Flags & SymbolFlag_Function)
-		{
-			string fnName = *s->Name;
-			string LinkName = fnName;
-			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(fnName, M->Name);
-			//LLVMCreateFunctionType(Gen.ctx, s->Type);
-			LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
-					ConvertToLLVMType(Gen.ctx, s->Type));
-			LLVMSetLinkage(Fn, Linkage);
-			Functions.Push({.LLVM = Fn, .Name = fnName});
-			Gen.map.Add(Count++, Fn);
-		}
-		else
-		{
-			string Name = *s->Name;
-			string LinkName = Name;
-			if((s->Flags & SymbolFlag_Foreign) == 0)
-				LinkName = StructToModuleName(Name, M->Name);
-			LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
-			LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
-			LLVMSetLinkage(Global, Linkage);
-			LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
-			Gen.map.Add(Count++, Global);
-		}
-	}
+			LLVMLinkage Linkage;
+			if(s->Flags & SymbolFlag_Public)
+				Linkage = LLVMExternalLinkage;
+			else
+				Linkage = LLVMPrivateLinkage;
 
-	ForArray(FIdx, M->Files)
-	{
-		file *File = M->Files[FIdx];
-		ForArray(Idx, File->Imported)
-		{
-			auto m = File->Imported[Idx].M;
-			ForArray(GIdx, m->Globals)
+			if(s->Flags & SymbolFlag_Function)
 			{
-				symbol *s = m->Globals[GIdx];
-				if(s->Flags & SymbolFlag_Generic) {
-					Gen.map.Add(Count++, NULL);
-					continue;
-				}
-
-				if(s->Flags & SymbolFlag_Function)
-				{
-					LLVMCreateFunctionType(Gen.ctx, s->Type);
-					string fnName = *s->Name;
-					string LinkName = fnName;
-					if((s->Flags & SymbolFlag_Foreign) == 0)
-						LinkName = StructToModuleName(fnName, m->Name);
-					LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
-							ConvertToLLVMType(Gen.ctx, s->Type));
-					Functions.Push({.LLVM = Fn, .Name = fnName});
-					Gen.map.Add(Count++, Fn);
-				}
-				else
-				{
-					string Name = *s->Name;
-					string LinkName = Name;
-					if((s->Flags & SymbolFlag_Foreign) == 0)
-						LinkName = StructToModuleName(Name, m->Name);
-					LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
-					LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
-					Gen.map.Add(Count++, Global);
-
-				} 
+				string fnName = *s->Name;
+				string LinkName = fnName;
+				if((s->Flags & SymbolFlag_Foreign) == 0)
+					LinkName = StructToModuleName(fnName, s->Checker->Module->Name);
+				//LLVMCreateFunctionType(Gen.ctx, s->Type);
+				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
+						ConvertToLLVMType(Gen.ctx, s->Type));
+				LLVMSetLinkage(Fn, Linkage);
+				Functions.Push({.LLVM = Fn, .Name = LinkName});
+				Gen.map.Add(s->IRRegister, Fn);
+			}
+			else if(m.Name == M->Name)
+			{
+				string Name = *s->Name;
+				string LinkName = Name;
+				if((s->Flags & SymbolFlag_Foreign) == 0)
+					LinkName = StructToModuleName(Name, m.Name);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
+				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
+				LLVMSetLinkage(Global, Linkage);
+				LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
+				Gen.map.Add(s->IRRegister, Global);
 			}
 		}
 	}
@@ -997,7 +960,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC)
 		{
 			if(IR->Functions[Idx].Blocks.Count != 0)
 			{
-				string Name = *IR->Functions[Idx].Name;
+				string Name = *IR->Functions[Idx].LinkName;
 				ForArray(LLVMFnIdx, Functions)
 				{
 					if(Functions[LLVMFnIdx].Name == Name)
@@ -1151,7 +1114,7 @@ void RCGenerateCode(dynamic<module> Modules, llvm_init_info Machine, b32 OutputB
 {
 	ForArray(Idx, Modules)
 	{
-		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC);
+		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC, Modules);
 		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}

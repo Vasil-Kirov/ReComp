@@ -157,16 +157,15 @@ void ParseFile(file *File, dynamic<module> Modules)
 	File->Checker->Imported = File->Imported;
 }
 
-void AnalyzeAndBuildFile(file *File, timers *Timers, uint Flag)
+void AnalyzeFile(file *File)
 {
-	Timers->TypeCheck = VLibStartTimer("Type Checking");
 	Analyze(File->Checker, File->Nodes);
-	VLibStopTimer(&Timers->TypeCheck);
+}
 
-	Timers->IR = VLibStartTimer("Intermediate Representation Generation");
+void BuildIRFile(file *File, uint Flag, u32 IRStartRegister)
+{
 	File->IR = NewType(ir);
-	*File->IR = BuildIR(File);
-	VLibStopTimer(&Timers->IR);
+	*File->IR = BuildIR(File, IRStartRegister);
 	
 	if(Flag & CommandFlag_ir)
 	{
@@ -253,7 +252,18 @@ void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoType
 	AnalyzeForModuleStructs(NodeSlice, F->Module);
 	AnalyzeFunctionDecls(F->Checker, &F->Nodes, F->Module);
 	//F->Module->Checker = F->Checker;
-	AnalyzeAndBuildFile(F, Timers, 0);
+
+	{
+		Timers->TypeCheck = VLibStartTimer("Type Check");
+		AnalyzeFile(F);
+		VLibStopTimer(&Timers->TypeCheck);
+	}
+
+	{
+		Timers->IR = VLibStartTimer("Building IR");
+		BuildIRFile(F, 0, 0);
+		VLibStopTimer(&Timers->IR);
+	}
 }
 
 const char *GetStdDir()
@@ -389,42 +399,67 @@ main(int ArgCount, char *Args[])
 				FileNames.Push(MakeString(Info->FileNames[i]));
 			}
 			AddStdFiles(FileNames);
-			FileTimer.Parse = VLibStartTimer("Parse");
-			ForArray(Idx, FileNames)
+
 			{
-				string ModuleName = {};
-				file File = LexFile(FileNames[Idx], &ModuleName);
-				Assert(Idx == Files.Count);
-				Files.Push(File);
-				file *F = &Files.Data[Idx];
-				AddModule(Modules, F, ModuleName);
+				FileTimer.Parse = VLibStartTimer("Parse");
+				ForArray(Idx, FileNames)
+				{
+					string ModuleName = {};
+					file File = LexFile(FileNames[Idx], &ModuleName);
+					Assert(Idx == Files.Count);
+					Files.Push(File);
+					file *F = &Files.Data[Idx];
+					AddModule(Modules, F, ModuleName);
+				}
+				ForArray(Idx, FileNames)
+				{
+					file *F = &Files.Data[Idx];
+					ParseFile(F, Modules);
+				}
+				VLibStopTimer(&FileTimer.Parse);
 			}
-			ForArray(Idx, FileNames)
+
+			u32 MaxCount;
 			{
-				file *F = &Files.Data[Idx];
-				ParseFile(F, Modules);
+				FileTimer.TypeCheck = VLibStartTimer("Type Checking");
+				ResolveSymbols(Files);
+				ForArray(Idx, FileNames)
+				{
+					file *F = &Files.Data[Idx];
+					AnalyzeFile(F);
+				}
+				MaxCount = AssignIRRegistersForModuleSymbols(Modules);
+				VLibStopTimer(&FileTimer.TypeCheck);
 			}
-			VLibStopTimer(&FileTimer.Parse);
-			ResolveSymbols(Files);
-			ForArray(Idx, Files)
+
 			{
-				timers AnalyzeTimers = {};
-				file *File = &Files.Data[Idx];
-				AnalyzeAndBuildFile(File, &AnalyzeTimers, CommandLine.Flags);
-				Timers.Push(AnalyzeTimers);
+				FileTimer.IR = VLibStartTimer("Intermediate Representation Generation");
+				ForArray(Idx, Files)
+				{
+					file *File = &Files.Data[Idx];
+					BuildIRFile(File, CommandLine.Flags, MaxCount);
+				}
+				VLibStopTimer(&FileTimer.IR);
 			}
-			FileTimer.TypeCheck = VLibStartTimer("Analyzing");
-			ForArray(Idx, Modules)
+
 			{
-				AnalyzeModuleForRedifinitions(&Modules.Data[Idx]);
+				FileTimer.TypeCheck = VLibStartTimer("Analyzing");
+				ForArray(Idx, Modules)
+				{
+					AnalyzeModuleForRedifinitions(&Modules.Data[Idx]);
+				}
+				VLibStopTimer(&FileTimer.TypeCheck);
 			}
-			VLibStopTimer(&FileTimer.TypeCheck);
-			FileTimer.LLVM = VLibStartTimer("LLVM");
-			ModuleArray = SliceFromArray(Modules);
-			FileArray = SliceFromArray(Files);
-			llvm_init_info Machine = RCGenerateMain(FileArray);
-			RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
-			VLibStopTimer(&FileTimer.LLVM);
+
+			{
+				FileTimer.LLVM = VLibStartTimer("LLVM");
+				ModuleArray = SliceFromArray(Modules);
+				FileArray = SliceFromArray(Files);
+				llvm_init_info Machine = RCGenerateMain(FileArray);
+				RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
+				VLibStopTimer(&FileTimer.LLVM);
+			}
+
 			Timers.Push(FileTimer);
 
 

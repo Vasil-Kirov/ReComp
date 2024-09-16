@@ -1,7 +1,7 @@
 main
 
 #import mem as m
-#import array as arr
+#import array
 
 // struct foo {
 //     F: type,
@@ -32,28 +32,33 @@ main :: fn() -> i32 {
         alloc = allocator_alloc,
         free = allocator_free,
     };
-    my_arr := arr.create(i32, &alloc);
-    my_arr[10] = 1;
-    my_arr[1] = 1;
-    arr.add(&my_arr, 10);
-    arr.add(&my_arr, 11);
-    arr.add(&my_arr, 12);
-    arr.add(&my_arr, 13);
-    arr.add(&my_arr, 14);
-    arr.add(&my_arr, 15);
-    arr.add(&my_arr, 20);
-    arr.add(&my_arr, 23);
-    arr.add(&my_arr, 25);
-    arr.add(&my_arr, 28);
-    // ----------------
-    arr.add(&my_arr, 29);
-    arr.add(&my_arr, 20);
-    arr.add(&my_arr, 20);
-    arr.add(&my_arr, 20);
+    arr := array.create(i32, &alloc);
+    array.add(&arr, 1);
+    array.add(&arr, 2);
+    array.add(&arr, 3);
+    array.add(&arr, 5);
+    array.add(&arr, 6);
+    array.add(&arr, 7);
+    array.add(&arr, 8);
+    array.add(&arr, 9);
+    array.add(&arr, 10);
+    array.add(&arr, 11);
+    array.add(&arr, 12);
+    array.add(&arr, 13);
+    array.add(&arr, 14);
+    array.add(&arr, 15);
+    array.add(&arr, 16);
+    array.add(&arr, 17);
+    array.add(&arr, 18);
+    array.add(&arr, 19);
+    array.add(&arr, 20);
 
-    res := my_arr[10];
-    arr.free(&my_arr);
-    return res;
+    sum: i32 = 0;
+    for i in arr.count {
+        sum += arr[i];
+    }
+
+	return @i32(sum - arr.count);
 }
 
 // do_foo :: fn(s: []$T) {

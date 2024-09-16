@@ -1,0 +1,50 @@
+main
+#import array
+#import mem
+
+malloc :: fn #foreign(size: int) -> ?*;
+free :: fn #foreign(ptr: *);
+
+allocator_alloc :: fn(size: int, this: *mem.Allocator) -> ?* {
+    return malloc(size);
+}
+
+allocator_free :: fn(ptr: *, this: *mem.Allocator) {
+    free(ptr);
+}
+
+main :: fn() -> i32 {
+    alloc := mem.Allocator {
+        alloc = allocator_alloc,
+        free = allocator_free,
+    };
+
+    arr := array.create(i32, &alloc);
+    array.add(&arr, 1);
+    array.add(&arr, 2);
+    array.add(&arr, 3);
+    array.add(&arr, 4);
+    array.add(&arr, 5);
+    array.add(&arr, 6);
+    array.add(&arr, 7);
+    array.add(&arr, 8);
+    array.add(&arr, 9);
+    array.add(&arr, 10);
+    array.add(&arr, 11);
+    array.add(&arr, 12);
+    array.add(&arr, 13);
+    array.add(&arr, 14);
+    array.add(&arr, 15);
+    array.add(&arr, 16);
+    array.add(&arr, 17);
+    array.add(&arr, 18);
+    array.add(&arr, 19);
+    array.add(&arr, 20);
+
+    sum: i32 = 0;
+    for i in arr.count {
+        sum += arr[i];
+    }
+
+	return @i32(sum - arr.count - 190);
+}

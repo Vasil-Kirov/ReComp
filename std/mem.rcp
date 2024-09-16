@@ -1,7 +1,8 @@
-memory
+mem
 
 struct Allocator {
-    alloc: fn(size: int, this: *Allocator) -> *,
+    alloc: fn(size: int, this: *Allocator) -> ?*,
+    free:  fn(ptr: *, this: *Allocator),
     data: *,
 }
 
@@ -13,4 +14,6 @@ make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
     res.count = size;
     return res;
 }
+
+memcpy :: fn #foreign(dst: *, src: *, size: int) -> *;
 

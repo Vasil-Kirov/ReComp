@@ -518,10 +518,19 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			if(Left->Function.ArgCount != Right->Function.ArgCount)
 				return false;
 
-			const type *RetLeft  = GetType(Left->Function.Return);
-			const type *RetRight = GetType(Right->Function.Return);
-			if(!TypesMustMatch(RetLeft, RetRight))
-				return false;
+			if(Left->Function.Return == INVALID_TYPE ||
+					Right->Function.Return == INVALID_TYPE)
+			{
+				if(Left->Function.Return != Right->Function.Return)
+					return false;
+			}
+			else
+			{
+				const type *RetLeft  = GetType(Left->Function.Return);
+				const type *RetRight = GetType(Right->Function.Return);
+				if(!TypesMustMatch(RetLeft, RetRight))
+					return false;
+			}
 
 			for(int i = 0; i < Left->Function.ArgCount; ++i)
 			{
@@ -548,21 +557,35 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			const type *RightArray = GetType(Right->Array.Type);
 			return TypesMustMatch(LeftArray, RightArray);
 		} break;
-#if 0
+		case TypeKind_Slice:
+		{
+			const type *LeftSlice  = GetType(Left->Slice.Type);
+			const type *RightSlice = GetType(Right->Slice.Type);
+			return TypesMustMatch(LeftSlice, RightSlice);
+		} break;
+		case TypeKind_Vector:
+		{
+			if(Left->Vector.Kind != Right->Vector.Kind)
+				return false;
+			if(Left->Vector.ElementCount != Right->Vector.ElementCount)
+				return false;
+			return true;
+		} break;
+		case TypeKind_Invalid:
 		case TypeKind_Generic:
 		{
-			if(!ScopesMatch(Left->Generic.Scope, Right->Generic.Scope))
-				return false;
-			return Left->Generic.ID == Right->Generic.ID;
+			unreachable;
 		} break;
-#endif
+#if 0
 		default:
 		{
 			LERROR("Unknown type kind: %d", Left->Kind);
 			Assert(false);
 			return false;
 		} break;
+#endif
 	}
+	unreachable;
 }
 
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment)

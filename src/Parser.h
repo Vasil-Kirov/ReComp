@@ -182,6 +182,7 @@ struct node
 			struct module *FnModule;
 			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
+			b32 AlreadyAnalyzed;
 		} Fn; // Used for fn type and fn declaration as it's the same thing
 		struct {
 			node *Fn;
@@ -247,8 +248,9 @@ node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_typ
 node *MakeReserve(const error_info *ErrorInfo, reserved ID);
 node *MakeIndex(const error_info *ErrorInfo, node *Operand, node *Expression);
 node *MakeID(const error_info *ErrorInfo, const string *ID);
-node *ParseTopLevel(parser *Parser);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
+node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op);
+node *ParseTopLevel(parser *Parser);
 node *ParseType(parser *Parser, b32 ShouldError = true);
 node *CopyASTNode(node *N);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);

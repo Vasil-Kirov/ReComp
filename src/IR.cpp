@@ -749,10 +749,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			const type *Type = GetType(Node->Index.OperandType);
 			b32 ShouldNotLoad = IsLHS;
-			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, ShouldNotLoad);
-			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, false);
 			if(Type->Kind == TypeKind_Pointer)
 				ShouldNotLoad = false;
+			u32 Operand = BuildIRFromExpression(Builder, Node->Index.Operand, ShouldNotLoad);
+			u32 Index = BuildIRFromExpression(Builder, Node->Index.Expression, false);
 			if(Type->Kind == TypeKind_Slice)
 			{
 				u32 PtrToIdxed = GetPointerTo(Node->Index.IndexedType);
@@ -789,6 +789,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			else
 			{
 				const type *Type = GetType(Node->Selector.Type);
+				u32 TypeIdx = Node->Selector.Type;
 				u32 Operand = -1;
 				if(Node->Selector.Operand)
 					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
@@ -799,12 +800,13 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Assert(IsString(Type));
 					case TypeKind_Slice: 
 					{
+BUILD_SLICE_SELECTOR:
 						u32 SelectType = Basic_int;
 						if(Node->Selector.Index == 1)
 							SelectType = GetPointerTo(Type->Slice.Type);
 
 						Result = PushInstruction(Builder, 
-								Instruction(OP_INDEX, Operand, Node->Selector.Index, Node->Selector.Type, Builder));
+								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
 						if(!IsLHS)
 						{
 							Result = PushInstruction(Builder, 
@@ -819,19 +821,22 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					case TypeKind_Pointer:
 					case TypeKind_Struct:
 					{
-						u32 TypeIdx = Node->Selector.Type;
 						if(Type->Kind == TypeKind_Pointer)
 						{
-							// @NOTE: Pointers to structs are a bit weird here
+							// @NOTE: Pointers to structs (and slices) are a bit weird here
 							const type *Pointed = GetType(Type->Pointer.Pointed);
+#if 1
 							u32 LoadType = Type->Pointer.Pointed;
-							if(Pointed->Kind == TypeKind_Struct)
+							if(Pointed->Kind == TypeKind_Struct || Pointed->Kind == TypeKind_Slice)
 								LoadType = GetPointerTo(Type->Pointer.Pointed);
 
 							Operand = PushInstruction(Builder, 
 									Instruction(OP_LOAD, 0, Operand, LoadType, Builder));
+#endif
 							TypeIdx = Type->Pointer.Pointed;
 							Type = GetType(Type->Pointer.Pointed);
+							if(Pointed->Kind == TypeKind_Slice)
+								goto BUILD_SLICE_SELECTOR;
 						}
 
 						Result = PushInstruction(Builder, 
@@ -905,11 +910,18 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			switch(Node->Unary.Op)
 			{
+				case T_MINUS:
+				{
+					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
+					u32 Zero = PushInt(0, Builder, Node->Unary.Type);
+					instruction I = Instruction(OP_SUB, Zero, Expr, Node->Unary.Type, Builder);
+					Result = PushInstruction(Builder, I);
+				} break;
 				case T_BANG:
 				{
 					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
 					u32 False = PushInt(0, Builder, Basic_bool);
-					instruction I = Instruction(OP_NEQ, Expr, False, Basic_bool, Builder);
+					instruction I = Instruction(OP_EQEQ, Expr, False, Basic_bool, Builder);
 					Result = PushInstruction(Builder, I);
 				} break;
 				case T_PTR:

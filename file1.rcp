@@ -1,55 +1,93 @@
 main
 
-#import memory as m
+#import mem as m
+#import array as arr
 
-struct foo {
-    F: type,
-    a: []F,
-}
+// struct foo {
+//     F: type,
+//     a: []F,
+// }
 
-struct Opaque {
 
-}
+//puts :: fn #foreign(str: cstring);
+malloc :: fn #foreign(size: int) -> ?*;
+free :: fn #foreign(ptr: *);
 
-puts :: fn #foreign(str: cstring);
-malloc :: fn #foreign(size: int) -> *;
-
-allocator_alloc :: fn(size: int, this: *m.Allocator) -> * {
+allocator_alloc :: fn(size: int, this: *m.Allocator) -> ?* {
     return malloc(size);
 }
 
-do_foo :: fn(s: []$T) {
-    x := s;
-    x[5] = 5;
+allocator_free :: fn(ptr: *, this: *m.Allocator) {
+    free(ptr);
+}
+
+get_other_num :: fn(m: $T) -> T {
+    return m + 3;
 }
 
 main :: fn() -> i32 {
+    get_other_num(10);
+    get_other_num(10);
     alloc := m.Allocator {
         alloc = allocator_alloc,
+        free = allocator_free,
     };
-    // x := m.make_slice(&alloc, i32, 10);
-    // x[1] = 4;
+    my_arr := arr.create(i32, &alloc);
+    my_arr[10] = 1;
+    my_arr[1] = 1;
+    arr.add(&my_arr, 10);
+    arr.add(&my_arr, 11);
+    arr.add(&my_arr, 12);
+    arr.add(&my_arr, 13);
+    arr.add(&my_arr, 14);
+    arr.add(&my_arr, 15);
+    arr.add(&my_arr, 20);
+    arr.add(&my_arr, 23);
+    arr.add(&my_arr, 25);
+    arr.add(&my_arr, 28);
+    // ----------------
+    arr.add(&my_arr, 29);
+    arr.add(&my_arr, 20);
+    arr.add(&my_arr, 20);
+    arr.add(&my_arr, 20);
 
-    fo := Opaque {};
-
-    x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
-    x.a[5] = 10;
-    do_foo(x.a);
-    // do_foo(x.a);
-    // do_foo(x.a);
-
-    // defer puts(c"1");
-    // defer puts(c"2");
-    // defer puts(c"3");
-    // {
-    //     defer puts(c"33");
-    //     defer puts(c"22");
-    //     defer puts(c"11");
-    // }
-
-
-    return @i32 x.a.count;
+    res := my_arr[10];
+    arr.free(&my_arr);
+    return res;
 }
+
+// do_foo :: fn(s: []$T) {
+//     x := s;
+//     x[5] = 5;
+// }
+// 
+// main :: fn() -> i32 {
+//     alloc := m.Allocator {
+//         alloc = allocator_alloc,
+//     };
+//     // x := m.make_slice(&alloc, i32, 10);
+//     // x[1] = 4;
+// 
+//     fo := Opaque {};
+// 
+//     x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
+//     x.a[5] = 10;
+//     do_foo(x.a);
+//     // do_foo(x.a);
+//     // do_foo(x.a);
+// 
+//     // defer puts(c"1");
+//     // defer puts(c"2");
+//     // defer puts(c"3");
+//     // {
+//     //     defer puts(c"33");
+//     //     defer puts(c"22");
+//     //     defer puts(c"11");
+//     // }
+// 
+// 
+//     return @i32 x.a.count;
+// }
 
 
 // #import stuff as f2

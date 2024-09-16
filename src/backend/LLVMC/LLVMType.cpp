@@ -259,19 +259,19 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 
 			LLVMMetadataRef Mem1 = LLVMDIBuilderCreateMemberType(
 					gen->dbg, gen->f_dbg,
-					"data", 4,
-					gen->f_dbg, 0,
-					Size / 2, Size / 2,
-					0, LLVMDIFlagZero,
-					ToDebugTypeLLVM(gen, GetPointerTo(CustomType->Slice.Type)));
-
-			LLVMMetadataRef Mem2 = LLVMDIBuilderCreateMemberType(
-					gen->dbg, gen->f_dbg,
 					"count", 5,
 					gen->f_dbg, 0,
 					Size / 2, Size / 2,
-					Size / 2, LLVMDIFlagZero,
+					0, LLVMDIFlagZero,
 					ToDebugTypeLLVM(gen, Basic_int));
+
+			LLVMMetadataRef Mem2 = LLVMDIBuilderCreateMemberType(
+					gen->dbg, gen->f_dbg,
+					"data", 4,
+					gen->f_dbg, 0,
+					Size / 2, Size / 2,
+					Size / 2, LLVMDIFlagZero,
+					ToDebugTypeLLVM(gen, GetPointerTo(CustomType->Slice.Type)));
 
 			LLVMMetadataRef Elements[] = {
 				Mem1,

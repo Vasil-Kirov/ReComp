@@ -500,6 +500,9 @@ void PopScope(checker *Checker)
 
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL)
 {
+	if(FnNode->Fn.AlreadyAnalyzed)
+		return;
+
 	dynamic<symbol> SaveSymbols = Checker->Symbols;
 	Checker->Symbols = {};
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
@@ -761,7 +764,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					if(IsGeneric(ExpectType))
 					{
-						FillUntypedStack(Checker, UntypedGetType(ExprType));
+						//FillUntypedStack(Checker, UntypedGetType(ExprType));
 					}
 					else
 					{
@@ -782,12 +785,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(CallType->Function.Flags & SymbolFlag_Generic)
 			{
-				b32 ShouldPush = false;
-				node *Node = AnalyzeGenericExpression(Checker, Expr, &ShouldPush);
-				if(ShouldPush)
-					Checker->GeneratedGlobalNodes.Push(Node);
+				string IDOut = {};
+				node *Node = AnalyzeGenericExpression(Checker, Expr, &IDOut);
 
-				Expr->Call.Fn = MakeID(Expr->ErrorInfo, Node->Fn.Name);
+				Expr->Call.Fn = MakeID(Expr->ErrorInfo, DupeType(IDOut, string));
 				Expr->Call.Type = Node->Fn.TypeIdx;
 				CallType = GetType(Expr->Call.Type);
 			}
@@ -1005,7 +1006,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					RaiseError(*Expr->ErrorInfo,
 							"Cannot find public symbol %s in module %s",
-							Expr->Selector.Member->Data, Expr->Selector.Member->Data);
+							Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
 				}
 				Result = s->Type;
 				Expr->Selector.Type = s->Type;
@@ -1066,6 +1067,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					} break;
 					case TypeKind_Slice:
 					{
+ANALYZE_SLICE_SELECTOR:
 						if(*Expr->Selector.Member == STR_LIT("count"))
 						{
 							Expr->Selector.Index = 0;
@@ -1105,7 +1107,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						const type *Pointed = NULL;
 						if(Type->Pointer.Pointed != INVALID_TYPE)
 							Pointed = GetType(Type->Pointer.Pointed);
-						if(!Pointed || Pointed->Kind != TypeKind_Struct)
+						if(!Pointed || (Pointed->Kind != TypeKind_Struct && Pointed->Kind != TypeKind_Slice))
 						{
 							RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
 									GetTypeName(Type));
@@ -1115,6 +1117,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							RaiseError(*Expr->ErrorInfo, "Cannot derefrence optional pointer, check for null and then mark it non optional with the ? operator");
 						}
 						Type = Pointed;
+						if(Pointed->Kind == TypeKind_Slice)
+							goto ANALYZE_SLICE_SELECTOR;
 					} // fallthrough
 					case TypeKind_Struct:
 					{
@@ -1237,12 +1241,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 			{
 				case T_BANG:
 				{
-					u32 TypeIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
-					const type *Type = GetType(TypeIdx);
-					if(HasBasicFlag(Type, BasicFlag_Boolean))
-					{
-						RaiseError(*Expr->ErrorInfo, "Expected boolean, found %s", GetTypeName(Type));
-					}
+					AnalyzeBooleanExpression(Checker, &Expr->Unary.Operand);
 					return Basic_bool;
 				} break;
 				case T_QMARK:
@@ -1504,6 +1503,13 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 				RaiseError(*BinaryExpression->ErrorInfo, "Invalid binary op between pointer and integer!\n"
 						"Only + and - are allowed, got `%s`", GetTokenName(BinaryExpression->Binary.Op));
 			}
+			if(BinaryExpression->Binary.Op == '-')
+			{
+				BinaryExpression->Binary.Right = MakeUnary(BinaryExpression->ErrorInfo, BinaryExpression->Binary.Right, T_MINUS);
+				BinaryExpression->Binary.Right->Unary.Type = Right;
+				if(IsUntyped(RightType))
+					BinaryExpression->Binary.Right->Unary.Type = Basic_int;
+			}
 			node *OverwriteIndex = MakeIndex(BinaryExpression->ErrorInfo,
 					BinaryExpression->Binary.Left, BinaryExpression->Binary.Right);
 			OverwriteIndex->Index.OperandType = Left;
@@ -1637,9 +1643,10 @@ void AnalyzeInnerBody(checker *Checker, slice<node *> Body)
 	CheckBodyForUnreachableCode(Body);
 }
 
-void AnalyzeIf(checker *Checker, node *Node)
+u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 {
-	u32 ExprTypeIdx = AnalyzeExpression(Checker, Node->If.Expression);
+	node *Node = *NodePtr;
+	u32 ExprTypeIdx = AnalyzeExpression(Checker, Node);
 	const type *ExprType = GetType(ExprTypeIdx);
 	if(ExprType->Kind != TypeKind_Basic && ExprType->Kind != TypeKind_Pointer)
 	{
@@ -1654,8 +1661,14 @@ void AnalyzeIf(checker *Checker, node *Node)
 	{
 		node *Null = MakeReserve(Node->ErrorInfo, reserved::Null);
 		Null->Reserved.Type = NULLType;
-		Node->If.Expression = MakeBinary(Node->ErrorInfo, Node->If.Expression, Null, T_NEQ);
+		*NodePtr = MakeBinary(Node->ErrorInfo, Node, Null, T_NEQ);
 	}
+	return ExprTypeIdx;
+}
+
+void AnalyzeIf(checker *Checker, node *Node)
+{
+	AnalyzeBooleanExpression(Checker, &Node->If.Expression);
 	slice<node *> IfBody = SliceFromArray(Node->If.Body); 
 	AnalyzeInnerBody(Checker, IfBody);
 	if(Node->If.Else.IsValid())
@@ -2311,7 +2324,7 @@ node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, n
 	return Result;
 }
 
-node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
+node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 {
 	node *Expr = Generic;
 	switch(Expr->Type)
@@ -2378,15 +2391,27 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 						if(ResolvedName.Data && ResolvedName != G->Generic.Name)
 							RaiseError(*Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
 					}
-					ResolvedName = G->Generic.Name;
-					ResolvedType = Expr->Call.ArgTypes[i];
-					const type *CallArgT = GetType(Expr->Call.ArgTypes[i]);
-					if(IsUntyped(CallArgT))
+					else
 					{
-						ResolvedType = UntypedGetType(CallArgT);
-					}
+						ResolvedName = G->Generic.Name;
+						ResolvedType = Expr->Call.ArgTypes[i];
+						const type *CallArgT = GetType(Expr->Call.ArgTypes[i]);
+						if(IsUntyped(CallArgT))
+						{
+							ResolvedType = UntypedGetType(CallArgT);
+						}
 
-					ResolvedType = GetGenericPart(ResolvedType, T->Function.Args[i]);
+						ResolvedType = GetGenericPart(ResolvedType, T->Function.Args[i]);
+					}
+				}
+
+				if(IsUntyped(GetType(Expr->Call.ArgTypes[i])))
+				{
+					if(ResolvedType == INVALID_TYPE)
+						// This should be caught previously
+						RaiseError(*Expr->Call.Args[i]->ErrorInfo, "Call to generic expression doesn't resolve generic type before it's use");
+					Expr->Call.ArgTypes.Data[i] = ResolvedType;
+					FillUntypedStack(Checker, ResolvedType);
 				}
 			}
 
@@ -2409,12 +2434,16 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 			const type *Old = GetType(FnSym->Node->Fn.TypeIdx);
 			u32 NewFnType = FunctionTypeGetNonGeneric(Old, ResolvedType, Expr, FnSym->Node);
 			string *GenericName = MakeGenericName(FnSym->Name ? *FnSym->Name : STR_LIT(""), NewFnType, FnSym->Node->Fn.TypeIdx, Expr);
-			symbol *Found = FindGlobalInModule(*GenericName, Checker->Module);
+			string FnName = *GenericName;
+			if(Checker->Module->Name != FnSym->Checker->Module->Name)
+				*IDOut = StructToModuleName(FnName, FnSym->Checker->Module->Name);
+			else
+				*IDOut = FnName;
+			symbol *Found = FindGlobalInModule(*GenericName, FnSym->Checker->Module);
 			node *NewFnNode = NULL;
 			if(Found)
 			{
 				NewFnNode = Found->Node;
-				*ShouldPush = false;
 			}
 			else
 			{
@@ -2428,12 +2457,14 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, b32 *ShouldPush)
 				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
 						NewFnType, GenericName);
 				SetBonusMessage(STR_LIT(""));
-				Checker->Module->Globals.Push(CreateFunctionSymbol(FnSym->Checker, FnNode));
-				*ShouldPush = true;
+				NewFnNode->Fn.AlreadyAnalyzed = true;
+				FnSym->Checker->Module->Globals.Push(CreateFunctionSymbol(FnSym->Checker, FnNode));
+				FnSym->Checker->Nodes->Push(FnNode);
 			}
 			Expr->Call.Fn = NewFnNode;
 			Expr->Call.Type = NewFnType;
 			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
+
 
 			return NewFnNode;
 		} break;

@@ -216,6 +216,7 @@ node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *Return
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
 	Result->Fn.Flags = Flags;
+	Result->Fn.AlreadyAnalyzed = false;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
 }

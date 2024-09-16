@@ -16,6 +16,7 @@
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
+#include "llvm-c/Transforms/PassBuilder.h"
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
@@ -998,6 +999,14 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, dynamic<mod
 	LLVMDisposeBuilder(Gen.bld);
 	LLVMShutdown();
 }
+
+#if 0
+void RCBuildPasses()
+{
+	LLVMPassManagerRef PassManager = LLVMCreatePassManager();
+	LLVMPassBuilderOptionsRef PMBuilder = LLVMCreatePassBuilderOptions();
+}
+#endif
 
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)
 {

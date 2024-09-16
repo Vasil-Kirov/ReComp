@@ -298,6 +298,7 @@ void AddStdFiles(dynamic<string> &Files)
 		GetFilePath(Dir, "os.rcp"),
 		GetFilePath(Dir, "string.rcp"),
 		GetFilePath(Dir, "mem.rcp"),
+		GetFilePath(Dir, "array.rcp"),
 	};
 
 	uint Count = ARR_LEN(StdFiles);

@@ -1,0 +1,59 @@
+array
+
+#import mem
+
+puts :: fn #foreign(str: cstring);
+struct Header {
+    capacity: int,
+    allocator: mem.Allocator,
+}
+
+create :: fn(T: type, allocator: *mem.Allocator) -> []T {
+    INITIAL_CAPACITY :: 8;
+    maybe_ptr: ?*Header = allocator.alloc(INITIAL_CAPACITY * size_of T + size_of Header, allocator);
+    if !maybe_ptr {
+        return []T{};
+    }
+    ptr := ?maybe_ptr;
+    ptr.capacity = INITIAL_CAPACITY;
+    ptr.allocator = *allocator;
+
+    res := []T{};
+    res.data = @*T(ptr+1);
+    res.count = 0;
+    return res;
+}
+
+add :: fn(arg_arr: *[]$T, item: T) {
+    arr := arg_arr;
+    header := (@*Header arr.data) - 1;
+    if arr.count >= header.capacity {
+        new_capacity := header.capacity * 2;
+        maybe_ptr: ?*Header = header.allocator.alloc(new_capacity * size_of T + size_of Header, &header.allocator);
+        if !maybe_ptr {
+            arr.data = ?null;
+            arr.count = 0;
+            return;
+        }
+
+        ptr := ?maybe_ptr;
+        ptr.capacity = new_capacity;
+        ptr.allocator = header.allocator;
+        mem.memcpy(ptr+1, arr.data, arr.count * size_of T);
+        ptr.allocator.free(header, &ptr.allocator);
+        arr.data = @*T(ptr+1);
+    }
+
+    (*arr)[arr.count] = item;
+    arr.count += 1;
+}
+
+free :: fn(arg_arr: *[]$T)
+{
+    arr := arg_arr;
+    header := (@*Header arr.data) - 1;
+    header.allocator.free(header, &header.allocator);
+    arr.data = ?null;
+    arr.count = 0;
+}
+

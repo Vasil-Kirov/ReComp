@@ -717,7 +717,7 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Expr = ParseExpression(Parser);
+			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, NULL, 0, 0);
 		} break;
 		case T_CAST:
@@ -725,7 +725,7 @@ node *ParseOperand(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 			node *Type = ParseType(Parser);
-			node *Expr = ParseExpression(Parser);
+			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
 		} break;
 		case T_TYPEOF:

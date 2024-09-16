@@ -46,5 +46,5 @@ main :: fn() -> i32 {
         sum += arr[i];
     }
 
-	return @i32(sum - arr.count - 190);
+	return sum - @i32 arr.count - 190;
 }

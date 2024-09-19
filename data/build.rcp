@@ -52,19 +52,19 @@ compile :: fn(out: *CompileInfo) {
 	to_fill := out;
 
 	
-    find_data: WIN32_FIND_DATA;
-    handle := FindFirstFileA(c"./*", &find_data);
-    if handle == INVALID_HANDLE_VALUE {
-        to_fill.file_count = 0;
-        return;
-    }
-    
+    // find_data: WIN32_FIND_DATA;
+    // handle := FindFirstFileA(c"./*", &find_data);
+    // if handle == INVALID_HANDLE_VALUE {
+    //     to_fill.file_count = 0;
+    //     return;
+    // }
+    // 
 
-    for FindNextFileA(handle, &find_data) {
-        printf(c"file: %s\n", &find_data.cFileName[0]);
-    }
+    // for FindNextFileA(handle, &find_data) {
+    //     printf(c"file: %s\n", &find_data.cFileName[0]);
+    // }
 
-    FindClose(handle);
+    // FindClose(handle);
 
 	to_fill.files[0] = c"../file1.rcp";
 	to_fill.files[1] = c"../file2.rcp";

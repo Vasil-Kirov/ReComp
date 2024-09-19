@@ -176,6 +176,7 @@ struct node
 		} Decl;
 		struct {
 			const string *Name;
+			const string *LinkName; // @Nullable til semantic analysis
 			slice<node *> Args;
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body

@@ -10,11 +10,11 @@ main
 
 
 //puts :: fn #foreign(str: cstring);
-malloc :: fn #foreign(size: int) -> ?*;
+mem_alloc :: fn #link="malloc"(size: int) -> ?*;
 free :: fn #foreign(ptr: *);
 
 allocator_alloc :: fn(size: int, this: *m.Allocator) -> ?* {
-    return malloc(size);
+    return mem_alloc(size);
 }
 
 allocator_free :: fn(ptr: *, this: *m.Allocator) {

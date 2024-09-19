@@ -2122,6 +2122,8 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 
 symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 {
+	string Name = *Node->Fn.Name;
+
 	symbol *Sym = NewType(symbol);
 	Sym->Checker = Checker;
 	Sym->Name = Node->Fn.Name;
@@ -2132,6 +2134,12 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 	Sym->Node = Node;
 	if(!Node->Fn.Body.IsValid())
 		Sym->Flags |= SymbolFlag_Extern;
+	if(Node->Fn.LinkName)
+		Sym->LinkName = Node->Fn.LinkName;
+	else if(Node->Fn.Flags & SymbolFlag_Foreign)
+		Sym->LinkName = Node->Fn.Name;
+	else
+		Sym->LinkName = StructToModuleNamePtr(Name, Checker->Module->Name);
 	return Sym;
 }
 
@@ -2182,6 +2190,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			symbol *Sym = NewType(symbol);
 			Sym->Checker = Checker;
 			Sym->Name = Node->Decl.ID;
+			Sym->LinkName = Node->Decl.ID;
 			Sym->Type = Type;
 			Sym->Hash = murmur3_32(Node->Decl.ID->Data, Node->Decl.ID->Size, 
 					HASH_SEED);

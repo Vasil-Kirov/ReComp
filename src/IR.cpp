@@ -1466,7 +1466,9 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	Function.Type = TypeIdx;
 	Function.LineNo = Node->ErrorInfo->Line;
 	Function.ModuleName = Module->Name;
-	if(Node->Fn.Flags & SymbolFlag_Foreign)
+	if(Node->Fn.LinkName)
+		Function.LinkName = Node->Fn.LinkName;
+	else if(Node->Fn.Flags & SymbolFlag_Foreign)
 		Function.LinkName = Name;
 	else
 		Function.LinkName = StructToModuleNamePtr(NameNoPtr, Function.ModuleName);

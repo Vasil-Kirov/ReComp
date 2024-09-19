@@ -210,9 +210,10 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags)
+node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, node *ReturnType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_FN);
+	Result->Fn.LinkName = LinkName;
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnType = ReturnType;
 	Result->Fn.Flags = Flags;
@@ -523,13 +524,20 @@ node *ParseFunctionType(parser *Parser)
 	u32 Flags = 0;
 	EatToken(Parser, T_FN);
 
-	while(Parser->Current->Type == T_FOREIGN || Parser->Current->Type == T_INTR)
+	const string *LinkName = NULL;
+	while(Parser->Current->Type == T_FOREIGN || Parser->Current->Type == T_INTR || Parser->Current->Type == T_LINK)
 	{
 		token T = GetToken(Parser);
 		if(T.Type == T_FOREIGN)
 			Flags |= SymbolFlag_Foreign;
 		else if(T.Type == T_INTR)
 			Flags |= SymbolFlag_Intrinsic;
+		else if(T.Type == T_LINK)
+		{
+			EatToken(Parser, T_EQ);
+			token Name = EatToken(Parser, T_STR);
+			LinkName = Name.ID;
+		}
 	}
 	EatToken(Parser, '(');
 	slice<node *> Args{};
@@ -544,7 +552,7 @@ node *ParseFunctionType(parser *Parser)
 		ReturnType = ParseType(Parser);
 	}
 
-	return MakeFunction(ErrorInfo, Args, ReturnType, Flags);
+	return MakeFunction(ErrorInfo, LinkName, Args, ReturnType, Flags);
 }
 
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)
@@ -1567,6 +1575,7 @@ node *CopyASTNode(node *N)
 		case AST_FN:
 		{
 			R->Fn.Name = N->Fn.Name;
+			R->Fn.Name = N->Fn.LinkName;
 			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
 			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);

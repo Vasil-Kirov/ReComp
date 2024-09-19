@@ -236,7 +236,7 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules)
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
-	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe !internal.obj /DEBUG ";
+	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe /DEBUG ";
 #elif CM_LINUX
 	Builder += "ld !internal.obj -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
 	Builder += FindObjectFiles();
@@ -406,7 +406,6 @@ main(int ArgCount, char *Args[])
 
 
 	slice<module> ModuleArray = {};
-	slice<file> FileArray = {};
 	ForArray(Idx, BuildFile.IR->Functions)
 	{
 		if(*BuildFile.IR->Functions[Idx].Name == CompileFunction)
@@ -432,12 +431,11 @@ main(int ArgCount, char *Args[])
 			}
 			AddStdFiles(FileNames);
 
-			slice<module> Modules;
-			slice<file> _ = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &Modules);
+			slice<file> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
-			llvm_init_info Machine = RCGenerateMain(FileArray);
-			RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
+			llvm_init_info Machine = RCInitLLVM();
+			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm);
 			VLibStopTimer(&FileTimer.LLVM);
 
 			Timers.Push(FileTimer);

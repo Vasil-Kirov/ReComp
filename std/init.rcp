@@ -10,7 +10,7 @@ struct Arg {
 
 global_initializers :: fn();
 
-main :: fn #foreign() -> i32 {
+entry :: fn #link="main"() -> i32 {
     global_initializers();
     res := mn.main();
 

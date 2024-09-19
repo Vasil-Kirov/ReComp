@@ -28,6 +28,7 @@ struct scope
 struct symbol
 {
 	const string *Name;
+	const string *LinkName;
 	node *Node;
 	checker *Checker;
 	u32 Type;

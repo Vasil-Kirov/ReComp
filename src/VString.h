@@ -45,6 +45,8 @@ string MakeString(const char *CString, size_t Size);
 string MakeString(const char *CString);
 string SliceString(string S, int from, int to);
 bool StringsMatchNoCase(const string &a, const string &b);
+bool StringStartsWith(const string &a, const string b);
+bool StringEndsWith(const string &a, const string b);
 
 void PushBuilder(string_builder *Builder, const char *Data);
 void PushBuilder(string_builder *Builder, char C);

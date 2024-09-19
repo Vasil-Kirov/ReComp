@@ -1,6 +1,8 @@
 #include "DynamicLib.h"
 #include "IR.h"
+#include "VString.h"
 #include "vlib.h"
+#include "Semantics.h"
 #include <Interpreter.h>
 #include <Type.h>
 #include <Log.h>
@@ -53,8 +55,15 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 	// 
 	//
 
+#if _WIN32
 	operand ConventionRegisters[] = {RegisterOperand(reg_c), RegisterOperand(reg_d), RegisterOperand(reg_r8),
 		RegisterOperand(reg_r9)};
+#elif CM_LINUX
+	operand ConventionRegisters[] = {RegisterOperand(reg_di), RegisterOperand(reg_si), RegisterOperand(reg_d),
+		RegisterOperand(reg_c), RegisterOperand(reg_r8), RegisterOperand(reg_r9)};
+#else
+#error "Unknown calling convention"
+#endif
 	//operand ConventionFloatRegisters[] = {RegisterOperand(reg_xmm0), RegisterOperand(reg_xmm1),
 		//RegisterOperand(reg_xmm2), RegisterOperand(reg_xmm3)};
 
@@ -167,48 +176,65 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_NOP:
 			{
 			} break;
+			case OP_CONSTINT:
+			{
+				u64 Val = I.BigRegister;
+				value Value = {};
+				Value.Type = I.Type;
+				Value.u64 = Val;
+				VM->Registers.AddValue(I.Result, Value);
+			} break;
 			case OP_CONST:
 			{
 				value VMValue = {};
 				VMValue.Type = I.Type;
 				const_value *Val = (const_value *)I.BigRegister;
 				const type *Type = GetType(I.Type);
-				if(Type->Basic.Flags & BasicFlag_Float)
+				if(Type->Kind == TypeKind_Basic)
 				{
-					switch(Type->Basic.Kind)
+					if(Type->Basic.Flags & BasicFlag_Float)
 					{
-						case Basic_f64:
+						switch(Type->Basic.Kind)
 						{
-							VMValue.f64 = Val->Float;
-						} break;
-						case Basic_f32:
-						{
-							VMValue.f32 = (f32)Val->Float;
-						} break;
-						default: unreachable;
+							case Basic_f64:
+							{
+								VMValue.f64 = Val->Float;
+							} break;
+							case Basic_f32:
+							{
+								VMValue.f32 = (f32)Val->Float;
+							} break;
+							default: unreachable;
+						}
+					}
+					else if(Type->Basic.Flags & BasicFlag_Integer)
+					{
+						if(Val->Int.IsSigned)
+							VMValue.i64 = Val->Int.Signed;
+						else
+							VMValue.u64 = Val->Int.Unsigned;
+					}
+					else if(Type->Basic.Flags & BasicFlag_String)
+					{
+						// @TODO;
+						Assert(false);
+					}
+					else if(Type->Basic.Flags & BasicFlag_CString)
+					{
+						VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+					}
+					else
+					{
+						LDEBUG("%d", Type->Kind);
+						unreachable;
 					}
 				}
-				else if(Type->Basic.Flags & BasicFlag_Integer)
+				else if(Type->Kind == TypeKind_Pointer)
 				{
-					if(Val->Int.IsSigned)
-						VMValue.i64 = Val->Int.Signed;
-					else
-						VMValue.u64 = Val->Int.Unsigned;
-				}
-				else if(Type->Basic.Flags & BasicFlag_String)
-				{
-					// @TODO;
-					Assert(false);
-				}
-				else if(Type->Basic.Flags & BasicFlag_CString)
-				{
-					VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+					VMValue.ptr = (void *)Val->Int.Unsigned;
 				}
 				else
-				{
-					LDEBUG("%d", Type->Kind);
-					unreachable;
-				}
+					Assert(false);
 				VM->Registers.AddValue(I.Result, VMValue);
 			} break;
 			case OP_ALLOC:
@@ -368,11 +394,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_OP(MUL, *);
 			BIN_OP(DIV, /);
 			BIN_OP(MOD, /);
-			BIN_OP(GREAT, >);
-			BIN_OP(LESS, <);
-			BIN_OP(GEQ, >=);
-			BIN_OP(LEQ, <=);
-			BIN_OP(EQEQ, ==);
+			BIN_COMP_OP(GREAT, >);
+			BIN_COMP_OP(LESS, <);
+			BIN_COMP_OP(GEQ, >=);
+			BIN_COMP_OP(LEQ, <=);
+			BIN_COMP_OP(EQEQ, ==);
 			case OP_DEBUGINFO:
 			{} break;
 			default:
@@ -401,33 +427,66 @@ interpret_result Interpret(code_chunk Chunk)
 	return Result;
 }
 
-interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
+interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
 	interpreter VM = {};
 	VM.Registers.Init(MaxRegisters);
-	ForArray(Idx, GlobalSymbols)
+	ForArray(MIdx, Modules)
 	{
-		ir_symbol Symbol = GlobalSymbols[Idx];
-		value Value = {};
-		Value.Type = Symbol.Type;
-		if(Symbol.Flags & IRSymbol_ExternFn)
+		module *m = &Modules.Data[MIdx];
+		ForArray(Idx, m->Globals)
 		{
-			for(int Idx = 0; Idx < DLLCount; ++Idx)
+			symbol *s = m->Globals[Idx];
+			value Value = {};
+			Value.Type = s->Type;
+			if(s->Flags & SymbolFlag_Function)
 			{
-				void *Proc = GetSymLibrary(DLLs[Idx], Symbol.Name->Data);
-				if(Proc)
+				if(s->Flags & SymbolFlag_Extern)
 				{
-					Value.ptr = Proc;
-					break;
+					for(int Idx = 0; Idx < DLLCount; ++Idx)
+					{
+						void *Proc = GetSymLibrary(DLLs[Idx], s->Name->Data);
+						if(Proc)
+						{
+							Value.ptr = Proc;
+							break;
+						}
+					}
+
+					if(Value.ptr == NULL)
+					{
+						LERROR("Couldn't find external function %s in compiler linked DLLs", s->Name->Data);
+						return {};
+					}
+				}
+				else
+				{
+					// @TODO:
+					{};
 				}
 			}
-			if(Value.ptr == NULL)
+			else
 			{
-				LERROR("Couldn't find external function %s in compiler linked DLLs", Symbol.Name->Data);
-				return {};
+				Value.ptr = VAlloc(GetTypeSize(s->Type));
+			}
+			VM.Registers.AddValue(s->IRRegister, Value);
+		}
+	}
+	ForArray(MIdx, Modules)
+	{
+		module *m = &Modules.Data[MIdx];
+		ForArray(FIdx, m->Files)
+		{
+			file *f = m->Files[FIdx];
+			ForArray(fnIdx, f->IR->Functions)
+			{
+				function fn = f->IR->Functions[fnIdx];
+				if(StringEndsWith(*fn.Name, STR_LIT("__GlobalInitializerFunction")))
+				{
+					InterpretFunction(&VM, fn, {});
+				}
 			}
 		}
-		VM.Registers.AddValue(GlobalSymbols[Idx].Register, Value);
 	}
 
 	return VM;

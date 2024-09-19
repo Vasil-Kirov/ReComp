@@ -73,7 +73,7 @@ struct timers
 	timer_group LLVM;
 };
 
-void ResolveSymbols(dynamic<file> Files)
+void ResolveSymbols(dynamic<file> Files, b32 ExpectingMain)
 {
 	ForArray(Idx, Files)
 	{
@@ -93,38 +93,40 @@ void ResolveSymbols(dynamic<file> Files)
 		//File->Module->Checker = File->Checker;
 	}
 
-	b32 FoundMain = false;
-	b32 FoundMainMain = false;
-	string MainName = STR_LIT("main");
-	ForArray(Idx, Files)
+	if(ExpectingMain)
 	{
-		file *File = &Files.Data[Idx];
-		if(File->Module->Name == MainName)
+		b32 FoundMain = false;
+		b32 FoundMainMain = false;
+		string MainName = STR_LIT("main");
+		ForArray(Idx, Files)
 		{
-			FoundMain = true;
-			ForArray(mi, File->Module->Globals)
+			file *File = &Files.Data[Idx];
+			if(File->Module->Name == MainName)
 			{
-				symbol *sym = File->Module->Globals[mi];
-				if(sym->Flags & SymbolFlag_Function &&
-						*sym->Name == MainName)
+				FoundMain = true;
+				ForArray(mi, File->Module->Globals)
 				{
-					FoundMainMain = true;
-					break;
+					symbol *sym = File->Module->Globals[mi];
+					if(sym->Flags & SymbolFlag_Function &&
+							*sym->Name == MainName)
+					{
+						FoundMainMain = true;
+						break;
+					}
 				}
 			}
 		}
-	}
 
-	if(!FoundMain)
-	{
-		LFATAL("Missing main module");
-	}
+		if(!FoundMain)
+		{
+			LFATAL("Missing main module");
+		}
 
-	if(!FoundMainMain)
-	{
-		LFATAL("Missing main function in main module");
+		if(!FoundMainMain)
+		{
+			LFATAL("Missing main function in main module");
+		}
 	}
-
 }
 
 file LexFile(string File, string *OutModuleName)
@@ -174,6 +176,62 @@ void BuildIRFile(file *File, uint Flag, u32 IRStartRegister)
 	}
 }
 
+slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_line CommandLine, b32 WantMain, slice<module> *OutModules)
+{
+	dynamic<module> Modules = {};
+	dynamic<file> Files = {};
+
+	Timers->Parse = VLibStartTimer("Parse");
+	ForArray(Idx, FileNames)
+	{
+		string ModuleName = {};
+		file File = LexFile(FileNames[Idx], &ModuleName);
+		Assert(Idx == Files.Count);
+		Files.Push(File);
+		file *F = &Files.Data[Idx];
+		AddModule(Modules, F, ModuleName);
+	}
+	ForArray(Idx, FileNames)
+	{
+		file *F = &Files.Data[Idx];
+		ParseFile(F, Modules);
+	}
+	VLibStopTimer(&Timers->Parse);
+	u32 MaxCount;
+	{
+		Timers->TypeCheck = VLibStartTimer("Type Checking");
+		ResolveSymbols(Files, WantMain);
+		ForArray(Idx, FileNames)
+		{
+			file *F = &Files.Data[Idx];
+			AnalyzeFile(F);
+		}
+		MaxCount = AssignIRRegistersForModuleSymbols(Modules);
+		VLibStopTimer(&Timers->TypeCheck);
+	}
+
+	{
+		Timers->IR = VLibStartTimer("Intermediate Representation Generation");
+		ForArray(Idx, Files)
+		{
+			file *File = &Files.Data[Idx];
+			BuildIRFile(File, CommandLine.Flags, MaxCount);
+		}
+		VLibStopTimer(&Timers->IR);
+	}
+
+	{
+		Timers->TypeCheck = VLibStartTimer("Analyzing");
+		ForArray(Idx, Modules)
+		{
+			AnalyzeModuleForRedifinitions(&Modules.Data[Idx]);
+		}
+		VLibStopTimer(&Timers->TypeCheck);
+	}
+	*OutModules = SliceFromArray(Modules);
+	return SliceFromArray(Files);
+}
+
 string MakeLinkCommand(command_line CMD, slice<module> Modules)
 {
 	string_builder Builder = MakeBuilder();
@@ -216,7 +274,7 @@ struct compile_info
 	i32 FileCount;
 };
 
-void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx)
+void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module> *OutModules)
 {
 	type *FileArray = AllocType(TypeKind_Array);
 	FileArray->Array.Type = Basic_cstring;
@@ -228,42 +286,16 @@ void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoType
 		{STR_LIT("file_count"), Basic_i32},
 	};
 
-	string ModuleName = {};
-	*F = LexFile(Name, &ModuleName);
-	module *M = NewType(module);
-	M->Name = ModuleName;
-	M->Files.Push(F);
-	F->Module = M;
-	ParseFile(F, {});
-	string_builder CompileInfoName = MakeBuilder();
-	CompileInfoName += "__";
-	CompileInfoName += F->Module->Name;
-	CompileInfoName += STR_LIT("!CompileInfo");
-
 	type *CompileInfoType = AllocType(TypeKind_Struct);
-	CompileInfoType->Struct.Name = MakeString(CompileInfoName);
+	CompileInfoType->Struct.Name = STR_LIT("__build!CompileInfo");
 	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
 	CompileInfoType->Struct.Flags = 0;
 	
 	u32 CompileInfo = AddType(CompileInfoType);
 	*CompileInfoTypeIdx = CompileInfo;
 
-	auto NodeSlice = SliceFromArray(F->Nodes);
-	AnalyzeForModuleStructs(NodeSlice, F->Module);
-	AnalyzeFunctionDecls(F->Checker, &F->Nodes, F->Module);
-	//F->Module->Checker = F->Checker;
-
-	{
-		Timers->TypeCheck = VLibStartTimer("Type Check");
-		AnalyzeFile(F);
-		VLibStopTimer(&Timers->TypeCheck);
-	}
-
-	{
-		Timers->IR = VLibStartTimer("Building IR");
-		BuildIRFile(F, 0, 0);
-		VLibStopTimer(&Timers->IR);
-	}
+	slice<string> FileNames = { .Data = &Name, .Count = 1 };
+	*F = RunBuildPipeline(FileNames, Timers, CommandLine, false, OutModules)[0];
 }
 
 const char *GetStdDir()
@@ -317,7 +349,7 @@ main(int ArgCount, char *Args[])
 	InitializeLogger();
 	InitializeLexer();
 
-	SetLogLevel(LOG_WARN);
+	SetLogLevel(LOG_INFO);
 	SetBonusMessage(STR_LIT(""));
 
 	if(ArgCount < 2)
@@ -364,12 +396,13 @@ main(int ArgCount, char *Args[])
 	timers BuildTimers = {};
 	u32 CompileInfo;
 	file BuildFile = {};
-	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo);
+	slice<module> BuildModules = {};
+	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules);
 	Timers.Push(BuildTimers);
 
 	timer_group VMBuildTimer = VLibStartTimer("VM");
 
-	interpreter VM = MakeInterpreter(BuildFile.IR->GlobalSymbols, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
+	interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 
 	slice<module> ModuleArray = {};
@@ -392,8 +425,6 @@ main(int ArgCount, char *Args[])
 
 			timers FileTimer = {};
 			dynamic<string> FileNames = {};
-			dynamic<file> Files = {};
-			dynamic<module> Modules = {};
 			compile_info *Info = (compile_info *)Out.ptr;
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
@@ -401,68 +432,15 @@ main(int ArgCount, char *Args[])
 			}
 			AddStdFiles(FileNames);
 
-			{
-				FileTimer.Parse = VLibStartTimer("Parse");
-				ForArray(Idx, FileNames)
-				{
-					string ModuleName = {};
-					file File = LexFile(FileNames[Idx], &ModuleName);
-					Assert(Idx == Files.Count);
-					Files.Push(File);
-					file *F = &Files.Data[Idx];
-					AddModule(Modules, F, ModuleName);
-				}
-				ForArray(Idx, FileNames)
-				{
-					file *F = &Files.Data[Idx];
-					ParseFile(F, Modules);
-				}
-				VLibStopTimer(&FileTimer.Parse);
-			}
+			slice<module> Modules;
+			slice<file> _ = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &Modules);
 
-			u32 MaxCount;
-			{
-				FileTimer.TypeCheck = VLibStartTimer("Type Checking");
-				ResolveSymbols(Files);
-				ForArray(Idx, FileNames)
-				{
-					file *F = &Files.Data[Idx];
-					AnalyzeFile(F);
-				}
-				MaxCount = AssignIRRegistersForModuleSymbols(Modules);
-				VLibStopTimer(&FileTimer.TypeCheck);
-			}
-
-			{
-				FileTimer.IR = VLibStartTimer("Intermediate Representation Generation");
-				ForArray(Idx, Files)
-				{
-					file *File = &Files.Data[Idx];
-					BuildIRFile(File, CommandLine.Flags, MaxCount);
-				}
-				VLibStopTimer(&FileTimer.IR);
-			}
-
-			{
-				FileTimer.TypeCheck = VLibStartTimer("Analyzing");
-				ForArray(Idx, Modules)
-				{
-					AnalyzeModuleForRedifinitions(&Modules.Data[Idx]);
-				}
-				VLibStopTimer(&FileTimer.TypeCheck);
-			}
-
-			{
-				FileTimer.LLVM = VLibStartTimer("LLVM");
-				ModuleArray = SliceFromArray(Modules);
-				FileArray = SliceFromArray(Files);
-				llvm_init_info Machine = RCGenerateMain(FileArray);
-				RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
-				VLibStopTimer(&FileTimer.LLVM);
-			}
+			FileTimer.LLVM = VLibStartTimer("LLVM");
+			llvm_init_info Machine = RCGenerateMain(FileArray);
+			RCGenerateCode(Modules, Machine, CommandLine.Flags & CommandFlag_llvm);
+			VLibStopTimer(&FileTimer.LLVM);
 
 			Timers.Push(FileTimer);
-
 
 			if(Result.ToFreeStackMemory)
 				VFree(Result.ToFreeStackMemory);

@@ -7,18 +7,65 @@ build
 // read_stdin_line :: fn(buff: *, max: i32, stream: *) -> cstring;
 // __acrt_iob_func :: fn(_Ix: u32) -> *;
 
+struct HANDLE {
+}
+
+struct FILETIME {
+    dwLowDateTime: u32,
+    dwHighDateTime: u32,
+} 
+
+struct WIN32_FIND_DATA {
+    dwFileAttributes: u32,
+    ftCreationTime: FILETIME,
+    ftLastAccessTime: FILETIME,
+    ftLastWriteTime: FILETIME,
+    nFileSizeHigh: u32,
+    nFileSizeLow: u32,
+    dwReserved0: u32,
+    dwReserved1: u32,
+    cFileName: [260]u8,
+    cAlternateFileName: [14]u8,
+    dwFileType: u32, // Obsolete. Do not use.
+    dwCreatorType: u32, // Obsolete. Do not use
+    wFinderFlags: u16, // Obsolete. Do not use
+}
+
+INVALID_HANDLE_VALUE :: @*HANDLE @u64 -1;
+
+FindFirstFileA :: fn #foreign(
+  FileName: cstring,
+  outFindFileData: *WIN32_FIND_DATA
+) -> *HANDLE;
+
+FindNextFileA :: fn #foreign(
+    hFindFile: *HANDLE,
+    lpFindFileData: *WIN32_FIND_DATA
+) -> bool;
+
+FindClose :: fn #foreign(handle: *HANDLE) -> bool;
+
+printf :: fn #foreign(fmt: cstring, str: *u8) -> i32;
+
+
 compile :: fn(out: *CompileInfo) {
 	to_fill := out;
-	
-	//for i := 0; i < 5; i += 1 {
-	//	buff := malloc(32);
-	//	memset(buff, 0, 32);
 
-	//	printf(c"Input file name:\n");
-	//	to_fill.files[i] = read_stdin_line(buff, 32, __acrt_iob_func(0));
-	//}
-	//
-	//to_fill.files[0] = c"../Test.rcp";
+	
+    find_data: WIN32_FIND_DATA;
+    handle := FindFirstFileA(c"./*", &find_data);
+    if handle == INVALID_HANDLE_VALUE {
+        to_fill.file_count = 0;
+        return;
+    }
+    
+
+    for FindNextFileA(handle, &find_data) {
+        printf(c"file: %s\n", &find_data.cFileName[0]);
+    }
+
+    FindClose(handle);
+
 	to_fill.files[0] = c"../file1.rcp";
 	to_fill.files[1] = c"../file2.rcp";
 	to_fill.file_count = 2;

@@ -136,3 +136,20 @@ bool StringsMatchNoCase(const string &a, const string &b)
 	return true;
 }
 
+bool StringStartsWith(const string &a, const string b)
+{
+	if(b.Size > a.Size)
+		return false;
+
+	return memcmp(a.Data, b.Data, b.Size) == 0;
+}
+
+bool StringEndsWith(const string &a, const string b)
+{
+	if(b.Size > a.Size)
+		return false;
+
+	int Offset = a.Size - b.Size;
+	return memcmp(a.Data + Offset, b.Data, b.Size) == 0;
+}
+

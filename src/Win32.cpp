@@ -79,8 +79,13 @@ void PlatformOutputString(string String, log_level Level)
 	//		4 = r
 	//		6 = r | g
 	//		8 = intense
-	u8 Colors[] = {13, 4, 6, FOREGROUND_GREEN | FOREGROUND_INTENSITY, 
-	FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE};
+	u8 Colors[] = {
+		13,
+		4,
+		6,
+		FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
+		FOREGROUND_GREEN | FOREGROUND_INTENSITY
+	};
 	HANDLE STDOUT;
 	if (Level > LOG_ERROR)
 		STDOUT = GetStdHandle(STD_OUTPUT_HANDLE);

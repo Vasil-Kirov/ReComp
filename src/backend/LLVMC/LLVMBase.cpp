@@ -834,7 +834,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, dynamic<module> Modules)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module> Modules)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -1131,7 +1131,7 @@ llvm_init_info RCGenerateMain(slice<file> Files)
 	return Machine;
 }
 
-void RCGenerateCode(dynamic<module> Modules, llvm_init_info Machine, b32 OutputBC)
+void RCGenerateCode(slice<module> Modules, llvm_init_info Machine, b32 OutputBC)
 {
 	ForArray(Idx, Modules)
 	{

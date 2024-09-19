@@ -2130,6 +2130,8 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 	Sym->Depth = 0;
 	Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
 	Sym->Node = Node;
+	if(!Node->Fn.Body.IsValid())
+		Sym->Flags |= SymbolFlag_Extern;
 	return Sym;
 }
 

@@ -15,6 +15,7 @@ enum SymbolFlag
 	SymbolFlag_VarFunc = BIT(5),
 	SymbolFlag_Generic = BIT(6),
 	SymbolFlag_Intrinsic = BIT(7),
+	SymbolFlag_Extern  = BIT(8),
 };
 
 struct scope

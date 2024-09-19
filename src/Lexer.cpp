@@ -448,14 +448,15 @@ void InitializeLexer()
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#import", T_IMPORT);
 	AddKeyword("#foreign",  T_FOREIGN);
+	AddKeyword("#link", T_LINK);
 	AddKeyword("#intr",  T_INTR);
+	AddKeyword("#public",  T_PUBLIC);
+	AddKeyword("#private", T_PRIVATE);
+	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
 	AddKeyword("defer",  T_DEFER);
 	AddKeyword("match",  T_MATCH);
-	AddKeyword("#public",  T_PUBLIC);
-	AddKeyword("#private", T_PRIVATE);
-	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("size_of", T_SIZEOF);
 	AddKeyword("type_of", T_TYPEOF);
 }

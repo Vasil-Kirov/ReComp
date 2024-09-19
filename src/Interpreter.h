@@ -76,7 +76,7 @@ struct interpreter
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
 interpret_result Interpret(code_chunk Chunk);
-interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
+interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\
@@ -85,35 +85,93 @@ interpreter MakeInterpreter(slice<ir_symbol> GlobalSymbols, u32 MaxRegisters, DL
 				Result.Type = I.Type; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
 				value *Right = VM->Registers.GetValue(I.Right); \
-				switch(Type->Basic.Kind) \
+				if(Type->Kind == TypeKind_Basic) \
 				{ \
-					case Basic_bool: \
-					case Basic_u8: \
-					case Basic_u16: \
-					case Basic_u32: \
-					case Basic_u64: \
-					case Basic_uint: \
+					switch(Type->Basic.Kind) \
 					{ \
-						Result.u64 = Left->u64 o Right->u64; \
-					} break; \
-					case Basic_i8: \
-					case Basic_i16: \
-					case Basic_i32: \
-					case Basic_i64: \
-					case Basic_int: \
-					{ \
-						Result.i64 = Left->i64 o Right->i64; \
-					} break; \
-					case Basic_f32: \
-					{ \
-						Result.f32 = Left->f32 o Right->f32; \
-					} break; \
-					case Basic_f64: \
-					{ \
-						Result.f64 = Left->f64 o Right->f64; \
-					} break; \
-					default: unreachable; \
+						case Basic_bool: \
+						case Basic_u8: \
+						case Basic_u16: \
+						case Basic_u32: \
+						case Basic_u64: \
+						case Basic_uint: \
+										 { \
+											 Result.u64 = Left->u64 o Right->u64; \
+										 } break; \
+						case Basic_i8: \
+						case Basic_i16: \
+						case Basic_i32: \
+						case Basic_i64: \
+						case Basic_int: \
+										{ \
+											Result.i64 = Left->i64 o Right->i64; \
+										} break; \
+						case Basic_f32: \
+										{ \
+											Result.f32 = Left->f32 o Right->f32; \
+										} break; \
+						case Basic_f64: \
+										{ \
+											Result.f64 = Left->f64 o Right->f64; \
+										} break; \
+						default: unreachable; \
+					} \
+				} \
+				else \
+				{\
+					Assert(false); \
 				} \
 				VM->Registers.AddValue(I.Result, Result); \
 			} break
+
+#define BIN_COMP_OP(OP, o) case OP_##OP: \
+			{\
+				const type *Type = GetType(I.Type); \
+				value Result = {}; \
+				Result.Type = I.Type; \
+				value *Left  = VM->Registers.GetValue(I.Left); \
+				value *Right = VM->Registers.GetValue(I.Right); \
+				if(Type->Kind == TypeKind_Basic) \
+				{ \
+					switch(Type->Basic.Kind) \
+					{ \
+						case Basic_bool: \
+						case Basic_u8: \
+						case Basic_u16: \
+						case Basic_u32: \
+						case Basic_u64: \
+						case Basic_uint: \
+										 { \
+											 Result.u64 = Left->u64 o Right->u64; \
+										 } break; \
+						case Basic_i8: \
+						case Basic_i16: \
+						case Basic_i32: \
+						case Basic_i64: \
+						case Basic_int: \
+										{ \
+											Result.i64 = Left->i64 o Right->i64; \
+										} break; \
+						case Basic_f32: \
+										{ \
+											Result.f32 = Left->f32 o Right->f32; \
+										} break; \
+						case Basic_f64: \
+										{ \
+											Result.f64 = Left->f64 o Right->f64; \
+										} break; \
+						default: unreachable; \
+					} \
+				} \
+				else if(Type->Kind == TypeKind_Pointer) \
+				{ \
+					Result.ptr = (void *)((u8 *)Left->ptr o (u8 *)Right->ptr); \
+				} \
+				else \
+				{\
+					Assert(false); \
+				} \
+				VM->Registers.AddValue(I.Result, Result); \
+			} break
+
 

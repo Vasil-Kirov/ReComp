@@ -85,6 +85,7 @@ enum struct_flags
 {
 	StructFlag_Packed = BIT(0),
 	StructFlag_Generic= BIT(1),
+	StructFlag_Union  = BIT(2),
 };
 
 struct basic_type

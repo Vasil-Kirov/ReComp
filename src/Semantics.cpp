@@ -1910,14 +1910,14 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 		const type *T = GetType(Type);
 		if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
+			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Decl.ID);
+		}
+		else if(IsGeneric(T))
+		{
 			if(New.Struct.Flags & StructFlag_Generic)
 			{
 				RaiseError(*Node->ErrorInfo, "Structs cannot have more than 1 generic type");
 			}
-			// @HACK
-			if(!(New.Struct.Name == STR_LIT("__init!Arg")))
-				New.Struct.Flags |= StructFlag_Generic;
-			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Decl.ID);
 		}
 
 		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Decl.ID;
@@ -1937,6 +1937,13 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	}
 
 	New.Struct.Members = SliceFromArray(Members);
+	if(Node->StructDecl.IsUnion)
+	{
+		if(Node->StructDecl.Members.Count == 0)
+			RaiseError(*Node->ErrorInfo, "Empty unions are not allowed");
+		New.Struct.Flags |= StructFlag_Union;
+	}
+
 	FillOpaqueStruct(OpaqueType, New);
 	Checker->CurrentScope = Checker->CurrentScope->Parent;
 }

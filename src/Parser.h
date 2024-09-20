@@ -114,6 +114,7 @@ struct node
 		struct {
 			const string *Name;
 			slice<node *> Members;
+			b32 IsUnion;
 		} StructDecl;
 		struct {
 			node *Operand;

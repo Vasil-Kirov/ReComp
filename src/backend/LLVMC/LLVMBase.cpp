@@ -362,7 +362,16 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(Type->Kind == TypeKind_Struct)
 			{
-				Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
+				if(Type->Struct.Flags & StructFlag_Union)
+				{
+					u32 ToPointer = GetPointerTo(Type->Struct.Members[I.Right].Type);
+					LLVMTypeRef ResType = ConvertToLLVMType(gen->ctx, ToPointer);
+					Val = LLVMBuildBitCast(gen->bld, Operand, ResType, "");
+				}
+				else
+				{
+					Val = LLVMBuildStructGEP2(gen->bld, LLVMType, Operand, I.Right, "");
+				}
 			}
 			else if(Type->Kind == TypeKind_Slice)
 			{

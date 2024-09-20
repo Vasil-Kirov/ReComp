@@ -6,7 +6,148 @@ struct Arg {
     val: *,
 }
 
+enum TypeKind {
+	Invalid ,
+
+	Basic   ,
+	Function,
+	Struct  ,
+	Pointer ,
+	Array   ,
+	Slice   ,
+	Vector  ,
+	Enum    ,
+	Generic ,
+}
+
+enum BasicKind {
+	Bool,
+	String,
+	Cstring,
+
+	U8,
+	U16,
+	U32,
+	U64,
+
+	I8,
+	I16,
+	I32,
+	I64,
+
+	F32,
+	F64,
+
+	untypedInteger,
+	untypedFloat,
+
+	Int,
+	Uint,
+
+	Type,
+	Auto,
+	Module,
+}
+
+enum BasicFlag {
+	Boolean = 0b1,
+	Integer = 0b10,
+	Float   = 0b100,
+	String  = 0b1000,
+	CString = 0b10000,
+	Untyped = 0b100000,
+	Unsigned= 0b1000000,
+	TypeID  = 0b10000000,
+
+	//BasicFlag_Numeric = BasicFlag_Integer | BasicFlag_Float,
+}
+
+struct BasicType {
+    kind: BasicKind,
+    flags: u32,
+    Size: u32,
+    Name: string,
+}
+
+enum StructFlag {
+	Packed  = 0b1,
+	Generic = 0b10,
+}
+
+struct StructMember {
+    name: string,
+    t: type,
+}
+
+struct StructType {
+    members: []StructMember,
+    name: string,
+    flags: u32,
+}
+
+struct FunctionType {
+    return_: type,
+    args_t: []type,
+}
+
+struct PointerType {
+    pointee: type,
+    is_optional: bool,
+}
+
+struct ArrayType {
+    t: type,
+    member_count: u32,
+}
+
+struct SliceType {
+    t: type,
+}
+
+struct EnumMember {
+    name: string,
+}
+
+struct EnumType {
+    name: string,
+    members: []EnumMember,
+    t: type,
+}
+
+enum VectorKind {
+    Float,
+    Int,
+}
+
+struct VectorType {
+    kind: VectorKind,
+    elem_count: u32,
+}
+
+struct GenericType {
+    name: string,
+}
+
+union TypeUnion {
+    basic: BasicKind,
+    struct_: StructType,
+    function: FunctionType,
+    pointer: PointerType,
+    array: ArrayType,
+    slice: SliceType,
+    enum_: EnumType,
+    vector: VectorType,
+    generic: GenericType,
+}
+
+struct TypeInfo {
+    kind: TypeKind,
+    t: TypeUnion,
+}
+
 #import main as mn
+
+type_info :: fn #intr (T: type) -> TypeInfo;
 
 global_initializers :: fn();
 

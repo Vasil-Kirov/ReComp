@@ -9,6 +9,11 @@ main
 // }
 
 
+union ints {
+    u32_: i32,
+    u64_: i64,
+}
+
 //puts :: fn #foreign(str: cstring);
 mem_alloc :: fn #link="malloc"(size: int) -> ?*;
 free :: fn #foreign(ptr: *);
@@ -26,39 +31,42 @@ get_other_num :: fn(m: $T) -> T {
 }
 
 main :: fn() -> i32 {
-    get_other_num(10);
-    get_other_num(10);
-    alloc := m.Allocator {
-        alloc = allocator_alloc,
-        free = allocator_free,
-    };
-    arr := array.create(i32, &alloc);
-    array.add(&arr, 1);
-    array.add(&arr, 2);
-    array.add(&arr, 3);
-    array.add(&arr, 5);
-    array.add(&arr, 6);
-    array.add(&arr, 7);
-    array.add(&arr, 8);
-    array.add(&arr, 9);
-    array.add(&arr, 10);
-    array.add(&arr, 11);
-    array.add(&arr, 12);
-    array.add(&arr, 13);
-    array.add(&arr, 14);
-    array.add(&arr, 15);
-    array.add(&arr, 16);
-    array.add(&arr, 17);
-    array.add(&arr, 18);
-    array.add(&arr, 19);
-    array.add(&arr, 20);
+    f := ints{};
+    f.u64_ = 10;
+    // get_other_num(10);
+    // get_other_num(10);
+    // alloc := m.Allocator {
+    //     alloc = allocator_alloc,
+    //     free = allocator_free,
+    // };
+    // arr := array.create(i32, &alloc);
+    // array.add(&arr, 1);
+    // array.add(&arr, 2);
+    // array.add(&arr, 3);
+    // array.add(&arr, 5);
+    // array.add(&arr, 6);
+    // array.add(&arr, 7);
+    // array.add(&arr, 8);
+    // array.add(&arr, 9);
+    // array.add(&arr, 10);
+    // array.add(&arr, 11);
+    // array.add(&arr, 12);
+    // array.add(&arr, 13);
+    // array.add(&arr, 14);
+    // array.add(&arr, 15);
+    // array.add(&arr, 16);
+    // array.add(&arr, 17);
+    // array.add(&arr, 18);
+    // array.add(&arr, 19);
+    // array.add(&arr, 20);
 
-    sum: i32 = 0;
-    for i in arr.count {
-        sum += arr[i];
-    }
+    // sum: i32 = 0;
+    // for i in arr.count {
+    //     sum += arr[i];
+    // }
 
-	return @i32(sum - arr.count);
+	// return @i32(sum - arr.count);
+    return f.u32_;
 }
 
 // do_foo :: fn(s: []$T) {

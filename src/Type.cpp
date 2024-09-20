@@ -203,6 +203,7 @@ int GetStructSize(const type *Type)
 		return 0;
 
 	int Result = 0;
+	int BiggestMember = 0;
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
@@ -211,7 +212,11 @@ int GetStructSize(const type *Type)
 		if(Alignment != 0)
 			Result += Result % Alignment;
 		Result += MemberSize;
+		if(MemberSize > BiggestMember)
+			BiggestMember = MemberSize;
 	}
+	if(Type->Struct.Flags & StructFlag_Union)
+		return BiggestMember;
 	auto sa = GetTypeAlignment(Type);
 	Result += GetPaddingForAlignment(Result, sa);
 	return Result;
@@ -314,6 +319,10 @@ int GetTypeAlignment(const type *Type)
 		case TypeKind_Struct:
 		{
 			return GetStructAlignment(Type);
+		} break;
+		case TypeKind_Enum:
+		{
+			return GetTypeAlignment(Type->Enum.Type);
 		} break;
 		default: {};
 	}

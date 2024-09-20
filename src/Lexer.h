@@ -78,6 +78,7 @@ enum token_type
 	T_INTR   = -60,
 	T_DEFER  = -61,
 	T_LINK   = -62,
+	T_UNION  = -63,
 };
 
 struct token

@@ -477,14 +477,34 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 	LLVMTypeRef Opaque = LLVMFindMapType(TypeID);
 	Assert(Opaque);
 
-	auto MemberCount = Type->Struct.Members.Count;
-	LLVMTypeRef *MemberTypes = (LLVMTypeRef *)VAlloc(MemberCount * sizeof(LLVMTypeRef));
-	for (size_t Idx = 0; Idx < MemberCount; ++Idx) {
-		u32 MemberType = Type->Struct.Members[Idx].Type;
-		MemberTypes[Idx] = ConvertToLLVMType(Context, MemberType);
+	if(Type->Struct.Flags & StructFlag_Union)
+	{
+		u32 BiggestMemberTypeID = Type->Struct.Members[0].Type;
+		u32 BiggetMember = GetTypeSize(BiggestMemberTypeID);
+		auto MemberCount = Type->Struct.Members.Count;
+		for (size_t Idx = 1; Idx < MemberCount; ++Idx) {
+			u32 MemberType = Type->Struct.Members[Idx].Type;
+			u32 Size = GetTypeSize(MemberType);
+			if(Size > BiggetMember)
+			{
+				BiggetMember = Size;
+				BiggestMemberTypeID = MemberType;
+			}
+		}
+		LLVMTypeRef BiggestType = ConvertToLLVMType(Context, BiggestMemberTypeID);
+		LLVMStructSetBody(Opaque, &BiggestType, 1, Type->Struct.Flags & StructFlag_Packed);
 	}
-	LLVMStructSetBody(Opaque, MemberTypes, MemberCount, Type->Struct.Flags & StructFlag_Packed);
-	VFree(MemberTypes);
+	else
+	{
+		auto MemberCount = Type->Struct.Members.Count;
+		LLVMTypeRef *MemberTypes = (LLVMTypeRef *)VAlloc(MemberCount * sizeof(LLVMTypeRef));
+		for (size_t Idx = 0; Idx < MemberCount; ++Idx) {
+			u32 MemberType = Type->Struct.Members[Idx].Type;
+			MemberTypes[Idx] = ConvertToLLVMType(Context, MemberType);
+		}
+		LLVMStructSetBody(Opaque, MemberTypes, MemberCount, Type->Struct.Flags & StructFlag_Packed);
+		VFree(MemberTypes);
+	}
 	return Opaque;
 }
 

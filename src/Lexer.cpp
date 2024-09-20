@@ -413,7 +413,6 @@ void AddKeyword(const char *TokenName, token_type Type)
 void InitializeLexer()
 {
 	KeywordTable = ArrCreate(keyword);
-	AddKeyword("enum",  T_ENUM);
 	AddKeyword("break", T_BREAK);
 	AddKeyword("if",  T_IF);
 	AddKeyword("else",T_ELSE);
@@ -455,6 +454,8 @@ void InitializeLexer()
 	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
+	AddKeyword("enum",   T_ENUM);
+	AddKeyword("union",  T_UNION);
 	AddKeyword("defer",  T_DEFER);
 	AddKeyword("match",  T_MATCH);
 	AddKeyword("size_of", T_SIZEOF);

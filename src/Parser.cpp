@@ -123,11 +123,12 @@ node *MakeEnum(const error_info *ErrorInfo, const string *Name, slice<node *> It
 	return Result;
 }
 
-node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members)
+node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members, b32 IsUnion)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_STRUCTDECL);
 	Result->StructDecl.Name = Name;
 	Result->StructDecl.Members = Members;
+	Result->StructDecl.IsUnion = IsUnion;
 
 	return Result;
 }
@@ -1265,6 +1266,7 @@ string StructToModuleName(string &StructName, string &ModuleName)
 node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
+	b32 IsStructUnion = false;
 	switch(Parser->Current->Type)
 	{
 		case T_PUBLIC:
@@ -1368,6 +1370,8 @@ node *ParseTopLevel(parser *Parser)
 
 			Result = MakeEnum(ErrorInfo, Name, Items, TypeNode);
 		} break;
+		case T_UNION:
+		IsStructUnion = true;
 		case T_STRUCT:
 		{
 			ERROR_INFO;
@@ -1375,7 +1379,7 @@ node *ParseTopLevel(parser *Parser)
 			token NameT = GetToken(Parser);
 			if(NameT.Type != T_ID)
 			{
-				RaiseError(*ErrorInfo, "Expected struct name after `struct` keyword");
+				RaiseError(*ErrorInfo, "Expected struct name after `%s` keyword", IsStructUnion ? "union" : "struct");
 			}
 			EatToken(Parser, T_STARTSCOPE);
 
@@ -1385,12 +1389,12 @@ node *ParseTopLevel(parser *Parser)
 				return ParseDeclaration(P, false);
 			};
 			auto Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
-			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn));
+			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn), IsStructUnion);
 			EatToken(Parser, T_ENDSCOPE);
 			if(Parser->Current->Type == T_SEMICOL)
 			{
 				RaiseError(Parser->Current->ErrorInfo,
-						"In this language you do not put semicolons after struct declarations");
+						"In this language you do not put semicolons after %s declarations", IsStructUnion ? "union" : "struct");
 			}
 		} break;
 		case T_CLOSEPAREN:
@@ -1612,6 +1616,7 @@ node *CopyASTNode(node *N)
 		{
 			R->StructDecl.Name = N->StructDecl.Name;
 			R->StructDecl.Members = CopyNodeSlice(N->StructDecl.Members);
+			R->StructDecl.IsUnion = N->StructDecl.IsUnion;
 		} break;
 
 		case AST_ENUM:

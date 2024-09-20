@@ -6,7 +6,7 @@ struct Allocator {
     data: *,
 }
 
-__raw_slice :: fn #intr (T: type, data: *T, size: int) -> []T;
+//__raw_slice :: fn #intr (T: type, data: *T, size: int) -> []T;
 
 make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
     res := []T{};

@@ -669,18 +669,6 @@ void RCGenerateFunction(generator *gen, function fn)
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	gen->BlockCount = fn.Blocks.Count;
 	//gen->FnType = fn.Type;
-	if(fn.Type == INVALID_TYPE || fn.NoDebugInfo)
-	{
-		gen->IsCurrentFnRetInPtr = false;
-		gen->CurrentScope = NULL;
-		gen->CurrentLocation = NULL;
-	}
-	else
-	{
-		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(fn.Type)->Function.Return);
-		gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
-		LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
-	}
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -690,6 +678,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	gen->CurrentBlock = -1;
 	RCSetBlock(gen, 0);
 	//LDEBUG("Fn: %s", fn.Name->Data);
+	LLVMSetCurrentDebugLocation2(gen->bld, NULL);
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -704,12 +693,6 @@ void RCGenerateFunction(generator *gen, function fn)
 					LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
 
 					gen->map.Add(I.Result, Val);
-				} break;
-				case OP_DEBUGINFO:
-				{
-					ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
-					if(Info->type == IR_DBG_LOCATION)
-						RCGenerateDebugInfo(gen, Info);
 				} break;
 				case OP_LOAD:
 				{
@@ -738,16 +721,24 @@ void RCGenerateFunction(generator *gen, function fn)
 
 				LLVMBuildMemSet(gen->bld, Ptr, Zero, LLVMSize, Alignment);
 			}
-			else if(I.Op == OP_DEBUGINFO)
-			{
-				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
-				if(Info->type == IR_DBG_LOCATION)
-					RCGenerateDebugInfo(gen, Info);
-			}
 		}
 
 		
 	}
+
+	if(fn.Type == INVALID_TYPE || fn.NoDebugInfo)
+	{
+		gen->IsCurrentFnRetInPtr = false;
+		gen->CurrentScope = NULL;
+		gen->CurrentLocation = NULL;
+	}
+	else
+	{
+		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(fn.Type)->Function.Return);
+		gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
+		LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+	}
+
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];

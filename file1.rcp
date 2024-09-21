@@ -14,60 +14,32 @@ union ints {
     u64_: i64,
 }
 
-//puts :: fn #foreign(str: cstring);
-mem_alloc :: fn #link="malloc"(size: int) -> ?*;
-free :: fn #foreign(ptr: *);
-
-allocator_alloc :: fn(size: int, this: *m.Allocator) -> ?* {
-    return mem_alloc(size);
-}
-
-allocator_free :: fn(ptr: *, this: *m.Allocator) {
-    free(ptr);
-}
-
-get_other_num :: fn(m: $T) -> T {
-    return m + 3;
+enum my_E {
+    x,
+    y,
+    z,
 }
 
 main :: fn() -> i32 {
+    e := my_E.x;
+    enum_type_info := #info type_of e;
+    names := enum_type_info.t.enum_.member_names;
+    for i in names.count {
+        printf(c"member: %s\n", @cstring names[i]);
+    }
+
     f := ints{};
     f.u64_ = 10;
-    // get_other_num(10);
-    // get_other_num(10);
-    // alloc := m.Allocator {
-    //     alloc = allocator_alloc,
-    //     free = allocator_free,
-    // };
-    // arr := array.create(i32, &alloc);
-    // array.add(&arr, 1);
-    // array.add(&arr, 2);
-    // array.add(&arr, 3);
-    // array.add(&arr, 5);
-    // array.add(&arr, 6);
-    // array.add(&arr, 7);
-    // array.add(&arr, 8);
-    // array.add(&arr, 9);
-    // array.add(&arr, 10);
-    // array.add(&arr, 11);
-    // array.add(&arr, 12);
-    // array.add(&arr, 13);
-    // array.add(&arr, 14);
-    // array.add(&arr, 15);
-    // array.add(&arr, 16);
-    // array.add(&arr, 17);
-    // array.add(&arr, 18);
-    // array.add(&arr, 19);
-    // array.add(&arr, 20);
+    type_info_s := #info type_of f;
+    members := type_info_s.t.struct_.members;
+    for i in members.count {
+        printf(c"member: %s\n", @cstring members[i].name);
+    }
 
-    // sum: i32 = 0;
-    // for i in arr.count {
-    //     sum += arr[i];
-    // }
-
-	// return @i32(sum - arr.count);
-    return f.u32_;
+    return 0;
 }
+
+printf :: fn #foreign(fmt: cstring, arg: cstring) -> int;
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

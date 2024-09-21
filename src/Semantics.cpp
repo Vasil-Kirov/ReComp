@@ -609,6 +609,18 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_TYPEINFO:
+		{
+			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->TypeInfoLookup.Expression);
+			const type *ExprType = GetType(ExprTypeIdx);
+			if(!HasBasicFlag(ExprType, BasicFlag_TypeID))
+			{
+				RaiseError(*Expr->ErrorInfo, "#info expected an expression with a type of `type`, got: %s",
+						GetTypeName(ExprType));
+			}
+			Expr->TypeInfoLookup.Type = ExprTypeIdx;
+			Result = FindStruct(STR_LIT("__init!TypeInfo"));
+		} break;
 		case AST_MATCH:
 		{
 			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Match.Expression);
@@ -1149,13 +1161,7 @@ ANALYZE_SLICE_SELECTOR:
 		case AST_INDEX:
 		{
 			u32 OperandTypeIdx = AnalyzeExpression(Checker, Expr->Index.Operand);
-			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Index.Expression);
-			const type *ExprType = GetType(ExprTypeIdx);
 			const type *OperandType = GetType(OperandTypeIdx);
-			if(ExprType->Kind != TypeKind_Basic || (ExprType->Basic.Flags & BasicFlag_Integer) == 0)
-			{
-				RaiseError(*Expr->ErrorInfo, "Indexing expression needs to be of an integer type");
-			}
 
 			switch(OperandType->Kind)
 			{
@@ -1195,7 +1201,14 @@ ANALYZE_SLICE_SELECTOR:
 					RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
 				} break;
 			}
+			FillUntypedStack(Checker, Result);
 
+			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Index.Expression);
+			const type *ExprType = GetType(ExprTypeIdx);
+			if(ExprType->Kind != TypeKind_Basic || (ExprType->Basic.Flags & BasicFlag_Integer) == 0)
+			{
+				RaiseError(*Expr->ErrorInfo, "Indexing expression needs to be of an integer type");
+			}
 			if(IsUntyped(ExprType))
 			{
 				FillUntypedStack(Checker, Basic_uint);
@@ -2193,11 +2206,12 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
+			string Name = *Node->Decl.ID;
 			u32 Type = AnalyzeDeclerations(Checker, Node);
 			symbol *Sym = NewType(symbol);
 			Sym->Checker = Checker;
 			Sym->Name = Node->Decl.ID;
-			Sym->LinkName = Node->Decl.ID;
+			Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
 			Sym->Type = Type;
 			Sym->Hash = murmur3_32(Node->Decl.ID->Data, Node->Decl.ID->Size, 
 					HASH_SEED);

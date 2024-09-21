@@ -40,6 +40,7 @@ enum op
 	OP_ARRAYLIST,
 	OP_MEMSET,
 	OP_COUNT,
+	OP_ALLOCGLOBAL,
 	OP_DEBUGINFO,
 	OP_SWITCHINT,
 };
@@ -145,6 +146,7 @@ struct function
 	u32 LocalCount;
 	u32 LastRegister;
 	u32 Type;
+	b32 NoDebugInfo;
 };
 
 struct defer_scope

@@ -1,4 +1,5 @@
 #include "IR.h"
+#include "ConstVal.h"
 #include "Semantics.h"
 #include "Dynamic.h"
 #include "Memory.h"
@@ -153,9 +154,9 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 			Instruction(OP_INDEX, Alloc, 1, SliceTypeIdx, Builder));
 
 	PushInstruction(Builder,
-			InstructionStore(DataIdx, Ptr, GetPointerTo(SliceType->Slice.Type)));
-	PushInstruction(Builder,
 			InstructionStore(CountIdx, Size, Basic_int));
+	PushInstruction(Builder,
+			InstructionStore(DataIdx, Ptr, GetPointerTo(SliceType->Slice.Type)));
 
 	return Alloc;
 }
@@ -414,8 +415,23 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					ShouldLoad = false;
 			}
 			
-			if(ShouldLoad)
+			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
+		} break;
+		case AST_TYPEINFO:
+		{
+			string TableID = STR_LIT("__init!type_table");
+			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
+			const ir_symbol *s = GetIRLocal(Builder->Function, &TableID);
+			u32 DataPtr = PushInstruction(Builder, 
+					Instruction(OP_INDEX, s->Register, 1, s->Type, Builder));
+			const type *SliceType = GetType(s->Type);
+			u32 PointerType = GetPointerTo(SliceType->Slice.Type);
+			u32 Data = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, DataPtr, PointerType, Builder));
+			Result = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Data, Idx, PointerType, Builder));
+
 		} break;
 		case AST_MATCH:
 		{
@@ -1400,34 +1416,31 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 	Builder->CurrentBlock = Then;
 }
 
-void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module *Module, u32 BuilderStartRegister)
+void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module *ThisModule, u32 BuilderStartRegister)
 {
-	ForArray(GIdx, Module->Globals)
+	ForArray(MIdx, CurrentModules)
 	{
-		symbol *s = Module->Globals[GIdx];
-		LDEBUG("%s %d", s->Name->Data, s->IRRegister);
-		PushIRLocal(Fn, s->Name, s->IRRegister,
-				s->Type, s->Flags);
-	}
-
-	ForArray(FIdx, Module->Files)
-	{
-		// pushing unreachable symbols cuz it makes it simpler for generating code in the backend
-		file *File = Module->Files[FIdx];
-		ForArray(Idx, File->Imported)
+		module M = CurrentModules[MIdx];
+		ForArray(GIdx, M.Globals)
 		{
-			auto m = File->Imported[Idx];
-			ForArray(GIdx, m.M->Globals)
+			symbol *s = M.Globals[GIdx];
+			if(s->Checker->Module->Name == ThisModule->Name)
 			{
-				symbol *s = m.M->Globals[GIdx];
+				LDEBUG("%s %d", s->Name->Data, s->IRRegister);
+				PushIRLocal(Fn, s->Name, s->IRRegister,
+						s->Type, s->Flags);
+			}
+			else
+			{
 				string sName = *s->Name;
 
-				string *Mangled = StructToModuleNamePtr(sName, m.M->Name);
+				string *Mangled = StructToModuleNamePtr(sName, M.Name);
 				PushIRLocal(Fn, Mangled, s->IRRegister,
 						s->Type, s->Flags);
 			}
 		}
 	}
+
 	Builder->LastRegister = BuilderStartRegister;
 }
 
@@ -1523,6 +1536,277 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	return Function;
 }
 
+void WriteString(block_builder *Builder, u32 Ptr, string S)
+{
+	const_value *Val = NewType(const_value);
+	*Val = MakeConstString(DupeType(S, string));
+	u32 Const = PushInstruction(Builder, 
+			Instruction(OP_CONST, (u64)Val, Basic_string, Builder));
+
+	PushInstruction(Builder, 
+			InstructionStore(Ptr, Const, Basic_string));
+}
+
+void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 TypeCount)
+{
+	u32 TypeInfoType = FindStruct(STR_LIT("__init!TypeInfo"));
+	u32 TypeKindType = FindEnum(STR_LIT("__init!TypeKind"));
+	//u32 TypeUnionType = FindStruct(STR_LIT("__init!TypeUnion"));
+	u32 BasicTypeType = FindStruct(STR_LIT("__init!BasicType"));
+	u32 StructTypeType   = FindStruct(STR_LIT("__init!StructType"));
+	u32 FunctionTypeType = FindStruct(STR_LIT("__init!FunctionType"));
+	u32 PointerTypeType  = FindStruct(STR_LIT("__init!PointerType"));
+	u32 ArrayTypeType    = FindStruct(STR_LIT("__init!ArrayType"));
+	u32 SliceTypeType    = FindStruct(STR_LIT("__init!SliceType"));
+	u32 EnumTypeType     = FindStruct(STR_LIT("__init!EnumType"));
+	u32 VectorTypeType   = FindStruct(STR_LIT("__init!VectorType"));
+	u32 GenericTypeType  = FindStruct(STR_LIT("__init!GenericType"));
+
+	u32 BasicKindType = FindEnum(STR_LIT("__init!BasicKind"));
+	u32 StructMemberType = FindStruct(STR_LIT("__init!StructMember"));
+	u32 VectorKindType = FindEnum(STR_LIT("__init!VectorKind"));
+	u32 SliceMemberType = GetSliceType(StructMemberType);
+	u32 PointerMemberType = GetPointerTo(StructMemberType);
+	u32 TypeSlice   = GetSliceType(Basic_type);
+	u32 TypePointer = GetPointerTo(Basic_type);
+	u32 StringPointer = GetPointerTo(Basic_string);
+	u32 StringSlice = GetSliceType(Basic_string);
+
+	for(int i = 0; i < TypeCount; ++i)
+	{
+		const type *T = GetType(i);
+
+		u32 MemberPtr = PushInstruction(Builder, 
+				Instruction(OP_INDEX, TablePtr, PushInt(i, Builder), TableType, Builder)
+				);
+
+		u32 KindPtr = PushInstruction(Builder, 
+				Instruction(OP_INDEX, MemberPtr, 0, TypeInfoType, Builder)
+				);
+		PushInstruction(Builder, 
+				InstructionStore(KindPtr, PushInt(T->Kind, Builder, TypeKindType), TypeKindType)
+				);
+
+		u32 tPtr = PushInstruction(Builder, 
+				Instruction(OP_INDEX, MemberPtr, 1, TypeInfoType, Builder)
+				);
+		switch(T->Kind)
+		{
+			case TypeKind_Invalid:{} break;
+			case TypeKind_Basic:
+			{
+				u32 kindPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, BasicTypeType, Builder)
+						);
+				u32 flagsPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, BasicTypeType, Builder)
+						);
+				u32 sizePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 2, BasicTypeType, Builder)
+						);
+				u32 namePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 3, BasicTypeType, Builder)
+						);
+
+				PushInstruction(Builder, 
+						InstructionStore(kindPtr, PushInt(T->Basic.Kind, Builder, BasicKindType), BasicKindType)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(flagsPtr, PushInt(T->Basic.Flags, Builder, Basic_u32), Basic_u32)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(sizePtr, PushInt(T->Basic.Size, Builder, Basic_u32), Basic_u32)
+						);
+
+				WriteString(Builder, namePtr, T->Basic.Name);
+			} break;
+			case TypeKind_Struct:
+			{
+				u32 membersPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, StructTypeType, Builder)
+						);
+				u32 namePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, StructTypeType, Builder)
+						);
+				u32 flagsPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 2, StructTypeType, Builder)
+						);
+
+				
+				u32 SliceSize = PushInstruction(Builder, 
+						Instruction(OP_INDEX, membersPtr, 0, SliceMemberType, Builder)
+						);
+				u32 SliceData = PushInstruction(Builder, 
+						Instruction(OP_INDEX, membersPtr, 1, SliceMemberType, Builder)
+						);
+
+				u32 Alloc = PushInstruction(Builder, 
+						Instruction(OP_ALLOCGLOBAL, T->Struct.Members.Count, StructMemberType, Builder));
+				ForArray(Idx, T->Struct.Members)
+				{
+					u32 MemberPtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), PointerMemberType, Builder)
+							);
+
+					u32 namePtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, MemberPtr, 0, StructMemberType, Builder)
+							);
+					u32 _tPtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, MemberPtr, 1, StructMemberType, Builder)
+							);
+
+					WriteString(Builder, namePtr, T->Struct.Members[Idx].ID);
+					PushInstruction(Builder, 
+							InstructionStore(_tPtr, PushInt(T->Struct.Members[Idx].Type, Builder, Basic_type), Basic_type)
+							);
+				}
+				PushInstruction(Builder, 
+						InstructionStore(SliceSize, PushInt(T->Struct.Members.Count, Builder, Basic_int), Basic_int)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(SliceData, Alloc, PointerMemberType)
+						);
+
+				WriteString(Builder, namePtr, T->Struct.Name);
+				PushInstruction(Builder, 
+						InstructionStore(flagsPtr, PushInt(T->Struct.Flags, Builder, Basic_u32), Basic_u32)
+						);
+			} break;
+			case TypeKind_Function:
+			{
+				u32 return_Ptr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, FunctionTypeType, Builder)
+						);
+				u32 args_tPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, FunctionTypeType, Builder)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(return_Ptr, PushInt(T->Function.Return, Builder, Basic_type), Basic_type)
+						);
+
+				u32 SliceSize = PushInstruction(Builder, 
+						Instruction(OP_INDEX, args_tPtr, 0, TypeSlice, Builder)
+						);
+				u32 SliceData = PushInstruction(Builder, 
+						Instruction(OP_INDEX, args_tPtr, 1, TypeSlice, Builder)
+						);
+				u32 Alloc = PushInstruction(Builder, 
+						Instruction(OP_ALLOCGLOBAL, T->Function.ArgCount, Basic_type, Builder));
+				for(int Idx = 0; Idx < T->Function.ArgCount; ++Idx)
+				{
+					u32 MemberPtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), TypePointer, Builder)
+							);
+
+					PushInstruction(Builder, 
+							InstructionStore(MemberPtr, PushInt(T->Function.Args[Idx], Builder, Basic_type), Basic_type)
+							);
+				}
+				PushInstruction(Builder, 
+						InstructionStore(SliceSize, PushInt(T->Function.ArgCount, Builder, Basic_int), Basic_int)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(SliceData, Alloc, TypePointer)
+						);
+			} break;
+			case TypeKind_Pointer:
+			{
+				u32 pointeePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, PointerTypeType, Builder)
+						);
+				u32 is_optionalPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, PointerTypeType, Builder)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(pointeePtr, PushInt(T->Pointer.Pointed, Builder, Basic_type), Basic_type)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(is_optionalPtr,
+							PushInt((T->Pointer.Flags & PointerFlag_Optional) != 0, Builder, Basic_bool),
+							Basic_bool)
+						);
+			} break;
+			case TypeKind_Array:
+			{
+				u32 _tPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, ArrayTypeType, Builder)
+						);
+				u32 member_countPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, ArrayTypeType, Builder)
+						);
+
+				PushInstruction(Builder, 
+						InstructionStore(_tPtr, PushInt(T->Array.Type, Builder, Basic_type), Basic_type)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(member_countPtr, PushInt(T->Array.MemberCount, Builder, Basic_u32), Basic_u32)
+						);
+			} break;
+			case TypeKind_Slice:
+			{
+				u32 _tPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, SliceTypeType, Builder)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(_tPtr, PushInt(T->Slice.Type, Builder, Basic_type), Basic_type)
+						);
+
+			} break;
+			case TypeKind_Enum:
+			{
+				u32 namePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, EnumTypeType, Builder)
+						);
+				u32 membersPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 1, EnumTypeType, Builder)
+						);
+				u32 _tPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 2, EnumTypeType, Builder)
+						);
+
+				WriteString(Builder, namePtr, T->Enum.Name);
+				PushInstruction(Builder, 
+						InstructionStore(_tPtr, PushInt(T->Enum.Type, Builder, Basic_type), Basic_type)
+						);
+
+				u32 Alloc = PushInstruction(Builder, 
+						Instruction(OP_ALLOCGLOBAL, T->Enum.Members.Count, Basic_string, Builder));
+				ForArray(Idx, T->Enum.Members)
+				{
+					u32 MemberPtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), StringPointer, Builder)
+							);
+
+					WriteString(Builder, MemberPtr, T->Enum.Members[Idx].Name);
+				}
+				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), StringSlice, NULL, membersPtr);
+			} break;
+			case TypeKind_Vector:
+			{
+				u32 kindPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, VectorTypeType, Builder)
+						);
+				u32 elem_countPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, VectorTypeType, Builder)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(kindPtr, PushInt(T->Vector.Kind, Builder, VectorKindType), VectorKindType)
+						);
+				PushInstruction(Builder, 
+						InstructionStore(elem_countPtr, PushInt(T->Vector.ElementCount, Builder, Basic_u32), Basic_u32)
+						);
+			} break;
+			case TypeKind_Generic:
+			{
+				u32 namePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, tPtr, 0, GenericTypeType, Builder)
+						);
+				WriteString(Builder, namePtr, T->Generic.Name);
+			} break;
+		}
+	}
+}
+
 function GlobalLevelIR(node *Node, slice<import> Imported, module *Module, u32 IRStartRegister)
 {
 	function Result = {};
@@ -1567,6 +1851,16 @@ ir BuildIR(file *File, u32 StartRegister)
 		GlobalInitializers.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
 		GlobalInitializers.LocalCount = 0;
 		GlobalInitializers.LinkName = StructToModuleNamePtr(GlobalFnName, File->Module->Name);
+		GlobalInitializers.NoDebugInfo = true;
+
+		{
+			type *NT = AllocType(TypeKind_Function);
+			NT->Function.Args = NULL;
+			NT->Function.ArgCount = 0;
+			NT->Function.Return = INVALID_TYPE;
+			NT->Function.Flags = 0;
+			GlobalInitializers.Type = AddType(NT);
+		}
 
 		block_builder Builder = {};
 		Builder.Function = &GlobalInitializers;
@@ -1578,10 +1872,27 @@ ir BuildIR(file *File, u32 StartRegister)
 			node *Node = File->Nodes[I];
 			if(Node->Type == AST_DECL)
 			{
-				u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
-				const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
-				Assert(Sym);
-				PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+				if(Node->Decl.Expression)
+				{
+					u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
+					const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
+					Assert(Sym);
+					PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+				}
+				else if(*Node->Decl.ID == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
+				{
+					uint TypeCount = GetTypeCount();
+					const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
+					Assert(Sym);
+					u32 TypeInfoType = FindStruct(STR_LIT("__init!TypeInfo"));
+					u32 Pointer = GetPointerTo(TypeInfoType);
+					u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
+					u32 Data = PushInstruction(&Builder, 
+							Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
+					u32 Size = PushInt(TypeCount, &Builder);
+					BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
+					BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
+				}
 			}
 		}
 		PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
@@ -1711,6 +2022,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
 			} break;
+			case OP_ALLOCGLOBAL:
+			{
+				PushBuilderFormated(Builder, "%%%d = GLOBALALLOC %d %s", Instr.Result, Instr.BigRegister, GetTypeName(Type));
+			} break;
 			case OP_RET:
 			{
 				if(Instr.Left != -1)
@@ -1750,7 +2065,8 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			} break;
 			case OP_INDEX:
 			{
-				PushBuilderFormated(Builder, "%%%d = %%%d[%%%d]", Instr.Result, Instr.Left, Instr.Right);
+				PushBuilderFormated(Builder, "%%%d = %%%d[%%%d] %s", Instr.Result, Instr.Left, Instr.Right,
+						GetTypeName(Instr.Type));
 			} break;
 			case OP_ARRAYLIST:
 			{

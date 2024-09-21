@@ -65,8 +65,8 @@ enum BasicFlag {
 struct BasicType {
     kind: BasicKind,
     flags: u32,
-    Size: u32,
-    Name: string,
+    size: u32,
+    name: string,
 }
 
 enum StructFlag {
@@ -104,13 +104,9 @@ struct SliceType {
     t: type,
 }
 
-struct EnumMember {
-    name: string,
-}
-
 struct EnumType {
     name: string,
-    members: []EnumMember,
+    member_names: []string,
     t: type,
 }
 
@@ -129,7 +125,7 @@ struct GenericType {
 }
 
 union TypeUnion {
-    basic: BasicKind,
+    basic: BasicType,
     struct_: StructType,
     function: FunctionType,
     pointer: PointerType,
@@ -150,6 +146,8 @@ struct TypeInfo {
 type_info :: fn #intr (T: type) -> TypeInfo;
 
 global_initializers :: fn();
+
+type_table: []TypeInfo;
 
 entry :: fn #link="main"() -> i32 {
     global_initializers();

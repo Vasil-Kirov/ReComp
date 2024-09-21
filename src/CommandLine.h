@@ -15,7 +15,9 @@ struct command_line
 	string BuildFile;
 	slice<string> ImportDLLs;
 	slice<string> LinkArgs;
+	slice<string> IRModules;
 	uint Flags;
 };
 
+bool ShouldOutputIR(string MName, command_line CommandLine);
 

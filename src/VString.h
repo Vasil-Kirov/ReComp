@@ -1,4 +1,5 @@
 #pragma once
+#include "Dynamic.h"
 #include <string.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -29,7 +30,7 @@ struct string
 
 struct string_builder
 {
-	char *Data;
+	dynamic<char> Data;
 	size_t Size;
 	void operator+=(const string& B);
 	void operator+=(const char *String);

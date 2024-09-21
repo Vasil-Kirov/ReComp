@@ -104,6 +104,19 @@ u32 FindStruct(string Name)
 	unreachable;
 }
 
+u32 FindEnum(string Name)
+{
+	for(int i = 0; i < TypeCount; ++i)
+	{
+		if(TypeTable[i]->Kind == TypeKind_Enum)
+		{
+			if(TypeTable[i]->Enum.Name == Name)
+				return i;
+		}
+	}
+	unreachable;
+}
+
 generic_replacement GenericReplacement = {};
 
 void SetGenericReplacement(u32 ToReplace)
@@ -765,7 +778,7 @@ b32 ShouldCopyType(const type *Type)
 
 b32 IsLoadableType(const type *Type)
 {
-	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function && Type->Kind != TypeKind_Slice;
+	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function && Type->Kind != TypeKind_Slice && !HasBasicFlag(Type, BasicFlag_String);
 }
 
 b32 IsString(const type *T, b32 OrCString)

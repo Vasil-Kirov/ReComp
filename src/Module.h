@@ -33,3 +33,6 @@ struct file
 b32 FindImportedModule(slice<import> Imports, string &ModuleName, import *Out);
 int GetFileIndex(module *m, file *f);
 
+extern slice<module> CurrentModules;
+
+

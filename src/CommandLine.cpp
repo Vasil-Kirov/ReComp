@@ -13,6 +13,8 @@ OPTIONS:
 		Show how long each step of the compilation process took
 	--vmdll my_file.dll
 		Add Shared Library file to be used by the interpreter
+	--ir module
+		Show the internal representation for the specified module
 )#";
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
@@ -38,6 +40,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
+	dynamic<string> IRModules = {};
 	for(int i = 0; i < ArgCount; ++i)
 	{
 		string Arg = Args[i];
@@ -73,7 +76,13 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[3]))
 		{
-			Result.Flags |= CommandFlag_ir;
+			if(i + 1 == ArgCount)
+			{
+				LFATAL("Expected module name after --ir", Arg.Data);
+				RET_EMPTY(command_line);
+			}
+			i++;
+			IRModules.Push(Args[i]);
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[4]))
 		{
@@ -106,7 +115,18 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
 	Result.LinkArgs = SliceFromArray(LinkCMDs);
+	Result.IRModules = SliceFromArray(IRModules);
 	return Result;
+}
+
+bool ShouldOutputIR(string MName, command_line CommandLine)
+{
+	ForArray(Idx, CommandLine.IRModules)
+	{
+		if(CommandLine.IRModules[Idx] == MName)
+			return true;
+	}
+	return false;
 }
 
 

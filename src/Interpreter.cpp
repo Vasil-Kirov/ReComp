@@ -198,21 +198,57 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						{
 							case Basic_f64:
 							{
-								VMValue.f64 = Val->Float;
+								switch(Val->Type)
+								{
+									case const_type::Integer:
+									{
+										VMValue.f64 = Val->Int.Signed;
+									} break;
+									case const_type::Float:
+									{
+										VMValue.f64 = Val->Float;
+									} break;
+									default: unreachable;
+								}
 							} break;
 							case Basic_f32:
 							{
-								VMValue.f32 = (f32)Val->Float;
+								switch(Val->Type)
+								{
+									case const_type::Integer:
+									{
+										VMValue.f32 = Val->Int.Signed;
+									} break;
+									case const_type::Float:
+									{
+										VMValue.f32 = Val->Float;
+									} break;
+									default: unreachable;
+								}
 							} break;
 							default: unreachable;
 						}
 					}
 					else if(Type->Basic.Flags & BasicFlag_Integer)
 					{
-						if(Val->Int.IsSigned)
-							VMValue.i64 = Val->Int.Signed;
-						else
-							VMValue.u64 = Val->Int.Unsigned;
+						switch(Val->Type)
+						{
+							case const_type::Integer:
+							{
+								if(Val->Int.IsSigned)
+									VMValue.i64 = Val->Int.Signed;
+								else
+									VMValue.u64 = Val->Int.Unsigned;
+							} break;
+							case const_type::Float:
+							{
+								if(Val->Int.IsSigned)
+									VMValue.i64 = Val->Float;
+								else
+									VMValue.u64 = Val->Float;
+							} break;
+							default: unreachable;
+						}
 					}
 					else if(Type->Basic.Flags & BasicFlag_String)
 					{
@@ -221,7 +257,24 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					}
 					else if(Type->Basic.Flags & BasicFlag_CString)
 					{
-						VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+						switch(Val->Type)
+						{
+							case const_type::Integer:
+							{
+								if(Val->Int.IsSigned)
+									VMValue.ptr = (void *)Val->Int.Signed;
+								else
+									VMValue.ptr = (void *)Val->Int.Unsigned;
+							} break;
+							case const_type::Float:
+							{
+								unreachable;
+							} break;
+							case const_type::String:
+							{
+								VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+							} break;
+						}
 					}
 					else
 					{

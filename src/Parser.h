@@ -37,6 +37,7 @@ enum node_type
 	AST_ARRAYTYPE,
 	AST_FN,
 	AST_GENERIC,
+	AST_TYPEINFO,
 
 	AST_CALL,
 	AST_RETURN,
@@ -116,6 +117,10 @@ struct node
 			slice<node *> Members;
 			b32 IsUnion;
 		} StructDecl;
+		struct {
+			node *Expression;
+			u32 Type; // Set by semantic analyzer
+		} TypeInfoLookup;
 		struct {
 			node *Operand;
 			const string *Member;

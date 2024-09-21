@@ -37,12 +37,12 @@ Log(log_level Level, const char *Format, ...)
 
 	string FormatCopy = MakeString(Builder);
 	
-	char FinalFormat[4096] = {0};
+	char *FinalFormat = (char *)VAlloc(MB(1));
 
 	va_list Args;
 	va_start(Args, Format);
 	
-	vsnprintf(FinalFormat, 4096, FormatCopy.Data, Args);
+	vsnprintf(FinalFormat, MB(1), FormatCopy.Data, Args);
 	
 	va_end(Args);
 
@@ -68,5 +68,6 @@ Log(log_level Level, const char *Format, ...)
 //		platform_message_box("Error", ToPrint);
 		exit(1);
 	}
+	VFree(FinalFormat);
 }
 

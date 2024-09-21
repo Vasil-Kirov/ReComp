@@ -38,7 +38,7 @@ CStrLen(const char *str)
 string_builder MakeBuilder()
 {
 	string_builder Builder;
-	Builder.Data = ArrCreate(char);
+	Builder.Data = {};
 	Builder.Size = 0;
 	return Builder;
 }
@@ -47,14 +47,14 @@ void PushBuilder(string_builder *Builder, const char *Data)
 {
 	for(int I = 0; Data[I] != 0; ++I)
 	{
-		ArrPush(Builder->Data, Data[I]);
+		Builder->Data.Push(Data[I]);
 		Builder->Size++;
 	}
 }
 
 void PushBuilder(string_builder *Builder, char C)
 {
-	ArrPush(Builder->Data, C);
+	Builder->Data.Push(C);
 	Builder->Size++;
 }
 
@@ -84,8 +84,9 @@ string MakeString(const char *CString, size_t Size)
 
 string MakeString(string_builder Builder)
 {
-	string Result = MakeString(Builder.Data, Builder.Size);
-	ArrFree(Builder.Data);
+	string Result = MakeString(Builder.Data.Data, Builder.Size);
+	VFree(Builder.Data.Data);
+	Builder.Data.Count = 0;
 	return Result;
 }
 

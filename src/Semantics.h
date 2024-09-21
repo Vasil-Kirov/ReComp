@@ -75,3 +75,4 @@ string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
 
+

@@ -119,6 +119,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ALLOC: // Handled before
 		{
 		} break;
+		case OP_ALLOCGLOBAL:
+		{
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMValueRef Value = LLVMAddGlobal(gen->mod, LLVMArrayType2(LLVMType, I.BigRegister), "");
+			LLVMSetInitializer(Value, LLVMConstNull(LLVMArrayType2(LLVMType, I.BigRegister)));
+			gen->map.Add(I.Result, Value);
+		} break;
 		case OP_CONSTINT:
 		{
 			u64 Val = I.BigRegister;
@@ -662,7 +669,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	gen->BlockCount = fn.Blocks.Count;
 	//gen->FnType = fn.Type;
-	if(fn.Type == INVALID_TYPE)
+	if(fn.Type == INVALID_TYPE || fn.NoDebugInfo)
 	{
 		gen->IsCurrentFnRetInPtr = false;
 		gen->CurrentScope = NULL;
@@ -747,6 +754,8 @@ void RCGenerateFunction(generator *gen, function fn)
 		RCSetBlock(gen, Block.ID);
 		ForArray(InstrIdx, Block.Code)
 		{
+			if(fn.NoDebugInfo)
+				LDEBUG("Instr ID at idx %d\n: %d", InstrIdx, (int)Block.Code[InstrIdx].Op);
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);
 		}
 	}
@@ -901,6 +910,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 
 	dynamic<gen_fn_info> Functions = {};
 
+	LLVMValueRef MaybeInitFn = NULL;
 	// Generate internal functions
 	ForArray(FIdx, M->Files)
 	{
@@ -912,6 +922,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 		string LinkName = StructToModuleName(BaseName, M->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
 		Functions.Push({.LLVM = Fn, .Name = LinkName});
+		MaybeInitFn = Fn;
 	}
 
 	ForArray(MIdx, Modules)
@@ -925,7 +936,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				continue;
 			}
 			else if(*s->Name == STR_LIT("global_initializers") && m.Name == M->Name) {
-				LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files);
+				LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
 				LLVMSetLinkage(Fn, LLVMExternalLinkage);
 				Gen.map.Add(s->IRRegister, Fn);
 				continue;
@@ -948,13 +959,14 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.map.Add(s->IRRegister, Fn);
 			}
-			else if(m.Name == M->Name)
+			else
 			{
 				string LinkName = *s->LinkName;
 				LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 				LLVMSetLinkage(Global, Linkage);
-				LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
+				if(m.Name == M->Name)
+					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
 				Gen.map.Add(s->IRRegister, Global);
 			}
 		}
@@ -989,8 +1001,8 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 		{
 			char *FileName = NULL;
 			char *FileDirectory = NULL;
-			LDEBUG("yey: %s", FileName);
 			GetNameAndDirectory(&FileName, &FileDirectory, M->Files[FIdx+1]->Name);
+			LDEBUG("file: %s", FileName);
 			Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
 					FileName, VStrLen(FileName),
 					FileDirectory, VStrLen(FileDirectory));
@@ -1095,7 +1107,7 @@ llvm_init_info RCInitLLVM()
 	return Result;
 }
 
-LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files)
+LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files, LLVMValueRef InitFn)
 {
 	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
 
@@ -1104,7 +1116,10 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files)
 	{
 		file *File = &Files.Data[Idx];
 		if(File->Module->Name == STR_LIT("init"))
+		{
+			FileFns[Idx] = InitFn;
 			continue;
+		}
 
 		int FileIndex = GetFileIndex(File->Module, File);
 
@@ -1122,9 +1137,6 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files)
 
 	ForArray(Idx, Files)
 	{
-		if(Files[Idx].Module->Name == STR_LIT("init"))
-			continue;
-
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx), NULL, 0, false);
 		LLVMBuildCall2(gen->bld, FnType, FileFns[Idx], NULL, 0, "");
 	}

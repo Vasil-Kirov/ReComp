@@ -1,4 +1,3 @@
-#include "Basic.h"
 #include "Memory.h"
 #include "vlib.h"
 static b32 _MemoryInitializer = InitializeMemory();
@@ -164,12 +163,12 @@ void AnalyzeFile(file *File)
 	Analyze(File->Checker, File->Nodes);
 }
 
-void BuildIRFile(file *File, uint Flag, u32 IRStartRegister)
+void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
 {
 	File->IR = NewType(ir);
 	*File->IR = BuildIR(File, IRStartRegister);
 	
-	if(Flag & CommandFlag_ir)
+	if(ShouldOutputIR(File->Module->Name, CommandLine))
 	{
 		string Dissasembly = Dissasemble(SliceFromArray(File->IR->Functions));
 		LWARN("[ MODULE %s ]\n\n%s", File->Module->Name.Data, Dissasembly.Data);
@@ -197,6 +196,7 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 		ParseFile(F, Modules);
 	}
 	VLibStopTimer(&Timers->Parse);
+	CurrentModules = SliceFromArray(Modules);
 	u32 MaxCount;
 	{
 		Timers->TypeCheck = VLibStartTimer("Type Checking");
@@ -215,7 +215,7 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 		ForArray(Idx, Files)
 		{
 			file *File = &Files.Data[Idx];
-			BuildIRFile(File, CommandLine.Flags, MaxCount);
+			BuildIRFile(File, CommandLine, MaxCount);
 		}
 		VLibStopTimer(&Timers->IR);
 	}
@@ -264,8 +264,9 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules)
 	}
 
 
-	LDEBUG(Builder.Data);
-	return MakeString(Builder);
+	string Command = MakeString(Builder);
+	LDEBUG(Command.Data);
+	return Command;
 }
 
 struct compile_info

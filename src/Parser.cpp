@@ -24,6 +24,14 @@ node *MakeScope(const error_info *ErrorInfo, b32 IsUp)
 	return Result;
 }
 
+node *MakeTypeInfo(const error_info *ErrorInfo, node *Expression)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_TYPEINFO);
+	Result->TypeInfoLookup.Expression = Expression;
+	
+	return Result;
+}
+
 node *MakeDefer(const error_info *ErrorInfo, dynamic<node *> Body)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_DEFER);
@@ -722,6 +730,14 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+		case T_INFO:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+
+			node *Expr = ParseExpression(Parser);
+			Result = MakeTypeInfo(ErrorInfo, Expr);
+		} break;
 		case T_AUTOCAST:
 		{
 			ERROR_INFO;
@@ -1284,7 +1300,7 @@ node *ParseTopLevel(parser *Parser)
 		case T_ID:
 		{
 			node *Decl = ParseDeclaration(Parser, false);
-			if(Decl->Decl.Expression->Type == AST_FN)
+			if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
 			{
 				node *Fn = Decl->Decl.Expression;
 				if(Fn == NULL)
@@ -1692,6 +1708,11 @@ node *CopyASTNode(node *N)
 			R->ScopeDelimiter.IsUp = N->ScopeDelimiter.IsUp;
 		} break;
 
+		case AST_TYPEINFO:
+		{
+			R->TypeInfoLookup.Type = N->TypeInfoLookup.Type;
+			R->TypeInfoLookup.Expression = CopyASTNode(N->TypeInfoLookup.Expression);
+		} break;
 	}
 
 

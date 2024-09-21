@@ -5,6 +5,8 @@
 #include "Parser.h"
 #include "Semantics.h"
 
+slice<module> CurrentModules = {};
+
 void AddModule(dynamic<module> &Modules, file *File, string Name)
 {
 	ForArray(Idx, Modules)

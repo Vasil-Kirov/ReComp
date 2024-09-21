@@ -776,6 +776,14 @@ LLVMOpcode RCCast(const type *From, const type *To)
 			Assert(false);
 		}
 	}
+	else if(From->Kind == TypeKind_Enum)
+	{
+		return RCCast(GetType(From->Enum.Type), To);
+	}
+	else if(To->Kind == TypeKind_Enum)
+	{
+		return RCCast(From, GetType(To->Enum.Type));
+	}
 	else
 	{
 		Assert(false);

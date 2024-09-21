@@ -452,6 +452,7 @@ void InitializeLexer()
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
 	AddKeyword("#if",      T_PWDIF);
+	AddKeyword("#info",    T_INFO);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
 	AddKeyword("enum",   T_ENUM);

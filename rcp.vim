@@ -26,10 +26,11 @@ syn match rcpSBracket "[{}()\[\]]"
 syn match rcpSOperator "[-+=*/<>:]"
 
 " Keywords
-syn keyword rcpSKeyword union enum struct fn return for in if else match break defer
+syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_of size_of
 syn match rcpSImport /#import/
 syn match rcpSCompilerDir /#foreign/
 syn match rcpSCompilerDir /#link/
+syn match rcpSCompilerDir /#info/
 syn match rcpSCompilerDir /#private/
 syn match rcpSCompilerDir /#public/
 

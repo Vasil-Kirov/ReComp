@@ -185,6 +185,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 		case TypeKind_Invalid:
 		default:
+		unreachable;
 		return NULL;
 	}
 	Assert(false);
@@ -648,7 +649,7 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 
 	if(Type->Function.Flags & SymbolFlag_VarFunc)
 	{
-		u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+		u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
 		u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
 		ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
 	}

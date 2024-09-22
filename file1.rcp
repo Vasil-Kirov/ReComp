@@ -2,7 +2,7 @@ main
 
 #import mem as m
 #import array
-#import string as io
+#import io
 
 // struct foo {
 //     F: type,
@@ -29,14 +29,20 @@ main :: fn() -> i32 {
     //     printf(c"member: %s\n", @cstring names[i]);
     // }
 
-    f := ints{};
-    f.u64_ = 10;
-    type_info_s := #info type_of f;
-    members := type_info_s.t.struct_.members;
-    for i in members.count {
-        io.print("member: %\n", @cstring members[i].name);
-    }
-    io.print("num: %", 10);
+    x := ints { u64_ = 1 };
+    io.print("x: %", x);
+    //for m in sl {
+    //    io.print("n: %\n", m.name);
+    //}
+
+    // f := ints{};
+    // f.u64_ = 10;
+    // type_info_s := #info type_of f;
+    // members := type_info_s.t.struct_.members;
+    // for i in members.count {
+    //     io.print("member: %\n", @cstring members[i].name);
+    // }
+    // io.print("num: %", f);
 
     return 0;
 }

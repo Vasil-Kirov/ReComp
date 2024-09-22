@@ -11,8 +11,8 @@ platform_target PTarget = platform_target::Windows;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
-	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,       1,  STR_LIT("bool")}},
-	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
+	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
+	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
 	{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
 	{TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
@@ -69,7 +69,7 @@ u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 u32 VarArgArrayType(u32 ElemCount)
 {
 	type *T = AllocType(TypeKind_Array);
-	u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+	u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
 	T->Array.Type = ArgType;
 	T->Array.MemberCount = ElemCount;
 
@@ -236,6 +236,9 @@ int GetStructMemberOffset(const type *Type, uint Member)
 	if(Type->Struct.Members.Count == 0)
 		return 0;
 
+	if(Type->Struct.Flags & StructFlag_Union)
+		return 0;
+
 	int Result = 0;
 	for(int Idx = 0; Idx <= Member; ++Idx)
 	{
@@ -315,6 +318,8 @@ int GetTypeAlignment(const type *Type)
 	switch(Type->Kind)
 	{
 		case TypeKind_Basic:
+		if(IsString(Type))
+			return 8;
 		return GetBasicTypeSize(Type);
 		case TypeKind_Slice:
 		case TypeKind_Function:
@@ -480,14 +485,12 @@ b32 IsCastValid(const type *From, const type *To)
 	if(From->Kind == TypeKind_Enum && To->Kind != TypeKind_Enum)
 	{
 		const type *T = GetType(From->Enum.Type);
-		const type *P = NULL;
-		return IsTypeCompatible(T, To, &P, false);
+		return IsCastValid(T, To);
 	}
 	else if(To->Kind == TypeKind_Enum && From->Kind != TypeKind_Enum)
 	{
 		const type *T = GetType(To->Enum.Type);
-		const type *P = NULL;
-		return IsTypeCompatible(T, From, &P, false);
+		return IsCastValid(T, From);
 	}
 
 	if(From->Kind != To->Kind)

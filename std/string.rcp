@@ -1,8 +1,15 @@
-string
+io
 #import os
 #import array
 #import mem
 #import init
+
+push_string :: fn(b: *[]u8, str: string) {
+    x := str;
+    for n in str.count {
+        array.add(b, str[n]);
+    }
+}
 
 format_uint :: fn(b: *[]u8, num_in: uint) {
     temp := [256]u8{};
@@ -126,6 +133,28 @@ print_type :: fn(b: *[]u8, arg: init.Arg) {
         init.TypeKind.Function: {
         },
         init.TypeKind.Struct: {
+            st := t.t.struct_;
+            push_string(b, st.name);
+            push_string(b, " { ");
+            for n in st.members.count {
+                m := st.members[n];
+                push_string(b, m.name);
+                push_string(b, " = ");
+                ptr := @*u8 arg.val;
+                offset := init.get_struct_member_offset(st, n);
+                print("offset: %\n", offset);
+                mem_arg := init.Arg {
+                    t = m.t,
+                    val = &ptr[offset],
+                };
+                mem_arg.t = m.t;
+
+                print_type(b, mem_arg);
+                if n + 1 != st.members.count {
+                    push_string(b, ", ");
+                }
+            }
+            push_string(b, " }");
         },
         init.TypeKind.Pointer: {
         },

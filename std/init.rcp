@@ -1,5 +1,7 @@
 init
 
+#import io
+
 // @This is not generic, the compiler has a special case for it
 struct Arg {
     t: type,
@@ -49,7 +51,7 @@ enum BasicKind {
 	Module,
 }
 
-enum BasicFlag {
+enum BasicFlag: u32{
 	Boolean = 0b1,
 	Integer = 0b10,
 	Float   = 0b100,
@@ -69,9 +71,10 @@ struct BasicType {
     name: string,
 }
 
-enum StructFlag {
+enum StructFlag: u32{
 	Packed  = 0b1,
 	Generic = 0b10,
+    Union   = 0b100,
 }
 
 struct StructMember {
@@ -149,8 +152,137 @@ global_initializers :: fn();
 
 type_table: []TypeInfo;
 
+get_struct_alignment :: fn(st: type) -> int {
+    t := type_table[@int st].t.struct_;
+    if t.members.count == 0
+        return 1;
+    
+    biggest := 0;
+    align := 1;
+    for m in t.members {
+        size := get_type_size(m.t);
+        if size > biggest {
+            biggest = size;
+            align = get_type_alignment(m.t);
+        }
+    }
+
+    return align;
+}
+
+get_type_alignment :: fn(t: type) -> int {
+    ti := type_table[@int t];
+    result := match ti.kind {
+        TypeKind.Basic: {
+            if t == string
+                return 8;
+            return get_basic_type_size(ti.t.basic);
+        },
+        TypeKind.Function: {
+            return 8;
+        },
+        TypeKind.Pointer: {
+            return 8;
+        },
+        TypeKind.Slice: {
+            return 8;
+        },
+        TypeKind.Array: {
+            return get_type_alignment(ti.t.array.t);
+        },
+        TypeKind.Enum: {
+            return get_type_alignment(ti.t.enum_.t);
+        },
+        TypeKind.Struct: {
+            return get_struct_alignment(t);
+        },
+    };
+    return result;
+}
+
+get_basic_type_size :: fn(t: BasicType) -> int {
+    if t.size != -1
+        return @int t.size;
+    return 8;
+}
+
+get_struct_size :: fn(st: type) -> int {
+    t := (type_table[@int st]).t.struct_;
+    if t.members.count == 0
+        return 0;
+
+    result := 0;
+    biggest_member := 0;
+    for m in t.members {
+		member_size := get_type_size(m.t);
+        alignment := get_type_alignment(m.t);
+		if alignment != 0
+			result += result % alignment;
+		result += member_size;
+		if member_size > biggest_member
+			biggest_member = member_size;
+	}
+	if t.flags & @u32 StructFlag.Union
+		return biggest_member;
+    align := get_type_alignment(st);
+	result += (align - ( result % align )) % align;
+	return result;
+}
+
+get_type_size :: fn(t: type) -> int {
+    ti := type_table[@int t];
+    result := match ti.kind {
+        TypeKind.Basic: {
+            return get_basic_type_size(ti.t.basic);
+        },
+        TypeKind.Function: {
+            return 8;
+        },
+        TypeKind.Pointer: {
+            return 8;
+        },
+        TypeKind.Array: {
+            return get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
+        },
+        TypeKind.Slice: {
+            return 16;
+        },
+        TypeKind.Enum: {
+            return get_type_size(ti.t.enum_.t);
+        },
+        TypeKind.Struct: {
+            return get_struct_size(t);
+        },
+    };
+    return result;
+}
+
+get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
+    if st.members.count == 0 || mem_idx == 0 {
+        return 0;
+    }
+
+	if (st.flags & @u32 StructFlag.Union) != 0
+		return 0;
+
+    result := 0;
+    for i := 0; i <= mem_idx; i += 1 {
+        size := get_type_size(st.members[i].t);
+        align := get_type_alignment(st.members[i].t);
+        if align != 0
+            result += result % align;
+        result += size;
+    }
+    result -= get_type_size(st.members[mem_idx].t);
+    return result;
+}
+
+foo: [4]TypeInfo;
+x: []TypeInfo;
+
 entry :: fn #link="main"() -> i32 {
     global_initializers();
+    ti := type_table[0];
     res := mn.main();
 
     return res;

@@ -288,7 +288,7 @@ void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoType
 	};
 
 	type *CompileInfoType = AllocType(TypeKind_Struct);
-	CompileInfoType->Struct.Name = STR_LIT("__build!CompileInfo");
+	CompileInfoType->Struct.Name = STR_LIT("__build_CompileInfo");
 	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
 	CompileInfoType->Struct.Flags = 0;
 	

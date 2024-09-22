@@ -1274,7 +1274,7 @@ string StructToModuleName(string &StructName, string &ModuleName)
 	string_builder Builder = MakeBuilder();
 	Builder += "__";
 	Builder += ModuleName;
-	Builder += "!";
+	Builder += "_";
 	Builder += StructName;
 	return MakeString(Builder);
 }

@@ -409,7 +409,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			else
 			{
 				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-				u64 Size = LLVMABISizeOfType(gen->data, LLVMType);
+				u64 Size = GetTypeSize(I.Type);//LLVMABISizeOfType(gen->data, LLVMType);
 				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
 				uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
 				
@@ -751,8 +751,6 @@ void RCGenerateFunction(generator *gen, function fn)
 		RCSetBlock(gen, Block.ID);
 		ForArray(InstrIdx, Block.Code)
 		{
-			if(fn.NoDebugInfo)
-				LDEBUG("Instr ID at idx %d\n: %d", InstrIdx, (int)Block.Code[InstrIdx].Op);
 			RCGenerateInstruction(gen, Block.Code[InstrIdx]);
 		}
 	}
@@ -1123,7 +1121,7 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files, LLVMValueRef In
 		FileFns[Idx] = LLVMAddFunction(gen->mod, InitFnName.Data, FnType);
 	}
 
-	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "__init!global_initializers", FnType);
+	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "__init_global_initializers", FnType);
 	LLVMBasicBlockRef Block = LLVMAppendBasicBlockInContext(gen->ctx, MainFn, "only_block");
 	LLVMPositionBuilderAtEnd(gen->bld, Block);
 

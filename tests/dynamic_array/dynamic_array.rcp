@@ -2,22 +2,9 @@ main
 #import array
 #import mem
 
-malloc :: fn #foreign(size: int) -> ?*;
-free :: fn #foreign(ptr: *);
-
-allocator_alloc :: fn(size: int, this: *mem.Allocator) -> ?* {
-    return malloc(size);
-}
-
-allocator_free :: fn(ptr: *, this: *mem.Allocator) {
-    free(ptr);
-}
 
 main :: fn() -> i32 {
-    alloc := mem.Allocator {
-        alloc = allocator_alloc,
-        free = allocator_free,
-    };
+    alloc := mem.create_generic_allocator();
 
     arr := array.create(i32, &alloc);
     array.add(&arr, 1);

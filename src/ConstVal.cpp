@@ -103,7 +103,9 @@ const_value MakeConstValue(const string *String)
 			Result.Int.Unsigned = 0;
 			for(int i = 2; i < String->Size; ++i)
 			{
-				Result.Int.Unsigned |= (String->Data[i] - '0') << (i - 2);
+				Result.Int.Unsigned |= (String->Data[i] - '0');
+				if(i + 1 != String->Size)
+					Result.Int.Unsigned <<= 1;
 			}
 		} break;
 		case Parse_Hex:

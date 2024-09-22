@@ -469,8 +469,6 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			Function.Args[I] = GetPointerTo(Function.Args[I]);
 		else if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
-			FnNode->Fn.Flags |= SymbolFlag_Generic;
-			Function.Flags |= SymbolFlag_Generic;
 			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Decl.ID);
 		}
 		else if(IsGeneric(T))
@@ -480,6 +478,14 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		}
 	}
 	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
+	if(Function.Return != INVALID_TYPE)
+	{
+		if(IsGeneric(Function.Return))
+		{
+			FnNode->Fn.Flags |= SymbolFlag_Generic;
+			Function.Flags |= SymbolFlag_Generic;
+		}
+	}
 	
 	NewType->Function = Function;
 	Checker->CurrentScope = Save;
@@ -532,7 +538,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		int I = FunctionType->Function.ArgCount;
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		u32 ArgType = FindStruct(STR_LIT("__init!Arg"));
+		u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
 		u32 Type = GetSliceType(ArgType);
 		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Decl.ID, NULL, flags);
 
@@ -620,7 +626,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						GetTypeName(ExprType));
 			}
 			Expr->TypeInfoLookup.Type = ExprTypeIdx;
-			Result = FindStruct(STR_LIT("__init!TypeInfo"));
+			Result = FindStruct(STR_LIT("__init_TypeInfo"));
 		} break;
 		case AST_MATCH:
 		{
@@ -1688,7 +1694,7 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 	}
 	if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
 	{
-		Node->If.Expression = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
+		*NodePtr = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
 	}
 	else if(ExprType->Kind == TypeKind_Pointer)
 	{
@@ -1738,7 +1744,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Node->For.Expr2);
 			const type *T = GetType(TypeIdx);
-			if(T->Kind != TypeKind_Array && !HasBasicFlag(T, BasicFlag_Integer))
+			if(T->Kind != TypeKind_Array && !HasBasicFlag(T, BasicFlag_Integer) && T->Kind != TypeKind_Slice)
 			{
 				RaiseError(*Node->For.Expr2->ErrorInfo,
 						"Expression is of non iteratable type %s", GetTypeName(T));
@@ -1752,10 +1758,20 @@ void AnalyzeFor(checker *Checker, node *Node)
 			u32 ItType = INVALID_TYPE;
 			if(T->Kind == TypeKind_Array)
 				ItType = T->Array.Type;
+			else if(T->Kind == TypeKind_Slice)
+				ItType = T->Slice.Type;
 			else
 				ItType = TypeIdx;
 			AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
 					Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
+			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice)
+			{
+				string *n = NewType(string);
+				*n = STR_LIT("i");
+
+				AddVariable(Checker, Node->For.Expr1->ErrorInfo, Basic_int,
+						n, Node->For.Expr1, 0);
+			}
 			Node->For.ItType = ItType;
 			Node->For.ArrayType = TypeIdx;
 		} break;

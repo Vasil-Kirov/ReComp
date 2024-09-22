@@ -26,7 +26,7 @@ syn match rcpSBracket "[{}()\[\]]"
 syn match rcpSOperator "[-+=*/<>:]"
 
 " Keywords
-syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_of size_of
+syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_of size_of as
 syn match rcpSImport /#import/
 syn match rcpSCompilerDir /#foreign/
 syn match rcpSCompilerDir /#link/
@@ -35,7 +35,7 @@ syn match rcpSCompilerDir /#private/
 syn match rcpSCompilerDir /#public/
 
 " Types
-syn keyword rcpSType i64 i32 i16 i8 u64 u32 u16 u8 int uint string cstring type
+syn keyword rcpSType i64 i32 i16 i8 u64 u32 u16 u8 int uint string cstring type bool
 syn keyword rcpSTypeCast @ nextgroup=rcpSType
 
 

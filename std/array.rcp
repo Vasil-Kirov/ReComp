@@ -39,7 +39,7 @@ add :: fn(arg_arr: *[]$T, item: T) {
         ptr := ?maybe_ptr;
         ptr.capacity = new_capacity;
         ptr.allocator = header.allocator;
-        mem.memcpy(ptr+1, arr.data, arr.count * size_of T);
+        mem.copy(ptr+1, arr.data, arr.count * size_of T);
         ptr.allocator.free(header, &ptr.allocator);
         arr.data = @*T(ptr+1);
     }
@@ -48,12 +48,17 @@ add :: fn(arg_arr: *[]$T, item: T) {
     arr.count += 1;
 }
 
-free :: fn(arg_arr: *[]$T)
-{
+free :: fn(arg_arr: *[]$T) {
     arr := arg_arr;
     header := (@*Header arr.data) - 1;
     header.allocator.free(header, &header.allocator);
     arr.data = ?null;
+    arr.count = 0;
+}
+
+clear :: fn(arg_arr: *[]$T) {
+    arr := arg_arr;
+    mem.set(arr.data, 0, arr.count);
     arr.count = 0;
 }
 

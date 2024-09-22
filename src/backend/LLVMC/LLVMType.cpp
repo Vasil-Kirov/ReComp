@@ -510,19 +510,7 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 
 void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, const type *ArgType, LLVMTypeRef *Result, int *IdxOut)
 {
-	if(ArgType->Kind == TypeKind_Array)
-	{
-		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
-		*IdxOut = *IdxOut + 1;
-		return;
-	}
-	else if(ArgType->Kind == TypeKind_Function)
-	{
-		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
-		*IdxOut = *IdxOut + 1;
-		return;
-	}
-	else if(ArgType->Kind == TypeKind_Slice)
+	if(ArgType->Kind != TypeKind_Struct)
 	{
 		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
 		*IdxOut = *IdxOut + 1;

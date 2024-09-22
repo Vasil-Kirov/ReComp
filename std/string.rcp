@@ -1,8 +1,10 @@
 string
 #import os
+#import array
+#import mem
+#import init
 
-format_uint :: fn(num_in: u64, out_count: *uint) -> [256]u8 {
-    buff := [256]u8{};
+format_uint :: fn(b: *[]u8, num_in: uint) {
     temp := [256]u8{};
     num := num_in;
     count := 0;
@@ -15,18 +17,145 @@ format_uint :: fn(num_in: u64, out_count: *uint) -> [256]u8 {
     }
 
     for i in count {
-        buff[i] = temp[count - i - 1];
+        array.add(b, temp[count - i - 1]);
     }
-    
-    out := out_count;
-    *out = @uint count;
-    return buff;
 }
 
-print_int :: fn(num: u32) {
-    count: uint;
-    buff := format_uint(num, &count);
-    os.print(&buff[0], @u32 count);
+format_int :: fn(b: *[]u8, num_in: int) {
+    temp := [256]u8{};
+    num := num_in;
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + @u8 digit;
+        temp[count] = c;
+        count += 1;
+    }
+    
+    if is_neg array.add(b, '-');
+
+    for i in count {
+        array.add(b, temp[count - i - 1]);
+    }
+}
+
+print_type :: fn(b: *[]u8, arg: init.Arg) {
+    t := #info arg.t;
+    match t.kind {
+        init.TypeKind.Invalid: {
+        },
+        init.TypeKind.Basic: {
+            basic := t.t.basic;
+            if basic.kind == init.BasicKind.Bool {
+                if *@*bool arg.val {
+                    str := "true";
+                    for n in str.count {
+                        array.add(b, str[n]);
+                    }
+                } else {
+                    str := "false";
+                    for n in str.count {
+                        array.add(b, str[n]);
+                    }
+                }
+            }
+            else if basic.kind == init.BasicKind.String {
+            }
+            else if basic.kind == init.BasicKind.Cstring {
+                str: cstring = *@*cstring arg.val;
+                for i := 0; str[i] != '\0'; i += 1 {
+                    array.add(b, str[i]);
+                }
+
+            }
+            else if basic.kind == init.BasicKind.U8  {
+                num: uint = *@*u8 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == init.BasicKind.U16 {
+                num: uint = *@*u16 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == init.BasicKind.U32 {
+                num: uint = *@*u32 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == init.BasicKind.U64 {
+                num: uint = *@*u64 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == init.BasicKind.I8  {
+                num: int = *@*i8 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == init.BasicKind.I16 {
+                num: int = *@*i16 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == init.BasicKind.I32 {
+                num: int = *@*i32 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == init.BasicKind.I64 {
+                num: int = *@*i64 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == init.BasicKind.Int {
+                num: int = *@*int arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == init.BasicKind.Uint {
+                num: uint = *@*u8 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == init.BasicKind.F32 {
+            }
+            else if basic.kind == init.BasicKind.F64 {
+            }
+            else {
+                array.add(b, '%');
+            }
+        },
+        init.TypeKind.Function: {
+        },
+        init.TypeKind.Struct: {
+        },
+        init.TypeKind.Pointer: {
+        },
+        init.TypeKind.Array: {
+        },
+        init.TypeKind.Slice: {
+        },
+        init.TypeKind.Vector: {
+        },
+        init.TypeKind.Enum: {
+        },
+        init.TypeKind.Generic: {
+        }
+    };
+}
+
+print :: fn(str: string, args: ...) {
+    alloc := mem.create_generic_allocator();
+    builder := array.create(u8, &alloc);
+    arg_count := 0;
+    for i in str.count {
+        if str[i] == '%' {
+            arg := args[arg_count];
+            arg_count += 1;
+            print_type(&builder, arg);
+        } else {
+            array.add(&builder, str[i]);
+        }
+    }
+    os.print(&builder[0], @u32 builder.count);
 }
 
 get_next :: fn(curr: *u8) -> u32 {

@@ -120,7 +120,7 @@ void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type,
 }
 
 // @TODO: This is bad
-const ir_symbol *GetIRLocal(function *Function, const string *Name)
+const ir_symbol *GetIRLocal(function *Function, const string *Name, b32 Error = true)
 {
 	ir_symbol *Found = NULL;
 	for(int I = 0; I < Function->LocalCount; ++I)
@@ -130,7 +130,7 @@ const ir_symbol *GetIRLocal(function *Function, const string *Name)
 			Found = &Function->Locals[I];
 		}
 	}
-	if(!Found)
+	if(!Found && Error)
 	{
 		LDEBUG("%s\n", Name->Data);
 		Assert(false);
@@ -172,7 +172,7 @@ u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
 void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS)
 {
 	const type *ArgType = GetType(ArgTypeIdx);
-	if(ArgType->Kind == TypeKind_Array)
+	if(ArgType->Kind == TypeKind_Array || IsString(ArgType))
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
 		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
@@ -296,7 +296,9 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_MATCH);
 
-	u32 Result = PushInstruction(Builder,
+	u32 Result = -1;
+	if(Node->Match.ReturnType != INVALID_TYPE)
+		Result = PushInstruction(Builder,
 			Instruction(OP_ALLOC, -1, Node->Match.ReturnType, Builder));
 
 	u32 StartBlock = Builder->CurrentBlock.ID;
@@ -319,8 +321,9 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		ForArray(BodyIdx, Case->Case.Body)
 		{
 			node *Node = Case->Case.Body[BodyIdx];
-			if(Node->Type == AST_RETURN)
+			if(Node->Type == AST_RETURN && Node->Return.Expression)
 			{
+				Assert(Result != -1);
 				u32 Expr = BuildIRFromExpression(Builder, Node->Return.Expression);
 				PushInstruction(Builder, 
 						InstructionStore(Result, Expr, Node->Return.TypeIdx));
@@ -353,8 +356,11 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		}
 	}
 
-	Result = PushInstruction(Builder,
-			Instruction(OP_LOAD, 0, Result, Node->Match.MatchType, Builder));
+	if(Result != -1)
+	{
+		Result = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, Result, Node->Match.MatchType, Builder));
+	}
 	return Result;
 }
 
@@ -369,6 +375,11 @@ u32 BuildIRMatch(block_builder *Builder, node *Node)
 	const type *MT = GetType(Node->Match.MatchType);
 	if(HasBasicFlag(MT, BasicFlag_Integer))
 	{
+		Result = BuildIRIntMatch(Builder, Node);
+	}
+	else if(MT->Kind == TypeKind_Enum)
+	{
+		Node->Match.MatchType = MT->Enum.Type;
 		Result = BuildIRIntMatch(Builder, Node);
 	}
 	else
@@ -778,6 +789,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(!IsLHS && !Node->Index.ForceNotLoad)
 					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
 			}
+			else if(HasBasicFlag(Type, BasicFlag_String))
+			{
+				u32 u8ptr = GetPointerTo(Basic_u8);
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Basic_string, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, u8ptr, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, Result, Index, u8ptr, Builder));
+				if(!IsLHS)
+					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
+			}
 			else
 			{
 				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
@@ -793,13 +813,21 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				string SymName = *Node->Selector.Member;
 				string ModuleName = *Node->Selector.Operand->ID.Name;
 				string *Mangled = StructToModuleNamePtr(SymName, ModuleName);
-				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled);
-				const type *Type = GetType(Node->Selector.Type);
-				Result = Sym->Register;
-				if(!IsLHS && !IsFn(Type))
+				// @TODO: This is for selecting enums from modules
+				// Ex. my_mod.my_enum.VALUE
+				// but it's kinda hacky, find a better way to do this
+				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled, false);
+				if(!Sym)
+					Result = -1;
+				else
 				{
-					Result = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Result, Node->Selector.Type, Builder));
+					const type *Type = GetType(Node->Selector.Type);
+					Result = Sym->Register;
+					if(!IsLHS && !IsFn(Type))
+					{
+						Result = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Result, Node->Selector.Type, Builder));
+					}
 				}
 			}
 			else
@@ -813,7 +841,17 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				switch(Type->Kind)
 				{
 					case TypeKind_Basic:
-					Assert(IsString(Type));
+					{
+						Assert(IsString(Type));
+						Assert(Node->Selector.Index == 1);
+						Result = PushInstruction(Builder, 
+								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
+						if(!IsLHS)
+						{
+							Result = PushInstruction(Builder, 
+									Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
+						}
+					} break;
 					case TypeKind_Slice: 
 					{
 BUILD_SLICE_SELECTOR:
@@ -1885,7 +1923,6 @@ ir BuildIR(file *File, u32 StartRegister)
 					const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
 					Assert(Sym);
 					u32 TypeInfoType = FindStruct(STR_LIT("__init!TypeInfo"));
-					u32 Pointer = GetPointerTo(TypeInfoType);
 					u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
 					u32 Data = PushInstruction(&Builder, 
 							Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));

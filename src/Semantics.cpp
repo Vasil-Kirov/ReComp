@@ -193,6 +193,7 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 					return s;
 				}
 			}
+			FindType(Checker, Node->Selector.Member, &m->Name);
 			Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
 			return NULL;
 		} break;
@@ -646,7 +647,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value);
 			}
 
-			Result = InvalidType;
+			Result = INVALID_TYPE;
 			b32 HasResult = false;
 
 			ForArray(Idx, Expr->Match.Cases)
@@ -1010,23 +1011,37 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_SELECTOR:
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
+			const type *Type = NULL;
 			if(TypeIdx == Basic_module)
 			{
 				Assert(Expr->Selector.Operand->Type == AST_ID);
 				symbol *s = FindSymbolFromNode(Checker, Expr);
 				if(!s)
 				{
-					RaiseError(*Expr->ErrorInfo,
-							"Cannot find public symbol %s in module %s",
-							Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
+					const string *ModuleName = Expr->Selector.Operand->ID.Name;
+					u32 t = FindType(Checker, Expr->Selector.Member, ModuleName);
+					if(t == INVALID_TYPE)
+					{
+						RaiseError(*Expr->ErrorInfo,
+								"Cannot find public symbol %s in module %s",
+								Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
+					}
+					else
+					{
+						Result = t;
+						Expr->Selector.Type = t;
+					}
 				}
-				Result = s->Type;
-				Expr->Selector.Type = s->Type;
+				else
+				{
+					Result = s->Type;
+					Expr->Selector.Type = s->Type;
+				}
 			}
 			else
 			{
 				Expr->Selector.Type = TypeIdx;
-				const type *Type = GetType(TypeIdx);
+				Type = GetType(TypeIdx);
 				switch(Type->Kind)
 				{
 					case TypeKind_Basic:
@@ -1063,19 +1078,26 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							if(Result == INVALID_TYPE)
 							{
-								RaiseError(*Expr->ErrorInfo, "Members %s is not in enum %s, invalid `.` selector",
+								RaiseError(*Expr->ErrorInfo, "No member named %s in enum %s; Invalid `.` selector",
 										Expr->Selector.Member->Data, GetTypeName(T));
+							}
+						}
+						else if(IsString(Type))
+						{
+							if(*Expr->Selector.Member == STR_LIT("count"))
+							{
+								Expr->Selector.Index = 1;
+								Result = Basic_int;
+							}
+							else
+							{
+								RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on a string");
 							}
 						}
 						else
 						{
 							RaiseError(*Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
 						}
-#if 0
-						if(IsString(Type))
-						{
-						}
-#endif
 					} break;
 					case TypeKind_Slice:
 					{
@@ -1109,7 +1131,7 @@ ANALYZE_SLICE_SELECTOR:
 						}
 						if(Result == INVALID_TYPE)
 						{
-							RaiseError(*Expr->ErrorInfo, "Members %s is not enum %s, invalid `.` selector",
+							RaiseError(*Expr->ErrorInfo, "No member named %s in enum %s; Invalid `.` selector",
 									Expr->Selector.Member->Data, GetTypeName(Type));
 						}
 					} break;
@@ -1146,7 +1168,7 @@ ANALYZE_SLICE_SELECTOR:
 						}
 						if(Result == INVALID_TYPE)
 						{
-							RaiseError(*Expr->ErrorInfo, "Members %s of type %s is not in the struct, invalid `.` selector",
+							RaiseError(*Expr->ErrorInfo, "No member named %s in struct %s; Invalid `.` selector",
 									Expr->Selector.Member->Data, GetTypeName(Type));
 						}
 					} break;
@@ -1192,7 +1214,7 @@ ANALYZE_SLICE_SELECTOR:
 				} break;
 				case TypeKind_Basic:
 				{
-					if(!HasBasicFlag(OperandType, BasicFlag_CString))
+					if(!IsString(OperandType, true))
 						RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
 					Result = Basic_u8;
 				} break;
@@ -1598,7 +1620,6 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 			const type *Promotion = NULL;
 			if(!IsTypeCompatible(TypePointer, ExprTypePointer, &Promotion, true))
 			{
-DECL_TYPE_ERROR:
 				RaiseError(*Node->ErrorInfo, "Cannot assign expression of type %s to variable of type %s",
 						GetTypeName(ExprTypePointer), GetTypeName(TypePointer));
 			}
@@ -1606,8 +1627,7 @@ DECL_TYPE_ERROR:
 			{
 				if(!IsUntyped(ExprTypePointer))
 				{
-					goto DECL_TYPE_ERROR;
-					//Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
+					Node->Decl.Expression = MakeCast(Node->ErrorInfo, Node->Decl.Expression, NULL, ExprType, Type);
 				}
 				else
 				{

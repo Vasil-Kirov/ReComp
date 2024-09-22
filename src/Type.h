@@ -260,5 +260,4 @@ b32 IsStructAllFloats(const type *T);
 u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
 
 extern platform_target PTarget;
-extern u32 InvalidType;
 

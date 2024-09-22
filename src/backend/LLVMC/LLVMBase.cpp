@@ -178,7 +178,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(Type->Basic.Flags & BasicFlag_String)
 			{
-				LLVMTypeRef IntType = ConvertToLLVMType(gen->ctx, Basic_i32);
+				LLVMTypeRef IntType = ConvertToLLVMType(gen->ctx, Basic_int);
 				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
 				LLVMValueRef Size    = LLVMConstInt(IntType, Val->String.Data->Size, false);
 				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
@@ -361,6 +361,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMValueRef Index = gen->map.Get(I.Right);
 				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
+				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
+			}
+			else if(HasBasicFlag(Type, BasicFlag_CString))
+			{
+				LLVMValueRef Index = gen->map.Get(I.Right);
+				LLVMType = LLVMInt8TypeInContext(gen->ctx);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
 			else if(IsString(Type))
@@ -792,11 +798,7 @@ void RCGenerateComplexTypes(generator *gen)
 
 void RCGenerateCompilerTypes(generator *gen)
 {
-	type *U8Ptr = NewType(type);
-	U8Ptr->Kind = TypeKind_Pointer;
-	U8Ptr->Pointer = {.Pointed = Basic_u8};
-	u32 U8PtrID = AddType(U8Ptr);
-	struct_member DataMember = {STR_LIT("data"), U8PtrID};
+	struct_member DataMember = {STR_LIT("data"), GetPointerTo(Basic_u8)};
 	struct_member SizeMember = {STR_LIT("size"), Basic_int};
 	type *StringType = NewType(type);
 

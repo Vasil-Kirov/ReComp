@@ -43,8 +43,6 @@ const type BasicTypes[] = {
 
 const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
-const type InvalidTypeImpl = {TypeKind_Invalid, {}};
-u32 InvalidType    = INVALID_TYPE;
 const type *BasicBool      = &BasicTypes[Basic_bool];
 const type *UntypedInteger = &BasicTypes[Basic_UntypedInteger];
 const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
@@ -62,9 +60,6 @@ const type **InitializeTypeTable()
 	{
 		Types[TypeCount++] = &BasicTypes[I];
 	}
-	InvalidType = TypeCount;
-	Types[TypeCount++] = &InvalidTypeImpl;
-
 	return Types;
 }
 

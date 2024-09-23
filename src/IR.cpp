@@ -116,18 +116,18 @@ void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type,
 	Local.Name  = Name;
 	Local.Type  = Type;
 	Local.Flags = Flags;
-	Function->Locals[Function->LocalCount++] = Local;
+	Function->Locals.Push(Local);
 }
 
 // @TODO: This is bad
 const ir_symbol *GetIRLocal(function *Function, const string *Name, b32 Error = true)
 {
 	ir_symbol *Found = NULL;
-	for(int I = 0; I < Function->LocalCount; ++I)
+	for(int I = 0; I < Function->Locals.Count; ++I)
 	{
 		if(*Function->Locals[I].Name == *Name)
 		{
-			Found = &Function->Locals[I];
+			Found = &Function->Locals.Data[I];
 		}
 	}
 	if(!Found && Error)
@@ -1564,8 +1564,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		Function.LinkName = StructToModuleNamePtr(NameNoPtr, Function.ModuleName);
 	if(Body.IsValid())
 	{
-		Function.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
-		Function.LocalCount = 0;
+		Function.Locals = {};
 		block_builder Builder = {};
 		Builder.Function = &Function;
 		Builder.CurrentBlock = AllocateBlock(&Builder);
@@ -1606,9 +1605,8 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		}
 		Terminate(&Builder, {});
 		Function.LastRegister = Builder.LastRegister;
-		VFree(Function.Locals);
 		Builder.Function = NULL;
-		Function.Locals = NULL;
+		Function.Locals.Free();
 	}
 	return Function;
 }
@@ -1925,8 +1923,7 @@ ir BuildIR(file *File, u32 StartRegister)
 		function GlobalInitializers = {};
 		GlobalInitializers.Name = DupeType(GlobalFnName, string);
 		GlobalInitializers.Type = INVALID_TYPE;
-		GlobalInitializers.Locals = (ir_symbol *)VAlloc(MB(1) * sizeof(ir_symbol));
-		GlobalInitializers.LocalCount = 0;
+		GlobalInitializers.Locals = {};
 		GlobalInitializers.LinkName = StructToModuleNamePtr(GlobalFnName, File->Module->Name);
 		GlobalInitializers.NoDebugInfo = true;
 
@@ -1977,7 +1974,7 @@ ir BuildIR(file *File, u32 StartRegister)
 		IR.Functions.Push(GlobalInitializers);
 		Builder.Function = NULL;
 
-		VFree(GlobalInitializers.Locals);
+		GlobalInitializers.Locals.Free();
 	}
 
 	for(int I = 0; I < NodeCount; ++I)

@@ -138,12 +138,11 @@ struct function
 	const string *Name;
 	const string *LinkName;
 	dynamic<basic_block> Blocks;
-	ir_symbol *Locals;
+	dynamic<ir_symbol> Locals;
 	reg_allocation *Allocated;
 	slice<ir_symbol> ModuleSymbols;
 	string ModuleName;
 	u32 LineNo;
-	u32 LocalCount;
 	u32 LastRegister;
 	u32 Type;
 	b32 NoDebugInfo;

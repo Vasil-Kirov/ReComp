@@ -44,6 +44,13 @@ struct dynamic {
 		EnsureCapacity();
 		Data[Count++] = Value;
 	}
+	void Free()
+	{
+		VFree(Data);
+		Data = NULL;
+		Count = 0;
+		Capacity = 0;
+	}
 	b32 IsValid() { return Data != NULL; }
 };
 

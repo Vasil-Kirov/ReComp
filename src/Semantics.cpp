@@ -1288,6 +1288,21 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 		{
 			switch(Expr->Unary.Op)
 			{
+				case T_MINUS:
+				{
+					u32 TypeIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					const type *T = GetType(TypeIdx);
+					if(!HasBasicFlag(T, BasicFlag_Integer) && !HasBasicFlag(T, BasicFlag_Float))
+					{
+						RaiseError(*Expr->ErrorInfo, "Expression to unary - must be an integer, but it's %s",
+								GetTypeName(T));
+					}
+					Expr->Unary.Type = TypeIdx;
+					if(IsUntyped(T))
+						Checker->UntypedStack.Push(&Expr->Unary.Type);
+
+					return TypeIdx;
+				} break;
 				case T_BANG:
 				{
 					AnalyzeBooleanExpression(Checker, &Expr->Unary.Operand);

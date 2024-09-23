@@ -877,6 +877,7 @@ node *ParseUnary(parser *Parser)
 	ERROR_INFO;
 	switch(Token.Type)
 	{
+		case T_MINUS:
 		case T_BANG:
 		case T_QMARK:
 		case T_ADDROF:

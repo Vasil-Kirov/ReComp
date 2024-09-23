@@ -376,7 +376,7 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	{
 		return TokinizeIdentifier(String, ErrorInfo);
 	}
-	if(isdigit(FirstChar) || (FirstChar == '-' && isdigit(PeekCAhead(String, 1))))
+	if(isdigit(FirstChar))
 	{
 		return TokinizeNumber(String, ErrorInfo);
 	}

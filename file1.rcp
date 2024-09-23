@@ -23,6 +23,11 @@ enum my_E {
     z,
 }
 
+my_fn :: fn(num: i32, num2: i32) -> i32 {
+
+    return num + num2;
+}
+
 main :: fn() -> i32 {
     // e := my_E.x;
     // enum_type_info := #info type_of e;
@@ -31,10 +36,7 @@ main :: fn() -> i32 {
     //     printf(c"member: %s\n", @cstring names[i]);
     // }
 
-    info := ints { f64_ = -1.53 };
-    enum_info := #info my_E;
 
-    io.print("%\n", type_of main);
 
     // f := ints{};
     // f.u64_ = 10;
@@ -45,7 +47,7 @@ main :: fn() -> i32 {
     // }
     // io.print("num: %", f);
 
-    return 0;
+    return my_fn(3, -3);
 }
 
 printf :: fn #foreign(fmt: cstring, arg: u8) -> int;

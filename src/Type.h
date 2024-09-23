@@ -241,7 +241,7 @@ b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 FindEnum(string Name);
-u32 VarArgArrayType(u32 ElemCount);
+u32 VarArgArrayType(u32 ElemCount, u32 ArgT);
 u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
 u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags);
 b32 IsFn(const type *T);

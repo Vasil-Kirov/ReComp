@@ -13,6 +13,8 @@ main
 union ints {
     u32_: i32,
     u64_: i64,
+    f32_: f32,
+    f64_: f64,
 }
 
 enum my_E {
@@ -29,11 +31,8 @@ main :: fn() -> i32 {
     //     printf(c"member: %s\n", @cstring names[i]);
     // }
 
-    x := ints { u64_ = 1 };
-    io.print("x: %", x);
-    //for m in sl {
-    //    io.print("n: %\n", m.name);
-    //}
+    info := ints { f64_ = -1.53 };
+    io.print("%\n", info);
 
     // f := ints{};
     // f.u64_ = 10;

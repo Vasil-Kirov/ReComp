@@ -66,11 +66,10 @@ const type **InitializeTypeTable()
 const type **TypeTable = InitializeTypeTable();
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
-u32 VarArgArrayType(u32 ElemCount)
+u32 VarArgArrayType(u32 ElemCount, u32 ArgT)
 {
 	type *T = AllocType(TypeKind_Array);
-	u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
-	T->Array.Type = ArgType;
+	T->Array.Type = ArgT;
 	T->Array.MemberCount = ElemCount;
 
 	return AddType(T);
@@ -1079,7 +1078,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 
 b32 IsGeneric(u32 Type)
 {
-	return IsGeneric(GetType(Type));
+	return IsGeneric(GetTypeRaw(Type));
 }
 
 u32 GetGenericPart(u32 Resolved, u32 GenericID)

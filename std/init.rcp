@@ -222,7 +222,7 @@ get_struct_size :: fn(st: type) -> int {
 		if member_size > biggest_member
 			biggest_member = member_size;
 	}
-	if t.flags & @u32 StructFlag.Union
+	if (t.flags & @u32 StructFlag.Union) != 0
 		return biggest_member;
     align := get_type_alignment(st);
 	result += (align - ( result % align )) % align;
@@ -282,7 +282,6 @@ x: []TypeInfo;
 
 entry :: fn #link="main"() -> i32 {
     global_initializers();
-    ti := type_table[0];
     res := mn.main();
 
     return res;

@@ -5,6 +5,8 @@ struct Foo {
 }
 
 give_struct :: fn(foo: Foo) -> i32 {
+    x := foo;
+    x.arr[5] = 64;
 	return foo.arr[5];
 }
 

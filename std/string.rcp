@@ -1,4 +1,5 @@
 io
+
 #import os
 #import array
 #import mem
@@ -14,6 +15,11 @@ push_string :: fn(b: *[]u8, str: string) {
 format_uint :: fn(b: *[]u8, num_in: uint) {
     temp := [256]u8{};
     num := num_in;
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
     count := 0;
     for num > 0 {
         digit := num % 10;
@@ -31,6 +37,11 @@ format_uint :: fn(b: *[]u8, num_in: uint) {
 format_int :: fn(b: *[]u8, num_in: int) {
     temp := [256]u8{};
     num := num_in;
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
     is_neg := false;
     if num < 0 {
         num = 0 - num;
@@ -47,6 +58,66 @@ format_int :: fn(b: *[]u8, num_in: int) {
     }
     
     if is_neg array.add(b, '-');
+
+    for i in count {
+        array.add(b, temp[count - i - 1]);
+    }
+}
+
+format_float :: fn(ft: type, b: *[]u8, num_in: ft, round_at: i32) {
+    temp := [256]u8{};
+    count := 0;
+    num := num_in;
+
+    if ft != f32 && ft != f64 {
+        return;
+    }
+
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    num += 0.005;
+    int_val := @i32 num;
+    dec := @i32 (num * round_at) % round_at;
+
+    if dec == 0 {
+        temp[count] = '0';
+        count += 1;
+    }
+    else {
+        for dec > 0 {
+            temp[count] = '0' + @u8(dec % 10);
+            count += 1;
+            dec /= 10;
+        }
+    }
+
+    temp[count] = '.';
+    count += 1;
+
+    if int_val == 0 {
+        temp[count] = '0';
+        count += 1;
+    } else {
+        for int_val > 0 {
+            temp[count] = '0' + @u8(int_val % 10);
+            count += 1;
+            int_val /= 10;
+        }
+    }
+
+
+    if is_neg {
+        array.add(b, '-');
+    }
 
     for i in count {
         array.add(b, temp[count - i - 1]);
@@ -74,6 +145,10 @@ print_type :: fn(b: *[]u8, arg: init.Arg) {
                 }
             }
             else if basic.kind == init.BasicKind.String {
+                str: string = *@*string arg.val;
+                for i in str.count {
+                    array.add(b, str[i]);
+                }
             }
             else if basic.kind == init.BasicKind.Cstring {
                 str: cstring = *@*cstring arg.val;
@@ -119,12 +194,16 @@ print_type :: fn(b: *[]u8, arg: init.Arg) {
                 format_int(b, num);
             }
             else if basic.kind == init.BasicKind.Uint {
-                num: uint = *@*u8 arg.val;
+                num: uint = *@*uint arg.val;
                 format_uint(b, num);
             }
             else if basic.kind == init.BasicKind.F32 {
+                num := *@*f32 arg.val;
+                format_float(f32, b, num, 100);
             }
             else if basic.kind == init.BasicKind.F64 {
+                num := *@*f64 arg.val;
+                format_float(f64, b, num, 100);
             }
             else {
                 array.add(b, '%');

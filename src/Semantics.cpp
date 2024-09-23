@@ -772,31 +772,39 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					ArgTypes.Push(ExprTypeIdx);
 					continue;
 				}
-				const type *ExpectType = GetType(CallType->Function.Args[Idx]);
-				const type *PromotionType = NULL;
-				if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
+				const type *ArgTMaybeGeneric = GetTypeRaw(CallType->Function.Args[Idx]);
+				if(!IsGeneric(ArgTMaybeGeneric))
 				{
-					RaiseError(*Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
-							Idx, GetTypeName(ExpectType), GetTypeName(ExprType));
-				}
-				if(IsUntyped(ExprType))
-				{
-					if(IsGeneric(ExpectType))
+					const type *ExpectType = GetType(CallType->Function.Args[Idx]);
+					const type *PromotionType = NULL;
+					if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
 					{
-						//FillUntypedStack(Checker, UntypedGetType(ExprType));
+						RaiseError(*Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
+								Idx, GetTypeName(ExpectType), GetTypeName(ExprType));
 					}
-					else
+					if(IsUntyped(ExprType))
 					{
-						FillUntypedStack(Checker, CallType->Function.Args[Idx]);
+						if(IsGeneric(ExpectType))
+						{
+							//FillUntypedStack(Checker, UntypedGetType(ExprType));
+						}
+						else
+						{
+							FillUntypedStack(Checker, CallType->Function.Args[Idx]);
+						}
 					}
+					else if(PromotionType)
+					{
+						node *Arg = Expr->Call.Args[Idx];
+						Expr->Call.Args.Data[Idx] = MakeCast(Arg->ErrorInfo, Arg, NULL,
+								ExprTypeIdx, CallType->Function.Args[Idx]);
+					}
+					ArgTypes.Push(ExprTypeIdx);
 				}
-				else if(PromotionType)
+				else
 				{
-					node *Arg = Expr->Call.Args[Idx];
-					Expr->Call.Args.Data[Idx] = MakeCast(Arg->ErrorInfo, Arg, NULL,
-							ExprTypeIdx, CallType->Function.Args[Idx]);
+					ArgTypes.Push(ExprTypeIdx);
 				}
-				ArgTypes.Push(ExprTypeIdx);
 			}
 			Expr->Call.ArgTypes = SliceFromArray(ArgTypes);
 
@@ -2399,6 +2407,8 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 	{
 		case AST_CALL:
 		{
+			u32 SaveRepl = GetGenericReplacement();
+			SetGenericReplacement(INVALID_TYPE);
 			module *MaybeMod = NULL;
 			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
 			if(!FnSym)
@@ -2532,6 +2542,8 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 			Expr->Call.Fn = NewFnNode;
 			Expr->Call.Type = NewFnType;
 			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
+
+			SetGenericReplacement(SaveRepl);
 
 
 			return NewFnNode;

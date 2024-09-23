@@ -9,6 +9,9 @@
 #ifndef VAlloc
 #define VAlloc  AllocateMemory
 #endif
+#ifndef VRealloc
+#define VRealloc ReallocateMemory
+#endif
 #ifndef VFree
 #define VFree   free
 #endif
@@ -135,6 +138,13 @@ inline void *AllocateMemory(size_t Size)
 {
 	void *Result = malloc(Size);
 	memset(Result, 0, Size);
+	return Result;
+}
+
+inline void *ReallocateMemory(void *Original, int CurrentSize, int NewSize)
+{
+	void *Result = realloc(Original, NewSize);
+	memset((char *)Result + CurrentSize, 0, NewSize-CurrentSize);
 	return Result;
 }
 

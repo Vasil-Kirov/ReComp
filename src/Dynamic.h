@@ -22,11 +22,9 @@ struct dynamic {
 		}
 		while(Count >= Capacity)
 		{
-			Capacity = (Capacity + 2) * 1.5;
-			T *NewData = (T *)VAlloc(sizeof(T) * Capacity);
-			memcpy(NewData, Data, sizeof(T) * Count);
-			VFree(Data);
-			Data = NewData;
+			size_t NewCapacity = (Capacity + 2) * 1.5;
+			Data = (T *)VRealloc(Data, Capacity * sizeof(T), NewCapacity * sizeof(T));
+			Capacity = NewCapacity;
 		}
 	}
 	T *GetPtr(size_t Index) const

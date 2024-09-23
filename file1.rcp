@@ -32,7 +32,9 @@ main :: fn() -> i32 {
     // }
 
     info := ints { f64_ = -1.53 };
-    io.print("%\n", info);
+    enum_info := #info my_E;
+
+    io.print("%\n", type_of main);
 
     // f := ints{};
     // f.u64_ = 10;

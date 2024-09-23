@@ -124,6 +124,57 @@ format_float :: fn(ft: type, b: *[]u8, num_in: ft, round_at: i32) {
     }
 }
 
+print_typetype :: fn(b: *[]u8, info: init.TypeInfo) {
+    match info.kind {
+        init.TypeKind.Invalid: {
+            push_string(b, "invalid");
+        },
+        init.TypeKind.Basic: {
+            push_string(b, info.t.basic.name);
+        },
+        init.TypeKind.Function: {
+            push_string(b, "fn(");
+            args := info.t.function.args_t;
+            for arg in args {
+                print_typetype(b, #info arg);
+                if i + 1 != args.count {
+                    push_string(b, ", ");
+                }
+            }
+            push_string(b, ")");
+            if info.t.function.return_ != init.INVALID_TYPE {
+                push_string(b, " -> ");
+                print_typetype(b, #info info.t.function.return_);
+            }
+        },
+        init.TypeKind.Struct: {
+            push_string(b, info.t.struct_.name);
+        },
+        init.TypeKind.Pointer: {
+            push_string(b, "*");
+            print_typetype(b, #info info.t.pointer.pointee);
+        },
+        init.TypeKind.Array: {
+            push_string(b, "[x]");
+            print_typetype(b, #info info.t.array.t);
+        },
+        init.TypeKind.Slice: {
+            push_string(b, "[]");
+            print_typetype(b, #info info.t.slice.t);
+        },
+        init.TypeKind.Vector: {
+            push_string(b, "<>");
+        },
+        init.TypeKind.Enum: {
+            push_string(b, info.t.enum_.name);
+        },
+        init.TypeKind.Generic: {
+            push_string(b, info.t.generic.name);
+        }
+    };
+
+}
+
 print_type :: fn(b: *[]u8, arg: init.Arg) {
     t := #info arg.t;
     match t.kind {
@@ -205,6 +256,11 @@ print_type :: fn(b: *[]u8, arg: init.Arg) {
                 num := *@*f64 arg.val;
                 format_float(f64, b, num, 100);
             }
+            else if basic.kind == init.BasicKind.Type {
+                pt := *@*type arg.val;
+                info := #info pt;
+                print_typetype(b, info);
+            }
             else {
                 array.add(b, '%');
             }
@@ -217,11 +273,11 @@ print_type :: fn(b: *[]u8, arg: init.Arg) {
             push_string(b, " { ");
             for n in st.members.count {
                 m := st.members[n];
+                print("mem: %\n", m.name);
                 push_string(b, m.name);
                 push_string(b, " = ");
                 ptr := @*u8 arg.val;
                 offset := init.get_struct_member_offset(st, n);
-                print("offset: %\n", offset);
                 mem_arg := init.Arg {
                     t = m.t,
                     val = &ptr[offset],

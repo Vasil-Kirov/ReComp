@@ -204,6 +204,18 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					Value = LLVMConstInt(LLVMType, Val->Float, true);
 				}
 			}
+			else if(HasBasicFlag(Type, BasicFlag_TypeID))
+			{
+				if(Val->Type == const_type::Integer)
+				{
+					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.Signed);
+				}
+				else
+				{
+					Assert(Val->Type == const_type::Float);
+					Value = LLVMConstInt(LLVMType, Val->Float, true);
+				}
+			}
 			else
 			{
 				LDEBUG("%d", Type->Kind);

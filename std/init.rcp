@@ -8,6 +8,8 @@ struct Arg {
     val: *,
 }
 
+INVALID_TYPE :: @type -1;
+
 enum TypeKind {
 	Invalid ,
 
@@ -276,9 +278,6 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     result -= get_type_size(st.members[mem_idx].t);
     return result;
 }
-
-foo: [4]TypeInfo;
-x: []TypeInfo;
 
 entry :: fn #link="main"() -> i32 {
     global_initializers();

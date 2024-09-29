@@ -12,7 +12,6 @@ get_codepoint_size :: fn(codepoint: *u8) -> int {
     size := 1;
     for i := 1; @u32 *p & (@u32 CONTINUE_BIT >> @u32 i); i += 1 {
         size += 1;
-        if size == 4 break;
     }
     return size;
 }

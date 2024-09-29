@@ -166,6 +166,16 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 
 }
 
+basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
+{
+	ForArray(Idx, Blocks)
+	{
+		if(Blocks[Idx].ID == ID)
+			return Blocks[Idx];
+	}
+	unreachable;
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
@@ -383,6 +393,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						int TypeSize = GetTypeSize(Type->Pointer.Pointed);
 						Value.ptr = (*(u8 **)Operand->ptr) + (TypeSize * Index->u64);
 					} break;
+					case TypeKind_Basic:
+					{
+						if(HasBasicFlag(Type, BasicFlag_CString))
+						{
+							value *Index = VM->Registers.GetValue(I.Right);
+							Value.ptr = (u8 *)Operand->ptr + Index->u64;
+							break;
+						}
+						else
+							unreachable;
+					} break;
 					default: unreachable;
 				}
 				VM->Registers.AddValue(I.Result, Value);
@@ -397,6 +418,24 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				{
 					return { INTERPRET_OK, *VM->Registers.GetValue(I.Left) };
 				}
+			} break;
+			case OP_CAST:
+			{
+				u32 FromType = I.Right;
+				u32 ToType = I.Type;
+				value *Val = VM->Registers.GetValue(I.Left);
+				value Result = {};
+				Result.Type = ToType;
+				if(FromType == Basic_string && ToType == Basic_cstring)
+				{
+					Result.ptr = Val->ptr;
+				}
+				else
+				{
+					// @TODO:
+					Result.ptr = Val->ptr;
+				}
+				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_CALL:
 			{
@@ -429,9 +468,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 				value *Cond = VM->Registers.GetValue(I.Result);
 				if(Cond->u64)
-					VM->Executing->Code = SliceFromArray(OptionalBlocks[I.Left].Code);
+					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Left).Code);
 				else
-					VM->Executing->Code = SliceFromArray(OptionalBlocks[I.Right].Code);
+					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Right).Code);
 				return Run(VM, OptionalBlocks, OptionalArgs);
 			} break;
 			case OP_JMP:
@@ -439,7 +478,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				if(!OptionalBlocks.IsValid())
 					return { INTERPRET_RUNTIME_ERROR };
 
-				VM->Executing->Code = SliceFromArray(OptionalBlocks[I.BigRegister].Code);
+				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
 				return Run(VM, OptionalBlocks, OptionalArgs);
 			} break;
 			BIN_OP(ADD, +);
@@ -451,7 +490,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(LESS, <);
 			BIN_COMP_OP(GEQ, >=);
 			BIN_COMP_OP(LEQ, <=);
-			BIN_COMP_OP(EQEQ, ==);
+			BIN_COMP_OP(EQEQ,==);
+			BIN_COMP_OP(NEQ, !=);
+			BIN_COMP_OP(LAND, &&);
 			case OP_DEBUGINFO:
 			{} break;
 			default:

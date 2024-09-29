@@ -1925,28 +1925,69 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		Member.Name = *Item.Name;
 		if(Item.Expression)
 		{
-			switch(Item.Expression->Type)
+			b32 Parsing = true;
+			node *Expr = Item.Expression;
+			while(Parsing)
 			{
-				case AST_CONSTANT:
+				b32 IsNeg = false;
+				switch(Expr->Type)
 				{
-					Member.Value = Item.Expression->Constant.Value;
-					if(Member.Value.Type != const_type::Integer)
+					case AST_CONSTANT:
 					{
-						RaiseError(*Item.Expression->ErrorInfo, "Enum member value must be an integer");
-					}
-				} break;
-				case AST_CHARLIT:
-				{
-					const_value Value = {};
-					Value.Type = const_type::Integer;
-					Value.Int.IsSigned = false;
-					Value.Int.Unsigned = Node->CharLiteral.C;
-					Member.Value = Value;
-				} break;
-				default:
-				{
-					RaiseError(*Item.Expression->ErrorInfo, "Enum member value must be a constant integer");
-				} break;
+						Member.Value = Expr->Constant.Value;
+						if(Member.Value.Type != const_type::Integer)
+						{
+							RaiseError(*Expr->ErrorInfo, "Enum member value must be an integer");
+						}
+						if(IsNeg)
+						{
+							using ct = const_type;
+							switch(Member.Value.Type)
+							{
+								case ct::Integer:
+								{
+									Member.Value.Int.IsSigned = true;
+									Member.Value.Int.Signed = -Member.Value.Int.Signed;
+								} break;
+								case ct::Float:
+								{
+									Member.Value.Float = -Member.Value.Float;
+								} break;
+								case ct::String:
+								{
+									RaiseError(*Expr->ErrorInfo, "Cannot use - operator on a string");
+								} break;
+							}
+						}
+						Parsing = false;
+					} break;
+					case AST_CHARLIT:
+					{
+						const_value Value = {};
+						Value.Type = const_type::Integer;
+						Value.Int.IsSigned = false;
+						Value.Int.Unsigned = Node->CharLiteral.C;
+						Member.Value = Value;
+						if(IsNeg)
+						{
+							RaiseError(*Expr->ErrorInfo, "Cannot use - operator on a char literal");
+						}
+						Parsing = false;
+					} break;
+					case AST_UNARY:
+					{
+						if(Expr->Unary.Op != T_MINUS)
+						{
+							RaiseError(*Expr->ErrorInfo, "Cannot use this unary operator on an enum literal value");
+						}
+						IsNeg = !IsNeg;
+						Expr = Expr->Unary.Operand;
+					} break;
+					default:
+					{
+						RaiseError(*Expr->ErrorInfo, "Enum member value must be a constant integer");
+					} break;
+				}
 			}
 		}
 		else
@@ -2282,7 +2323,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 	}
 }
 
-void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
+void AnalyzeEnums(checker *Checker, slice<node *>Nodes)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -2291,6 +2332,10 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 			AnalyzeEnum(Checker, Nodes[I]);
 		}
 	}
+}
+
+void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
+{
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)

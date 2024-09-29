@@ -83,6 +83,11 @@ void ResolveSymbols(dynamic<file> Files, b32 ExpectingMain)
 	ForArray(Idx, Files)
 	{
 		file *File = &Files.Data[Idx];
+		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = &Files.Data[Idx];
 		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
@@ -428,6 +433,11 @@ main(int ArgCount, char *Args[])
 			compile_info *Info = (compile_info *)Out.ptr;
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
+				if(Info->FileNames[i] == NULL)
+				{
+					LFATAL("File name #%d is null", Info->FileNames[i]);
+				}
+
 				FileNames.Push(MakeString(Info->FileNames[i]));
 			}
 			AddStdFiles(FileNames);

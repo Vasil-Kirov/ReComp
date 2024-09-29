@@ -128,7 +128,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 			{\
 				const type *Type = GetType(I.Type); \
 				value Result = {}; \
-				Result.Type = I.Type; \
+				Result.Type = Basic_bool; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
 				value *Right = VM->Registers.GetValue(I.Right); \
 				if(Type->Kind == TypeKind_Basic) \

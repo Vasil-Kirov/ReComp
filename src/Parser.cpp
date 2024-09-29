@@ -65,7 +65,7 @@ node *MakeMatch(const error_info *ErrorInfo, node *Expression, slice<node *> Cas
 	return Result;
 }
 
-node *MakeCharLiteral(const error_info *ErrorInfo, char C)
+node *MakeCharLiteral(const error_info *ErrorInfo, u32 C)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_CHARLIT);
 	Result->CharLiteral.C = C;
@@ -838,7 +838,7 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			Result = MakeCharLiteral(ErrorInfo, (u8)(u64)Token.ID);
+			Result = MakeCharLiteral(ErrorInfo, (u32)(u64)Token.ID);
 		} break;
 		case T_VAL:
 		{

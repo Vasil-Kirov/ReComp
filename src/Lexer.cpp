@@ -1,4 +1,5 @@
 #include "Lexer.h"
+#include "Errors.h"
 #include "Memory.h"
 #include "VString.h"
 
@@ -327,22 +328,35 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	error_info StartErrorInfo = *ErrorInfo;
 	char c = AdvanceC(String, ErrorInfo);
 	Assert(c == '\'');
-	char inside = AdvanceC(String, ErrorInfo);
-	if(inside == '\\')
+	u32 result = 0;
+	uint i = 0;
+	while(String->Data[0] != '\'')
 	{
-		char escaped = AdvanceC(String, ErrorInfo);
-		inside = GetEscapedChar(escaped);
-		if(inside == escaped)
+		if (i >= 4)
 		{
-			RaiseError(StartErrorInfo, "Unkown escape sequence \\%c", escaped);
+			RaiseError(StartErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
 		}
+		char c = AdvanceC(String, ErrorInfo);
+		if(c == '\\')
+		{
+			char escaped = AdvanceC(String, ErrorInfo);
+			c = GetEscapedChar(escaped);
+			if(c == escaped)
+			{
+				RaiseError(StartErrorInfo, "Unkown escape sequence \\%c", escaped);
+			}
+		}
+
+		u32 zero_ext = (c & 0xFF);
+		result <<= 8;
+		result = result | zero_ext;
+
+		i++;
 	}
+	
 	char end = AdvanceC(String, ErrorInfo);
-	if(end != '\'')
-	{
-		RaiseError(StartErrorInfo, "Multi character literals are not supported");
-	}
-	return MakeToken(T_CHAR, StartErrorInfo, (string *)(u64)inside);
+	Assert(end == '\'')
+	return MakeToken(T_CHAR, StartErrorInfo, (string *)(u64)result);
 }
 
 void SkipWhiteSpace(string *String, error_info *ErrorInfo)

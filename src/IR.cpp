@@ -907,7 +907,7 @@ BUILD_SLICE_SELECTOR:
 		} break;
 		case AST_CHARLIT:
 		{
-			Result = PushInt(Node->CharLiteral.C, Builder, Basic_u8);
+			Result = PushInt(Node->CharLiteral.C, Builder, Basic_u32);
 		} break;
 		case AST_CONSTANT:
 		{

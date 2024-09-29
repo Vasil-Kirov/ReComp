@@ -167,7 +167,7 @@ struct node
 			u32 ToType;
 		} Cast;
 		struct {
-			char C;
+			u32 C;
 		} CharLiteral;
 		struct {
 			const_value Value;

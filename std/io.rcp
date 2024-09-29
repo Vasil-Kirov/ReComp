@@ -36,7 +36,7 @@ format_uint :: fn(b: *[]u32, num_in: uint) {
 }
 
 format_int :: fn(b: *[]u32, num_in: int) {
-    temp := [256]u8{};
+    temp := [256]u32{};
     num := num_in;
     if num == 0 {
         array.add(b, '0');

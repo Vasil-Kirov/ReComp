@@ -1263,7 +1263,7 @@ ANALYZE_SLICE_SELECTOR:
 		} break;
 		case AST_CHARLIT:
 		{
-			Result = Basic_u8;
+			Result = Basic_u32;
 		} break;
 		case AST_CONSTANT:
 		{

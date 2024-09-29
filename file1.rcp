@@ -34,6 +34,8 @@ main :: fn() -> i32 {
     for c in str {
         if c == ' ' {
             io.print("space\n");
+        } else if c == 'м' {
+            io.print("found м\n");
         } else {
             io.print("пoint: % %\n", c, str);
         }

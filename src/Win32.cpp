@@ -74,6 +74,7 @@ void PlatformAllocateReserved(void *Memory, size_t Size)
 
 void PlatformOutputString(string String, log_level Level)
 {
+	SetConsoleOutputCP(CP_UTF8);
 	//		MAGIC NUMBERS! (ored rgb)
 	//		13 = r | b | intense
 	//		4 = r

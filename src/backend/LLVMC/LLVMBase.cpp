@@ -180,7 +180,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMTypeRef IntType = ConvertToLLVMType(gen->ctx, Basic_int);
 				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
-				LLVMValueRef Size    = LLVMConstInt(IntType, Val->String.Data->Size, false);
+				LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
 				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
 
 				LLVMValueRef StringPtr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "String");

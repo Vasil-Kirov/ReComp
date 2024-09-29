@@ -749,32 +749,38 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 			}
 
-			dynamic<u32> ArgTypes = {};
-			ForArray(Idx, Expr->Call.Args)
 			{
-				u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
-				const type *ExprType = GetType(ExprTypeIdx);
-				if(CallType->Function.ArgCount <= Idx)
+				dynamic<u32> ArgTypes = {};
+				ForArray(Idx, Expr->Call.Args)
 				{
-					if(IsUntyped(ExprType))
+
+					u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+					const type *ExprType = GetType(ExprTypeIdx);
+					if(CallType->Function.ArgCount <= Idx)
 					{
-						if(ExprType->Basic.Flags & BasicFlag_Float)
+						if(IsUntyped(ExprType))
 						{
-							ExprTypeIdx = Basic_f32;
-							FillUntypedStack(Checker, Basic_f32);
+							if(ExprType->Basic.Flags & BasicFlag_Float)
+							{
+								ExprTypeIdx = Basic_f32;
+								FillUntypedStack(Checker, Basic_f32);
+							}
+							else
+							{
+								ExprTypeIdx = Basic_int;
+								FillUntypedStack(Checker, Basic_int);
+							}
 						}
-						else
-						{
-							ExprTypeIdx = Basic_int;
-							FillUntypedStack(Checker, Basic_int);
-						}
+						ArgTypes.Push(ExprTypeIdx);
+						continue;
 					}
-					ArgTypes.Push(ExprTypeIdx);
-					continue;
-				}
-				const type *ArgTMaybeGeneric = GetTypeRaw(CallType->Function.Args[Idx]);
-				if(!IsGeneric(ArgTMaybeGeneric))
-				{
+					const type *ArgTMaybeGeneric = GetTypeRaw(CallType->Function.Args[Idx]);
+					if(IsGeneric(ArgTMaybeGeneric))
+					{
+						ArgTypes.Push(ExprTypeIdx);
+						continue;
+					}
+
 					const type *ExpectType = GetType(CallType->Function.Args[Idx]);
 					const type *PromotionType = NULL;
 					if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
@@ -798,15 +804,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						node *Arg = Expr->Call.Args[Idx];
 						Expr->Call.Args.Data[Idx] = MakeCast(Arg->ErrorInfo, Arg, NULL,
 								ExprTypeIdx, CallType->Function.Args[Idx]);
+						ExprTypeIdx = CallType->Function.Args[Idx];
 					}
 					ArgTypes.Push(ExprTypeIdx);
 				}
-				else
-				{
-					ArgTypes.Push(ExprTypeIdx);
-				}
+				Expr->Call.ArgTypes = SliceFromArray(ArgTypes);
 			}
-			Expr->Call.ArgTypes = SliceFromArray(ArgTypes);
 
 			Expr->Call.Type = CallTypeIdx;
 
@@ -1103,9 +1106,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								Expr->Selector.Index = 1;
 								Result = Basic_int;
 							}
+							else if(*Expr->Selector.Member == STR_LIT("data"))
+							{
+								Expr->Selector.Index = 0;
+								Result = GetPointerTo(Basic_u8);
+							}
 							else
 							{
-								RaiseError(*Expr->ErrorInfo, "Only .count can be accessed on a string");
+								RaiseError(*Expr->ErrorInfo, "Only .data and .count can be accessed on a string");
 							}
 						}
 						else
@@ -1228,7 +1236,7 @@ ANALYZE_SLICE_SELECTOR:
 				} break;
 				case TypeKind_Basic:
 				{
-					if(!IsString(OperandType, true))
+					if(!HasBasicFlag(OperandType, BasicFlag_CString))
 						RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
 					Result = Basic_u8;
 				} break;
@@ -1712,12 +1720,16 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 	const type *ExprType = GetType(ExprTypeIdx);
 	if(ExprType->Kind != TypeKind_Basic && ExprType->Kind != TypeKind_Pointer)
 	{
-		RaiseError(*Node->ErrorInfo, "If statement expression cannot be evaluated to a boolean. It has a type of %s",
+		RaiseError(*Node->ErrorInfo, "Expected boolean type for condition expression, got %s.",
 				GetTypeName(ExprType));
 	}
 	if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
 	{
-		*NodePtr = MakeCast(Node->ErrorInfo, Node->If.Expression, NULL, ExprTypeIdx, Basic_bool);
+		const_value ZeroValue = {};
+		ZeroValue.Type = const_type::Integer;
+		node *Zero = MakeConstant(Node->ErrorInfo, ZeroValue);
+		Zero->Constant.Type = ExprTypeIdx;
+		*NodePtr = MakeBinary(Node->ErrorInfo, Node, Zero, T_NEQ);
 	}
 	else if(ExprType->Kind == TypeKind_Pointer)
 	{
@@ -1752,13 +1764,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 				AnalyzeDeclerations(Checker, Node->For.Expr1);
 			if(Node->For.Expr2)
 			{
-				u32 ConditionIdx = AnalyzeExpression(Checker, Node->For.Expr2);
-				const type *Condition = GetType(ConditionIdx);
-				if(!HasBasicFlag(Condition, BasicFlag_Boolean))
-				{
-					RaiseError(*Node->ErrorInfo,
-							"Expected boolean type for condition expression, got %s.", GetTypeName(Condition));
-				}
+				AnalyzeBooleanExpression(Checker, &Node->For.Expr2);
 			}
 			if(Node->For.Expr3)
 				AnalyzeExpression(Checker, Node->For.Expr3);
@@ -1767,7 +1773,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Node->For.Expr2);
 			const type *T = GetType(TypeIdx);
-			if(T->Kind != TypeKind_Array && !HasBasicFlag(T, BasicFlag_Integer) && T->Kind != TypeKind_Slice)
+			if(!IsTypeIterable(T))
 			{
 				RaiseError(*Node->For.Expr2->ErrorInfo,
 						"Expression is of non iteratable type %s", GetTypeName(T));
@@ -1783,11 +1789,16 @@ void AnalyzeFor(checker *Checker, node *Node)
 				ItType = T->Array.Type;
 			else if(T->Kind == TypeKind_Slice)
 				ItType = T->Slice.Type;
-			else
+			else if(HasBasicFlag(T, BasicFlag_String))
+				ItType = Basic_u32;
+			else if(HasBasicFlag(T, BasicFlag_Integer))
 				ItType = TypeIdx;
+			else
+				Assert(false);
+
 			AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
 					Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
-			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice)
+			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
 			{
 				string *n = NewType(string);
 				*n = STR_LIT("i");
@@ -2566,6 +2577,36 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				if(IsUntyped(RT))
 				{
 					ResolvedType = UntypedGetType(RT);
+				}
+			}
+
+			for(int i = 0; i < T->Function.ArgCount; ++i)
+			{
+				if(IsGeneric(T->Function.Args[i]))
+				{
+					u32 ArgTIdx = ToNonGeneric(T->Function.Args[i], ResolvedType, T->Function.Args[i]);
+					const type *ArgT = GetType(ArgTIdx);
+					const type *ExprT = GetType(Expr->Call.ArgTypes[i]);
+					const type *PromotionType = NULL;
+					if(!IsTypeCompatible(ArgT, ExprT, &PromotionType, true))
+					{
+						RaiseError(*Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
+								i, GetTypeName(ArgT), GetTypeName(ExprT));
+					}
+					if(IsUntyped(ExprT))
+					{
+						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
+					}
+					else
+					{
+						node *Arg = Expr->Call.Args[i];
+						Expr->Call.Args.Data[i] = MakeCast(Arg->ErrorInfo, Arg, NULL,
+								Expr->Call.ArgTypes[i], ArgTIdx);
+						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
+					}
+				}
+				else
+				{
 				}
 			}
 

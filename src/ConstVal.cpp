@@ -186,3 +186,29 @@ u32 GetConstantTypedType(const const_value *Value)
 	}
 }
 
+uint GetCodepointSize(const char *ptr)
+{
+	static const u8 CONTINUE = 0b10000000;
+	if((*ptr & CONTINUE) == 0)
+		return 1;
+
+	int size = 1;
+	for(int i = 1; *ptr & (CONTINUE >> i); ++i)
+	{
+		size++;
+	}
+
+	return size;
+}
+
+uint GetUTF8Count(const string *String)
+{
+	int Count = 0;
+	for(int i = 0; i < String->Size;)
+	{
+		i += GetCodepointSize(&String->Data[i]);
+		Count++;
+	}
+	return Count;
+}
+

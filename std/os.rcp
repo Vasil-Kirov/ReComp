@@ -7,9 +7,13 @@ os
     STD_ERROR_HANDLE  :: @u32 -12;
     INVALID_HANDLE_VALUE :: @?* @u64 -1;
 
+    CP_UTF7 :: @u32 65000;      // UTF-7 translation
+    CP_UTF8 :: @u32 65001;      // UTF-8 translation
+
     WriteFile :: fn #foreign(hFile: *, lpBuff: *, nBytesToWrite: u32, lpBytesWritten: *u32, lpOverlapped: ?*) -> bool;
     GetStdHandle :: fn #foreign(Handle: u32) -> ?*;
     ExitProcess :: fn #foreign(ExitCode: u32);
+    SetConsoleOutputCP :: fn #foreign(code_page: u32) -> i32; // win32 bool
 
     abort :: fn() {
         ExitProcess(1);
@@ -17,6 +21,7 @@ os
     }
 
     print :: fn(data: *u8, count: u32) {
+        SetConsoleOutputCP(CP_UTF8);
         handle := GetStdHandle(STD_OUTPUT_HANDLE);
         written: u32;
         if (handle != null) && (handle != INVALID_HANDLE_VALUE) {

@@ -1085,7 +1085,7 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 {
 	u32 Result = INVALID_TYPE;
 	const type *T = GetType(Resolved);
-	const type *G = GetType(GenericID);
+	const type *G = GetTypeRaw(GenericID);
 	if(G->Kind != TypeKind_Generic && T->Kind != G->Kind)
 		return INVALID_TYPE;
 
@@ -1331,6 +1331,13 @@ b32 IsTypeMatchable(const type *T)
 	}
 
 	return T->Kind == TypeKind_Enum;
+}
+
+b32 IsTypeIterable(const type *T)
+{
+	return T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice ||
+		HasBasicFlag(T, BasicFlag_Integer) || 
+		HasBasicFlag(T, BasicFlag_String);
 }
 
 u32 UntypedGetType(const type *T)

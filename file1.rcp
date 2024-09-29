@@ -29,25 +29,16 @@ my_fn :: fn(num: i32, num2: i32) -> i32 {
 }
 
 main :: fn() -> i32 {
-    // e := my_E.x;
-    // enum_type_info := #info type_of e;
-    // names := enum_type_info.t.enum_.member_names;
-    // for i in names.count {
-    //     printf(c"member: %s\n", @cstring names[i]);
-    // }
 
-
-
-    // f := ints{};
-    // f.u64_ = 10;
-    // type_info_s := #info type_of f;
-    // members := type_info_s.t.struct_.members;
-    // for i in members.count {
-    //     io.print("member: %\n", @cstring members[i].name);
-    // }
-    // io.print("num: %", f);
-
-    return my_fn(3, -3);
+    str := "моя стринг今日";
+    for c in str {
+        if c == ' ' {
+            io.print("space\n");
+        } else {
+            io.print("пoint: % %\n", c, str);
+        }
+    }
+    return 0;
 }
 
 printf :: fn #foreign(fmt: cstring, arg: u8) -> int;

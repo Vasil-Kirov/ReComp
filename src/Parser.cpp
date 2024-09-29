@@ -282,7 +282,7 @@ node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, 
 	return Result;
 }
 
-node *MakeConstant(error_info *ErrorInfo, const_value Value)
+node *MakeConstant(const error_info *ErrorInfo, const_value Value)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_CONSTANT);
 	Result->Constant.Value = Value;
@@ -967,6 +967,8 @@ precedence GetPrecedence(token_type Op)
 		case T_ANDEQ:
 		case T_XOREQ:
 		case T_OREQ:
+		case T_SLEQ:
+		case T_SREQ:
 			return MakePrecedence(-20, -21); // right to left precedence
 
 

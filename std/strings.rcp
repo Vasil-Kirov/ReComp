@@ -1,0 +1,55 @@
+str
+
+
+CONTINUE_BIT :: @u8 0b1000_0000;
+
+get_codepoint_size :: fn(codepoint: *u8) -> int {
+    p := codepoint;
+    if (*p & CONTINUE_BIT) == 0 {
+        return 1;
+    }
+
+    size := 1;
+    for i := 1; @u32 *p & (@u32 CONTINUE_BIT >> @u32 i); i += 1 {
+        size += 1;
+        if size == 4 break;
+    }
+    return size;
+}
+
+advance :: fn(pos: *u8) -> *u8 {
+    size := get_codepoint_size(pos);
+    p := pos;
+    return &p[size];
+}
+
+_it_advance :: fn(pos: *u8, count: int, at: int) -> ?*u8 {
+    if at + 1 == count || at >= count
+    	return null;
+
+    return advance(pos);
+}
+
+deref :: fn(pos: *u8) -> u32 {
+    p := pos;
+    size := get_codepoint_size(p);
+    res: u32;
+    for i in size {
+        res <<= 8;
+        res |= p[i];
+    }
+    return res;
+}
+
+index :: fn(s: string, idx: int) -> u32 {
+    if idx >= s.count {
+        return 0;
+    }
+
+    p := s.data;
+    for i in idx {
+        p = advance(p);
+    }
+    return deref(p);
+}
+

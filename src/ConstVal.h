@@ -41,6 +41,7 @@ struct const_value
 
 
 const_value MakeConstString(const string *String);
+uint GetUTF8Count(const string *String);
 const_value MakeConstValue(const string *String);
 u32 GetConstantType(const const_value &Value);
 u32 GetConstantTypedType(const const_value *Value);

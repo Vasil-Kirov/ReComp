@@ -27,6 +27,7 @@ syn match rcpSOperator "[-+=*/<>:]"
 
 " Keywords
 syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_of size_of as
+syn keyword rcpSConstant null true false
 syn match rcpSImport /#import/
 syn match rcpSCompilerDir /#foreign/
 syn match rcpSCompilerDir /#link/
@@ -54,6 +55,7 @@ hi def link rcpSCompilerDir PreProc
 hi def link rcpSImport Include
 hi def link rcpSNumber Number
 hi def link rcpSVariable Identifier
+hi def link rcpSConstant Constant
 hi def link rcpSKeyword Keyword
 hi def link rcpSType Type
 hi def link rcpSTodo Todo

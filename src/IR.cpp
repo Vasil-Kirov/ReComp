@@ -841,7 +841,6 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					case TypeKind_Basic:
 					{
 						Assert(IsString(Type));
-						Assert(Node->Selector.Index == 1);
 						Result = PushInstruction(Builder, 
 								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
 						if(!IsLHS)
@@ -1182,7 +1181,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	basic_block Incr  = AllocateBlock(Builder);
 	basic_block End   = AllocateBlock(Builder);
 
-	u32 IAlloc, ItAlloc, Size, One, Array;
+	u32 IAlloc, ItAlloc, Size, One, Array, StringPtr;
 
 	const type *T = GetType(Node->For.ArrayType);
 	u32 Zero = PushInt(0, Builder);
@@ -1203,11 +1202,33 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			Size = PushInstruction(Builder, 
 					Instruction(OP_LOAD, 0, Size, Basic_int, Builder));
 		}
-		else
+		else if(HasBasicFlag(T, BasicFlag_String))
+		{
+			u32 DataPtrT = GetPointerTo(Basic_u8);
+			Array = BuildIRFromExpression(Builder, Node->For.Expr2, true);
+			Size = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Array, 1, Node->For.ArrayType, Builder));
+			Size = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, Size, Basic_int, Builder));
+			StringPtr = PushInstruction(Builder, 
+					Instruction(OP_ALLOC, -1, DataPtrT, Builder));
+
+			u32 Data = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Array, 0, Node->For.ArrayType, Builder));
+			Data = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, Data, DataPtrT, Builder));
+
+			PushInstruction(Builder, 
+					InstructionStore(StringPtr, Data, DataPtrT));
+
+		}
+		else if(HasBasicFlag(T, BasicFlag_Integer))
 		{
 			Array = BuildIRFromExpression(Builder, Node->For.Expr2);
 			Size = Array;
 		}
+		else
+			Assert(false);
 
 		One = PushInt(1, Builder);
 
@@ -1274,16 +1295,35 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 				ItAlloc = BuildIRStoreVariable(Builder, Data, Node->For.ItType);
 			}
-			else
+			else if(HasBasicFlag(T, BasicFlag_String))
+			{
+				u32 Data = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
+				string DerefFnName = STR_LIT("__str_deref");
+				const ir_symbol *DerefFn = GetIRLocal(Builder->Function, &DerefFnName);;
+
+				call_info *Info = NewType(call_info);
+				Info->Operand = DerefFn->Register;
+				Info->Args = SliceFromConst({Data});
+				u32 Derefed = PushInstruction(Builder, 
+						Instruction(OP_CALL, (u64)Info, DerefFn->Type, Builder));
+
+				ItAlloc = BuildIRStoreVariable(Builder, Derefed, Node->For.ItType);
+			}
+			else if(HasBasicFlag(T, BasicFlag_Integer))
 			{
 				ItAlloc = IAlloc;
+			}
+			else
+			{
+				unreachable;
 			}
 
 			IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
 					*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
 			PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType, 0);
 
-			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice)
+			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
 			{
 				string *n = NewType(string);
 				*n = STR_LIT("i");
@@ -1306,6 +1346,24 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 		PushInstruction(Builder,
 				InstructionStore(IAlloc, ToStore, Basic_int));
+
+		if(HasBasicFlag(T, BasicFlag_String))
+		{
+			u32 Data = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
+
+			string AdvanceFnName = STR_LIT("__str__it_advance");
+			const ir_symbol *AdvanceFn = GetIRLocal(Builder->Function, &AdvanceFnName);;
+
+			call_info *Info = NewType(call_info);
+			Info->Operand = AdvanceFn->Register;
+			Info->Args = SliceFromConst({Data, Size, I});
+			Data = PushInstruction(Builder, 
+					Instruction(OP_CALL, (u64)Info, AdvanceFn->Type, Builder));
+
+			PushInstruction(Builder,
+					InstructionStore(StringPtr, Data, GetPointerTo(Basic_u8)));
+		}
 
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	}

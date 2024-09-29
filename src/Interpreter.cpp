@@ -263,6 +263,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					else if(Type->Basic.Flags & BasicFlag_String)
 					{
 						// @TODO;
+						// remember to use GetUTF8Count
 						Assert(false);
 					}
 					else if(Type->Basic.Flags & BasicFlag_CString)

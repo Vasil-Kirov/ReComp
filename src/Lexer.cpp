@@ -243,26 +243,29 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 	{
 		return MakeToken((token_type)C, StartErrorInfo, NULL);
 	}
-	string PotentialKeywordString = MakeString(Start, 2);
-	token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
-	if(PotentialKeyword == T_ID)
+	if(String->Size > 2)
 	{
-		if(String->Size > 1)
+		string PotentialKeywordString = MakeString(Start, 3);
+		token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
+		if(PotentialKeyword != T_ID)
 		{
-			PotentialKeywordString = MakeString(Start, 3);
-			PotentialKeyword = GetKeyword(PotentialKeywordString);
-			if(PotentialKeyword != T_ID)
-			{
-				AdvanceC(String, ErrorInfo);
-				AdvanceC(String, ErrorInfo);
-				return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
-			}
+			AdvanceC(String, ErrorInfo);
+			AdvanceC(String, ErrorInfo);
+			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 		}
-		return MakeToken((token_type)C, StartErrorInfo, NULL);
 	}
-	AdvanceC(String, ErrorInfo);
+	if(String->Size > 1)
+	{
+		string PotentialKeywordString = MakeString(Start, 2);
+		token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
+		if(PotentialKeyword != T_ID)
+		{
+			AdvanceC(String, ErrorInfo);
+			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+		}
+	}
+	return MakeToken((token_type)C, StartErrorInfo, NULL);
 
-	return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 }
 
 char GetEscapedChar(char ToEscape)

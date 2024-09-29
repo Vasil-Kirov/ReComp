@@ -248,6 +248,7 @@ b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);
 b32 IsTypeMatchable(const type *T);
+b32 IsTypeIterable(const type *T);
 u32 UntypedGetType(const type *T);
 
 uint GetPaddingForAlignment(uint Size, uint Align);

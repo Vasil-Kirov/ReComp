@@ -334,8 +334,9 @@ void AddStdFiles(dynamic<string> &Files)
 	string StdFiles[] = {
 		GetFilePath(Dir, "init.rcp"),
 		GetFilePath(Dir, "os.rcp"),
-		GetFilePath(Dir, "string.rcp"),
+		GetFilePath(Dir, "io.rcp"),
 		GetFilePath(Dir, "mem.rcp"),
+		GetFilePath(Dir, "strings.rcp"),
 		GetFilePath(Dir, "array.rcp"),
 	};
 

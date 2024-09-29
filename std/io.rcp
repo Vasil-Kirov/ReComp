@@ -320,7 +320,7 @@ builder_to_string :: fn(b_in: *[]u32) -> []u8 {
     return res;
 }
 
-print :: fn(str: string, args: ...) {
+__internal_print :: fn(str: string, args: []init.Arg) -> []u32 {
     alloc := mem.create_generic_allocator();
     builder := array.create(u32, &alloc);
     arg_count := 0;
@@ -333,10 +333,25 @@ print :: fn(str: string, args: ...) {
             array.add(&builder, c);
         }
     }
+    return builder;
+}
+
+print :: fn(str: string, args: ...) {
+    builder := __internal_print(str, args);
     res := builder_to_string(&builder);
     os.print(&res[0], @u32 res.count);
     array.free(&builder);
     array.free(&res);
+}
+
+println :: fn(str: string, args: ...) {
+    builder := __internal_print(str, args);
+    array.add(&builder, '\n');
+    res := builder_to_string(&builder);
+    os.print(&res[0], @u32 res.count);
+    array.free(&builder);
+    array.free(&res);
+
 }
 
 get_next :: fn(curr: *u8) -> u32 {

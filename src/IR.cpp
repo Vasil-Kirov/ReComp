@@ -280,9 +280,11 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		} break;
 		default:
 		{
-			if(Size > 8)
+			static bool WarningGiven = false;
+			if(Size > 8 && !WarningGiven)
 			{
-				LFATAL("Passing struct of size %d to function is not currently supported", Size);
+				WarningGiven = true;
+				LWARN("Passing structs of size %d to functions is not properly supported, if it's used to interface with other languages, it will result in unspecified behavior", Size);
 			}
 			u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
 			Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));

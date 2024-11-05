@@ -585,9 +585,11 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		} break;
 		default:
 		{
-			if(Size > 8)
+			static bool WarningGiven = false;
+			if(Size > 8 && !WarningGiven)
 			{
-				LFATAL("Passing struct of size %d to function is not currently supported", Size);
+				WarningGiven = true;
+				LWARN("Passing structs of size %d to functions is not properly supported, if it's used to interface with other languages, it will result in unspecified behavior", Size);
 			}
 			Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
 		} break;

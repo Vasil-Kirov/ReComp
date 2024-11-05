@@ -243,7 +243,7 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules)
 #if _WIN32
 	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe /DEBUG ";
 #elif CM_LINUX
-	Builder += "ld !internal.obj -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+	Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
 	Builder += FindObjectFiles();
 #else
 #error Implement Link Command

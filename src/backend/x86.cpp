@@ -1,111 +1,63 @@
 #include "x86.h"
+#include "x64CodeWriter.h"
+#include <Memory.h>
+#include <Type.h>
+#include <IR.h>
 
-code GenerateFunction(function *Fn)
-{
-	code Code = {};
-	Code.Data = (u8 *)AllocatePermanent(KB(128));
-	Code.Stack = (stack_memory *)AllocatePermanent(Fn->Allocated->Count * sizeof(stack_memory));
-	for(int BlockIndex = 0; BlockIndex < Fn->BlockCount; ++BlockIndex)
-	{
-		basic_block *Block = Fn->Blocks + BlockIndex;
-		for(int InstrIdx = 0; InstrIdx < Block->InstructionCount; ++InstrIdx)
-		{
-			GenerateInstruction(&Code, Block->Code + InstrIdx, Fn, InstrIdx);
-		}
-	}
-	return Code;
-}
-
-void x86Generate(ir *IR)
-{
-
-}
-
-void PushU8(code *Code, u8 Data)
-{
-	Code->Data[Code->Size++] = Data;
-}
-
-void PushU16(code *Code, u16 Data)
-{
-	*(u16 *)(Code->Data + Code->Size) = Data;
-	Code->Size += 2;
-}
-
-void PushU32(code *Code, u32 Data)
-{
-	*(u32 *)(Code->Data + Code->Size) = Data;
-	Code->Size += 4;
-}
-
-void PushU64(code *Code, u64 Data)
-{
-	*(u64 *)(Code->Data + Code->Size) = Data;
-	Code->Size += 8;
-}
-
-void WriteSpill(code *Code, out_life_span *ToSpill)
-{
-	//Code->Stack[Code->StackCount++] = ToSpill->VirtualRegister;
-}
-
-void CheckSpills(code *Code, function *Fn, u32 CurrentInstructionIndex)
-{
-	for(int I = 0; I < Fn->Allocated->Count; ++I)
-	{
-		if(Fn->Allocated->Spans[I].SpillAt == CurrentInstructionIndex)
-		{
-			WriteSpill(Code, Fn->Allocated->Spans + I);
-		}
-	}
-}
-
-u32 GetRegister(code *Code, function *Fn, u32 Register, u32 InstructionIndex)
-{
-	for(int I = 0; I < Fn->Allocated->Count; ++I)
-	{
-		if(Fn->Allocated->Spans[I].VirtualRegister == Register)
-		{
-			if(InstructionIndex >= Fn->Allocated->Spans[I].SpillAt)
-			{
-				// @TODO: Work here
-			}
-		}
-	}
-}
+#define VerifyLocation(Out, VReg) Assert(Code->Locations[VReg].Spilled == false); uint Out = Code->Locations[VReg].PhyReg
 
 stack_memory *GetStackLocation(code *Code, u32 VirtualRegister)
 {
-	for(int I = 0; I < Code->StackCount; ++I)
+	ForArray(i, Code->Stack)
 	{
-		if(Code->Stack[I].VirtualRegister == VirtualRegister)
-			return &Code->Stack[I];
+		if(Code->Stack[i].VirtualRegister == VirtualRegister)
+			return &Code->Stack.Data[i];
 	}
-	Assert(false);
-	return NULL;
+	unreachable;
+}
+
+register_ ToReg(uint PhyReg)
+{
+	// @Note: might have to do mapping at some point
+	// for now it's just a cast
+	return (register_)PhyReg;
 }
 
 void GenerateInstruction(code *Code, const instruction *I, function *Fn, u32 InstructionIndex)
 {
-	CheckSpills(Code, Fn, InstructionIndex);
 	const type *Type = GetType(I->Type);
 	switch(I->Op)
 	{
 		case OP_NOP: {}break;
 		case OP_ALLOC:
 		{
-			Code->Stack[Code->StackCount].VirtualRegister = I->Result;
-			Code->Stack[Code->StackCount].Location = Code->StackEnd;
-			Code->StackCount++;
+			stack_memory Slot = {};
+			Slot.VirtualRegister = I->Result;
+			Slot.Location = Code->StackEnd;
+			Code->Stack.Push(Slot);
 			Code->StackEnd += GetTypeSize(Type);
 		} break;
 		case OP_STORE:
 		{
-			stack_memory *S = GetStackLocation(Code, I->Left);
-			GetRegister(Code, Fn, I->Right, InstructionIndex);
+			stack_memory *s = GetStackLocation(Code, I->Left);
+			VerifyLocation(Loc, I->Right);
+			Code->Asm.Mov64(OffsetOperand(reg_sp, -s->Location), RegisterOperand(ToReg(Loc)));
 		} break;
 		case OP_LOAD:
 		{
+			const type *T = GetType(I->Type);
+			if(IsLoadableType(T))
+			{
+				Code->Asm.Mov64(operand Dst, operand Src)
+			}
+			else if(T->Kind == TypeKind_Function)
+			{
+
+			}
+			else
+			{
+
+			}
 		} break;
 		case OP_ADD:
 		{
@@ -126,5 +78,27 @@ void GenerateInstruction(code *Code, const instruction *I, function *Fn, u32 Ins
 		{
 		} break;
 	}
+}
+
+code GenerateFunction(function *Fn)
+{
+	scratch_arena Arena = {};
+	code Code = {
+		.Locations = {Arena.Allocate(sizeof(vreg_location) * Fn->LastRegister), Fn->LastRegister},
+	};
+	ForArray(BlockIndex, Fn->Blocks)
+	{
+		basic_block *Block = Fn->Blocks.Data + BlockIndex;
+		ForArray(InstrIdx, Block->Code)
+		{
+			GenerateInstruction(&Code, Block->Code.Data + InstrIdx, Fn, InstrIdx);
+		}
+	}
+	return Code;
+}
+
+void x86Generate(ir *IR)
+{
+
 }
 

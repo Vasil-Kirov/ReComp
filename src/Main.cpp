@@ -1,3 +1,4 @@
+#include "Dynamic.h"
 #include "Memory.h"
 #include "vlib.h"
 static b32 _MemoryInitializer = InitializeMemory();
@@ -17,6 +18,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Interpreter.h"
 #include "x64CodeWriter.h"
 #include "CommandLine.h"
+
 #if 0
 #include "backend/LLVMFileOutput.h"
 #include "backend/LLVMFileCast.h"
@@ -25,6 +27,9 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMBase.h"
 #include "backend/LLVMC/LLVMType.h"
 #include "backend/LLVMC/LLVMValue.h"
+
+#include "backend/RegAlloc.h"
+//#include "backend/x86.h"
 
 #endif
 #include "ConstVal.h"
@@ -52,6 +57,9 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMBase.cpp"
 #include "backend/LLVMC/LLVMType.cpp"
 #include "backend/LLVMC/LLVMValue.cpp"
+
+#include "backend/RegAlloc.cpp"
+//#include "backend/x86.cpp"
 
 #endif
 #include "ConstVal.cpp"
@@ -446,8 +454,22 @@ main(int ArgCount, char *Args[])
 			slice<file> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
+#if 0
 			llvm_init_info Machine = RCInitLLVM();
 			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm);
+#endif
+			slice<reg_reserve_instruction> Reserved = SliceFromConst({
+				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
+			});
+
+			reg_allocator r = MakeRegisterAllocator(Reserved, 4);
+			ForArray(fi, FileArray)
+			{
+				ir *IR = FileArray[fi].IR;
+				AllocateRegisters(&r, IR);
+				string Dissasembly = Dissasemble(SliceFromArray(IR->Functions));
+				LWARN("\t----[ALLOCATED]----\t\n[ MODULE %s ]\n\n%s", FileArray[fi].Module->Name.Data, Dissasembly.Data);\
+			}
 			VLibStopTimer(&FileTimer.LLVM);
 
 			Timers.Push(FileTimer);

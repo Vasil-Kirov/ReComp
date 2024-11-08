@@ -1,4 +1,5 @@
 #include "x64CodeWriter.h"
+#include "Log.h"
 #include <Basic.h>
 
 

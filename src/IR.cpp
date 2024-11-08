@@ -2264,6 +2264,18 @@ INSIDE_EQ:
 				}
 				
 			} break;
+			case OP_SPILL:
+			{
+				PushBuilderFormated(Builder, "SPILL %%%d", Instr.Right);
+			} break;
+			case OP_TOPHYSICAL:
+			{
+				const char *Names[] = {"rax", "rbx", "rcx", "rdx"};
+				const char *Name = "unknown";
+				if(Instr.Result < ARR_LEN(Names))
+					Name = Names[Instr.Result];
+				PushBuilderFormated(Builder, "%s = TOPHY %%%d", Name, Instr.Right);
+			} break;
 			case OP_COUNT: unreachable;
 		}
 		PushBuilder(Builder, '\n');
@@ -2328,4 +2340,128 @@ string Dissasemble(slice<function> Functions)
 	return MakeString(Builder);
 }
 
+
+void GetUsedRegisters(instruction I, dynamic<u32> &out)
+{
+#define OP_ALL(o) case o: out.Push(I.Result); out.Push(I.Left); out.Push(I.Right); break
+#define OP_RESULT(o) case o: out.Push(I.Result); out.Push(-1); out.Push(-1); break
+#define OP_BR(o) case o: out.Push(I.Result); out.Push(I.BigRegister); out.Push(-1); break
+
+	switch(I.Op)
+	{
+		case OP_NOP:
+		{
+		} break;
+		OP_RESULT(OP_CONSTINT);
+		OP_RESULT(OP_CONST);
+		case OP_FN:
+		{
+			out.Push(I.Result);
+			out.Push(-1);
+			out.Push(-1);
+			// @TODO: Special handling
+		} break;
+		OP_ALL(OP_ADD);
+		OP_ALL(OP_SUB);
+		OP_ALL(OP_MUL);
+		OP_ALL(OP_DIV);
+		OP_ALL(OP_MOD);
+		case OP_LOAD:
+		{
+			out.Push(I.Result);
+			out.Push(-1);
+			out.Push(I.Right);
+			// Needs special handling for memcpy
+		} break;
+		case OP_STORE:
+		{
+			out.Push(I.Result);
+			out.Push(-1);
+			out.Push(I.Right);
+			// Needs special handling for memcpy
+		} break;
+		case OP_CAST:
+		{
+			out.Push(I.Result);
+			out.Push(I.Left);
+			out.Push(-1);
+		} break;
+		OP_RESULT(OP_ALLOC);
+		OP_BR(OP_ALLOCGLOBAL);
+		case OP_RET:
+		{
+			if(I.Left != -1)
+			{
+				out.Push(-1);
+				out.Push(I.Left);
+				out.Push(-1);
+			}
+			else
+			{
+				out.Push(-1);
+				out.Push(-1);
+				out.Push(-1);
+			}
+		} break;
+		case OP_CALL:
+		{
+			out.Push(I.Result);
+			call_info *Info = (call_info *)I.BigRegister;
+			out.Push(Info->Operand);
+			ForArray(i, Info->Args)
+			{
+				out.Push(Info->Operand);
+			}
+		} break;
+		case OP_SWITCHINT:
+		{
+			out.Push(I.Result);
+			// Needs special handling (maybe) (idk basic block stuff)
+		} break;
+		OP_RESULT(OP_IF);
+		case OP_JMP:
+		{
+			out.Push(-1);
+			out.Push(-1);
+			out.Push(-1);
+		} break;
+		OP_ALL(OP_INDEX);
+		case OP_ARRAYLIST:
+		{
+			out.Push(I.Result);
+			out.Push(-1);
+			out.Push(-1);
+			// Needs special handling
+		} break;
+		case OP_MEMSET:
+		{
+			out.Push(-1);
+			out.Push(-1);
+			out.Push(I.Right);
+			// Needs special handling
+			// function call frees all registers
+		} break;
+		OP_RESULT(OP_ARG);
+
+		OP_ALL(OP_NEQ);
+		OP_ALL(OP_GREAT);
+		OP_ALL(OP_GEQ);
+		OP_ALL(OP_LESS);
+		OP_ALL(OP_LEQ);
+		OP_ALL(OP_SL);
+		OP_ALL(OP_SR);
+		OP_ALL(OP_EQEQ);
+		OP_ALL(OP_LAND);
+		OP_ALL(OP_LOR);
+		OP_ALL(OP_AND);
+		OP_ALL(OP_OR);
+		OP_ALL(OP_XOR);
+		case OP_DEBUGINFO:
+		{
+		} break;
+		case OP_SPILL:
+		case OP_TOPHYSICAL:
+		case OP_COUNT: unreachable;
+	}
+}
 

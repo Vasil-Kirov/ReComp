@@ -43,6 +43,8 @@ enum op
 	OP_ALLOCGLOBAL,
 	OP_DEBUGINFO,
 	OP_SWITCHINT,
+	OP_SPILL,
+	OP_TOPHYSICAL,
 };
 
 struct ir_switchint
@@ -131,15 +133,12 @@ struct ir_symbol
 	u32 Flags;
 };
 
-struct reg_allocation;
-
 struct function
 {
 	const string *Name;
 	const string *LinkName;
 	dynamic<basic_block> Blocks;
 	dynamic<ir_symbol> Locals;
-	reg_allocation *Allocated;
 	slice<ir_symbol> ModuleSymbols;
 	string ModuleName;
 	u32 LineNo;
@@ -184,4 +183,6 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
+
+void GetUsedRegisters(instruction I, dynamic<u32> &out);
 

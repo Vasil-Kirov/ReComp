@@ -74,6 +74,21 @@ struct array {
 		Count = _Count;
 		Data = (T *)VAlloc(Count * sizeof(T));
 	}
+	array(void *Mem, size_t _Count)
+	{
+		Count = _Count;
+		Data = (T *)Mem;
+	}
+	T operator[](size_t Index) const
+	{
+		Assert(Index < Count);
+		return Data[Index];
+	}
+	T& operator[](size_t Index)
+	{
+		Assert(Index < Count);
+		return Data[Index];
+	}
 };
 
 template <typename T>

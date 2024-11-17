@@ -1,4 +1,5 @@
 #pragma once
+#include "Dict.h"
 #include <VString.h>
 #include <Dynamic.h>
 struct symbol;
@@ -8,7 +9,7 @@ struct file;
 struct module
 {
 	string Name;
-	dynamic<symbol *> Globals;
+	dict<symbol *> Globals;
 	dynamic<file *> Files;
 };
 

@@ -20,14 +20,6 @@ extern const type *BasicInt;
 extern const type *BasicF32;
 extern u32 TypeCount;
 
-uint32_t murmur3_32(const uint8_t* key, size_t len, uint32_t seed);
-uint32_t murmur3_32(const char* key, size_t len, uint32_t seed)
-{
-	return murmur3_32((uint8_t *)key, len, seed);
-}
-
-const int HASH_SEED = 0;
-
 void RaiseBinaryTypeError(const error_info *ErrorInfo, const type *Left, const type *Right)
 {
 	RaiseError(*ErrorInfo, "Incompatible types in binary expression: %s and %s",
@@ -125,7 +117,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 			} break;
 			case TypeKind_Generic:
 			{
-				if(IsScopeInOrEq(Type->Generic.Scope, Checker->CurrentScope))
+				if(IsScopeInOrEq(Type->Generic.Scope, Checker->Scope.TryPeek()))
 				{
 					if(N == Type->Generic.Name)
 					{
@@ -150,14 +142,9 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 	{
 		case AST_ID:
 		{
-			ForArray(Idx, Checker->Module->Globals)
-			{
-				symbol *Sym = Checker->Module->Globals[Idx];
-				if(*Sym->Name == *Node->ID.Name)
-				{
-					return Sym;
-				}
-			}
+			symbol *s = Checker->Module->Globals[*Node->ID.Name];
+			if(s)
+				return s;
 			return NULL;
 		} break;
 		case AST_SELECTOR:
@@ -178,20 +165,17 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 				*OutModule = Import.M;
 
 			module *m = Import.M;
-			ForArray(Idx, m->Globals)
+			symbol *s = Import.M->Globals[*Node->Selector.Member];
+			if(s)
 			{
-				symbol *s = m->Globals[Idx];
-				if(*s->Name == *Node->Selector.Member)
+				if((s->Flags & SymbolFlag_Public) == 0)
 				{
-					if((s->Flags & SymbolFlag_Public) == 0)
-					{
-						RaiseError(*Node->ErrorInfo,
-								"Cannot access private member %s in module %s",
-								Node->Selector.Member->Data, ModuleName.Data);
-					}
-					Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
-					return s;
+					RaiseError(*Node->ErrorInfo,
+							"Cannot access private member %s in module %s",
+							Node->Selector.Member->Data, ModuleName.Data);
 				}
+				Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
+				return s;
 			}
 			FindType(Checker, Node->Selector.Member, &m->Name);
 			Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
@@ -290,11 +274,11 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		} break;
 		case AST_GENERIC:
 		{
-			if(!Checker->CurrentScope || (Checker->CurrentScope->ScopeNode->Type != AST_FN))
+			if(!Checker->Scope.TryPeek() || (Checker->Scope.Peek()->ScopeNode->Type != AST_FN))
 			{
 				RaiseError(*TypeNode->ErrorInfo, "Declaring generic type outside of function arguments is not allowed");
 			}
-			return MakeGeneric(Checker->CurrentScope, *TypeNode->Generic.Name);
+			return MakeGeneric(Checker->Scope.Peek(), *TypeNode->Generic.Name);
 		} break;
 		default:
 		{
@@ -306,19 +290,15 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 
 const symbol *FindSymbol(checker *Checker, const string *ID)
 {
-	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
-	for(int I = 0; I < Checker->Symbols.Count; ++I)
+	for(int i = Checker->Scope.Data.Count-1; i >= 0; i--)
 	{
-		const symbol *Local = &Checker->Symbols.Data[I];
-		if(Hash == Local->Hash && *ID == *Local->Name)
-			return Local;
+		symbol *s = Checker->Scope.Data[i]->Symbols.GetUnstablePtr(*ID);
+		if(s)
+			return s;
 	}
-	for(int I = 0; I < Checker->Module->Globals.Count; ++I)
-	{
-		const symbol *Local = Checker->Module->Globals.Data[I];
-		if(Hash == Local->Hash && *ID == *Local->Name)
-			return Local;
-	}
+	symbol *s = Checker->Module->Globals[*ID];
+	if(s)
+		return s;
 	return NULL;
 }
 
@@ -361,17 +341,13 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				{
 					unreachable;
 				}
-				b32 Found = false;
-				ForArray(Idx, Import.M->Globals)
+				symbol *s = Import.M->Globals[*LHS->Selector.Member];
+				if(s)
 				{
-					symbol *s = Import.M->Globals[Idx];
-					if(*s->Name == *LHS->Selector.Member)
-					{
-						return (s->Flags & SymbolFlag_Public) &&
-							((s->Flags & SymbolFlag_Const) == 0);
-					}
+					return (s->Flags & SymbolFlag_Public) &&
+						((s->Flags & SymbolFlag_Const) == 0);
 				}
-				if(!Found)
+				else
 				{
 					RaiseError(*LHS->ErrorInfo,
 							"Cannot find public symbol %s in module %s",
@@ -432,9 +408,8 @@ b32 ScopesMatch(scope *A, scope *B)
 
 u32 CreateFunctionType(checker *Checker, node *FnNode)
 {
-	scope *Save = Checker->CurrentScope;
-	scope *FnScope = AllocScope(FnNode);
-	Checker->CurrentScope = FnScope;
+	scope *FnScope = AllocScope(FnNode, Checker->Scope.TryPeek());
+	Checker->Scope.Push(FnScope);
 
 	FnNode->Fn.FnModule = Checker->Module;
 
@@ -488,21 +463,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	}
 	
 	NewType->Function = Function;
-	Checker->CurrentScope = Save;
+	Checker->Scope.Pop();
 	return AddType(NewType);
-}
-
-void PopScope(checker *Checker)
-{
-	Checker->CurrentDepth--;
-	for(int I = 0; I < Checker->Symbols.Count; ++I)
-	{
-		if(Checker->Symbols[I].Depth > Checker->CurrentDepth)
-		{
-			Checker->Symbols.Count = I;
-			break;
-		}
-	}
 }
 
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL)
@@ -510,16 +472,12 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	if(FnNode->Fn.AlreadyAnalyzed)
 		return;
 
-	dynamic<symbol> SaveSymbols = Checker->Symbols;
-	Checker->Symbols = {};
 	u32 Save = Checker->CurrentFnReturnTypeIdx;
-	scope *SaveScope = Checker->CurrentScope;
 	if(!ScopeNode)
-		Checker->CurrentScope = AllocScope(FnNode);
+		Checker->Scope.Push(AllocScope(FnNode, Checker->Scope.TryPeek()));
 	else
-		Checker->CurrentScope = AllocScope(ScopeNode);
+		Checker->Scope.Push(AllocScope(ScopeNode, Checker->Scope.TryPeek()));
 
-	Checker->CurrentDepth++;
 	const type *FunctionType = GetType(FunctionTypeIdx);
 	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Return;
 
@@ -565,10 +523,8 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		Body.Push(MakeReturn(Body[Body.Count-1]->ErrorInfo, NULL));
 	}
 
-	PopScope(Checker);
-	Checker->CurrentScope = SaveScope;
+	Checker->Scope.Pop();
 	Checker->CurrentFnReturnTypeIdx = Save;
-	Checker->Symbols = SaveSymbols;
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -581,14 +537,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Result = GetVariable(Checker, Expr->ID.Name);
 			if(Result == INVALID_TYPE)
 			{
-				ForArray(Idx, Checker->Module->Globals)
+				symbol *Sym = Checker->Module->Globals[*Expr->ID.Name];
+				if(Sym)
 				{
-					symbol *Sym = Checker->Module->Globals[Idx];
-					if(*Sym->Name == *Expr->ID.Name)
-					{
-						Result = Sym->Type;
-						break;
-					}
+					Result = Sym->Type;
+					break;
 				}
 
 				if(Result == INVALID_TYPE)
@@ -664,7 +617,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					RaiseError(*Case->ErrorInfo, "Missing body for case in match statement");
 				}
 
-				Checker->CurrentDepth++;
+				Checker->Scope.Push(AllocScope(Case, Checker->Scope.TryPeek()));
 				b32 CaseReturns = false;
 				for(int BodyIdx = 0; BodyIdx < Case->Case.Body.Count; ++BodyIdx)
 				{
@@ -703,7 +656,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					RaiseError(*Case->ErrorInfo, "Missing return in a match that returns a value");
 				}
 				CheckBodyForUnreachableCode(Case->Case.Body);
-				PopScope(Checker);
+				Checker->Scope.Pop();
 			}
 			Expr->Match.MatchType = ExprTypeIdx;
 			Expr->Match.ReturnType = Result;
@@ -1602,12 +1555,13 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags)
 {
-	u32 Hash = murmur3_32(ID->Data, ID->Size, HASH_SEED);
 	if((Flags & SymbolFlag_Shadow) == 0)
 	{
-		for(int I = 0; I < Checker->Symbols.Count; ++I)
+		scope *scope = Checker->Scope.TryPeek();
+		if(scope)
 		{
-			if(Hash == Checker->Symbols[I].Hash && *ID == *Checker->Symbols[I].Name)
+			const symbol *s = scope->Symbols.GetUnstablePtr(*ID);
+			if(s)
 			{
 				RaiseError(*ErrorInfo,
 						"Redeclaration of variable %s.\n"
@@ -1617,9 +1571,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 		}
 	}
 	symbol Symbol;
-	Symbol.Hash    = Hash;
 	Symbol.Node    = Node;
-	Symbol.Depth   = Checker->CurrentDepth;
 	Symbol.Name    = ID;
 	Symbol.Type    = Type;
 	Symbol.Flags   = Flags;
@@ -1634,10 +1586,12 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 		}
 	}
 
-	Checker->Symbols.Push(Symbol);
+	Assert(Checker->Scope.TryPeek());
+	bool Success = Checker->Scope.Peek()->Symbols.Add(*ID, Symbol);
+	Assert(Success);
 }
 
-const u32 AnalyzeDeclerations(checker *Checker, node *Node)
+const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 {
 	Assert(Node->Type == AST_DECL);
 	const string *ID = Node->Decl.ID;
@@ -1699,7 +1653,13 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node)
 	if(IsFnOrPtr(TypePtr))
 		Node->Decl.Flags |= SymbolFlag_Function;
 
-	AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Node->Decl.Flags);
+	if(NoAdd)
+	{
+	}
+	else
+	{
+		AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Node->Decl.Flags);
+	}
 	return Type;
 }
 
@@ -1742,6 +1702,7 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 
 void AnalyzeIf(checker *Checker, node *Node)
 {
+	Checker->Scope.Push(AllocScope(Node, Checker->Scope.TryPeek()));
 	AnalyzeBooleanExpression(Checker, &Node->If.Expression);
 	slice<node *> IfBody = SliceFromArray(Node->If.Body); 
 	AnalyzeInnerBody(Checker, IfBody);
@@ -1750,11 +1711,12 @@ void AnalyzeIf(checker *Checker, node *Node)
 		slice<node *> IfElse = SliceFromArray(Node->If.Else); 
 		AnalyzeInnerBody(Checker, IfElse);
 	}
+	Checker->Scope.Pop();
 }
 
 void AnalyzeFor(checker *Checker, node *Node)
 {
-	Checker->CurrentDepth++;
+	Checker->Scope.Push(AllocScope(Node, Checker->Scope.TryPeek()));
 	using ft = for_type;
 	switch(Node->For.Kind)
 	{
@@ -1823,7 +1785,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		slice<node *> ForBody = SliceFromArray(Node->For.Body);
 		AnalyzeInnerBody(Checker, ForBody);
 	}
-	PopScope(Checker);
+	Checker->Scope.Pop();
 }
 
 u32 FixPotentialFunctionPointer(u32 Type)
@@ -2019,8 +1981,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
-	scope *StructScope = AllocScope(Node, Checker->CurrentScope);
-	Checker->CurrentScope = StructScope;
+	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
+	Checker->Scope.Push(StructScope);
 
 	type New = {};
 	New.Kind = TypeKind_Struct;
@@ -2069,7 +2031,7 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	}
 
 	FillOpaqueStruct(OpaqueType, New);
-	Checker->CurrentScope = Checker->CurrentScope->Parent;
+	Checker->Scope.Pop();
 }
 
 b32 IsNodeEndScope(node *Node)
@@ -2122,14 +2084,12 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_IF:
 		{
-			Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
 			AnalyzeIf(Checker, Node);
-			Checker->CurrentScope = Checker->CurrentScope->Parent;
 		} break;
 		case AST_BREAK:
 		{
 			b32 FoundBreakableScope = false;
-			scope *Current = Checker->CurrentScope;
+			scope *Current = Checker->Scope.TryPeek();
 
 			while(Current)
 			{
@@ -2147,9 +2107,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_FOR:
 		{
-			Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
 			AnalyzeFor(Checker, Node);
-			Checker->CurrentScope = Checker->CurrentScope->Parent;
 		} break;
 		case AST_RETURN:
 		{
@@ -2195,16 +2153,15 @@ RetErr:
 		{
 			if(Node->ScopeDelimiter.IsUp)
 			{
-				Checker->CurrentScope = AllocScope(Node, Checker->CurrentScope);
-				Checker->CurrentDepth++;
+				Checker->Scope.Push(AllocScope(Node, Checker->Scope.TryPeek()));
 			}
 			else
 			{
-				if(!Checker->CurrentScope || !Checker->CurrentScope->Parent)
+				if(!Checker->Scope.TryPeek() || !Checker->Scope.Peek()->Parent)
 				{
 					RaiseError(*Node->ErrorInfo, "Unexpected scope closing }");
 				}
-				PopScope(Checker);
+				Checker->Scope.Pop();
 			}
 		} break;
 		default:
@@ -2259,8 +2216,6 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 	Sym->Checker = Checker;
 	Sym->Name = Node->Fn.Name;
 	Sym->Type = Node->Fn.TypeIdx;
-	Sym->Hash = murmur3_32(Node->Fn.Name->Data, Node->Fn.Name->Size, HASH_SEED);
-	Sym->Depth = 0;
 	Sym->Flags = SymbolFlag_Function | SymbolFlag_Const | Node->Fn.Flags;
 	Sym->Node = Node;
 	if(!Node->Fn.Body.IsValid())
@@ -2281,23 +2236,11 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	return CreateFunctionSymbol(Checker, Node);
 }
 
-symbol *FindGlobalInModule(string Name, module *m)
-{
-	ForArray(Idx, m->Globals)
-	{
-		if(*m->Globals[Idx]->Name == Name)
-		{
-			return m->Globals[Idx];
-		}
-	}
-	return NULL;
-}
-
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
 {
 	Checker->Nodes = NodesPtr;
 	Checker->Module = ThisModule;
-	Checker->CurrentDepth = 0;
+	Checker->Scope = {};
 	Checker->CurrentFnReturnTypeIdx = INVALID_TYPE;
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
@@ -2308,7 +2251,15 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 		{
 			node *Node = Nodes[I];
 			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
-			Checker->Module->Globals.Push(Sym);
+			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
+			if(!Success)
+			{
+				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
+				Assert(Redifined);
+				RaiseError(*Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
+						Node->Fn.Name->Data,
+						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+			}
 		}
 	}
 
@@ -2318,18 +2269,23 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 		{
 			node *Node = Nodes[I];
 			string Name = *Node->Decl.ID;
-			u32 Type = AnalyzeDeclerations(Checker, Node);
+			u32 Type = AnalyzeDeclerations(Checker, Node, true);
 			symbol *Sym = NewType(symbol);
 			Sym->Checker = Checker;
 			Sym->Name = Node->Decl.ID;
 			Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
 			Sym->Type = Type;
-			Sym->Hash = murmur3_32(Node->Decl.ID->Data, Node->Decl.ID->Size, 
-					HASH_SEED);
-			Sym->Depth = 0;
 			Sym->Flags = Node->Decl.Flags;
 			Sym->Node = Node;
-			Checker->Module->Globals.Push(Sym);
+			bool Success = Checker->Module->Globals.Add(*Node->Decl.ID, Sym);
+			if(!Success)
+			{
+				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
+				Assert(Redifined);
+				RaiseError(*Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+						Node->Fn.Name->Data,
+						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+			}
 		}
 	}
 }
@@ -2618,7 +2574,9 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				*IDOut = StructToModuleName(FnName, FnSym->Checker->Module->Name);
 			else
 				*IDOut = FnName;
-			symbol *Found = FindGlobalInModule(*GenericName, FnSym->Checker->Module);
+
+			LDEBUG("Generating generic function from module %s\n\tID: %s\n", Checker->Module->Name.Data, IDOut->Data);
+			symbol *Found = FnSym->Checker->Module->Globals[*GenericName];
 			node *NewFnNode = NULL;
 			if(Found)
 			{
@@ -2637,8 +2595,9 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						NewFnType, GenericName);
 				SetBonusMessage(STR_LIT(""));
 				NewFnNode->Fn.AlreadyAnalyzed = true;
-				FnSym->Checker->Module->Globals.Push(CreateFunctionSymbol(FnSym->Checker, FnNode));
-				FnSym->Checker->Nodes->Push(FnNode);
+				bool Success = FnSym->Checker->Module->Globals.Add(*NewFnNode->Fn.Name, CreateFunctionSymbol(FnSym->Checker, NewFnNode));
+				Assert(Success);
+				FnSym->Checker->Nodes->Push(NewFnNode);
 			}
 			Expr->Call.Fn = NewFnNode;
 			Expr->Call.Type = NewFnType;
@@ -2668,47 +2627,5 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 	{
 		Nodes.Push(Checker->GeneratedGlobalNodes[Idx]);
 	}
-}
-
-// @Note: Stolen from wikipedia implementations of murmur3
-static inline uint32_t murmur_32_scramble(uint32_t k) {
-	k *= 0xcc9e2d51;
-	k = (k << 15) | (k >> 17);
-	k *= 0x1b873593;
-	return k;
-}
-
-uint32_t murmur3_32(const uint8_t* key, size_t len, uint32_t seed)
-{
-	uint32_t h = seed;
-	uint32_t k;
-	/* Read in groups of 4. */
-	for (size_t i = len >> 2; i; i--) {
-		// Here is a source of differing results across endiannesses.
-		// A swap here has no effects on hash properties though.
-		memcpy(&k, key, sizeof(uint32_t));
-		key += sizeof(uint32_t);
-		h ^= murmur_32_scramble(k);
-		h = (h << 13) | (h >> 19);
-		h = h * 5 + 0xe6546b64;
-	}
-	/* Read the rest. */
-	k = 0;
-	for (size_t i = len & 3; i; i--) {
-		k <<= 8;
-		k |= key[i - 1];
-	}
-	// A swap is *not* necessary here because the preceding loop already
-	// places the low bytes in the low places according to whatever endianness
-	// we use. Swaps only apply when the memory is copied in a chunk.
-	h ^= murmur_32_scramble(k);
-	/* Finalize. */
-	h ^= len;
-	h ^= h >> 16;
-	h *= 0x85ebca6b;
-	h ^= h >> 13;
-	h *= 0xc2b2ae35;
-	h ^= h >> 16;
-	return h;
 }
 

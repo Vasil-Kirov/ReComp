@@ -18,7 +18,7 @@ b32 IsOpReserved(reg_allocator *r, op Op, slice<uint> *out_reg)
 array<lifespan> CalculateLifeSpans(dynamic<basic_block> Blocks, u32 VirtualRegCount)
 {
 	scratch_arena s{};
-	array LifeSpans = array<lifespan>(s.Allocate(VirtualRegCount * sizeof(lifespan)), VirtualRegCount);
+	auto LifeSpans = array<lifespan>(s.Allocate(VirtualRegCount * sizeof(lifespan)), VirtualRegCount);
 	ForArray(bi, Blocks)
 	{
 		basic_block Block = Blocks[bi];
@@ -120,7 +120,7 @@ dynamic<instruction> AllocateRegistersForBasicBlock(reg_allocator *r, basic_bloc
 	dynamic<instruction> Code = {};
 	Assert(Block.HasTerminator);
 	scratch_arena s{};
-	array Tracking = array<tracker>(s.Allocate(r->reg_count * sizeof(tracker)), r->reg_count);
+	auto Tracking = array<tracker>(s.Allocate(r->reg_count * sizeof(tracker)), r->reg_count);
 	ForArray(i, Tracking)
 	{
 		Tracking[i].VirtualRegister = -1;
@@ -192,7 +192,7 @@ void AllocateRegisters(reg_allocator *r, ir *IR)
 	ForArray(FIdx, IR->Functions)
 	{
 		function *Fn = &IR->Functions.Data[FIdx];
-		array Lifespans = CalculateLifeSpans(Fn->Blocks, Fn->LastRegister);
+		auto Lifespans = CalculateLifeSpans(Fn->Blocks, Fn->LastRegister);
 		ForArray(BIdx, Fn->Blocks)
 		{
 			dynamic<instruction> NewCode = AllocateRegistersForBasicBlock(r, Fn->Blocks[BIdx], Lifespans);

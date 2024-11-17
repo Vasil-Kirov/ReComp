@@ -41,7 +41,7 @@ struct interpreter_scope
 	value *Registers;
 	void AddValue(uint Register, value Value)
 	{
-		LastRegister = Register;
+		LastRegister = max(LastRegister, Register);
 		Registers[Register] = Value;
 	}
 	value *GetValue(uint Register)
@@ -52,6 +52,11 @@ struct interpreter_scope
 	{
 		LastRegister = 0;
 		Registers = (value *)VAlloc(MaxRegisterCount * sizeof(value));
+	}
+	void Free()
+	{
+		LastRegister = 0;
+		VFree(Registers);
 	}
 };
 
@@ -72,6 +77,8 @@ struct interpreter
 	code_chunk *Executing;
 	interpreter_scope Registers;
 	stack<binary_stack> Stack;
+	slice<function> Imported;
+	b32 IsCurrentFnRetInPtr;
 };
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
@@ -113,6 +120,44 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 						case Basic_f64: \
 										{ \
 											Result.f64 = Left->f64 o Right->f64; \
+										} break; \
+						default: unreachable; \
+					} \
+				} \
+				else \
+				{\
+					Assert(false); \
+				} \
+				VM->Registers.AddValue(I.Result, Result); \
+			} break
+
+#define BIN_BIN_OP(OP, o) case OP_##OP: \
+			{\
+				const type *Type = GetType(I.Type); \
+				value Result = {}; \
+				Result.Type = I.Type; \
+				value *Left  = VM->Registers.GetValue(I.Left); \
+				value *Right = VM->Registers.GetValue(I.Right); \
+				if(Type->Kind == TypeKind_Basic) \
+				{ \
+					switch(Type->Basic.Kind) \
+					{ \
+						case Basic_bool: \
+						case Basic_u8: \
+						case Basic_u16: \
+						case Basic_u32: \
+						case Basic_u64: \
+						case Basic_uint: \
+										 { \
+											 Result.u64 = Left->u64 o Right->u64; \
+										 } break; \
+						case Basic_i8: \
+						case Basic_i16: \
+						case Basic_i32: \
+						case Basic_i64: \
+						case Basic_int: \
+										{ \
+											Result.i64 = Left->i64 o Right->i64; \
 										} break; \
 						default: unreachable; \
 					} \

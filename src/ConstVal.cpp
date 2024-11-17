@@ -201,10 +201,10 @@ uint GetCodepointSize(const char *ptr)
 	return size;
 }
 
-uint GetUTF8Count(const string *String)
+size_t GetUTF8Count(const string *String)
 {
-	int Count = 0;
-	for(int i = 0; i < String->Size;)
+	size_t Count = 0;
+	for(size_t i = 0; i < String->Size;)
 	{
 		i += GetCodepointSize(&String->Data[i]);
 		Count++;

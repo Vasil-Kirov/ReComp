@@ -12,6 +12,13 @@ struct stack
 		Data.Push(Val);
 	}
 
+	T TryPeek()
+	{
+		if(Data.Count == 0)
+			return T{};
+		return Data.Data[Data.Count - 1];
+	}
+
 	T& Peek()
 	{
 		Assert(Data.Count > 0);

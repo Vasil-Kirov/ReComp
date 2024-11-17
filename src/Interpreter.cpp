@@ -8,6 +8,7 @@
 #include <Log.h>
 #include <cstddef>
 #include <x64CodeWriter.h>
+#include <math.h>
 
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
@@ -16,11 +17,14 @@ void *InterpreterAllocateString(interpreter *VM, const string *String)
 	return Memory;
 }
 
-__attribute__((no_sanitize("address")))
-u64 PerformFunctionCall(interpreter *VM, call_info *Info)
+void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 {
-	value *Operand = VM->Registers.GetValue(Info->Operand);
+	for(int i = 0; i < VM->Registers.LastRegister; ++i)
+		NewScope.AddValue(i, VM->Registers.Registers[i]);
+}
 
+u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
+{
 	typedef u64 (*inter_fn)(void *, value *);
 
 	assembler Asm = MakeAssembler(KB(1));
@@ -82,7 +86,7 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 #error "Unknown calling convention"
 #endif
 
-	const type *FnType = GetType(Operand->Type);
+	const type *FnType = GetType(Operand->Type & ~(1 << 31));
 
 	uint CurrentInt = 0;
 	//uint CurrentFloat = 0;
@@ -147,22 +151,31 @@ u64 PerformFunctionCall(interpreter *VM, call_info *Info)
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 {
 	const type *Type = GetType(TypeIdx);
-	if(Type->Kind == TypeKind_Basic)
+	int TypeSize = GetTypeSize(Type);
+	if(IsLoadableType(Type))
 	{
-		int TypeSize = GetTypeSize(Type);
-		if(Type->Basic.Kind == Basic_cstring)
-			*(void **)Ptr->ptr = Value->ptr;
-		else
-			memcpy(Ptr->ptr, &Value->u64, TypeSize);
-	}
-	else if(Type->Kind == TypeKind_Pointer)
-	{
-		*(void **)Ptr->ptr = Value->ptr;
+		memcpy(Ptr->ptr, &Value->u64, TypeSize);
 	}
 	else
 	{
-		memcpy(Ptr->ptr, Value->ptr, GetTypeSize(Type));
+		memcpy(Ptr->ptr, Value->ptr, TypeSize);
 	}
+	//if(Type->Kind == TypeKind_Basic)
+	//{
+	//	int TypeSize = GetTypeSize(Type);
+	//	if(Type->Basic.Kind == Basic_cstring || Type->Basic.Kind == Basic_string)
+	//		*(void **)Ptr->ptr = Value->ptr;
+	//	else
+	//		memcpy(Ptr->ptr, &Value->u64, TypeSize);
+	//}
+	//else if(Type->Kind == TypeKind_Pointer)
+	//{
+	//	*(void **)Ptr->ptr = Value->ptr;
+	//}
+	//else
+	//{
+	//	memcpy(Ptr->ptr, Value->ptr, GetTypeSize(Type));
+	//}
 
 }
 
@@ -262,9 +275,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					}
 					else if(Type->Basic.Flags & BasicFlag_String)
 					{
-						// @TODO;
-						// remember to use GetUTF8Count
-						Assert(false);
+						void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
+						void *StringData = InterpreterAllocateString(VM, Val->String.Data);
+						*(void **)Memory = StringData;
+						size_t *SizeLocation = (size_t *)Memory + 1;
+						*SizeLocation = GetUTF8Count(Val->String.Data);
+
+						VMValue.ptr = Memory;
 					}
 					else if(Type->Basic.Flags & BasicFlag_CString)
 					{
@@ -318,8 +335,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						} break
 
 				value *Value = VM->Registers.GetValue(I.Right);
-				Value->Type = I.Type;
+				//Value->Type = I.Type;
 				value Result = {};
+				Result.Type = I.Type;
 				const type *Type = GetType(I.Type);
 
 				switch(Type->Kind)
@@ -345,6 +363,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 							LOAD_T(int, 64);
 							LOAD_T(uint, 64);
+							LOAD_T(cstring, 64);
 
 							default: unreachable;
 						}
@@ -391,8 +410,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					case TypeKind_Pointer:
 					{
 						value *Index = VM->Registers.GetValue(I.Right);
+						const type *IdxT = GetType(Index->Type);
 						int TypeSize = GetTypeSize(Type->Pointer.Pointed);
-						Value.ptr = (*(u8 **)Operand->ptr) + (TypeSize * Index->u64);
+
+						if(HasBasicFlag(IdxT, BasicFlag_Unsigned))
+							Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+						else
+							Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->i64);
 					} break;
 					case TypeKind_Basic:
 					{
@@ -402,8 +426,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							Value.ptr = (u8 *)Operand->ptr + Index->u64;
 							break;
 						}
+						else if(HasBasicFlag(Type, BasicFlag_String))
+						{
+							int Offset = I.Right * GetRegisterTypeSize() / 8;
+							Value.ptr = ((u8 *)Operand->ptr) + Offset;
+						}
 						else
 							unreachable;
+					} break;
+					case TypeKind_Slice:
+					{
+						int Offset = I.Right * GetRegisterTypeSize() / 8;
+						Value.ptr = ((u8 *)Operand->ptr) + Offset;
 					} break;
 					default: unreachable;
 				}
@@ -417,7 +451,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else
 				{
-					return { INTERPRET_OK, *VM->Registers.GetValue(I.Left) };
+					if(VM->IsCurrentFnRetInPtr)
+					{
+						value *RetPtr = &OptionalArgs.Data[0];
+						value *RetVal = VM->Registers.GetValue(I.Left);
+						Store(VM, RetPtr, RetVal, I.Type);
+						return { INTERPRET_OK, *RetPtr };
+					}
+					else
+					{
+						return { INTERPRET_OK, *VM->Registers.GetValue(I.Left) };
+					}
 				}
 			} break;
 			case OP_CAST:
@@ -441,26 +485,66 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_CALL:
 			{
 				call_info *CallInfo = (call_info *)I.BigRegister;
-				u64 Result = PerformFunctionCall(VM, CallInfo);
-				if(I.Type != INVALID_TYPE)
+				value *Operand = VM->Registers.GetValue(CallInfo->Operand);
+				if(Operand->Type & (1 << 31))
 				{
-					value Value = {};
-					Value.Type = I.Type;
-					Value.u64 = Result;
-					VM->Registers.AddValue(I.Result, Value);
+					u64 Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
+					if(I.Type != INVALID_TYPE)
+					{
+						value Value = {};
+						Value.Type = I.Type;
+						Value.u64 = Result;
+						VM->Registers.AddValue(I.Result, Value);
+					}
+				}
+				else
+				{
+					function *F = (function *)Operand->ptr;
+					dynamic<value> Args = {};
+					ForArray(Idx, CallInfo->Args)
+					{
+						Args.Push(*VM->Registers.GetValue(CallInfo->Args[Idx]));
+					}
+					
+					code_chunk *Executing = VM->Executing;
+					interpreter_scope CurrentScope = VM->Registers;
+					interpreter_scope NewScope = {};
+					NewScope.Init(F->LastRegister);
+					CopyRegisters(VM, NewScope);
+					VM->Registers = NewScope;
+
+					interpret_result Result = InterpretFunction(VM, *F, SliceFromArray(Args));
+
+					VM->Registers = CurrentScope;
+					VM->Executing = Executing;
+
+					VM->Registers.AddValue(I.Result, Result.Result);
+
+					// @LEAK
+					//Result.ToFreeStackMemory
+					//Result.Registers LEAK
+					// @LEAK
+					VM->Stack.Pop();
+
+					Args.Free();
+					NewScope.Free();
 				}
 			} break;
 			case OP_ARG:
 			{
 				if(!OptionalArgs.IsValid())
 					return { INTERPRET_RUNTIME_ERROR };
-				int TypeSize = GetTypeSize(I.Type);
-				void *Memory = VM->Stack.Peek().Allocate(TypeSize);
-				value Value = {};
-				Value.Type = GetPointerTo(I.Type);
-				Value.ptr = Memory;
-				Store(VM, &Value, &OptionalArgs.Data[I.BigRegister], I.Type);
-				VM->Registers.AddValue(I.Result, OptionalArgs[I.BigRegister]);
+				int Index = I.BigRegister;
+				if(VM->IsCurrentFnRetInPtr)
+					Index++;
+
+				//int TypeSize = GetTypeSize(I.Type);
+				//void *Memory = VM->Stack.Peek().Allocate(TypeSize);
+				//value Value = {};
+				//Value.Type = GetPointerTo(I.Type);
+				//Value.ptr = Memory;
+				//Store(VM, &Value, &OptionalArgs.Data[Index], I.Type);
+				VM->Registers.AddValue(I.Result, OptionalArgs[Index]);
 			} break;
 			case OP_IF:
 			{
@@ -486,7 +570,55 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_OP(SUB, -);
 			BIN_OP(MUL, *);
 			BIN_OP(DIV, /);
-			BIN_OP(MOD, /);
+			case OP_MOD:
+			{
+				const type *Type = GetType(I.Type); 
+				value Result = {};
+				Result.Type = I.Type;
+				value *Left  = VM->Registers.GetValue(I.Left);
+				value *Right = VM->Registers.GetValue(I.Right);
+				if(Type->Kind == TypeKind_Basic)
+				{
+					switch(Type->Basic.Kind)
+					{
+						case Basic_bool:
+						case Basic_u8:
+						case Basic_u16:
+						case Basic_u32:
+						case Basic_u64:
+						case Basic_uint:
+						{
+							Result.u64 = Left->u64 % Right->u64;
+						} break;
+						case Basic_i8:
+						case Basic_i16:
+						case Basic_i32:
+						case Basic_i64:
+						case Basic_int:
+						{
+							Result.i64 = Left->i64 % Right->i64;
+						} break;
+						case Basic_f32:
+						{
+							Result.f32 = fmod(Left->f32, Right->f32);
+						} break;
+						case Basic_f64:
+						{
+							Result.f64 = fmod(Left->f64, Right->f64);
+						} break;
+						default: unreachable;
+					}
+				}
+				else
+				{
+					Assert(false);
+				}
+				VM->Registers.AddValue(I.Result, Result);
+			} break;
+			BIN_BIN_OP(AND, &);
+			BIN_BIN_OP(OR, |);
+			BIN_BIN_OP(SR, >>);
+			BIN_BIN_OP(SL, <<);
 			BIN_COMP_OP(GREAT, >);
 			BIN_COMP_OP(LESS, <);
 			BIN_COMP_OP(GEQ, >=);
@@ -495,7 +627,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(NEQ, !=);
 			BIN_COMP_OP(LAND, &&);
 			case OP_DEBUGINFO:
-			{} break;
+			{
+				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+				if(Info->type == IR_DBG_LOCATION)
+					LDEBUG("At line: %d", Info->loc.LineNo);
+			} break;
 			default:
 			{
 				LDEBUG("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
@@ -529,18 +665,20 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 	ForArray(MIdx, Modules)
 	{
 		module *m = &Modules.Data[MIdx];
-		ForArray(Idx, m->Globals)
+		ForArray(Idx, m->Globals.Data)
 		{
-			symbol *s = m->Globals[Idx];
+			symbol *s = m->Globals.Data[Idx];
+
 			value Value = {};
 			Value.Type = s->Type;
 			if(s->Flags & SymbolFlag_Function)
 			{
 				if(s->Flags & SymbolFlag_Extern)
 				{
+					Value.Type |= 1 << 31;
 					for(int Idx = 0; Idx < DLLCount; ++Idx)
 					{
-						void *Proc = GetSymLibrary(DLLs[Idx], s->Name->Data);
+						void *Proc = GetSymLibrary(DLLs[Idx], s->LinkName->Data);
 						if(Proc)
 						{
 							Value.ptr = Proc;
@@ -550,14 +688,12 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 
 					if(Value.ptr == NULL)
 					{
-						LERROR("Couldn't find external function %s in compiler linked DLLs", s->Name->Data);
-						return {};
+						LERROR("Couldn't find external function %s in compiler linked DLLs.\n\t Referenced in module %s", s->LinkName->Data, m->Name.Data);
 					}
 				}
 				else
 				{
-					// @TODO:
-					{};
+					Value.ptr = s->Node->Fn.IR;
 				}
 			}
 			else
@@ -592,6 +728,16 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
+	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
+	ForArray(Idx, Args)
+	{
+		LDEBUG("\t[%d]%s", Idx, GetTypeName(Args[Idx].Type));
+	}
+
+
+	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
+
+	VM->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(Function.Type)->Function.Return);
 	VM->Stack.Push(Stack);
 
 	interpret_result Result = {};
@@ -602,6 +748,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	Result.ToFreeStackMemory = Stack.Memory;
 
+	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 
 	return Result;
 }

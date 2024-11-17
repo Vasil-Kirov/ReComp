@@ -18,6 +18,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Interpreter.h"
 #include "x64CodeWriter.h"
 #include "CommandLine.h"
+#include "Dict.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -80,7 +81,7 @@ struct timers
 	timer_group LLVM;
 };
 
-void ResolveSymbols(dynamic<file> Files, b32 ExpectingMain)
+void ResolveSymbols(slice<file> Files, b32 ExpectingMain)
 {
 	ForArray(Idx, Files)
 	{
@@ -116,9 +117,9 @@ void ResolveSymbols(dynamic<file> Files, b32 ExpectingMain)
 			if(File->Module->Name == MainName)
 			{
 				FoundMain = true;
-				ForArray(mi, File->Module->Globals)
+				ForArray(mi, File->Module->Globals.Data)
 				{
-					symbol *sym = File->Module->Globals[mi];
+					symbol *sym = File->Module->Globals.Data[mi];
 					if(sym->Flags & SymbolFlag_Function &&
 							*sym->Name == MainName)
 					{
@@ -191,17 +192,23 @@ void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
 slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_line CommandLine, b32 WantMain, slice<module> *OutModules)
 {
 	dynamic<module> Modules = {};
-	dynamic<file> Files = {};
+	dynamic<file> FileDyn = {};
+	dynamic<string> ModuleNames = {};
 
 	Timers->Parse = VLibStartTimer("Parse");
 	ForArray(Idx, FileNames)
 	{
 		string ModuleName = {};
 		file File = LexFile(FileNames[Idx], &ModuleName);
-		Assert(Idx == Files.Count);
-		Files.Push(File);
+		ModuleNames.Push(ModuleName);
+		Assert(Idx == FileDyn.Count);
+		FileDyn.Push(File);
+	}
+	slice<file> Files = SliceFromArray(FileDyn);
+	ForArray(Idx, Files)
+	{
 		file *F = &Files.Data[Idx];
-		AddModule(Modules, F, ModuleName);
+		AddModule(Modules, F, ModuleNames[Idx]);
 	}
 	ForArray(Idx, FileNames)
 	{
@@ -233,16 +240,8 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 		VLibStopTimer(&Timers->IR);
 	}
 
-	{
-		Timers->TypeCheck = VLibStartTimer("Analyzing");
-		ForArray(Idx, Modules)
-		{
-			AnalyzeModuleForRedifinitions(&Modules.Data[Idx]);
-		}
-		VLibStopTimer(&Timers->TypeCheck);
-	}
 	*OutModules = SliceFromArray(Modules);
-	return SliceFromArray(Files);
+	return Files;
 }
 
 string MakeLinkCommand(command_line CMD, slice<module> Modules)
@@ -282,35 +281,18 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules)
 	return Command;
 }
 
-struct compile_info
+struct interp_string
 {
-	const char *FileNames[1024];
-	i32 FileCount;
+	const char *Data;
+	size_t Count;
 };
 
-void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module> *OutModules)
+struct compile_info
 {
-	type *FileArray = AllocType(TypeKind_Array);
-	FileArray->Array.Type = Basic_cstring;
-	FileArray->Array.MemberCount = 1024;
-
-	u32 FileArrayType = AddType(FileArray);
-	static struct_member CompileInfoMembers[] = {
-		{STR_LIT("files"), FileArrayType},
-		{STR_LIT("file_count"), Basic_i32},
-	};
-
-	type *CompileInfoType = AllocType(TypeKind_Struct);
-	CompileInfoType->Struct.Name = STR_LIT("__build_CompileInfo");
-	CompileInfoType->Struct.Members = {CompileInfoMembers, ARR_LEN(CompileInfoMembers)};
-	CompileInfoType->Struct.Flags = 0;
-	
-	u32 CompileInfo = AddType(CompileInfoType);
-	*CompileInfoTypeIdx = CompileInfo;
-
-	slice<string> FileNames = { .Data = &Name, .Count = 1 };
-	*F = RunBuildPipeline(FileNames, Timers, CommandLine, false, OutModules)[0];
-}
+	size_t FileCount;
+	interp_string *FileNames;
+	int Optimization;
+};
 
 const char *GetStdDir()
 {
@@ -346,6 +328,7 @@ void AddStdFiles(dynamic<string> &Files)
 		GetFilePath(Dir, "mem.rcp"),
 		GetFilePath(Dir, "strings.rcp"),
 		GetFilePath(Dir, "array.rcp"),
+		GetFilePath(Dir, "compile.rcp"),
 	};
 
 	uint Count = ARR_LEN(StdFiles);
@@ -353,6 +336,24 @@ void AddStdFiles(dynamic<string> &Files)
 	{
 		Files.Push(StdFiles[i]);
 	}
+}
+
+void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module> *OutModules)
+{
+	dynamic<string> FileNames = {};
+	AddStdFiles(FileNames);
+	FileNames.Push(Name);
+	slice<file> Files = RunBuildPipeline(SliceFromArray(FileNames), Timers, CommandLine, false, OutModules);
+	for(int i = 0; i < Files.Count; ++i)
+	{
+		if(Files[i].Module->Name == STR_LIT("build"))
+		{
+			*F = Files[i];
+			return;
+		}
+	}
+	LFATAL("Failed to find build module in compile script");
+	unreachable;
 }
 
 int
@@ -390,6 +391,7 @@ main(int ArgCount, char *Args[])
 	DLLs[DLLCount++] = OpenLibrary("user32");
 	DLLs[DLLCount++] = OpenLibrary("ntdll");
 	DLLs[DLLCount++] = OpenLibrary("msvcrt");
+	DLLs[DLLCount++] = OpenLibrary("ucrt");
 	DLLs[DLLCount++] = OpenLibrary("ucrtbase");
 #else
 
@@ -431,33 +433,28 @@ main(int ArgCount, char *Args[])
 			}
 			FoundCompile = true;
 
-			value Out = {};
-			Out.Type = GetPointerTo(CompileInfo);
-			Out.ptr = VAlloc(GetTypeSize(CompileInfo));
+			compile_info *Info = NewType(compile_info);
+			value InfoValue = {};
+			InfoValue.Type = GetPointerTo(INVALID_TYPE);
+			InfoValue.ptr = Info;
 
-			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&Out, 1});
+			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&InfoValue, 1});
 
 			timers FileTimer = {};
 			dynamic<string> FileNames = {};
-			compile_info *Info = (compile_info *)Out.ptr;
 			for(int i = 0; i < Info->FileCount; ++i)
 			{
-				if(Info->FileNames[i] == NULL)
-				{
-					LFATAL("File name #%d is null", Info->FileNames[i]);
-				}
-
-				FileNames.Push(MakeString(Info->FileNames[i]));
+				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
 			}
 			AddStdFiles(FileNames);
 
 			slice<file> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
-#if 0
+#if 1
 			llvm_init_info Machine = RCInitLLVM();
 			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm);
-#endif
+#else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
 			});
@@ -470,6 +467,7 @@ main(int ArgCount, char *Args[])
 				string Dissasembly = Dissasemble(SliceFromArray(IR->Functions));
 				LWARN("\t----[ALLOCATED]----\t\n[ MODULE %s ]\n\n%s", FileArray[fi].Module->Name.Data, Dissasembly.Data);\
 			}
+#endif
 			VLibStopTimer(&FileTimer.LLVM);
 
 			Timers.Push(FileTimer);

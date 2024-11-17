@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic.h"
+#include "Dict.h"
 #include "Module.h"
 #include "Parser.h"
 #include "Type.h"
@@ -18,13 +19,6 @@ enum SymbolFlag
 	SymbolFlag_Extern  = BIT(8),
 };
 
-struct scope
-{
-	node *ScopeNode;
-	scope *Parent;
-	uint LastGeneric;
-};
-
 struct symbol
 {
 	const string *Name;
@@ -32,22 +26,26 @@ struct symbol
 	node *Node;
 	checker *Checker;
 	u32 Type;
-	u32 Hash;
-	u32 Depth;
 	u32 Flags;
 	u32 IRRegister;
 };
 
+struct scope
+{
+	node *ScopeNode;
+	scope *Parent;
+	uint LastGeneric;
+	dict<symbol> Symbols;
+};
+
 struct checker
 {
-	dynamic<symbol> Symbols;
+	stack<scope *> Scope;
 	module *Module;
 	slice<import> Imported;
 	stack<u32 *> UntypedStack;
 	dynamic<node *> *Nodes;
 	dynamic<node *> GeneratedGlobalNodes;
-	scope *CurrentScope;
-	u32 CurrentDepth;
 	u32 CurrentFnReturnTypeIdx;
 };
 
@@ -66,7 +64,7 @@ typedef struct {
 
 promotion_description PromoteType(const type *Promotion, const type *Left, const type *Right, u32 LeftIdx, u32 RightIdx);
 u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode);
-scope *AllocScope(node *Node, scope *Parent=NULL);
+scope *AllocScope(node *Node, scope *Parent = NULL);
 b32 ScopesMatch(scope *A, scope *B);
 void CheckBodyForUnreachableCode(slice<node *> Body);
 node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut);

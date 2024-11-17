@@ -1559,9 +1559,9 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module
 	ForArray(MIdx, CurrentModules)
 	{
 		module M = CurrentModules[MIdx];
-		ForArray(GIdx, M.Globals)
+		ForArray(GIdx, M.Globals.Data)
 		{
-			symbol *s = M.Globals[GIdx];
+			symbol *s = M.Globals.Data[GIdx];
 			if(s->Checker->Module->Name == ThisModule->Name)
 			{
 				PushIRLocal(Fn, s->Name, s->IRRegister,
@@ -2044,7 +2044,10 @@ ir BuildIR(file *File, u32 StartRegister)
 			IR.MaxRegisters = MaybeFunction.LastRegister;
 
 		if(MaybeFunction.Name)
+		{
 			IR.Functions.Push(MaybeFunction);
+			File->Nodes[I]->Fn.IR = &IR.Functions.Data[IR.Functions.Count-1];
+		}
 	}
 
 	return IR;

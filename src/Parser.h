@@ -4,6 +4,7 @@
 #include "Lexer.h"
 #include "VString.h"
 struct type;
+struct function;
 
 enum class reserved
 {
@@ -187,6 +188,7 @@ struct node
 			node *ReturnType; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
 			struct module *FnModule;
+			function *IR; // @Nullable
 			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
 			b32 AlreadyAnalyzed;

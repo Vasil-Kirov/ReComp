@@ -43,8 +43,6 @@ main :: fn() -> i32 {
     return 0;
 }
 
-printf :: fn #foreign(fmt: cstring, arg: u8) -> int;
-
 // do_foo :: fn(s: []$T) {
 //     x := s;
 //     x[5] = 5;

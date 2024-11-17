@@ -84,34 +84,15 @@ int GetFileIndex(module *m, file *f)
 	unreachable;
 }
 
-void AnalyzeModuleForRedifinitions(module *m)
-{
-	ForArray(Idx, m->Globals)
-	{
-		symbol *s = m->Globals[Idx];
-		string Name = *s->Name;
-		for(int OtherIdx = Idx+1; OtherIdx < m->Globals.Count; ++OtherIdx)
-		{
-			symbol *os = m->Globals[OtherIdx];
-			if(*os->Name == Name)
-			{
-				error_info e = *s->Node->ErrorInfo;
-				RaiseError(*os->Node->ErrorInfo, "Symbol %s redifines other symbol in file %s at (%d:%d)", 
-						os->Name->Data, e.FileName, e.Line, e.Character);
-			}
-		}
-	}
-}
-
 u32 AssignIRRegistersForModuleSymbols(dynamic<module> Modules)
 {
 	u32 Count = 0;
 	ForArray(ModuleIdx, Modules)
 	{
 		module m = Modules[ModuleIdx];
-		ForArray(Idx, m.Globals)
+		ForArray(Idx, m.Globals.Data)
 		{
-			m.Globals[Idx]->IRRegister = Count++;
+			m.Globals.Data[Idx]->IRRegister = Count++;
 		}
 	}
 	return Count;

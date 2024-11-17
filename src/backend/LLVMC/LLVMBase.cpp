@@ -918,6 +918,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 
 	LLVMValueRef MaybeInitFn = NULL;
 	// Generate internal functions
+	dict<LLVMValueRef> AddedFns = {};
 	ForArray(FIdx, M->Files)
 	{
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
@@ -929,15 +930,16 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
 		Functions.Push({.LLVM = Fn, .Name = LinkName});
 		MaybeInitFn = Fn;
+		AddedFns.Add(LinkName, Fn);
 	}
 
 	ForArray(MIdx, Modules)
 	{
 		// shadow
 		module m = Modules[MIdx];
-		ForArray(GIdx, m.Globals)
+		ForArray(GIdx, m.Globals.Data)
 		{
-			symbol *s = m.Globals[GIdx];
+			symbol *s = m.Globals.Data[GIdx];
 			if(s->Flags & SymbolFlag_Generic) {
 				continue;
 			}
@@ -955,6 +957,12 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				Linkage = /*LLVMPrivateLinkage*/ LLVMExternalLinkage;
 			// @NOTE: Currently there are some probems with gneerating generic functions so all symbols will be public
 
+			LLVMValueRef AlreadyIn = AddedFns[*s->LinkName];
+			if(AlreadyIn)
+			{
+				Gen.map.Add(s->IRRegister, AlreadyIn);
+			}
+
 			if(s->Flags & SymbolFlag_Function)
 			{
 				string LinkName = *s->LinkName;
@@ -964,6 +972,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				LLVMSetLinkage(Fn, Linkage);
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.map.Add(s->IRRegister, Fn);
+				AddedFns.Add(LinkName, Fn);
 			}
 			else
 			{
@@ -974,6 +983,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				if(m.Name == M->Name)
 					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
 				Gen.map.Add(s->IRRegister, Global);
+				AddedFns.Add(LinkName, Global);
 			}
 		}
 	}

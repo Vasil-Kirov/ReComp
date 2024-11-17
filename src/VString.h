@@ -20,8 +20,8 @@ struct string
 
 	bool operator!=(const string& B) const
 	{
-		if(this->Size == B.Size)
-			return false;
+		if(this->Size != B.Size)
+			return true;
 
 		return memcmp(this->Data, B.Data, B.Size) != 0;
 	}

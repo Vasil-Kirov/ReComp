@@ -28,6 +28,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMBase.h"
 #include "backend/LLVMC/LLVMType.h"
 #include "backend/LLVMC/LLVMValue.h"
+#include "backend/LLVMC/LLVMPasses.h"
 
 #include "backend/RegAlloc.h"
 //#include "backend/x86.h"
@@ -58,6 +59,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMBase.cpp"
 #include "backend/LLVMC/LLVMType.cpp"
 #include "backend/LLVMC/LLVMValue.cpp"
+#include "backend/LLVMC/LLVMPasses.cpp"
 
 #include "backend/RegAlloc.cpp"
 //#include "backend/x86.cpp"
@@ -244,11 +246,39 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 	return Files;
 }
 
-string MakeLinkCommand(command_line CMD, slice<module> Modules)
+const char *GetStdDir()
+{
+	char *Path = (char *)AllocatePermanent(VMAX_PATH);
+	GetExePath(Path);
+	int i;
+	for(i = 0; Path[i] != 0; ++i);
+	int size = i;
+	for(; Path[i] != '\\' && Path[i] != '/';--i);
+	memset(Path + i + 1, 0, size - i - 1);
+
+	return Path;
+}
+
+string GetFilePath(string Dir, const char *FileName)
+{
+	string_builder Builder = MakeBuilder();
+	Builder += Dir;
+	Builder += "../std/";
+	Builder += FileName;
+	return MakeString(Builder);
+}
+
+string MakeLinkCommand(command_line CMD, slice<module> Modules, u32 CompileFlags)
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
 	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe /DEBUG ";
+	if(CompileFlags & CF_SanAdress)
+	{
+		string Std = MakeString(GetStdDir());
+		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib");
+		Builder += " ";
+	}
 #elif CM_LINUX
 	Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
 	Builder += FindObjectFiles();
@@ -279,41 +309,6 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules)
 	string Command = MakeString(Builder);
 	LDEBUG(Command.Data);
 	return Command;
-}
-
-struct interp_string
-{
-	const char *Data;
-	size_t Count;
-};
-
-struct compile_info
-{
-	size_t FileCount;
-	interp_string *FileNames;
-	int Optimization;
-};
-
-const char *GetStdDir()
-{
-	char *Path = (char *)AllocatePermanent(VMAX_PATH);
-	GetExePath(Path);
-	int i;
-	for(i = 0; Path[i] != 0; ++i);
-	int size = i;
-	for(; Path[i] != '\\' && Path[i] != '/';--i);
-	memset(Path + i + 1, 0, size - i - 1);
-
-	return Path;
-}
-
-string GetFilePath(string Dir, const char *FileName)
-{
-	string_builder Builder = MakeBuilder();
-	Builder += Dir;
-	Builder += "../std/";
-	Builder += FileName;
-	return MakeString(Builder);
 }
 
 void AddStdFiles(dynamic<string> &Files)
@@ -421,6 +416,25 @@ main(int ArgCount, char *Args[])
 
 	interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
+	struct interp_string
+	{
+		const char *Data;
+		size_t Count;
+	};
+
+	struct compile_info
+	{
+		size_t FileCount;
+		interp_string *FileNames;
+		ssize_t Optimization;
+		u32 Flags;
+	};
+
+	compile_info *Info = NewType(compile_info);
+	value InfoValue = {};
+	InfoValue.Type = GetPointerTo(INVALID_TYPE);
+	InfoValue.ptr = Info;
+
 
 	slice<module> ModuleArray = {};
 	ForArray(Idx, BuildFile.IR->Functions)
@@ -433,10 +447,6 @@ main(int ArgCount, char *Args[])
 			}
 			FoundCompile = true;
 
-			compile_info *Info = NewType(compile_info);
-			value InfoValue = {};
-			InfoValue.Type = GetPointerTo(INVALID_TYPE);
-			InfoValue.ptr = Info;
 
 			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&InfoValue, 1});
 
@@ -453,7 +463,7 @@ main(int ArgCount, char *Args[])
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
 			llvm_init_info Machine = RCInitLLVM();
-			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm);
+			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm, Info->Optimization, Info->Flags);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -485,7 +495,7 @@ main(int ArgCount, char *Args[])
 	VLibStopTimer(&VMBuildTimer);
 
 	auto LinkTimer = VLibStartTimer("Linking");
-	system(MakeLinkCommand(CommandLine, ModuleArray).Data);
+	system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);
 
 	/* Clean up */
 	ForArray(Idx, ModuleArray)

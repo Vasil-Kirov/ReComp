@@ -787,7 +787,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_SIZE:
 		{
 			u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
-			Expr->Size.Type = ExprType;
+			if(ExprType == Basic_type)
+			{
+				Expr->Size.Type = GetTypeFromTypeNode(Checker, Expr->Size.Expression);
+			}
+			else
+			{
+				Expr->Size.Type = ExprType;
+			}
 			Result = Basic_int;
 		} break;
 		case AST_CAST:

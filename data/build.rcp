@@ -5,7 +5,8 @@ build
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
-        opt = 0,
+        opt = 2,
+        flags = @u32 c.CompileFlag.SanAddress,
     };
 
     return out;

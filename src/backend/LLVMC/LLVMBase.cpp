@@ -11,12 +11,12 @@
 #include "Dynamic.h"
 #include "Type.h"
 #include "Dynamic.h"
+#include "LLVMPasses.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/DebugInfo.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
-#include "llvm-c/Transforms/PassBuilder.h"
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
@@ -855,7 +855,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module> Modules, slice<file> Files)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module> Modules, slice<file> Files, int OptimizationLevel, u32 CompileFlags)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -1028,20 +1028,15 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 
 	LLVMDIBuilderFinalize(Gen.dbg);
 
+
+
+	RunOptimizationPasses(&Gen, Machine.Target, OptimizationLevel, CompileFlags);
 	RCEmitFile(Machine.Target, Gen.mod, M->Name, OutputBC);
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
 	LLVMShutdown();
 }
-
-#if 0
-void RCBuildPasses()
-{
-	LLVMPassManagerRef PassManager = LLVMCreatePassManager();
-	LLVMPassBuilderOptionsRef PMBuilder = LLVMCreatePassBuilderOptions();
-}
-#endif
 
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)
 {
@@ -1161,11 +1156,11 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files, LLVMValueRef In
 	return MainFn;
 }
 
-void RCGenerateCode(slice<module> Modules, slice<file> Files, llvm_init_info Machine, b32 OutputBC)
+void RCGenerateCode(slice<module> Modules, slice<file> Files, llvm_init_info Machine, b32 OutputBC, int OptimizatonLevel, u32 CompileFlags)
 {
 	ForArray(Idx, Modules)
 	{
-		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC, Modules, Files);
+		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC, Modules, Files, OptimizatonLevel, CompileFlags);
 		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}

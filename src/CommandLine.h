@@ -10,6 +10,15 @@ enum command_flags
 	CommandFlag_llvm = BIT(3),
 };
 
+enum compile_flags
+{
+    CF_Debug       = 0b00001,
+    CF_SanAdress   = 0b00010,
+    CF_SanMemory   = 0b00100,
+    CF_SanThread   = 0b01000,
+    CF_SanUndefined= 0b10000,
+};
+
 struct command_line
 {
 	string BuildFile;

@@ -1388,6 +1388,12 @@ node *ParseTopLevel(parser *Parser)
 			string *Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
 
 			Result = MakeEnum(ErrorInfo, Name, Items, TypeNode);
+			if(Parser->Current->Type == T_SEMICOL)
+			{
+				RaiseError(Parser->Current->ErrorInfo,
+						"Do not put semicolons after enum declarations");
+			}
+
 		} break;
 		case T_UNION:
 		IsStructUnion = true;
@@ -1413,7 +1419,7 @@ node *ParseTopLevel(parser *Parser)
 			if(Parser->Current->Type == T_SEMICOL)
 			{
 				RaiseError(Parser->Current->ErrorInfo,
-						"In this language you do not put semicolons after %s declarations", IsStructUnion ? "union" : "struct");
+						"Do not put semicolons after %s declarations", IsStructUnion ? "union" : "struct");
 			}
 		} break;
 		case T_CLOSEPAREN:

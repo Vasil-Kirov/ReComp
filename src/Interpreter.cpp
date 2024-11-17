@@ -71,14 +71,14 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	//operand ConventionFloatRegisters[] = {RegisterOperand(reg_xmm0), RegisterOperand(reg_xmm1),
 		//RegisterOperand(reg_xmm2), RegisterOperand(reg_xmm3)};
 
-	Asm.Push(RegisterOperand(reg_bp));
-	Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
-	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand(128));
+
+	//Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
+	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
 
 
 #if _WIN32
-	Asm.Push(RegisterOperand(reg_c));
-	Asm.Push(RegisterOperand(reg_d));
+	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_c));
+	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_d));
 #elif CM_LINUX
 	Asm.Push(RegisterOperand(reg_di));
 	Asm.Push(RegisterOperand(reg_si));
@@ -91,11 +91,12 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	uint CurrentInt = 0;
 	//uint CurrentFloat = 0;
 
-	ForArray(Idx, Info->Args)
+	int Idx = 0;
+	for(; Idx < Info->Args.Count && CurrentInt < ARR_LEN(ConventionRegisters); ++Idx)
 	{
 		const type *Type = GetType(FnType->Function.Args[Idx]);
-		Asm.Peek(RegisterOperand(reg_a));
-		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_a, Idx * sizeof(value)));
+		//Asm.Peek(RegisterOperand(reg_a));
+		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, Idx * sizeof(value)));
 		switch(Type->Kind)
 		{
 			case TypeKind_Basic:
@@ -117,13 +118,25 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 		}
 	}
 
+	if(Idx < Info->Args.Count)
+	{
+#if _WIN32
+		for(int i = Info->Args.Count - 1; i >= Idx; --i)
+		{
 
-	Asm.Pop(RegisterOperand(reg_a));
-	Asm.Pop(RegisterOperand(reg_a));
-	Asm.Call(RegisterOperand(reg_a));
+			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
+			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
+			Asm.Mov64(OffsetOperand(reg_sp, i * 8), RegisterOperand(reg_a));
+			//Asm.Push(RegisterOperand(reg_a));
+		}
+#else
+#error IMPLEMENT
+#endif
+	}
 
-	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
-	Asm.Pop(RegisterOperand(reg_bp));
+	Asm.Call(RegisterOperand(reg_r11));
+
+	Asm.Add(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
 	Asm.Ret();
 
 #if 0
@@ -394,9 +407,22 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							} break;
 						}
 					}
+					else if(HasBasicFlag(Type, BasicFlag_TypeID))
+					{
+
+						if(Val->Type == const_type::Integer)
+						{
+							VMValue.u64 = Val->Int.Unsigned;
+						}
+						else
+						{
+							Assert(Val->Type == const_type::Float);
+							VMValue.f64 = Val->Float;
+						}
+					}
 					else
 					{
-						LDEBUG("%d", Type->Kind);
+						LDEBUG("%s", GetTypeName(Type));
 						unreachable;
 					}
 				}
@@ -429,6 +455,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value Result = {};
 				Result.Type = I.Type;
 				const type *Type = GetType(I.Type);
+				if(Type->Kind == TypeKind_Enum)
+				{
+					Type = GetType(Type->Enum.Type);
+				}
 
 				switch(Type->Kind)
 				{
@@ -455,6 +485,14 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							LOAD_T(uint, 64);
 							LOAD_T(cstring, 64);
 
+							LOAD_T(type, 64);
+
+							case Basic_string:
+							{
+								uint Size = sizeof(size_t) * 2;
+								Result.ptr = VM->Stack.Peek().Allocate(Size);
+								memcpy(Result.ptr, Value->ptr, Size);
+							} break;
 							default: unreachable;
 						}
 					} break;
@@ -469,9 +507,40 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						Result.ptr = VM->Stack.Peek().Allocate(Size);
 						memcpy(Result.ptr, Value->ptr, Size);
 					} break;
+					case TypeKind_Slice:
+					{
+						uint Size = sizeof(size_t) * 2;
+						Result.ptr = VM->Stack.Peek().Allocate(Size);
+						memcpy(Result.ptr, Value->ptr, Size);
+					} break;
 					default: unreachable;
 				}
 				VM->Registers.AddValue(I.Result, Result);
+			} break;
+			case OP_SWITCHINT:
+			{
+				ir_switchint *Info = (ir_switchint *)I.BigRegister;
+				value *Matcher = VM->Registers.GetValue(Info->Matcher);
+				bool Found = false;
+				ForArray(Idx, Info->Cases)
+				{
+					u32 Case = Info->Cases[Idx];
+					value *Value = VM->Registers.GetValue(Info->OnValues[Idx]);
+					if(Matcher->u64 == Value->u64)
+					{
+						if(!OptionalBlocks.IsValid())
+							return { INTERPRET_RUNTIME_ERROR };
+
+						Found = true;
+						VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, Case).Code);
+					}
+				}
+				if(!Found)
+				{
+					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, Info->After).Code);
+				}
+
+				InstrIdx = -1;
 			} break;
 			case OP_STORE:
 			{
@@ -552,7 +621,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					code_chunk *Executing = VM->Executing;
 					interpreter_scope CurrentScope = VM->Registers;
 					interpreter_scope NewScope = {};
-					NewScope.Init(F->LastRegister);
+					NewScope.Init(max(CurrentScope.MaxRegisters, F->LastRegister));
 					CopyRegisters(VM, NewScope);
 					VM->Registers = NewScope;
 
@@ -572,6 +641,14 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					Args.Free();
 					NewScope.Free();
 				}
+			} break;
+			case OP_ALLOCGLOBAL:
+			{
+				int Size = GetTypeSize(I.Type);
+				value Result = {};
+				Result.ptr = VAlloc(Size * I.BigRegister);
+				Result.Type = GetArrayType(I.Type, I.BigRegister);
+				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_ARG:
 			{
@@ -599,7 +676,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Left).Code);
 				else
 					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Right).Code);
-				return Run(VM, OptionalBlocks, OptionalArgs);
+				InstrIdx = -1;
 			} break;
 			case OP_JMP:
 			{
@@ -607,7 +684,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					return { INTERPRET_RUNTIME_ERROR };
 
 				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
-				return Run(VM, OptionalBlocks, OptionalArgs);
+				InstrIdx = -1;
 			} break;
 			case OP_ARRAYLIST:
 			{
@@ -683,15 +760,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(EQEQ,==);
 			BIN_COMP_OP(NEQ, !=);
 			BIN_COMP_OP(LAND, &&);
+			BIN_COMP_OP(LOR, ||);
 			case OP_DEBUGINFO:
 			{
+#if 0
 				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
 				if(Info->type == IR_DBG_LOCATION)
 					LDEBUG("At line: %d", Info->loc.LineNo);
+#endif
 			} break;
 			default:
 			{
-				LDEBUG("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
+				LERROR("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
 				return { INTERPRET_RUNTIME_ERROR };
 			} break;
 		}
@@ -717,8 +797,22 @@ interpret_result Interpret(code_chunk Chunk)
 
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
+	ForArray(MIdx, Modules)
+	{
+		module *m = &Modules.Data[MIdx];
+		ForArray(FIdx, m->Files)
+		{
+			file *f = m->Files[FIdx];
+			ForArray(Idx, f->IR->Functions)
+			{
+				MaxRegisters = max(MaxRegisters, f->IR->Functions[Idx].LastRegister);
+			}
+		}
+	}
+
 	interpreter VM = {};
 	VM.Registers.Init(MaxRegisters);
+
 	ForArray(MIdx, Modules)
 	{
 		module *m = &Modules.Data[MIdx];
@@ -769,8 +863,10 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 			ForArray(fnIdx, f->IR->Functions)
 			{
 				function fn = f->IR->Functions[fnIdx];
-				if(StringEndsWith(*fn.Name, STR_LIT("__GlobalInitializerFunction")))
+				const char *sub = strstr(fn.Name->Data, "__GlobalInitializerFunction");
+				if(sub)
 				{
+					//LDEBUG("Module: %s", m->Name.Data);
 					InterpretFunction(&VM, fn, {});
 				}
 			}
@@ -785,12 +881,13 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
+#if 0
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{
 		LDEBUG("\t[%d]%s", Idx, GetTypeName(Args[Idx].Type));
 	}
-
+#endif
 
 	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
 

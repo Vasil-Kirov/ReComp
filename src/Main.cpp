@@ -409,12 +409,11 @@ main(int ArgCount, char *Args[])
 	u32 CompileInfo;
 	file BuildFile = {};
 	slice<module> BuildModules = {};
+
+	u32 BeforeTypeCount = GetTypeCount();
 	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules);
+
 	Timers.Push(BuildTimers);
-
-	timer_group VMBuildTimer = VLibStartTimer("VM");
-
-	interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 	struct interp_string
 	{
@@ -435,6 +434,7 @@ main(int ArgCount, char *Args[])
 	InfoValue.Type = GetPointerTo(INVALID_TYPE);
 	InfoValue.ptr = Info;
 
+	timer_group VMBuildTimer = {};
 
 	slice<module> ModuleArray = {};
 	ForArray(Idx, BuildFile.IR->Functions)
@@ -447,8 +447,14 @@ main(int ArgCount, char *Args[])
 			}
 			FoundCompile = true;
 
+			VMBuildTimer = VLibStartTimer("VM");
+
+			interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&InfoValue, 1});
+			TypeCount = BeforeTypeCount;
+
+			VLibStopTimer(&VMBuildTimer);
 
 			timers FileTimer = {};
 			dynamic<string> FileNames = {};
@@ -492,7 +498,6 @@ main(int ArgCount, char *Args[])
 		LFATAL("File %s doesn't have the `compile` function defined, this function is used to define how to build the program", Args[1]);
 	}
 
-	VLibStopTimer(&VMBuildTimer);
 
 	auto LinkTimer = VLibStartTimer("Linking");
 	system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);

@@ -1,13 +1,19 @@
 build
 
 #import compile as c
+#import io
+#import init
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
-        opt = 2,
+        opt = 0,
         flags = @u32 c.CompileFlag.SanAddress,
     };
+
+    for f in out.files {
+        io.println("Compiling file: %", f);
+    }
 
     return out;
 }

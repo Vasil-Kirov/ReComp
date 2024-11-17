@@ -4,13 +4,17 @@
 
 
 __declspec(dllexport)
-int mprintf(char *fmt, ...)
+void alotta_params(int a, int b, int c, int d, int e, int f, int g)
 {
-	va_list args;
-	va_start(args, fmt);
-	int result = vprintf(fmt, args);
-
-	va_end(args);
-	return result;
+	printf(
+			"a:%d\n"
+			"b:%d\n"
+			"c:%d\n"
+			"d:%d\n"
+			"e:%d\n"
+			"f:%d\n"
+			"g:%d\n",
+			a, b, c, d, e, f, g);
 }
+
 

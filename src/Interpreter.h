@@ -38,6 +38,7 @@ struct code_chunk
 struct interpreter_scope
 {
 	u32 LastRegister;
+	u32 MaxRegisters;
 	value *Registers;
 	void AddValue(uint Register, value Value)
 	{
@@ -50,6 +51,7 @@ struct interpreter_scope
 	}
 	void Init(uint MaxRegisterCount)
 	{
+		MaxRegisters = MaxRegisterCount;
 		LastRegister = 0;
 		Registers = (value *)VAlloc(MaxRegisterCount * sizeof(value));
 	}
@@ -88,6 +90,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\
 				const type *Type = GetType(I.Type); \
+				if(Type->Kind == TypeKind_Enum) { I.Type = Type->Enum.Type; Type = GetType(I.Type);  } \
 				value Result = {}; \
 				Result.Type = I.Type; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
@@ -102,6 +105,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 						case Basic_u32: \
 						case Basic_u64: \
 						case Basic_uint: \
+						case Basic_type: \
 										 { \
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \
@@ -121,11 +125,12 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 										{ \
 											Result.f64 = Left->f64 o Right->f64; \
 										} break; \
-						default: unreachable; \
+						default: LERROR("No bin OP: %s", GetTypeName(Type)); unreachable; \
 					} \
 				} \
 				else \
 				{\
+					LERROR("No bin OP: %s", GetTypeName(Type)); \
 					Assert(false); \
 				} \
 				VM->Registers.AddValue(I.Result, Result); \
@@ -134,6 +139,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 #define BIN_BIN_OP(OP, o) case OP_##OP: \
 			{\
 				const type *Type = GetType(I.Type); \
+				if(Type->Kind == TypeKind_Enum) { I.Type = Type->Enum.Type; Type = GetType(I.Type);  } \
 				value Result = {}; \
 				Result.Type = I.Type; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
@@ -148,6 +154,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 						case Basic_u32: \
 						case Basic_u64: \
 						case Basic_uint: \
+						case Basic_type: \
 										 { \
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \
@@ -172,6 +179,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 #define BIN_COMP_OP(OP, o) case OP_##OP: \
 			{\
 				const type *Type = GetType(I.Type); \
+				if(Type->Kind == TypeKind_Enum) { I.Type = Type->Enum.Type; Type = GetType(I.Type);  } \
 				value Result = {}; \
 				Result.Type = Basic_bool; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
@@ -186,6 +194,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 						case Basic_u32: \
 						case Basic_u64: \
 						case Basic_uint: \
+						case Basic_type: \
 										 { \
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \

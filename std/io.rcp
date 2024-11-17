@@ -6,9 +6,8 @@ io
 #import init
 #import str
 
-push_string :: fn(b: *[]u32, str: string) {
-    x := str;
-    for c in str {
+push_string :: fn(b: *[]u32, to_push: string) {
+    for c in to_push {
         array.add(b, c);
     }
 }
@@ -320,11 +319,11 @@ builder_to_string :: fn(b_in: *[]u32) -> []u8 {
     return res;
 }
 
-__internal_print :: fn(str: string, args: []init.Arg) -> []u32 {
+__internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
     alloc := mem.create_generic_allocator();
     builder := array.create(u32, &alloc);
     arg_count := 0;
-    for c in str {
+    for c in fmt {
         if c == '%' {
             arg := args[arg_count];
             arg_count += 1;

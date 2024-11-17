@@ -208,7 +208,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				if(Val->Type == const_type::Integer)
 				{
-					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.Signed);
+					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
 				}
 				else
 				{

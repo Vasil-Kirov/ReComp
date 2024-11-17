@@ -84,6 +84,7 @@ struct assembler
 	void *Code;
 	uint CurrentOffset;
 	uint Size;
+	void Add(operand Dst, operand Src);
 	void Sub(operand Dst, operand Src);
 	void Push(operand Op);
 	void Pop(operand Op);

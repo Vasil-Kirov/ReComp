@@ -65,6 +65,16 @@ void assembler::Push(operand Operand)
 	PushByte(0x50 | Operand.Register);
 }
 
+void assembler::Add(operand Dst, operand Src)
+{
+	Assert(Dst.Type == operand_register);
+	Assert(Src.Type == operand_constant);
+	PushByte(REX_W);
+	PushByte(0x81);
+	PushByte((MOD_register << 6) | (0 << 3) | Dst.Register);
+	PushU32(Src.Constant);
+}
+
 void assembler::Sub(operand Dst, operand Src)
 {
 	Assert(Dst.Type == operand_register);
@@ -93,6 +103,12 @@ void assembler::Xor(operand A, operand B)
 void assembler::Call(operand Fn)
 {
 	Assert(Fn.Type == operand_register);
+
+	if(Fn.Register >= reg_r8)
+	{
+		PushByte(0x41);
+		Fn.Register = (register_)(Fn.Register - reg_r8);
+	}
 	PushByte(0xFF);
 	PushByte((MOD_register << 6) | (0b010 << 3) | Fn.Register);
 }
@@ -116,8 +132,8 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 				case operand_register:
 				{
 					mod = MOD_register;
-					reg = Dst.GetRegisterEncoding();
-					rm = Src.GetRegisterEncoding();
+					reg = Src.GetRegisterEncoding();
+					rm = Dst.GetRegisterEncoding();
 				} break;
 				case operand_offset:
 				{
@@ -154,6 +170,13 @@ void assembler::EncodeOperands(operand Dst, operand Src)
 		default: unreachable;
 	}
 	PushByte((mod << 6) | (reg << 3) | rm);
+
+	if(rm == 0b100 && (mod == MOD_displacement_0 || mod == MOD_displacement_i8 || mod == MOD_displacement_i32))
+	{
+		// SIB for rsp
+		PushByte(0b00100100);
+	}
+
 	if(Dst.Type == operand_offset && mod != MOD_displacement_0)
 		PushByte(Dst.Offset.Constant);
 	if(Src.Type == operand_offset && mod != MOD_displacement_0)
@@ -217,11 +240,17 @@ void assembler::Mov64(operand Dst, operand Src)
 		{
 			switch(Src.Type)
 			{
-				case operand_register:
 				case operand_offset:
 				{
 					EncodePrefix(Dst, Src);
 					PushByte(0x8B);
+					EncodeOperands(Dst, Src);
+				} break;
+
+				case operand_register:
+				{
+					EncodePrefix(Dst, Src);
+					PushByte(0x89);
 					EncodeOperands(Dst, Src);
 				} break;
 				case operand_constant:
@@ -261,7 +290,7 @@ void assembler::Lea64(operand Dst, operand Src)
 			{
 				case operand_offset:
 				{
-					PushByte(REX_W);
+					EncodePrefix(Dst, Src);
 					PushByte(0x8D);
 					EncodeOperands(Dst, Src);
 				} break;

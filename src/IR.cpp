@@ -2030,6 +2030,7 @@ ir BuildIR(file *File, u32 StartRegister)
 		}
 		PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
 		Terminate(&Builder, {});
+		GlobalInitializers.LastRegister = Builder.LastRegister;
 
 		IR.Functions.Push(GlobalInitializers);
 		Builder.Function = NULL;
@@ -2046,7 +2047,19 @@ ir BuildIR(file *File, u32 StartRegister)
 		if(MaybeFunction.Name)
 		{
 			IR.Functions.Push(MaybeFunction);
-			File->Nodes[I]->Fn.IR = &IR.Functions.Data[IR.Functions.Count-1];
+		}
+	}
+	for(int I = 0; I < NodeCount; ++I)
+	{
+		if(File->Nodes[I]->Type == AST_FN)
+		{
+			ForArray(Idx, IR.Functions)
+			{
+				if(*IR.Functions[Idx].Name == *File->Nodes[I]->Fn.Name)
+				{
+					File->Nodes[I]->Fn.IR = &IR.Functions.Data[Idx];
+				}
+			}
 		}
 	}
 

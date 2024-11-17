@@ -179,6 +179,96 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 
 }
 
+void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant = false)
+{
+	void *Result = NULL;
+	value *Operand = VM->Registers.GetValue(Left);
+	const type *Type = GetType(TypeIdx);
+	switch(Type->Kind)
+	{
+		case TypeKind_Array:
+		{
+			int TypeSize = GetTypeSize(Type->Array.Type);
+			*OutType = Type->Array.Type;
+			if(UseConstant)
+			{
+				Result = ((u8 *)Operand->ptr) + (TypeSize * Right);
+			}
+			else
+			{
+				value *Index = VM->Registers.GetValue(Right);
+				Result = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+			}
+		} break;
+		case TypeKind_Struct:
+		{
+			int Offset = GetStructMemberOffset(Type, Right);
+			*OutType = Type->Struct.Members[Right].Type;
+			Result = ((u8 *)Operand->ptr) + Offset;
+		} break;
+		case TypeKind_Pointer:
+		{
+			int TypeSize = GetTypeSize(Type->Pointer.Pointed);
+			*OutType = Type->Pointer.Pointed;
+
+			if(UseConstant)
+			{
+				Result = ((u8 *)Operand->ptr) + (TypeSize * Right);
+			}
+			else
+			{
+				value *Index = VM->Registers.GetValue(Right);
+				const type *IdxT = GetType(Index->Type);
+				if(HasBasicFlag(IdxT, BasicFlag_Unsigned))
+					Result = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+				else
+					Result = ((u8 *)Operand->ptr) + (TypeSize * Index->i64);
+			}
+		} break;
+		case TypeKind_Basic:
+		{
+			if(HasBasicFlag(Type, BasicFlag_CString))
+			{
+				*OutType = Basic_u8;
+				if(UseConstant)
+				{
+					Result = (u8 *)Operand->ptr + Right;
+				}
+				else
+				{
+					value *Index = VM->Registers.GetValue(Right);
+					Result = (u8 *)Operand->ptr + Index->u64;
+				}
+			}
+			else if(HasBasicFlag(Type, BasicFlag_String))
+			{
+				int Offset = Right * GetRegisterTypeSize() / 8;
+				Result = ((u8 *)Operand->ptr) + Offset;
+
+				if(Right == 0)
+					*OutType = GetPointerTo(Basic_u8);
+				else
+					*OutType = Basic_int;
+			}
+			else
+				unreachable;
+		} break;
+		case TypeKind_Slice:
+		{
+			int Offset = Right * GetRegisterTypeSize() / 8;
+			Result = ((u8 *)Operand->ptr) + Offset;
+
+			if(Right == 1)
+				*OutType = GetPointerTo(INVALID_TYPE);
+			else
+				*OutType = Basic_int;
+		} break;
+		default: unreachable;
+	}
+
+	return Result;
+}
+
 basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
 {
 	ForArray(Idx, Blocks)
@@ -391,57 +481,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_INDEX:
 			{
-				value Value = {};
-				value *Operand = VM->Registers.GetValue(I.Left);
-				const type *Type = GetType(I.Type);
-				switch(Type->Kind)
-				{
-					case TypeKind_Array:
-					{
-						value *Index = VM->Registers.GetValue(I.Right);
-						int TypeSize = GetTypeSize(Type->Array.Type);
-						Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
-					} break;
-					case TypeKind_Struct:
-					{
-						int Offset = GetStructMemberOffset(Type, I.Right);
-						Value.ptr = ((u8 *)Operand->ptr) + Offset;
-					} break;
-					case TypeKind_Pointer:
-					{
-						value *Index = VM->Registers.GetValue(I.Right);
-						const type *IdxT = GetType(Index->Type);
-						int TypeSize = GetTypeSize(Type->Pointer.Pointed);
-
-						if(HasBasicFlag(IdxT, BasicFlag_Unsigned))
-							Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
-						else
-							Value.ptr = ((u8 *)Operand->ptr) + (TypeSize * Index->i64);
-					} break;
-					case TypeKind_Basic:
-					{
-						if(HasBasicFlag(Type, BasicFlag_CString))
-						{
-							value *Index = VM->Registers.GetValue(I.Right);
-							Value.ptr = (u8 *)Operand->ptr + Index->u64;
-							break;
-						}
-						else if(HasBasicFlag(Type, BasicFlag_String))
-						{
-							int Offset = I.Right * GetRegisterTypeSize() / 8;
-							Value.ptr = ((u8 *)Operand->ptr) + Offset;
-						}
-						else
-							unreachable;
-					} break;
-					case TypeKind_Slice:
-					{
-						int Offset = I.Right * GetRegisterTypeSize() / 8;
-						Value.ptr = ((u8 *)Operand->ptr) + Offset;
-					} break;
-					default: unreachable;
-				}
-				VM->Registers.AddValue(I.Result, Value);
+				value Result = {};
+				Result.ptr = IndexVM(VM, I.Left, I.Right, I.Type, &Result.Type);
+				Result.Type = GetPointerTo(Result.Type);
+				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_RET:
 			{
@@ -565,6 +608,20 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
 				return Run(VM, OptionalBlocks, OptionalArgs);
+			} break;
+			case OP_ARRAYLIST:
+			{
+				array_list_info *Info = (array_list_info *)I.BigRegister;
+				for(int Idx = 0; Idx < Info->Count; ++Idx)
+				{
+					value *Member = VM->Registers.GetValue(Info->Registers[Idx]);
+					
+					u32 OutType;
+					void *MemberLocation = IndexVM(VM, Info->Alloc, Idx, I.Type, &OutType, true);
+					value Ptr = {};
+					Ptr.ptr = MemberLocation;
+					Store(VM, &Ptr, Member, OutType);
+				}
 			} break;
 			BIN_OP(ADD, +);
 			BIN_OP(SUB, -);

@@ -4,6 +4,7 @@ mkdir %1
 
 (
 echo build
+echo #import compile as c
 echo.
 echo compile :: fn^(out: *CompileInfo^) {
 echo 	to_fill := out;

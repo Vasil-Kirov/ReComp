@@ -1,20 +1,12 @@
 build
 
 #import compile as c
-#import mem
-#import array as arr
-#import io
 
 compile :: fn() -> c.CompileInfo {
-    alloc := mem.create_generic_allocator();
-    //io.println("Print num: %", 1);
     out := c.CompileInfo {
-        files = arr.create(string, &alloc),
+        files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 0,
     };
-
-    arr.add(&out.files, "../file1.rcp");
-    arr.add(&out.files, "../file2.rcp");
 
     return out;
 }

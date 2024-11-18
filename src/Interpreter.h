@@ -3,6 +3,8 @@
 #include <Stack.h>
 #include "DynamicLib.h"
 
+#define mmax(a, b) (a > b) ? a : b
+
 enum interpret_result_kind
 {
 	INTERPRET_OK,
@@ -42,7 +44,7 @@ struct interpreter_scope
 	value *Registers;
 	void AddValue(uint Register, value Value)
 	{
-		LastRegister = max(LastRegister, Register);
+		LastRegister = mmax(LastRegister, Register);
 		Registers[Register] = Value;
 	}
 	value *GetValue(uint Register)

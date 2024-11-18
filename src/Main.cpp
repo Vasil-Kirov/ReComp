@@ -388,6 +388,8 @@ main(int ArgCount, char *Args[])
 	DLLs[DLLCount++] = OpenLibrary("msvcrt");
 	DLLs[DLLCount++] = OpenLibrary("ucrt");
 	DLLs[DLLCount++] = OpenLibrary("ucrtbase");
+#elif CM_LINUX
+	DLLs[DLLCount++] = OpenLibrary("libc.so");
 #else
 
 #endif

@@ -65,6 +65,9 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 #elif CM_LINUX
 	operand ConventionRegisters[] = {RegisterOperand(reg_di), RegisterOperand(reg_si), RegisterOperand(reg_d),
 		RegisterOperand(reg_c), RegisterOperand(reg_r8), RegisterOperand(reg_r9)};
+
+	Asm.Push(RegisterOperand(reg_bp));
+	Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
 #else
 #error "Unknown calling convention"
 #endif
@@ -80,8 +83,8 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_c));
 	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_d));
 #elif CM_LINUX
-	Asm.Push(RegisterOperand(reg_di));
-	Asm.Push(RegisterOperand(reg_si));
+	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_di));
+	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_si));
 #else
 #error "Unknown calling convention"
 #endif
@@ -127,7 +130,14 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
 			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
 			Asm.Mov64(OffsetOperand(reg_sp, i * 8), RegisterOperand(reg_a));
-			//Asm.Push(RegisterOperand(reg_a));
+		}
+#elif CM_LINUX
+		for(int i = Info->Args.Count - 1; i >= Idx; --i)
+		{
+			LDEBUG("Here");
+			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
+			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
+			Asm.Push(RegisterOperand(reg_a));
 		}
 #else
 #error IMPLEMENT
@@ -137,6 +147,11 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	Asm.Call(RegisterOperand(reg_r11));
 
 	Asm.Add(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
+
+#if CM_LINUX
+	Asm.Pop(RegisterOperand(reg_bp));
+#endif
+
 	Asm.Ret();
 
 #if 0
@@ -621,7 +636,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					code_chunk *Executing = VM->Executing;
 					interpreter_scope CurrentScope = VM->Registers;
 					interpreter_scope NewScope = {};
-					NewScope.Init(max(CurrentScope.MaxRegisters, F->LastRegister));
+					NewScope.Init(mmax(CurrentScope.MaxRegisters, F->LastRegister));
 					CopyRegisters(VM, NewScope);
 					VM->Registers = NewScope;
 
@@ -763,7 +778,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(LOR, ||);
 			case OP_DEBUGINFO:
 			{
-#if 0
+#if 1
 				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
 				if(Info->type == IR_DBG_LOCATION)
 					LDEBUG("At line: %d", Info->loc.LineNo);
@@ -805,7 +820,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 			file *f = m->Files[FIdx];
 			ForArray(Idx, f->IR->Functions)
 			{
-				MaxRegisters = max(MaxRegisters, f->IR->Functions[Idx].LastRegister);
+				MaxRegisters = mmax(MaxRegisters, f->IR->Functions[Idx].LastRegister);
 			}
 		}
 	}
@@ -889,7 +904,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 0
+#if 1
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{

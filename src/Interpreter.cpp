@@ -822,6 +822,14 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 
 			value Value = {};
 			Value.Type = s->Type;
+			if(s->LinkName)
+			{
+				static const string GlobalInits = STR_LIT("__init_global_initializers");
+				static const string Main = STR_LIT("__main_main");
+				if(*s->LinkName == GlobalInits || *s->LinkName == Main)
+					continue;
+			}
+
 			if(s->Flags & SymbolFlag_Function)
 			{
 				if(s->Flags & SymbolFlag_Extern)

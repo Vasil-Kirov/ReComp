@@ -5,7 +5,7 @@ CONTINUE_BIT :: @u8 0b1000_0000;
 
 get_codepoint_size :: fn(codepoint: *u8) -> int {
     p := codepoint;
-    if (*p & 0b1000_0000) == 0 {
+    if (*p & CONTINUE_BIT) == 0 {
         return 1;
     }
 

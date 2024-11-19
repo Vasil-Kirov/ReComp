@@ -277,7 +277,7 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules, u32 CompileFlags
 	{
 		string Std = MakeString(GetStdDir());
 		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib");
-		Builder += " ";
+		Builder += " /DEFAULTLIB:LIBCMT ";
 	}
 #elif CM_LINUX
 	Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";

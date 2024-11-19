@@ -1,7 +1,11 @@
 build
+#import compile as c
 
-compile :: fn(out: *CompileInfo) {
-	to_fill := out;
-	to_fill.files[0] = c"slices.rcp";
-	to_fill.file_count = 1;
+compile :: fn() -> c.CompileInfo {
+    out := c.CompileInfo {
+        files = []string { "slices.rcp" },
+        opt = 0,
+        flags = @u32 c.CompileFlag.SanAddress,
+    };
+    return out;
 }

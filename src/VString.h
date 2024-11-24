@@ -41,6 +41,8 @@ struct string_builder
 
 string_builder MakeBuilder();
 
+string MakeString(string_builder Builder, void *Memory);
+string MakeString(void *Memory, const char *CString, size_t Size);
 string MakeString(string_builder Builder);
 string MakeString(const char *CString, size_t Size);
 string MakeString(const char *CString);

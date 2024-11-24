@@ -1710,6 +1710,7 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 	for(int i = 0; i < TypeCount; ++i)
 	{
 		const type *T = GetType(i);
+		LDEBUG("TypeTable[%d]: %s", i, GetTypeName(T));
 
 		u32 MemberPtr = PushInstruction(Builder, 
 				Instruction(OP_INDEX, TablePtr, PushInt(i, Builder), TableType, Builder)

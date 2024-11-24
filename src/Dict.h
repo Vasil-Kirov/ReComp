@@ -56,6 +56,7 @@ template <typename T>
 struct dict {
 	dynamic<key> Keys;
 	dynamic<T> Data;
+	T Default = T{};
 
 	bool Add(string Key, T Item)
 	{
@@ -101,7 +102,7 @@ struct dict {
 		T* Ptr = GetUnstablePtr(Key);
 		if(Ptr)
 			return *Ptr;
-		return T{};
+		return Default;
 	}
 	void Free()
 	{

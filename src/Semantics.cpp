@@ -1811,10 +1811,7 @@ u32 FixPotentialFunctionPointer(u32 Type)
 			u32 NewPointed = FixPotentialFunctionPointer(Ptr->Pointer.Pointed);
 			if(NewPointed != Ptr->Pointer.Pointed)
 			{
-				type *Pointer = NewType(type);
-				Pointer->Kind = TypeKind_Pointer;
-				Pointer->Pointer.Pointed = NewPointed;
-				return AddType(Pointer);
+				return GetPointerTo(NewPointed);
 			}
 			else
 			{
@@ -1826,11 +1823,7 @@ u32 FixPotentialFunctionPointer(u32 Type)
 			u32 NewArrayType = FixPotentialFunctionPointer(Ptr->Array.Type);
 			if(NewArrayType != Ptr->Array.Type)
 			{
-				type *Pointer = NewType(type);
-				Pointer->Kind = TypeKind_Array;
-				Pointer->Array.Type = NewArrayType;
-				Pointer->Array.MemberCount = Ptr->Array.MemberCount;
-				return AddType(Pointer);
+				return GetArrayType(NewArrayType, Ptr->Array.MemberCount);
 			}
 			else
 			{
@@ -2582,7 +2575,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 			else
 				*IDOut = FnName;
 
-			LDEBUG("Generating generic function from module %s\n\tID: %s\n", Checker->Module->Name.Data, IDOut->Data);
+			//LDEBUG("Generating generic function from module %s\n\tID: %s\n", Checker->Module->Name.Data, IDOut->Data);
 			symbol *Found = FnSym->Checker->Module->Globals[*GenericName];
 			node *NewFnNode = NULL;
 			if(Found)

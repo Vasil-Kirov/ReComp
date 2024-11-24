@@ -454,7 +454,7 @@ main(int ArgCount, char *Args[])
 			interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 
 			interpret_result Result = InterpretFunction(&VM, BuildFile.IR->Functions[Idx], {&InfoValue, 1});
-			TypeCount = BeforeTypeCount;
+			//TypeCount = BeforeTypeCount;
 
 			VLibStopTimer(&VMBuildTimer);
 

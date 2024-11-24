@@ -25,6 +25,11 @@ void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 
 u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 {
+	if(Operand->ptr == NULL) {
+		LDEBUG("Not found function, returning 0");
+		return 0;
+	}
+
 	typedef u64 (*inter_fn)(void *, value *);
 
 	assembler Asm = MakeAssembler(KB(1));
@@ -422,6 +427,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							} break;
 						}
 					}
+					else if(Type->Basic.Flags & BasicFlag_Boolean)
+					{
+						if(Val->Type == const_type::Integer)
+						{
+							VMValue.u64 = Val->Int.Unsigned ? 1 : 0;
+						}
+						else
+						{
+							Assert(Val->Type == const_type::Float);
+							VMValue.u64 = Val->Float ? 1 : 0;
+						}
+					}
 					else if(HasBasicFlag(Type, BasicFlag_TypeID))
 					{
 
@@ -778,7 +795,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(LOR, ||);
 			case OP_DEBUGINFO:
 			{
-#if 1
+#if 0
 				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
 				if(Info->type == IR_DBG_LOCATION)
 					LDEBUG("At line: %d", Info->loc.LineNo);
@@ -904,7 +921,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 1
+#if 0
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{

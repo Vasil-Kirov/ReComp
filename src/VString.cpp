@@ -82,6 +82,25 @@ string MakeString(const char *CString, size_t Size)
 	return Result;
 }
 
+string MakeString(void *Memory, const char *CString, size_t Size)
+{
+	string Result;
+
+	memcpy(Memory, CString, Size);
+
+	Result.Data = (const char *)Memory;
+	Result.Size = Size;
+	return Result;
+}
+
+string MakeString(string_builder Builder, void *Memory)
+{
+	string Result = MakeString(Memory, Builder.Data.Data, Builder.Size);
+	VFree(Builder.Data.Data);
+	Builder.Data.Count = 0;
+	return Result;
+}
+
 string MakeString(string_builder Builder)
 {
 	string Result = MakeString(Builder.Data.Data, Builder.Size);

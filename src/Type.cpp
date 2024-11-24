@@ -5,6 +5,7 @@
 #include "VString.h"
 #include "Basic.h"
 #include "Log.h"
+#include "Dict.h"
 
 platform_target PTarget = platform_target::Windows;
 
@@ -64,6 +65,7 @@ const type **InitializeTypeTable()
 }
 
 const type **TypeTable = InitializeTypeTable();
+dict<u32> TypeMap = { .Default = INVALID_TYPE };
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT)
@@ -167,6 +169,9 @@ u32 AddType(type *Type)
 	TypeTable[TypeCount++] = Type;
 	Assert(TypeCount < MAX_TYPES);
 	u32 Result = TypeCount - 1;
+
+	string TypeString = GetTypeNameAsString(Type);
+	TypeMap.Add(TypeString, Result);
 
 	UnlockMutex();
 	return Result;
@@ -813,6 +818,9 @@ b32 IsLoadableType(u32 TypeIdx)
 
 string GetTypeNameAsString(u32 Type)
 {
+	if(Type == INVALID_TYPE)
+		return STR_LIT("");
+
 	return GetTypeNameAsString(GetType(Type));
 }
 
@@ -914,9 +922,36 @@ const char *GetTypeName(const type *Type)
 	return GetTypeNameAsString(Type).Data;
 }
 
-// @TODO: Maybe try to find it first... idk
 u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 {
+	scratch_arena Scratch = {};
+
+	if(TypeIdx != INVALID_TYPE)
+	{
+		string_builder Builder = MakeBuilder();
+		string BaseType = GetTypeNameAsString(TypeIdx);
+		if(Flags & PointerFlag_Optional)
+			Builder += '?';
+		Builder += "*";
+		Builder += BaseType;
+		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
+
+		u32 T = TypeMap[Lookup];
+		if(T != INVALID_TYPE)
+			return T;
+	}
+	else
+	{
+		u32 T = INVALID_TYPE;
+		if(Flags & PointerFlag_Optional)
+			T = TypeMap[STR_LIT("?*")];
+		else
+			T = TypeMap[STR_LIT("*")];
+
+		if(T != INVALID_TYPE)
+			return T;
+	}
+
 	type *New = AllocType(TypeKind_Pointer);
 	New->Pointer.Pointed = TypeIdx;
 	New->Pointer.Flags = Flags;
@@ -925,6 +960,19 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 
 u32 GetSliceType(u32 Type)
 {
+	scratch_arena Scratch = {};
+
+	string_builder Builder = MakeBuilder();
+	string BaseType = GetTypeNameAsString(Type);
+	Builder += "[]";
+	Builder += BaseType;
+
+	string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
+
+	u32 T = TypeMap[Lookup];
+	if(T != INVALID_TYPE)
+		return T;
+
 	type *SliceType = AllocType(TypeKind_Slice);
 	SliceType->Slice.Type = Type;
 
@@ -933,6 +981,18 @@ u32 GetSliceType(u32 Type)
 
 u32 GetArrayType(u32 Type, u32 ElemCount)
 {
+	scratch_arena Scratch = {};
+
+	string_builder Builder = MakeBuilder();
+	string BaseType = GetTypeNameAsString(Type);
+	PushBuilderFormated(&Builder, "[%d]%s", ElemCount, BaseType);
+
+	string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
+
+	u32 T = TypeMap[Lookup];
+	if(T != INVALID_TYPE)
+		return T;
+
 	type *ArrayType = AllocType(TypeKind_Array);
 	ArrayType->Array.Type = Type;
 	ArrayType->Array.MemberCount = ElemCount;
@@ -943,6 +1003,28 @@ u32 GetArrayType(u32 Type, u32 ElemCount)
 u32 GetNonOptional(const type *OptionalPointer)
 {
 	Assert(OptionalPointer);
+	scratch_arena Scratch = {};
+
+	if(OptionalPointer->Pointer.Pointed != INVALID_TYPE)
+	{
+		string_builder Builder = MakeBuilder();
+		string BaseType = GetTypeNameAsString(OptionalPointer->Pointer.Pointed);
+		Builder += "*";
+		Builder += BaseType;
+
+		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
+
+		u32 T = TypeMap[Lookup];
+		if(T != INVALID_TYPE)
+			return T;
+	}
+	else
+	{
+		u32 T = TypeMap[STR_LIT("*")];
+		if(T != INVALID_TYPE)
+			return T;
+	}
+
 	type *New = NewType(type);
 	*New = *OptionalPointer;
 	New->Pointer.Flags = New->Pointer.Flags & ~PointerFlag_Optional;
@@ -1019,10 +1101,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 			u32 AT = ToNonGeneric(Type->Array.Type, Resolve, AR->Array.Type);
 			if(AT != Type->Array.Type)
 			{
-				type *NewT = AllocType(TypeKind_Array);
-				NewT->Array.Type = AT;
-				NewT->Array.MemberCount = Type->Array.MemberCount;
-				Result = AddType(NewT);
+				Result = GetArrayType(AT, Type->Array.MemberCount);
 			}
 		} break;
 		case TypeKind_Slice:
@@ -1030,9 +1109,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve, AR->Array.Type);
 			if(AT != Type->Slice.Type)
 			{
-				type *NewT = AllocType(TypeKind_Slice);
-				NewT->Slice.Type = AT;
-				Result = AddType(NewT);
+				Result = GetSliceType(AT);
 			}
 		} break;
 		case TypeKind_Struct:

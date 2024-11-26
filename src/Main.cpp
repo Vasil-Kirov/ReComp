@@ -277,13 +277,32 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
-	Builder += "LINK.EXE /nologo /ENTRY:mainCRTStartup /OUT:a.exe /DEBUG ";
+	b32 SetDefaultLib = false;
+	Builder += "LINK.EXE /nologo /OUT:a.exe /DEBUG ";
 	if(CompileFlags & CF_SanAdress)
 	{
 		string Std = MakeString(GetStdDir());
-		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib");
-		Builder += " /DEFAULTLIB:LIBCMT ";
+		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib ");
+		if((CompileFlags & CF_NoStdLib) == 0)
+		{
+			SetDefaultLib = true;
+			Builder += " /DEFAULTLIB:LIBCMT ";
+		}
 	}
+	if(CompileFlags & CF_NoStdLib)
+	{
+		Builder += "/NODEFAULTLIB /ENTRY:main ";
+	}
+	else
+	{
+		Builder += "/ENTRY:mainCRTStartup ";
+	}
+
+	if(!SetDefaultLib)
+	{
+		Builder += "/DEFAULTLIB:MSVCRT ";
+	}
+
 #elif CM_LINUX
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);

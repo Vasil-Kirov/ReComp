@@ -3,9 +3,6 @@
 
 void RunOptimizationPasses(generator *g, LLVMTargetMachineRef T, int Level, u32 Flags)
 {
-	if(Level <= 0)
-		return;
-
 	LLVMPassBuilderOptionsRef pb = LLVMCreatePassBuilderOptions();
 
 	// LLVMPassBuilderOptionsSetLoopInterleaving(

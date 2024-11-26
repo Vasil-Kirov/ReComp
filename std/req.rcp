@@ -19,3 +19,11 @@ memset :: fn #foreign(dst: *, val: i32, num: int) -> * {
 	return dst;
 }
 
+_fltused :: fn #foreign() {}
+
+#if Windows
+(
+    __chkstk :: fn #foreign() {}
+)
+
+

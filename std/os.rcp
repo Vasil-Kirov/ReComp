@@ -10,10 +10,29 @@ os
     CP_UTF7 :: @u32 65000;      // UTF-7 translation
     CP_UTF8 :: @u32 65001;      // UTF-8 translation
 
+    MEM_COMMIT  :: @u32 0x00001000;
+    MEM_RESERVE :: @u32 0x00002000; 
+    MEM_RELEASE :: @u32 0x00008000;
+
+
+    PAGE_NOACCESS          :: @u32 0x001;
+    PAGE_READONLY          :: @u32 0x002;
+    PAGE_READWRITE         :: @u32 0x004;
+    PAGE_WRITECOPY         :: @u32 0x008;
+    PAGE_EXECUTE           :: @u32 0x010;
+    PAGE_EXECUTE_READ      :: @u32 0x020;
+    PAGE_EXECUTE_READWRITE :: @u32 0x040;
+    PAGE_EXECUTE_WRITECOPY :: @u32 0x080;
+    PAGE_GUARD             :: @u32 0x100;
+    PAGE_NOCACHE           :: @u32 0x200;
+    PAGE_WRITECOMBINE      :: @u32 0x400;
+
     WriteFile :: fn #foreign(hFile: *, lpBuff: *, nBytesToWrite: u32, lpBytesWritten: *u32, lpOverlapped: ?*) -> bool;
     GetStdHandle :: fn #foreign(Handle: u32) -> ?*;
     ExitProcess :: fn #foreign(ExitCode: u32);
     SetConsoleOutputCP :: fn #foreign(code_page: u32) -> i32; // win32 bool
+    VirtualAlloc :: fn #foreign(addr: ?*, size: uint, type: u32, protect: u32) -> ?*;
+    VirtualFree :: fn #foreign(addr: ?*, size: uint, type: u32) -> bool;
 
     abort :: fn() {
         ExitProcess(1);
@@ -29,6 +48,14 @@ os
         if (handle != null) && (handle != INVALID_HANDLE_VALUE) {
             WriteFile(?handle, data, count, &written, null);
         }
+    }
+
+	alloc :: fn(size: int) -> ?* {
+        return VirtualAlloc(null, @uint size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    }
+
+	free :: fn(ptr: *) {
+        VirtualFree(ptr, 0, MEM_RELEASE);
     }
 )
 
@@ -60,14 +87,19 @@ os
 	MAP_ANON		:: 0x00020;
 	MAP_NORESERVE	:: 0x04000;
 
-	alloc :: fn(size: int) -> * {
-		ctx := @*AllocCtx _system_call(SYS_mmap,
+	alloc :: fn(size: int) -> ?* {
+		myb_ctx := @*AllocCtx _system_call(SYS_mmap,
 		null,						// Address
 		size + size_of AllocCtx,	// Size
 		PROT_READ | PROT_WRITE,		// Prot
 		MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,	// Flags
 		-1,							// FD
 		0);							// Offset
+        if myb_ctx == null {
+            return null;
+        }
+
+        ctx := ?myb_ctx;
 		
 		ctx.size = size + size_of AllocCtx;
 		return ctx + 1;

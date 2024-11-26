@@ -1,4 +1,5 @@
 mem
+#import os
 
 struct Allocator {
     alloc: fn(size: int, this: *Allocator) -> ?*,
@@ -16,11 +17,11 @@ make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
 }
 
 generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
-    return alloc(size);
+    return os.alloc(size);
 }
 
 generic_free :: fn(ptr: *, this: *Allocator) {
-    free(ptr);
+    os.free(ptr);
 }
 
 create_generic_allocator :: fn() -> Allocator {
@@ -34,6 +35,4 @@ create_generic_allocator :: fn() -> Allocator {
 
 copy  :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;
 set   :: fn #link="memset"(dst: *, c: i32, size: int) -> *;
-alloc :: fn #link="malloc"(size: int) -> ?*;
-free  :: fn #link="free"(mem: *);
 

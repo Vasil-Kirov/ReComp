@@ -1,11 +1,12 @@
 compile
 
 enum CompileFlag: u32 {
-    Debug       = 0b00001,
-    SanAddress  = 0b00010,
-    SanMemory   = 0b00100,
-    SanThread   = 0b01000,
-    SanUndefined= 0b10000,
+    Debug       = 0b000001,
+    SanAddress  = 0b000010,
+    SanMemory   = 0b000100,
+    SanThread   = 0b001000,
+    SanUndefined= 0b010000,
+	NoStdLib	= 0b100000,
 }
 
 struct CompileInfo {

@@ -1,4 +1,5 @@
 #include "Memory.h"
+#include "Basic.h"
 #include "Threading.h"
 #include "VString.h"
 #include "Log.h"
@@ -32,7 +33,6 @@ InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
 	Memory->ChunkSize = ChunkSize;
 	Memory->MaxSize = Size;
 }
-
 
 // @Note: I just want to initialize this before everything else
 b32
@@ -96,5 +96,14 @@ scratch_arena::~scratch_arena()
 void *scratch_arena::Allocate(u64 Size)
 {
 	return InternalAllocateMemory(&Arena, Size, "SCRATCH");
+}
+
+void FreeAllArenas()
+{
+	for(int i = 0; i < ARR_LEN(MemoryAllocators); ++i)
+	{
+		size_t Size = (u8 *)MemoryAllocators[i].End - (u8 *)MemoryAllocators[i].Start;
+		PlatformFreeMemory(MemoryAllocators[i].Start, Size);
+	}
 }
 

@@ -855,7 +855,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module> Modules, slice<file> Files, int OptimizationLevel, u32 CompileFlags)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module*> Modules, slice<file*> Files, int OptimizationLevel, u32 CompileFlags)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -936,14 +936,14 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 	ForArray(MIdx, Modules)
 	{
 		// shadow
-		module m = Modules[MIdx];
-		ForArray(GIdx, m.Globals.Data)
+		module *m = Modules[MIdx];
+		ForArray(GIdx, m->Globals.Data)
 		{
-			symbol *s = m.Globals.Data[GIdx];
+			symbol *s = m->Globals.Data[GIdx];
 			if(s->Flags & SymbolFlag_Generic) {
 				continue;
 			}
-			else if(*s->Name == STR_LIT("global_initializers") && m.Name == M->Name) {
+			else if(*s->Name == STR_LIT("global_initializers") && m->Name == M->Name) {
 				LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
 				LLVMSetLinkage(Fn, LLVMExternalLinkage);
 				Gen.map.Add(s->IRRegister, Fn);
@@ -980,7 +980,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 				LLVMSetLinkage(Global, Linkage);
-				if(m.Name == M->Name)
+				if(m->Name == M->Name)
 					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
 				Gen.map.Add(s->IRRegister, Global);
 				AddedFns.Add(LinkName, Global);
@@ -1118,14 +1118,14 @@ llvm_init_info RCInitLLVM()
 	return Result;
 }
 
-LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files, LLVMValueRef InitFn)
+LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef InitFn)
 {
 	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
 
 	LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx), NULL, 0, false);
 	ForArray(Idx, Files)
 	{
-		file *File = &Files.Data[Idx];
+		file *File = Files[Idx];
 		if(File->Module->Name == STR_LIT("init"))
 		{
 			FileFns[Idx] = InitFn;
@@ -1156,11 +1156,11 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file> Files, LLVMValueRef In
 	return MainFn;
 }
 
-void RCGenerateCode(slice<module> Modules, slice<file> Files, llvm_init_info Machine, b32 OutputBC, int OptimizatonLevel, u32 CompileFlags)
+void RCGenerateCode(slice<module*> Modules, slice<file*> Files, llvm_init_info Machine, b32 OutputBC, int OptimizatonLevel, u32 CompileFlags)
 {
 	ForArray(Idx, Modules)
 	{
-		RCGenerateFile(&Modules.Data[Idx], Machine, OutputBC, Modules, Files, OptimizatonLevel, CompileFlags);
+		RCGenerateFile(Modules[Idx], Machine, OutputBC, Modules, Files, OptimizatonLevel, CompileFlags);
 		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}

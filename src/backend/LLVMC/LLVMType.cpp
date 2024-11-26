@@ -649,15 +649,23 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, Type->Function.Args[i]);
 	}
 
+	bool IsVarArg = false;
 	if(Type->Function.Flags & SymbolFlag_VarFunc)
 	{
-		u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
-		u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
-		ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
+		if(IsForeign(Type))
+		{
+			IsVarArg = true;
+		}
+		else
+		{
+			u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
+			u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
+			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
+		}
 	}
 
 	Assert(ArgCount < (Type->Function.ArgCount+2)*12);
-	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, ArgCount, false);
+	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, ArgCount, IsVarArg);
 	LLVMMapType(TypeID, FuncType);
 	VFree(ArgTypes);
 

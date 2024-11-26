@@ -11,12 +11,12 @@ compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 0,
-        flags = @u32 c.CompileFlag.SanAddress,
+        flags = @u32 (c.CompileFlag.SanAddress | c.CompileFlag.NoStdLib),
     };
 
-    for f in out.files {
-        io.println("Compiling file: %", f);
-    }
+   // for f in out.files {
+   //     io.println("Compiling file: %", f);
+   // }
 
     return out;
 }

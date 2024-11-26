@@ -12,11 +12,12 @@ enum command_flags
 
 enum compile_flags
 {
-    CF_Debug       = 0b00001,
-    CF_SanAdress   = 0b00010,
-    CF_SanMemory   = 0b00100,
-    CF_SanThread   = 0b01000,
-    CF_SanUndefined= 0b10000,
+    CF_Debug       	= 0b000001,
+    CF_SanAdress   	= 0b000010,
+    CF_SanMemory   	= 0b000100,
+    CF_SanThread   	= 0b001000,
+    CF_SanUndefined	= 0b010000,
+    CF_NoStdLib		= 0b100000,
 };
 
 struct command_line

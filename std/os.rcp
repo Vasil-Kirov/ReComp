@@ -34,9 +34,49 @@ os
 
 #if Unix
 (
-	write :: fn #foreign(fd: i32, buff: *, size: uint) -> int;
+	SYS_read   :: 0;
+	SYS_write  :: 1;
+	SYS_open   :: 2;
+	SYS_mmap   :: 9;
+	SYS_munmap :: 11;
+
+	_system_call :: fn #foreign(number: int, args: ...) -> int;
 	print :: fn(data: *u8, count: u32) {
-		write(1, data, count);
+		_system_call(SYS_write, data, count);
 	}
+	
+	struct AllocCtx {
+		size: int
+	}
+
+	PROT_READ  :: 0x1;
+	PROT_WRITE :: 0x2;
+	PROT_EXEC  :: 0x4;
+	PROT_NONE  :: 0x0;
+
+	MAP_SHARED		:: 0x00001;
+	MAP_PRIVATE		:: 0x00002;
+	MAP_ANONYMOUS	:: 0x00020;
+	MAP_ANON		:: 0x00020;
+	MAP_NORESERVE	:: 0x04000;
+
+	alloc :: fn(size: int) -> * {
+		ctx := @*AllocCtx _system_call(SYS_mmap,
+		null,						// Address
+		size + size_of AllocCtx,	// Size
+		PROT_READ | PROT_WRITE,		// Prot
+		MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,	// Flags
+		-1,							// FD
+		0);							// Offset
+		
+		ctx.size = size + size_of AllocCtx;
+		return ctx + 1;
+	}
+
+	free :: fn(ptr: *) {
+		ctx := (@*AllocCtx ptr) - 1;
+		_system_call(SYS_munmap, ctx, ctx.size);
+	}
+
 )
 

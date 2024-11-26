@@ -83,27 +83,27 @@ struct timers
 	timer_group LLVM;
 };
 
-void ResolveSymbols(slice<file> Files, b32 ExpectingMain)
+void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 {
 	ForArray(Idx, Files)
 	{
-		file *File = &Files.Data[Idx];
+		file *File = Files[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		AnalyzeForModuleStructs(NodeSlice, File->Module);
 	}
 	ForArray(Idx, Files)
 	{
-		file *File = &Files.Data[Idx];
+		file *File = Files[Idx];
 		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
 	{
-		file *File = &Files.Data[Idx];
+		file *File = Files[Idx];
 		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
 	{
-		file *File = &Files.Data[Idx];
+		file *File = Files[Idx];
 		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
 		//File->Module->Checker = File->Checker;
 	}
@@ -115,7 +115,7 @@ void ResolveSymbols(slice<file> Files, b32 ExpectingMain)
 		string MainName = STR_LIT("main");
 		ForArray(Idx, Files)
 		{
-			file *File = &Files.Data[Idx];
+			file *File = Files[Idx];
 			if(File->Module->Name == MainName)
 			{
 				FoundMain = true;
@@ -144,7 +144,7 @@ void ResolveSymbols(slice<file> Files, b32 ExpectingMain)
 	}
 }
 
-file LexFile(string File, string *OutModuleName)
+file *LexFile(string File, string *OutModuleName)
 {
 	string FileData = ReadEntireFile(File);
 
@@ -153,18 +153,23 @@ file LexFile(string File, string *OutModuleName)
 		LFATAL("Couldn't find file: %s", File.Data);
 	}
 
+	if(File == STR_LIT("../file1.rcp"))
+	{
+		LDEBUG("HERE");
+	}
+
 	error_info ErrorInfo = {};
 	ErrorInfo.Data = DupeType(FileData, string);
 	ErrorInfo.FileName = File.Data;
 	ErrorInfo.Line = 1;
 	ErrorInfo.Character = 1;
 
-	file Result = StringToTokens(FileData, ErrorInfo, OutModuleName);
-	Result.Name = File;
+	file *Result = StringToTokens(FileData, ErrorInfo, OutModuleName);
+	Result->Name = File;
 	return Result;
 }
 
-void ParseFile(file *File, dynamic<module> Modules)
+void ParseFile(file *File, dynamic<module*> Modules)
 {
 	parse_result Parse = ParseTokens(File);
 	File->Nodes = Parse.Nodes;
@@ -191,30 +196,30 @@ void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
 	}
 }
 
-slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_line CommandLine, b32 WantMain, slice<module> *OutModules)
+slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_line CommandLine, b32 WantMain, slice<module*> *OutModules)
 {
-	dynamic<module> Modules = {};
-	dynamic<file> FileDyn = {};
+	dynamic<module*> Modules = {};
+	dynamic<file*> FileDyn = {};
 	dynamic<string> ModuleNames = {};
 
 	Timers->Parse = VLibStartTimer("Parse");
 	ForArray(Idx, FileNames)
 	{
 		string ModuleName = {};
-		file File = LexFile(FileNames[Idx], &ModuleName);
+		file *File = LexFile(FileNames[Idx], &ModuleName);
 		ModuleNames.Push(ModuleName);
 		Assert(Idx == FileDyn.Count);
 		FileDyn.Push(File);
 	}
-	slice<file> Files = SliceFromArray(FileDyn);
+	slice<file*> Files = SliceFromArray(FileDyn);
 	ForArray(Idx, Files)
 	{
-		file *F = &Files.Data[Idx];
+		file *F = Files[Idx];
 		AddModule(Modules, F, ModuleNames[Idx]);
 	}
 	ForArray(Idx, FileNames)
 	{
-		file *F = &Files.Data[Idx];
+		file *F = Files[Idx];
 		ParseFile(F, Modules);
 	}
 	VLibStopTimer(&Timers->Parse);
@@ -225,7 +230,7 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 		ResolveSymbols(Files, WantMain);
 		ForArray(Idx, FileNames)
 		{
-			file *F = &Files.Data[Idx];
+			file *F = Files[Idx];
 			AnalyzeFile(F);
 		}
 		MaxCount = AssignIRRegistersForModuleSymbols(Modules);
@@ -236,7 +241,7 @@ slice<file> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_li
 		Timers->IR = VLibStartTimer("Intermediate Representation Generation");
 		ForArray(Idx, Files)
 		{
-			file *File = &Files.Data[Idx];
+			file *File = Files[Idx];
 			BuildIRFile(File, CommandLine, MaxCount);
 		}
 		VLibStopTimer(&Timers->IR);
@@ -268,7 +273,7 @@ string GetFilePath(string Dir, const char *FileName)
 	return MakeString(Builder);
 }
 
-string MakeLinkCommand(command_line CMD, slice<module> Modules, u32 CompileFlags)
+string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlags)
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
@@ -280,15 +285,28 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules, u32 CompileFlags
 		Builder += " /DEFAULTLIB:LIBCMT ";
 	}
 #elif CM_LINUX
-	Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
-	Builder += FindObjectFiles();
+	const char *StdDir = GetStdDir();
+	string Dir = MakeString(StdDir);
+
+	string SystemCallObj = GetFilePath(Dir, "system_call.o");
+	if(CompileFlags & CF_NoStdLib)
+	{
+		Builder += "ld -e main -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+	}
+	else
+	{
+		Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		Builder += FindObjectFiles();
+	}
+	Builder += SystemCallObj;
+	Builder += ' ';
 #else
 #error Implement Link Command
 #endif
 
 	ForArray(Idx, Modules)
 	{
-		Builder += Modules[Idx].Name;
+		Builder += Modules[Idx]->Name;
 		Builder += ".obj ";
 	}
 
@@ -311,7 +329,7 @@ string MakeLinkCommand(command_line CMD, slice<module> Modules, u32 CompileFlags
 	return Command;
 }
 
-void AddStdFiles(dynamic<string> &Files)
+void AddStdFiles(dynamic<string> &Files, b32 NoStdLib)
 {
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
@@ -331,19 +349,24 @@ void AddStdFiles(dynamic<string> &Files)
 	{
 		Files.Push(StdFiles[i]);
 	}
+
+	if(NoStdLib)
+	{
+		Files.Push(GetFilePath(Dir, "req.rcp"));
+	}
 }
 
-void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module> *OutModules)
+void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module*> *OutModules, b32 NoStdLib)
 {
 	dynamic<string> FileNames = {};
-	AddStdFiles(FileNames);
+	AddStdFiles(FileNames, NoStdLib);
 	FileNames.Push(Name);
-	slice<file> Files = RunBuildPipeline(SliceFromArray(FileNames), Timers, CommandLine, false, OutModules);
+	slice<file*> Files = RunBuildPipeline(SliceFromArray(FileNames), Timers, CommandLine, false, OutModules);
 	for(int i = 0; i < Files.Count; ++i)
 	{
-		if(Files[i].Module->Name == STR_LIT("build"))
+		if(Files[i]->Module->Name == STR_LIT("build"))
 		{
-			*F = Files[i];
+			*F = *Files[i];
 			return;
 		}
 	}
@@ -389,7 +412,10 @@ main(int ArgCount, char *Args[])
 	DLLs[DLLCount++] = OpenLibrary("ucrt");
 	DLLs[DLLCount++] = OpenLibrary("ucrtbase");
 #elif CM_LINUX
+	const char *StdDir = GetStdDir();
+	string Dir = MakeString(StdDir);
 	DLLs[DLLCount++] = OpenLibrary("libc.so");
+	DLLs[DLLCount++] = OpenLibrary(GetFilePath(Dir, "system_call.so").Data);
 #else
 
 #endif
@@ -410,10 +436,10 @@ main(int ArgCount, char *Args[])
 	timers BuildTimers = {};
 	u32 CompileInfo;
 	file BuildFile = {};
-	slice<module> BuildModules = {};
+	slice<module*> BuildModules = {};
 
-	u32 BeforeTypeCount = GetTypeCount();
-	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules);
+	//u32 BeforeTypeCount = GetTypeCount();
+	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
 
 	Timers.Push(BuildTimers);
 
@@ -438,7 +464,7 @@ main(int ArgCount, char *Args[])
 
 	timer_group VMBuildTimer = {};
 
-	slice<module> ModuleArray = {};
+	slice<module*> ModuleArray = {};
 	ForArray(Idx, BuildFile.IR->Functions)
 	{
 		if(*BuildFile.IR->Functions[Idx].Name == CompileFunction)
@@ -464,9 +490,9 @@ main(int ArgCount, char *Args[])
 			{
 				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
 			}
-			AddStdFiles(FileNames);
+			AddStdFiles(FileNames, Info->Flags & CF_NoStdLib);
 
-			slice<file> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
+			slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
@@ -508,10 +534,12 @@ main(int ArgCount, char *Args[])
 	ForArray(Idx, ModuleArray)
 	{
 		string_builder Builder = MakeBuilder();
-		Builder += ModuleArray[Idx].Name;
-		Builder += ".obj ";
+		Builder += ModuleArray[Idx]->Name;
+		Builder += ".obj";
 		string Path = MakeString(Builder);
-		PlatformDeleteFile(Path.Data);
+		if(!PlatformDeleteFile(Path.Data)) {
+			LDEBUG("Failed to detel file: %s", Path.Data);
+		}
 	}
 	PlatformDeleteFile("!internal.obj");
 	VLibStopTimer(&LinkTimer);
@@ -541,6 +569,7 @@ main(int ArgCount, char *Args[])
 		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}
 
+	FreeAllArenas();
 	return 0;
 }
 

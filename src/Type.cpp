@@ -1434,6 +1434,12 @@ u32 UntypedGetType(const type *T)
 	}
 }
 
+b32 IsForeign(const type *T)
+{
+	Assert(T->Kind == TypeKind_Function);
+	return (T->Function.Flags & SymbolFlag_Foreign) != 0;
+}
+
 u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags)
 {
 	type *T = AllocType(TypeKind_Struct);

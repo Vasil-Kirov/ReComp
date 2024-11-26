@@ -582,7 +582,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 VarArgAlloc = -1;
 			u32 VarArgsArray = -1;
 			u32 PassedVarArgs = 0;
-			if(Type->Function.Flags & SymbolFlag_VarFunc)
+			if(Type->Function.Flags & SymbolFlag_VarFunc &&
+					!IsForeign(Type))
 			{
 				VarArgT          = FindStruct(STR_LIT("__init_Arg"));
 				VarArgSliceType  = GetSliceType(VarArgT);
@@ -609,33 +610,49 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			{
 				if(Idx >= Type->Function.ArgCount)
 				{
-					// Var args
-					u32 ArgType = Node->Call.ArgTypes[Idx];
-					u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx]);
-					u32 Index = PushInt(PassedVarArgs++, Builder);
+					if(IsForeign(Type))
+					{
+						u32 ArgType = Node->Call.ArgTypes[Idx];
+						if(!IsLoadableType(ArgType))
+						{
+							FixCallWithComplexParameter(Builder, Args, ArgType, Node->Call.Args[Idx], IsLHS);
+						}
+						else
+						{
+							u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+							Args.Push(Expr);
+						}
+					}
+					else
+					{
+						// Var args
+						u32 ArgType = Node->Call.ArgTypes[Idx];
+						u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx]);
+						u32 Index = PushInt(PassedVarArgs++, Builder);
 
-					/*
-					 * %0 = EXPR
-					 * %1 = alloc(ExprType)
-					 * %1 = store %0
-					 */
-					u32 ExprLocation = PushInstruction(Builder,
-							Instruction(OP_ALLOC, -1, ArgType, Builder));
-					PushInstruction(Builder, InstructionStore(ExprLocation, Expr, Node->Call.ArgTypes[Idx]));
+						/*
+						 * %0 = EXPR
+						 * %1 = alloc(ExprType)
+						 * %1 = store %0
+						 */
+						u32 ExprLocation = PushInstruction(Builder,
+								Instruction(OP_ALLOC, -1, ArgType, Builder));
+						PushInstruction(Builder, InstructionStore(ExprLocation, Expr, Node->Call.ArgTypes[Idx]));
 
-					/*
-					 * %2 = INDEX %VarArgs idx
-					 * %3 = INDEX %2 0
-					 * %4 = INDEX %2 1
-					 * %3 = store type
-					 * %4 = store %1
-					 */
-					u32 ArgLocation = PushInstruction(Builder, Instruction(OP_INDEX, VarArgsArray, Index, VarArgArrayT, Builder));
+						/*
+						 * %2 = INDEX %VarArgs idx
+						 * %3 = INDEX %2 0
+						 * %4 = INDEX %2 1
+						 * %3 = store type
+						 * %4 = store %1
+						 */
+						u32 ArgLocation = PushInstruction(Builder, Instruction(OP_INDEX, VarArgsArray, Index, VarArgArrayT, Builder));
 
-					u32 TypeLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 0, VarArgT, Builder));
-					u32 ValLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 1, VarArgT, Builder));
-					PushInstruction(Builder, InstructionStore(TypeLocation, PushInt(ArgType, Builder), Basic_type));
-					PushInstruction(Builder, InstructionStore(ValLocation, ExprLocation, GetPointerTo(ArgType)));
+						u32 TypeLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 0, VarArgT, Builder));
+						u32 ValLocation = PushInstruction(Builder, Instruction(OP_INDEX, ArgLocation, 1, VarArgT, Builder));
+						PushInstruction(Builder, InstructionStore(TypeLocation, PushInt(ArgType, Builder), Basic_type));
+						PushInstruction(Builder, InstructionStore(ValLocation, ExprLocation, GetPointerTo(ArgType)));
+					}
 				}
 				else
 				{
@@ -652,7 +669,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 			}
 
-			if(Type->Function.Flags & SymbolFlag_VarFunc)
+			if(Type->Function.Flags & SymbolFlag_VarFunc && !IsForeign(Type))
 				Args.Push(VarArgAlloc);
 
 			CallInfo->Args = SliceFromArray(Args);
@@ -1558,10 +1575,10 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module
 {
 	ForArray(MIdx, CurrentModules)
 	{
-		module M = CurrentModules[MIdx];
-		ForArray(GIdx, M.Globals.Data)
+		module *M = CurrentModules[MIdx];
+		ForArray(GIdx, M->Globals.Data)
 		{
-			symbol *s = M.Globals.Data[GIdx];
+			symbol *s = M->Globals.Data[GIdx];
 			if(s->Checker->Module->Name == ThisModule->Name)
 			{
 				PushIRLocal(Fn, s->Name, s->IRRegister,
@@ -1571,7 +1588,7 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module
 			{
 				string sName = *s->Name;
 
-				string *Mangled = StructToModuleNamePtr(sName, M.Name);
+				string *Mangled = StructToModuleNamePtr(sName, M->Name);
 				PushIRLocal(Fn, Mangled, s->IRRegister,
 						s->Type, s->Flags);
 			}
@@ -1710,7 +1727,6 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 	for(int i = 0; i < TypeCount; ++i)
 	{
 		const type *T = GetType(i);
-		LDEBUG("TypeTable[%d]: %s", i, GetTypeName(T));
 
 		u32 MemberPtr = PushInstruction(Builder, 
 				Instruction(OP_INDEX, TablePtr, PushInt(i, Builder), TableType, Builder)

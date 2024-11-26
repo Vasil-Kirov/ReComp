@@ -36,8 +36,7 @@ AllocateMemory(u64 Size, i8 Index);
 
 void *ToArena(void *, u64 Size, i8 Index);
 
-void
-ResetCompileMemory();
+void FreeAllArenas();
 
 #define AllocatePermanent(SIZE)  AllocateMemory((SIZE), PERM_INDEX)
 #define AllocateString(SIZE) (char *)AllocateMemory((SIZE), STR_INDEX)

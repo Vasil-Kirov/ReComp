@@ -491,7 +491,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, Arg, flags);
 		Arg->Decl.Flags = flags;
 	}
-	if(FunctionType->Function.Flags & SymbolFlag_VarFunc)
+	if(FunctionType->Function.Flags & SymbolFlag_VarFunc && !IsForeign(FunctionType))
 	{
 		int I = FunctionType->Function.ArgCount;
 		node *Arg = FnNode->Fn.Args[I];

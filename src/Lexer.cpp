@@ -2,6 +2,7 @@
 #include "Errors.h"
 #include "Memory.h"
 #include "VString.h"
+#include "Module.h"
 
 keyword *KeywordTable = NULL;
 
@@ -85,7 +86,7 @@ char PeekC(string *String)
 	return *String->Data;
 }
 
-file StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
+file *StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
 {
 	file Result = {};
 	token ModuleName = GetNextToken(&String, &ErrorInfo);
@@ -102,7 +103,7 @@ file StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
 	}
 
 	Result.Tokens = Tokens;
-	return Result;
+	return DupeType(Result, file);
 }
 
 token TokinizeCompilerDirective(string *String, error_info *ErrorInfo)

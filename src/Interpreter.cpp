@@ -32,6 +32,12 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 
 	typedef u64 (*inter_fn)(void *, value *);
 
+	value *Args = (value *)VAlloc(Info->Args.Count * sizeof(value));
+	ForArray(Idx, Info->Args)
+	{
+		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
+	}
+
 	assembler Asm = MakeAssembler(KB(1));
 	//  Windows:
 	//  rcx = operand
@@ -94,7 +100,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 #error "Unknown calling convention"
 #endif
 
-	const type *FnType = GetType(Operand->Type & ~(1 << 31));
+	//const type *FnType = GetType(Operand->Type & ~(1 << 31));
 
 	uint CurrentInt = 0;
 	//uint CurrentFloat = 0;
@@ -102,7 +108,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	int Idx = 0;
 	for(; Idx < Info->Args.Count && CurrentInt < ARR_LEN(ConventionRegisters); ++Idx)
 	{
-		const type *Type = GetType(FnType->Function.Args[Idx]);
+		const type *Type = GetType(Args[Idx].Type);
 		//Asm.Peek(RegisterOperand(reg_a));
 		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, Idx * sizeof(value)));
 		switch(Type->Kind)
@@ -169,12 +175,6 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 #endif
 
 	inter_fn ToCall = (inter_fn)Asm.Code;
-
-	value *Args = (value *)VAlloc(Info->Args.Count * sizeof(value));
-	ForArray(Idx, Info->Args)
-	{
-		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
-	}
 
 	u64 Result = ToCall(Operand->ptr, Args);
 	FreeVirtualMemory(Asm.Code);
@@ -827,11 +827,11 @@ interpret_result Interpret(code_chunk Chunk)
 	return Result;
 }
 
-interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
+interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
 	ForArray(MIdx, Modules)
 	{
-		module *m = &Modules.Data[MIdx];
+		module *m = Modules[MIdx];
 		ForArray(FIdx, m->Files)
 		{
 			file *f = m->Files[FIdx];
@@ -847,7 +847,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 
 	ForArray(MIdx, Modules)
 	{
-		module *m = &Modules.Data[MIdx];
+		module *m = Modules[MIdx];
 		ForArray(Idx, m->Globals.Data)
 		{
 			symbol *s = m->Globals.Data[Idx];
@@ -896,7 +896,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs,
 	}
 	ForArray(MIdx, Modules)
 	{
-		module *m = &Modules.Data[MIdx];
+		module *m = Modules[MIdx];
 		ForArray(FIdx, m->Files)
 		{
 			file *f = m->Files[FIdx];
@@ -921,7 +921,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 0
+#if 1
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{

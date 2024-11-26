@@ -2,16 +2,17 @@
 #include "Dynamic.h"
 #include "Errors.h"
 #include "Log.h"
+#include "Memory.h"
 #include "Parser.h"
 #include "Semantics.h"
 
-slice<module> CurrentModules = {};
+slice<module*> CurrentModules = {};
 
-void AddModule(dynamic<module> &Modules, file *File, string Name)
+void AddModule(dynamic<module*> &Modules, file *File, string Name)
 {
 	ForArray(Idx, Modules)
 	{
-		module *M = &Modules.Data[Idx];
+		module *M = Modules[Idx];
 		if(M->Name == Name)
 		{
 			M->Files.Push(File);
@@ -23,11 +24,11 @@ void AddModule(dynamic<module> &Modules, file *File, string Name)
 	module M = {};
 	M.Name = Name;
 	M.Files.Push(File);
-	Modules.Push(M);
-	File->Module = &Modules.Data[Modules.Count-1];
+	Modules.Push(DupeType(M, module));
+	File->Module = Modules[Modules.Count-1];
 }
 
-slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module> Modules)
+slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules)
 {
 	dynamic<import> Imports = {};
 
@@ -37,7 +38,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		b32 Found = false;
 		ForArray(MIdx, Modules)
 		{
-			module *m = &Modules.Data[MIdx];
+			module *m = Modules[MIdx];
 			if(m->Name == ri.Name)
 			{
 				Found = true;
@@ -84,15 +85,15 @@ int GetFileIndex(module *m, file *f)
 	unreachable;
 }
 
-u32 AssignIRRegistersForModuleSymbols(dynamic<module> Modules)
+u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules)
 {
 	u32 Count = 0;
 	ForArray(ModuleIdx, Modules)
 	{
-		module m = Modules[ModuleIdx];
-		ForArray(Idx, m.Globals.Data)
+		module *m = Modules[ModuleIdx];
+		ForArray(Idx, m->Globals.Data)
 		{
-			m.Globals.Data[Idx]->IRRegister = Count++;
+			m->Globals.Data[Idx]->IRRegister = Count++;
 		}
 	}
 	return Count;

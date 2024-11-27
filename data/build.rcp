@@ -7,10 +7,9 @@ build
 puts :: fn #foreign(str: *u8);
 
 compile :: fn() -> c.CompileInfo {
-    puts(c"c string");
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
-        opt = 1,
+        opt = 0,
         flags = @u32 (c.CompileFlag.SanAddress),
     };
 

@@ -873,8 +873,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
 						if(!IsLHS)
 						{
+							u32 T = Basic_int;
+							if(Node->Selector.Index == 0)
+								T = GetPointerTo(Basic_u8);
 							Result = PushInstruction(Builder, 
-									Instruction(OP_LOAD, 0, Result, Basic_int, Builder));
+									Instruction(OP_LOAD, 0, Result, T, Builder));
 						}
 					} break;
 					case TypeKind_Slice: 

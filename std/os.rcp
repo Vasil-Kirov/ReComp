@@ -42,8 +42,8 @@ os
     assert :: fn(cond: bool, reason: string) {
         if(!cond) {
             header := "Assert Failed!\n";
-            print(header.data, header.count);
-            print(reason.data, reason.count);
+            print(header.data, @u32 header.count);
+            print(reason.data, @u32 reason.count);
             abort();
         }
     }

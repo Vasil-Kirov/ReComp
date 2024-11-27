@@ -319,19 +319,46 @@ builder_to_string :: fn(b_in: *[]u32) -> []u8 {
     return res;
 }
 
+print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
+    t := #info arg.t;
+    if c == 's' && t.kind == init.TypeKind.Pointer && t.t.pointer.pointee == u8 {
+        str: *u8 = *@**u8 arg.val;
+        for i := 0; str[i] != '\0'; i += 1 {
+            array.add(b, str[i]);
+        }
+    } else {
+        print_type(b, arg);
+        array.add(b, c);
+    }
+}
+
 __internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
     alloc := mem.create_generic_allocator();
     builder := array.create(u32, &alloc);
     arg_count := 0;
+    need_to_print_arg := false;
     for c in fmt {
         if c == '%' {
-            arg := args[arg_count];
-            arg_count += 1;
-            print_type(&builder, arg);
+            need_to_print_arg = true;
         } else {
-            array.add(&builder, c);
+            if need_to_print_arg {
+                arg := args[arg_count];
+                arg_count += 1;
+                print_type_with_formatter(&builder, c, arg);
+                need_to_print_arg = false;
+            } else {
+                array.add(&builder, c);
+            }
         }
     }
+
+    if need_to_print_arg {
+        arg := args[arg_count];
+        arg_count += 1;
+        print_type_with_formatter(&builder, '\0', arg);
+        need_to_print_arg = false;
+    }
+
     return builder;
 }
 

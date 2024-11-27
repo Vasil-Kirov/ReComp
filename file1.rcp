@@ -3,6 +3,7 @@ main
 #import mem as m
 #import array
 #import io
+#import os
 
 // struct foo {
 //     F: type,
@@ -32,12 +33,7 @@ embed :: #embed_str "embed.txt";
 
 puts :: fn #foreign(str: *u8);
 
-x :: fn(list: ...) {
-
-}
-
 main :: fn() -> i32 {
-    x(1, 2, 3);
     str := "моя стринг今日";
     for c in str {
         if c == ' ' {

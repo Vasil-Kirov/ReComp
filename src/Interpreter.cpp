@@ -90,7 +90,8 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 
 
 #if _WIN32
-	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
+	int StackAllocated = (Info->Args.Count * 16) + 40;
+	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand(StackAllocated));
 	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_c));
 	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_d));
 #elif CM_LINUX
@@ -158,7 +159,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	Asm.Call(RegisterOperand(reg_r11));
 
 #if _WIN32
-	Asm.Add(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
+	Asm.Add(RegisterOperand(reg_sp), ConstantOperand(StackAllocated));
 
 #elif CM_LINUX
 	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
@@ -262,20 +263,7 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 		} break;
 		case TypeKind_Basic:
 		{
-			if(HasBasicFlag(Type, BasicFlag_CString))
-			{
-				*OutType = Basic_u8;
-				if(UseConstant)
-				{
-					Result = (u8 *)Operand->ptr + Right;
-				}
-				else
-				{
-					value *Index = VM->Registers.GetValue(Right);
-					Result = (u8 *)Operand->ptr + Index->u64;
-				}
-			}
-			else if(HasBasicFlag(Type, BasicFlag_String))
+			if(HasBasicFlag(Type, BasicFlag_String))
 			{
 				int Offset = Right * GetRegisterTypeSize() / 8;
 				Result = ((u8 *)Operand->ptr) + Offset;
@@ -408,27 +396,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 						VMValue.ptr = Memory;
 					}
-					else if(Type->Basic.Flags & BasicFlag_CString)
-					{
-						switch(Val->Type)
-						{
-							case const_type::Integer:
-							{
-								if(Val->Int.IsSigned)
-									VMValue.ptr = (void *)Val->Int.Signed;
-								else
-									VMValue.ptr = (void *)Val->Int.Unsigned;
-							} break;
-							case const_type::Float:
-							{
-								unreachable;
-							} break;
-							case const_type::String:
-							{
-								VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
-							} break;
-						}
-					}
 					else if(Type->Basic.Flags & BasicFlag_Boolean)
 					{
 						if(Val->Type == const_type::Integer)
@@ -462,7 +429,29 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else if(Type->Kind == TypeKind_Pointer)
 				{
-					VMValue.ptr = (void *)Val->Int.Unsigned;
+					if(IsCString(Type))
+					{
+						switch(Val->Type)
+						{
+							case const_type::Integer:
+							{
+								if(Val->Int.IsSigned)
+									VMValue.ptr = (void *)Val->Int.Signed;
+								else
+									VMValue.ptr = (void *)Val->Int.Unsigned;
+							} break;
+							case const_type::Float:
+							{
+								unreachable;
+							} break;
+							case const_type::String:
+							{
+								VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+							} break;
+						}
+					}
+					else
+						VMValue.ptr = (void *)Val->Int.Unsigned;
 				}
 				else
 					Assert(false);
@@ -517,7 +506,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 							LOAD_T(int, 64);
 							LOAD_T(uint, 64);
-							LOAD_T(cstring, 64);
 
 							LOAD_T(type, 64);
 
@@ -612,20 +600,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_CAST:
 			{
-				u32 FromType = I.Right;
+				//u32 FromType = I.Right;
 				u32 ToType = I.Type;
 				value *Val = VM->Registers.GetValue(I.Left);
 				value Result = {};
 				Result.Type = ToType;
-				if(FromType == Basic_string && ToType == Basic_cstring)
-				{
-					Result.ptr = Val->ptr;
-				}
-				else
-				{
-					// @TODO:
-					Result.ptr = Val->ptr;
-				}
+				// @TODO:?
+				Result.ptr = Val->ptr;
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_CALL:
@@ -923,7 +904,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 1
+#if 0
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{

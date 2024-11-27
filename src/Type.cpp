@@ -14,7 +14,7 @@ platform_target PTarget = platform_target::Windows;
 const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
 	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
-	{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
+	//{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
 	{TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
 	{TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
@@ -398,18 +398,12 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 	if(Left->Basic.Kind == Basic_string && Right->Basic.Kind == Basic_string)
 		return true;
 
-	if(Left->Basic.Kind == Basic_cstring && Right->Basic.Kind == Basic_cstring)
-		return true;
-
 	int LeftFlags = Left->Basic.Flags;
 	int RightFlags = Right->Basic.Flags;
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_TypeID))
 		return false;
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_String))
-		return false;
-
-	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_CString))
 		return false;
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Unsigned))
@@ -499,14 +493,6 @@ b32 IsCastValid(const type *From, const type *To)
 
 	if(From->Kind != To->Kind)
 		return false;
-
-	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Basic)
-	{
-		if(From->Basic.Kind == Basic_string && To->Basic.Kind == Basic_cstring)
-		{
-			return true;
-		}
-	}
 
 	return true;
 }
@@ -783,12 +769,20 @@ b32 IsLoadableType(const type *Type)
 	return Type->Kind != TypeKind_Array && Type->Kind != TypeKind_Struct && Type->Kind != TypeKind_Function && Type->Kind != TypeKind_Slice && !HasBasicFlag(Type, BasicFlag_String);
 }
 
+b32 IsCString(const type *T)
+{
+	return T->Kind == TypeKind_Pointer && T->Pointer.Pointed == Basic_u8;
+}
+
 b32 IsString(const type *T, b32 OrCString)
 {
-	if(OrCString && HasBasicFlag(T, BasicFlag_CString))
+	if(HasBasicFlag(T, BasicFlag_String))
 		return true;
 
-	return HasBasicFlag(T, BasicFlag_String);
+	if(OrCString)
+		return IsCString(T);
+
+	return false;
 }
 
 b32 IsFn(const type *T)

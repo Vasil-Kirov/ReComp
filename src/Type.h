@@ -41,7 +41,7 @@ enum basic_kind
 {
 	Basic_bool,
 	Basic_string,
-	Basic_cstring,
+	//Basic_cstring,
 
 	Basic_u8,
 	Basic_u16,
@@ -73,7 +73,7 @@ enum basic_flags
 	BasicFlag_Integer = BIT(1),
 	BasicFlag_Float   = BIT(2),
 	BasicFlag_String  = BIT(3),
-	BasicFlag_CString = BIT(4),
+	//BasicFlag_CString = BIT(4),
 	BasicFlag_Untyped = BIT(5),
 	BasicFlag_Unsigned= BIT(6),
 	BasicFlag_TypeID  = BIT(7),
@@ -250,6 +250,7 @@ b32 IsString(const type *T, b32 OrCString = false);
 b32 IsTypeMatchable(const type *T);
 b32 IsTypeIterable(const type *T);
 b32 IsForeign(const type *T);
+b32 IsCString(const type *T);
 u32 UntypedGetType(const type *T);
 
 uint GetPaddingForAlignment(uint Size, uint Align);

@@ -152,7 +152,7 @@ u32 GetConstantType(const const_value &Value)
 		case ct::String:
 		{
 			if(Value.String.Flags & ConstString_CSTR)
-				return Basic_cstring;
+				return GetPointerTo(Basic_u8);
 			else
 				return Basic_string;
 		} break;

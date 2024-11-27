@@ -28,7 +28,10 @@ my_fn :: fn(num: i32, num2: i32) -> i32 {
     return num + num2;
 }
 
+puts :: fn #foreign(str: *u8);
+
 main :: fn() -> i32 {
+    puts(c"c string");
     str := "моя стринг今日";
     for c in str {
         if c == ' ' {

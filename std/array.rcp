@@ -2,7 +2,6 @@ array
 
 #import mem
 
-puts :: fn #foreign(str: cstring);
 struct Header {
     capacity: int,
     allocator: mem.Allocator,

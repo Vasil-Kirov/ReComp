@@ -73,7 +73,6 @@ void LLVMDebugClearTypeMap()
 	LLVMDebugTypeMap.Count = 0;
 }
 
-// I am a week man, I used ChatGPT as I didn't want to write my 4th custom type to LLVMTypeRef conversion function
 LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 	if(TypeID == INVALID_TYPE)
 		return LLVMVoidTypeInContext(Context);
@@ -114,8 +113,6 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
 				case Basic_string:
 				return LLVMFindMapType(TypeID);
-				case Basic_cstring:
-				return LLVMPointerType(LLVMInt8TypeInContext(Context), 0);
 				case Basic_type:
 				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
 				default:
@@ -241,15 +238,6 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 				case Basic_f64:
 				{
 					Made = LLVMDIBuilderCreateBasicType(gen->dbg, Name.Data, Name.Size, Size, DW_ATE_float, LLVMDIFlagZero);
-				} break;
-				case Basic_cstring:
-				{
-					Made = LLVMDIBuilderCreatePointerType
-						(
-						 gen->dbg,
-						 ToDebugTypeLLVM(gen, Basic_u8),
-						 Size, 0, 0,
-						 "*u8", 3);
 				} break;
 				default: unreachable;
 			}

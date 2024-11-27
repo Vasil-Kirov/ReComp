@@ -142,9 +142,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Value;
 			if(Type->Kind == TypeKind_Pointer)
 			{
-				Assert(Val->Type == const_type::Integer);
-				if(Val->Int.Unsigned == 0)
+				if(Val->Type == const_type::String)
 				{
+					Value = RCGetStringConstPtr(gen, Val->String.Data);
+				}
+				else if(Val->Int.Unsigned == 0)
+				{
+					Assert(Val->Type == const_type::Integer);
 					Value = LLVMConstPointerNull(LLVMType);
 				}
 				else
@@ -187,10 +191,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMValueRef SizePtr   = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 1, "Size");
 				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
 				LLVMBuildStore(gen->bld, Size,    SizePtr);
-			}
-			else if(Type->Basic.Flags & BasicFlag_CString)
-			{
-				Value = RCGetStringConstPtr(gen, Val->String.Data);
 			}
 			else if(Type->Basic.Flags & BasicFlag_Boolean)
 			{
@@ -315,25 +315,14 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			u32 FromType = I.Right;
 			u32 ToType = I.Type;
-			if(FromType == Basic_string && ToType == Basic_cstring)
+			LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
+			LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
+			LLVMValueRef Val = gen->map.Get(I.Left);
+			if(Op != LLVMCatchSwitch)
 			{
-				LLVMValueRef Value = gen->map.Get(I.Left);
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, FromType);
-				LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "_cstringptr");
-				LLVMValueRef Val = LLVMBuildLoad2(gen->bld, ConvertToLLVMType(gen->ctx, Basic_cstring), Ptr, "_cstring");
-				gen->map.Add(I.Result, Val);
+				Val = LLVMBuildCast(gen->bld, Op, Val, LLVMToType, "");
 			}
-			else
-			{
-				LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
-				LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
-				LLVMValueRef Val = gen->map.Get(I.Left);
-				if(Op != LLVMCatchSwitch)
-				{
-					Val = LLVMBuildCast(gen->bld, Op, Val, LLVMToType, "");
-				}
-				gen->map.Add(I.Result, Val);
-			}
+			gen->map.Add(I.Result, Val);
 		} break;
 		case OP_ARRAYLIST:
 		{
@@ -373,12 +362,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMValueRef Index = gen->map.Get(I.Right);
 				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
-				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
-			}
-			else if(HasBasicFlag(Type, BasicFlag_CString))
-			{
-				LLVMValueRef Index = gen->map.Get(I.Right);
-				LLVMType = LLVMInt8TypeInContext(gen->ctx);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
 			else if(IsString(Type))

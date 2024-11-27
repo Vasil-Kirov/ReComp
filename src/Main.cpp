@@ -560,7 +560,6 @@ main(int ArgCount, char *Args[])
 			LDEBUG("Failed to detel file: %s", Path.Data);
 		}
 	}
-	PlatformDeleteFile("!internal.obj");
 	VLibStopTimer(&LinkTimer);
 
 

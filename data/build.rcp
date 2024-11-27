@@ -4,14 +4,14 @@ build
 #import io
 #import init
 
-printf :: fn #foreign(fmt: cstring);
-
+puts :: fn #foreign(str: *u8);
 
 compile :: fn() -> c.CompileInfo {
+    puts(c"c string");
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 1,
-        flags = @u32 (c.CompileFlag.NoStdLib),
+        //flags = @u32 (c.CompileFlag.NoStdLib),
     };
 
    for f in out.files {

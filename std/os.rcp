@@ -39,8 +39,6 @@ os
         return;
     }
 
-    printf :: fn #foreign(fmt: cstring, data: ?*, num: u32);
-
     print :: fn(data: *u8, count: u32) {
         SetConsoleOutputCP(CP_UTF8);
         handle := GetStdHandle(STD_OUTPUT_HANDLE);

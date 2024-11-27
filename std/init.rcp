@@ -27,7 +27,7 @@ enum TypeKind {
 enum BasicKind {
 	Bool,
 	String,
-	Cstring,
+	//Cstring,
 
 	U8,
 	U16,
@@ -58,7 +58,7 @@ enum BasicFlag: u32{
 	Integer = 0b10,
 	Float   = 0b100,
 	String  = 0b1000,
-	CString = 0b10000,
+	//CString = 0b10000,
 	Untyped = 0b100000,
 	Unsigned= 0b1000000,
 	TypeID  = 0b10000000,

@@ -193,13 +193,13 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 str: string = *@*string arg.val;
                 push_string(b, str);
             }
-            else if basic.kind == init.BasicKind.Cstring {
-                str: cstring = *@*cstring arg.val;
-                for i := 0; str[i] != '\0'; i += 1 {
-                    array.add(b, str[i]);
-                }
+            //else if basic.kind == init.BasicKind.Cstring {
+            //    str: cstring = *@*cstring arg.val;
+            //    for i := 0; str[i] != '\0'; i += 1 {
+            //        array.add(b, str[i]);
+            //    }
 
-            }
+            //}
             else if basic.kind == init.BasicKind.U8  {
                 num: uint = *@*u8 arg.val;
                 format_uint(b, num);

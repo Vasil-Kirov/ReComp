@@ -1196,9 +1196,7 @@ ANALYZE_SLICE_SELECTOR:
 				} break;
 				case TypeKind_Basic:
 				{
-					if(!HasBasicFlag(OperandType, BasicFlag_CString))
-						RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
-					Result = Basic_u8;
+					RaiseError(*Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
 				} break;
 				default:
 				{

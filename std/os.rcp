@@ -69,7 +69,7 @@ os
 
 	_system_call :: fn #foreign(number: int, args: ...) -> int;
 	print :: fn(data: *u8, count: u32) {
-		_system_call(SYS_write, data, count);
+		_system_call(SYS_write, 1, data, count);
 	}
 	
 	struct AllocCtx {
@@ -88,7 +88,7 @@ os
 	MAP_NORESERVE	:: 0x04000;
 
 	alloc :: fn(size: int) -> ?* {
-		myb_ctx := @*AllocCtx _system_call(SYS_mmap,
+		myb_ctx := @?*AllocCtx _system_call(SYS_mmap,
 		null,						// Address
 		size + size_of AllocCtx,	// Size
 		PROT_READ | PROT_WRITE,		// Prot

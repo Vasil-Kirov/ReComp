@@ -87,10 +87,10 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 
 
 	//Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
-	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
 
 
 #if _WIN32
+	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
 	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_c));
 	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_d));
 #elif CM_LINUX
@@ -157,9 +157,11 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 
 	Asm.Call(RegisterOperand(reg_r11));
 
+#if _WIN32
 	Asm.Add(RegisterOperand(reg_sp), ConstantOperand((Info->Args.Count+1) * 8));
 
-#if CM_LINUX
+#elif CM_LINUX
+	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
 	Asm.Pop(RegisterOperand(reg_bp));
 #endif
 

@@ -369,7 +369,10 @@ _VLibClock(i64 Factor)
 	timespec Counter;
 	clock_gettime(CPUClockID, &Counter);
 	
-	return (Counter.tv_nsec - StartCounter.tv_nsec) * (1000000000 / Factor);
+    i64 Elapsed = (Counter.tv_sec - StartCounter.tv_sec) * 1000000000LL
+                     + (Counter.tv_nsec - StartCounter.tv_nsec);
+
+    return Elapsed / (1000000000 / Factor);
 #endif
 }
 

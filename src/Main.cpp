@@ -277,7 +277,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
-	b32 SetDefaultLib = false;
+	b32 SetDefaultLib = true;
 	Builder += "LINK.EXE /nologo /OUT:a.exe /DEBUG ";
 	if(CompileFlags & CF_SanAdress)
 	{
@@ -285,7 +285,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib ");
 		if((CompileFlags & CF_NoStdLib) == 0)
 		{
-			SetDefaultLib = true;
+			SetDefaultLib = false;
 			Builder += " /DEFAULTLIB:LIBCMT ";
 		}
 	}

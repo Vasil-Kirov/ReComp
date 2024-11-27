@@ -1,31 +1,14 @@
 main
 
-#import mem as m
-#import array
-#import io
-#import os
-
-#public
-
-x_asdfg: *fn() -> i32;
-//foo: *fn() -> i32;
-
-embed :: #embed_str "embed.txt";
+struct ivec2 {
+    x: i32,
+    y: i32,
+}
 
 main :: fn() -> i32 {
-    str := "моя стринг今日";
-    a: *fn() -> i32;
-    x_asdfg = main;
-    for c in str {
-        if c == ' ' {
-            io.println("space");
-        } else if c == 'м' {
-            io.println("found м");
-        } else {
-            io.println("пoint: % %", c, str);
-        }
-    }
-    return 0;
+    res := []ivec2 { ivec2 { 1, 2 } };
+
+    return res[0].x + res[0].y;
 }
 
 // do_foo :: fn(s: []$T) {

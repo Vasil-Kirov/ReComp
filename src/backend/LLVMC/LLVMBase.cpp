@@ -128,10 +128,21 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_CONSTINT:
 		{
-			u64 Val = I.BigRegister;
+			const type *T = GetType(I.Type);
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-			LLVMValueRef Value = LLVMConstInt(LLVMType, Val, false);
-			gen->map.Add(I.Result, Value);
+			if(HasBasicFlag(T, BasicFlag_Float))
+			{
+				f64 Val = I.BigRegister;
+				Assert(I.BigRegister == 0);
+				LLVMValueRef Value = LLVMConstReal(LLVMType, Val);
+				gen->map.Add(I.Result, Value);
+			}
+			else
+			{
+				u64 Val = I.BigRegister;
+				LLVMValueRef Value = LLVMConstInt(LLVMType, Val, false);
+				gen->map.Add(I.Result, Value);
+			}
 		} break;
 		case OP_CONST:
 		{
@@ -329,17 +340,33 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
 			array_list_info *Info = (array_list_info *)I.BigRegister;
 			LLVMValueRef Val = gen->map.Get(Info->Alloc);
+			const type *T = GetType(I.Type);
+			Assert(T->Kind == TypeKind_Array);
+			b32 Loadable = IsLoadableType(T->Array.Type);
+			LLVMTypeRef MemberLLVM = ConvertToLLVMType(gen->ctx, T->Array.Type);
 
+			LLVMTypeRef uintT = ConvertToLLVMType(gen->ctx, Basic_uint);
 			for(int Idx = 0; Idx < Info->Count; ++Idx)
 			{
 				LLVMValueRef Member = gen->map.Get(Info->Registers[Idx]);
-				LLVMValueRef Index = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), Idx, false);
+				LLVMValueRef Index = LLVMConstInt(uintT, Idx, false);
 
 				LLVMValueRef Indexes[2];
 				LLVMGetProperArrayIndex(gen, Index, Indexes);
 
 				LLVMValueRef Location = LLVMBuildGEP2(gen->bld, LLVMType, Val, Indexes, 2, "");
-				LLVMBuildStore(gen->bld, Member, Location);
+				if(Loadable)
+				{
+					LLVMBuildStore(gen->bld, Member, Location);
+				}
+				else
+				{
+					u64 Size = GetTypeSize(T->Array.Type);
+					LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+					uint Align = LLVMABIAlignmentOfType(gen->data, MemberLLVM);
+
+					LLVMBuildMemCpy(gen->bld, Location, Align, Member, Align, ValueSize);
+				}
 			}
 
 			gen->map.Add(I.Result, Val);

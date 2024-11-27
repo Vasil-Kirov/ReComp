@@ -6,6 +6,7 @@
 #include "Log.h"
 #include "Module.h"
 #include "Parser.h"
+#include "Platform.h"
 #include "Type.h"
 #include "Memory.h"
 #include "VString.h"
@@ -464,6 +465,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	
 	NewType->Function = Function;
 	Checker->Scope.Pop();
+	FnNode->Fn.Flags |= Function.Flags;
 	return AddType(NewType);
 }
 
@@ -777,6 +779,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 
 			Result = GetReturnType(CallType);
+		} break;
+		case AST_EMBED:
+		{
+			string File = ReadEntireFile(*Expr->Embed.FileName);
+			if(File.Data == NULL)
+				RaiseError(*Expr->ErrorInfo, "Couldn't open #embed_%s file %s", Expr->Embed.IsString ? "str" : "bin", Expr->Embed.FileName->Data);
+
+			Expr->Embed.Content = File;
+			Result = Expr->Embed.IsString ? Basic_string : GetPointerTo(Basic_u8);
 		} break;
 		case AST_TYPEOF:
 		{

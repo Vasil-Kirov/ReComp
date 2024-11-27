@@ -1,8 +1,6 @@
 @ECHO OFF
 
-REM mkdir %1
-DEL %1\build.rcp
-
+mkdir %1
 
 (
 echo build
@@ -18,11 +16,11 @@ echo     return out;
 echo }
 ) > %1\build.rcp
 
-REM (
-REM echo main
-REM echo.
-REM echo main :: fn^(^) -^> i32 {
-REM echo 	return 0;
-REM echo }
-REM ) > %1/%1.rcp
+(
+echo main
+echo.
+echo main :: fn^(^) -^> i32 {
+echo 	return 0;
+echo }
+) > %1/%1.rcp
 

@@ -28,10 +28,16 @@ my_fn :: fn(num: i32, num2: i32) -> i32 {
     return num + num2;
 }
 
+embed :: #embed_str "embed.txt";
+
 puts :: fn #foreign(str: *u8);
 
+x :: fn(list: ...) {
+
+}
+
 main :: fn() -> i32 {
-    puts(c"c string");
+    x(1, 2, 3);
     str := "моя стринг今日";
     for c in str {
         if c == ' ' {

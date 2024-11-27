@@ -80,6 +80,8 @@ enum token_type
 	T_LINK   = -62,
 	T_UNION  = -63,
 	T_INFO   = -64,
+	T_EMBED_BIN  = -65,
+	T_EMBED_STR  = -66,
 };
 
 struct token

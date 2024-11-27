@@ -879,6 +879,11 @@ string GetTypeNameAsString(const type *Type)
 		case TypeKind_Function:
 		{
 			string_builder Builder = MakeBuilder();
+
+			// @HACK
+			if(Type->Function.Flags & SymbolFlag_VarFunc)
+				PushBuilder(&Builder, "v");
+
 			PushBuilder(&Builder, "fn(");
 			for(int i = 0; i < Type->Function.ArgCount; ++i)
 			{

@@ -57,6 +57,8 @@ enum node_type
 	AST_CASE,
 	AST_DEFER,
 	AST_SCOPE,
+
+	AST_EMBED
 };
 
 struct node
@@ -78,6 +80,11 @@ struct node
 			reserved ID;
 			u32 Type; // Set by semantic analyzer
 		} Reserved;
+		struct {
+			b32 IsString;
+			const string *FileName;
+			string Content; // Set by semantic analyzer
+		} Embed;
 		struct {
 			const string *Name;
 		} Generic;

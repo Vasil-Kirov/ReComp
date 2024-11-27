@@ -473,6 +473,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Result = PushInstruction(Builder, 
 					Instruction(OP_CONST, (u64)Val, Node->Reserved.Type, Builder));
 		} break;
+		case AST_EMBED:
+		{
+			const_value *EmbedValue = NewType(const_value);
+			EmbedValue->Type = const_type::String;
+			EmbedValue->String.Data = &Node->Embed.Content;
+			u32 T = Node->Embed.IsString ? Basic_string : GetPointerTo(Basic_u8);
+			Result = PushInstruction(Builder, 
+					Instruction(OP_CONST, (u64)EmbedValue, T, Builder));
+		} break;
 		case AST_TYPEOF:
 		{
 			const_value *TypeValue = NewType(const_value);

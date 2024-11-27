@@ -1,0 +1,11 @@
+main
+
+// 10 chars
+str :: #embed_str "str.txt";
+
+// the char a
+bin :: #embed_bin "bin";
+
+main :: fn() -> i32 {
+	return @i32 str.count - (@i32 *bin) + 94;
+}

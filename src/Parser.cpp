@@ -24,6 +24,15 @@ node *MakeScope(const error_info *ErrorInfo, b32 IsUp)
 	return Result;
 }
 
+node *MakeEmbed(const error_info *ErrorInfo, const string *FileName, b32 IsString)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_EMBED);
+	Result->Embed.IsString = IsString;
+	Result->Embed.FileName = FileName;
+
+	return Result;
+}
+
 node *MakeTypeInfo(const error_info *ErrorInfo, node *Expression)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_TYPEINFO);
@@ -752,6 +761,20 @@ node *ParseOperand(parser *Parser)
 			node *Type = ParseType(Parser);
 			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
+		} break;
+		case T_EMBED_BIN:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token T = EatToken(Parser, T_STR);
+			Result = MakeEmbed(ErrorInfo, T.ID, false);
+		} break;
+		case T_EMBED_STR:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token T = EatToken(Parser, T_STR);
+			Result = MakeEmbed(ErrorInfo, T.ID, true);
 		} break;
 		case T_TYPEOF:
 		{
@@ -1514,6 +1537,13 @@ node *CopyASTNode(node *N)
 		case AST_INVALID: 
 			unreachable; 
 			break;
+
+		case AST_EMBED:
+		{
+			R->Embed.IsString = N->Embed.IsString;
+			R->Embed.Content  = N->Embed.Content;
+			R->Embed.FileName = N->Embed.FileName;
+		} break;
 
 		case AST_CHARLIT:
 		{

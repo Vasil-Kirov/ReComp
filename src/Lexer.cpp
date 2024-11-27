@@ -471,6 +471,8 @@ void InitializeLexer()
 	AddKeyword("#intr",  T_INTR);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
+	AddKeyword("#embed_bin", T_EMBED_BIN);
+	AddKeyword("#embed_str", T_EMBED_STR);
 	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("#info",    T_INFO);
 	AddKeyword("return", T_RETURN);

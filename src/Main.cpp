@@ -277,7 +277,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 {
 	string_builder Builder = MakeBuilder();
 #if _WIN32
-	b32 SetDefaultLib = true;
+	b32 NoSetDefaultLib = false;
 	Builder += "LINK.EXE /nologo /OUT:a.exe /DEBUG ";
 	if(CompileFlags & CF_SanAdress)
 	{
@@ -285,7 +285,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib ");
 		if((CompileFlags & CF_NoStdLib) == 0)
 		{
-			SetDefaultLib = false;
+			NoSetDefaultLib = true;
 			Builder += " /DEFAULTLIB:LIBCMT ";
 		}
 	}
@@ -298,7 +298,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 		Builder += "/ENTRY:mainCRTStartup ";
 	}
 
-	if(!SetDefaultLib)
+	if(!NoSetDefaultLib)
 	{
 		Builder += "/DEFAULTLIB:MSVCRT ";
 	}
@@ -334,14 +334,6 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 		Builder += CMD.LinkArgs[Idx];
 		Builder += ' ';
 	}
-
-	if(CMD.LinkArgs.Count == 0)
-	{
-#if _WIN32
-		Builder += "/DEFAULTLIB:MSVCRT ";
-#endif
-	}
-
 
 	string Command = MakeString(Builder);
 	LDEBUG(Command.Data);

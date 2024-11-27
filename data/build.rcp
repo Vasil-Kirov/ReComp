@@ -11,7 +11,7 @@ compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 1,
-        //flags = @u32 (c.CompileFlag.NoStdLib),
+        flags = @u32 (c.CompileFlag.SanAddress),
     };
 
    for f in out.files {

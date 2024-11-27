@@ -946,7 +946,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				Gen.map.Add(s->IRRegister, AlreadyIn);
 			}
 
-			if(s->Flags & SymbolFlag_Function)
+			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
 			{
 				string LinkName = *s->LinkName;
 				//LLVMCreateFunctionType(Gen.ctx, s->Type);

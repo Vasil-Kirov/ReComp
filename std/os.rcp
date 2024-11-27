@@ -39,6 +39,15 @@ os
         return;
     }
 
+    assert :: fn(cond: bool, reason: string) {
+        if(!cond) {
+            header := "Assert Failed!\n";
+            print(header.data, header.count);
+            print(reason.data, reason.count);
+            abort();
+        }
+    }
+
     print :: fn(data: *u8, count: u32) {
         SetConsoleOutputCP(CP_UTF8);
         handle := GetStdHandle(STD_OUTPUT_HANDLE);

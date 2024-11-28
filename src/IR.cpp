@@ -402,12 +402,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			if(Node->ID.Type != INVALID_TYPE)
 			{
-				const_value *TypeValue = NewType(const_value);
-				TypeValue->Type = const_type::Integer;
-				TypeValue->Int.IsSigned = false;
-				TypeValue->Int.Unsigned = Node->ID.Type;
 				Result = PushInstruction(Builder, 
-						Instruction(OP_CONST, (u64)TypeValue, Basic_u64, Builder));
+						Instruction(OP_CONSTINT, Node->ID.Type, Basic_uint, Builder));
 				break;
 			}
 			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
@@ -844,7 +840,42 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				// but it's kinda hacky, find a better way to do this
 				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled, false);
 				if(!Sym)
+				{
+					string Name = *Mangled;
 					Result = -1;
+					u32 TC = GetTypeCount();
+					for(int I = 0; I < TC; ++I)
+					{
+						const type *Type = GetType(I);
+						switch(Type->Kind)
+						{
+							case TypeKind_Struct:
+							{
+								if(Type->Struct.Name == Name)
+								{
+									Result = PushInstruction(Builder, 
+											Instruction(OP_CONSTINT, I, Basic_uint, Builder));
+									goto SEARCH_TYPE_DONE;
+								}
+
+							} break;
+							case TypeKind_Enum:
+							{
+								if(Type->Enum.Name == Name)
+								{
+									Result = PushInstruction(Builder, 
+											Instruction(OP_CONSTINT, I, Basic_uint, Builder));
+
+									goto SEARCH_TYPE_DONE;
+								}
+
+							} break;
+							default: continue;
+						}
+					}
+SEARCH_TYPE_DONE:
+					Assert(Result != -1);
+				}
 				else
 				{
 					const type *Type = GetType(Node->Selector.Type);
@@ -2215,7 +2246,14 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				call_info *CallInfo = (call_info *)Instr.BigRegister;
 				//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
-				PushBuilderFormated(Builder, "%%%d = CALL %d", Instr.Result, CallInfo->Operand);
+				PushBuilderFormated(Builder, "%%%d = CALL %%%d(", Instr.Result, CallInfo->Operand);
+				ForArray(AIdx, CallInfo->Args)
+				{
+					if(AIdx != 0)
+						*Builder += ", ";
+					PushBuilderFormated(Builder, "%%%d", CallInfo->Args[AIdx]);
+				}
+				*Builder += ")";
 			} break;
 			case OP_SWITCHINT:
 			{

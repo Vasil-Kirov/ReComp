@@ -1,14 +1,18 @@
 main
 
+#import mem
+
 struct ivec2 {
     x: i32,
     y: i32,
 }
 
 main :: fn() -> i32 {
-    res := []ivec2 { ivec2 { 1, 2 } };
+    a := mem.create_generic_allocator();
+    mem.make_slice(&a, ivec2, 10);
+    mem.make_slice(&a, mem.Allocator, 10);
 
-    return res[0].x + res[0].y;
+    return 0;
 }
 
 // do_foo :: fn(s: []$T) {

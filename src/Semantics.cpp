@@ -258,12 +258,28 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			node *Operand = TypeNode->Selector.Operand;
 			if(Operand->Type != AST_ID)
 			{
+				u32 Type = GetTypeFromTypeNode(Checker, Operand);
+				if(Type != INVALID_TYPE)
+				{
+					if(GetType(Type)->Kind != TypeKind_Enum)
+						RaiseError(*TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
+
+					return Type;
+				}
 				RaiseError(*Operand->ErrorInfo, "Expected module name in selector");
 			}
 			import Import;
 			string SearchName = *Operand->ID.Name;
 			if(!FindImportedModule(Checker->Imported, SearchName, &Import))
 			{
+				u32 Type = FindType(Checker, &SearchName, &Checker->Module->Name);
+				if(Type != INVALID_TYPE)
+				{
+					if(GetType(Type)->Kind != TypeKind_Enum)
+						RaiseError(*TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
+
+					return Type;
+				}
 				RaiseError(*Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
 			}
 			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Import.M->Name);
@@ -1016,8 +1032,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 					else
 					{
-						Result = t;
-						Expr->Selector.Type = t;
+						Result = Basic_type;
+						Expr->Selector.Type = Basic_type;
 					}
 				}
 				else
@@ -1036,11 +1052,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						if(HasBasicFlag(Type, BasicFlag_TypeID))
 						{
+#if 0
 							if(Expr->Selector.Operand->Type != AST_ID)
 							{
 								RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
 							}
 							u32 TIdx = FindType(Checker, Expr->Selector.Operand->ID.Name);
+#endif
+							u32 TIdx = GetTypeFromTypeNode(Checker, Expr);
 							if(TIdx == INVALID_TYPE)
 							{
 								RaiseError(*Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");

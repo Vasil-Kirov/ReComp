@@ -741,8 +741,13 @@ b32 IsCastRedundant(const type *From, const type *To)
 			{
 				return TypesMustMatch(From, To);
 			} break;
+			case TypeKind_Struct:
+			{
+				return From->Struct.Name == To->Struct.Name;
+			} break;
 			default:
 			{
+				LDEBUG("KIND: %d", From->Kind);
 				Assert(false);
 			} break;
 		}

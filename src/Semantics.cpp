@@ -2587,7 +2587,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 					{
 						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
 					}
-					else
+					else if(Expr->Call.ArgTypes[i] != ArgTIdx)
 					{
 						node *Arg = Expr->Call.Args[i];
 						Expr->Call.Args.Data[i] = MakeCast(Arg->ErrorInfo, Arg, NULL,

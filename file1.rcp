@@ -1,6 +1,7 @@
 main
 
 #import mem
+#import array as arr
 
 struct ivec2 {
     x: i32,
@@ -8,11 +9,11 @@ struct ivec2 {
 }
 
 main :: fn() -> i32 {
-    a := mem.create_generic_allocator();
-    mem.make_slice(&a, ivec2, 10);
-    mem.make_slice(&a, mem.Allocator, 10);
+    alloc := mem.create_generic_allocator();
+    ar := arr.create(ivec2, &alloc);
+    arr.add(&ar, ivec2 { 10, 10 });
 
-    return 0;
+    return ar[0].x;
 }
 
 // do_foo :: fn(s: []$T) {

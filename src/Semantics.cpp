@@ -841,16 +841,20 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			if(IsCastRedundant(FromType, ToType))
 			{
-				RaiseError(*Expr->ErrorInfo, "Redundant cast");
+				*Expr = *Expr->Cast.Expression;
+				Result = From;
 			}
-			Expr->Cast.FromType = From;
-			Expr->Cast.ToType = To;
-			Result = To;
-
-			if(IsUntyped(FromType))
+			else
 			{
-				FillUntypedStack(Checker, To);
-				memcpy(Expr, Expr->Cast.Expression, sizeof(node));
+				Expr->Cast.FromType = From;
+				Expr->Cast.ToType = To;
+				Result = To;
+
+				if(IsUntyped(FromType))
+				{
+					FillUntypedStack(Checker, To);
+					memcpy(Expr, Expr->Cast.Expression, sizeof(node));
+				}
 			}
 		} break;
 		case AST_TYPELIST:

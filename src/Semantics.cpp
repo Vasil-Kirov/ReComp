@@ -1544,6 +1544,12 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 				RaiseError(*BinaryExpression->ErrorInfo, "Invalid binary op between pointer and integer!\n"
 						"Only + and - are allowed, got `%s`", GetTokenName(BinaryExpression->Binary.Op));
 			}
+
+			if(BinaryExpression->Binary.Right->Type == AST_CAST && GetType(BinaryExpression->Binary.Right->Cast.ToType)->Kind == TypeKind_Pointer)
+			{
+				BinaryExpression->Binary.Right = BinaryExpression->Binary.Right->Cast.Expression;
+			}
+
 			if(BinaryExpression->Binary.Op == '-')
 			{
 				BinaryExpression->Binary.Right = MakeUnary(BinaryExpression->ErrorInfo, BinaryExpression->Binary.Right, T_MINUS);

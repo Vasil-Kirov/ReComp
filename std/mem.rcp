@@ -33,6 +33,46 @@ create_generic_allocator :: fn() -> Allocator {
     return r;
 }
 
+struct ScratchContext {
+    current: *u8,
+    max: *u8,
+}
+
+arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
+    ctx := @*ScratchContext this.data;
+    os.assert(ctx != null, "Invalid allocator for arena_alloc()");
+    os.assert(ctx.max > ctx.current, "Calling arena_alloc() with an out of memory arena");
+
+    res := ctx.current;
+    ctx.current = ctx.current + size;
+    
+    return res;
+}
+
+no_free :: fn(p: *, this: *Allocator) {
+
+}
+
+create_scratch :: fn(max_size: int) -> Allocator {
+    ctx := @*ScratchContext os.alloc(max_size + size_of ScratchContext);
+    ctx.current = @*u8 (ctx + 1);
+    ctx.max = ctx.current + max_size;
+
+    r := Allocator {
+        alloc = arena_alloc,
+        free = no_free,
+        data = ctx,
+    };
+
+    return r;
+}
+
+destroy_scratch :: fn(a: *Allocator) {
+    ctx := @*ScratchContext a.data;
+    os.assert(ctx != null, "Invalid allocator for destroy_scratch()");
+    os.free(ctx);
+}
+
 copy  :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;
 set   :: fn #link="memset"(dst: *, c: i32, size: int) -> *;
 

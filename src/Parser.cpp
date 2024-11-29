@@ -496,6 +496,10 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			token ID = EatToken(Parser, T_ID);
 			Result = MakeGeneric(ErrorInfo, ID.ID);
 		} break;
+		case T_VOID:
+		{
+			GetToken(Parser);
+		} break;
 		default:
 		{
 		} break;

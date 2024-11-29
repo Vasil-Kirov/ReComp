@@ -483,5 +483,6 @@ void InitializeLexer()
 	AddKeyword("match",  T_MATCH);
 	AddKeyword("size_of", T_SIZEOF);
 	AddKeyword("type_of", T_TYPEOF);
+	AddKeyword("void", T_VOID);
 }
 

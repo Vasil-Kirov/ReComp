@@ -82,6 +82,7 @@ enum token_type
 	T_INFO   = -64,
 	T_EMBED_BIN  = -65,
 	T_EMBED_STR  = -66,
+	T_VOID = -67,
 };
 
 struct token

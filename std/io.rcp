@@ -380,6 +380,25 @@ println :: fn(str: string, args: ...) {
 
 }
 
+readln :: fn(alloc: *mem.Allocator, max: u32) -> string {
+    mem := alloc.alloc(@int max, alloc);
+    if mem == null {
+        return "";
+    }
+
+    buf := @*u8 ?mem;
+    count := os.read_stdin_line(buf, max);
+    if count == 0 {
+        return "";
+    }
+    
+    res: string;
+    res.data = buf;
+    res.count = @int count;
+
+    return res;
+}
+
 get_next :: fn(curr: *u8) -> u32 {
     scan := curr;
     codepoint := @u32 *scan;

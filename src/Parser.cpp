@@ -467,6 +467,10 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			ERROR_INFO;
 			GetToken(Parser);
 			node *Pointer = ParseType(Parser, false);
+			if(Pointer == NULL)
+			{
+				RaiseError(*ErrorInfo, "Expected a valid type after `?`");
+			}
 			if(Pointer->Type != AST_PTRTYPE)
 			{
 				RaiseError(*ErrorInfo, "Optional need to be a pointer");

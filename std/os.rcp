@@ -1,4 +1,5 @@
 os
+#import io
 
 #if Windows
 (
@@ -33,6 +34,7 @@ os
     SetConsoleOutputCP :: fn #foreign(code_page: u32) -> i32; // win32 bool
     VirtualAlloc :: fn #foreign(addr: ?*, size: uint, type: u32, protect: u32) -> ?*;
     VirtualFree :: fn #foreign(addr: ?*, size: uint, type: u32) -> bool;
+    ReadConsoleA :: fn #foreign(hConsoleInput: *, lpBuffer: *, nNumberOfCharsToRead: u32, lpNumberOfCharsRead: *u32, pInputControl: ?*) -> bool;
 
     abort :: fn() {
         ExitProcess(1);
@@ -63,6 +65,35 @@ os
 
 	free :: fn(ptr: *) {
         VirtualFree(ptr, 0, MEM_RELEASE);
+    }
+
+    struct CONSOLE_READCONSOLE_CONTROL {
+        nLength: u32,
+        nInitialChars: u32,
+        dwCtrlWakeupMask: u32,
+        dwControlKeyState: u32,
+    }
+
+    read_stdin_line :: fn(buffer: *, size: u32) -> u32 {
+        handle := GetStdHandle(STD_INPUT_HANDLE);
+        control := CONSOLE_READCONSOLE_CONTROL {
+            dwCtrlWakeupMask = (1 << '\n'),
+        };
+
+        if handle == null {
+            return 0;
+        }
+
+        read := @u32 0;
+        if ReadConsoleA(?handle, buffer, size, &read, &control) == false {
+            return 0;
+        }
+
+        as_chars := @*u8 buffer;
+
+        // remove /r/n
+        as_chars[read-2] = 0;
+        return read - 2;
     }
 )
 

@@ -1,6 +1,16 @@
 os
 #import io
 
+
+assert :: fn(cond: bool, reason: string) {
+	if !cond {
+		header := "Assert Failed!\n";
+		print(header.data, @u32 header.count);
+		print(reason.data, @u32 reason.count);
+		abort();
+	}
+}
+
 #if Windows
 (
     STD_INPUT_HANDLE  :: @u32 -10;
@@ -39,15 +49,6 @@ os
     abort :: fn() {
         ExitProcess(1);
         return;
-    }
-
-    assert :: fn(cond: bool, reason: string) {
-        if(!cond) {
-            header := "Assert Failed!\n";
-            print(header.data, @u32 header.count);
-            print(reason.data, @u32 reason.count);
-            abort();
-        }
     }
 
     print :: fn(data: *u8, count: u32) {
@@ -99,11 +100,18 @@ os
 
 #if Unix
 (
-	SYS_read   :: 0;
-	SYS_write  :: 1;
-	SYS_open   :: 2;
-	SYS_mmap   :: 9;
-	SYS_munmap :: 11;
+#private
+		stdin  :: 0;
+		stdout :: 1;
+		stderr :: 2;
+
+#public
+	SYS_read  	:: 0;
+	SYS_write  	:: 1;
+	SYS_open   	:: 2;
+	SYS_mmap   	:: 9;
+	SYS_munmap 	:: 11;
+	SYS_exit	:: 60;
 
 	_system_call :: fn #foreign(number: int, args: ...) -> int;
 	print :: fn(data: *u8, count: u32) {
@@ -124,6 +132,10 @@ os
 	MAP_ANONYMOUS	:: 0x00020;
 	MAP_ANON		:: 0x00020;
 	MAP_NORESERVE	:: 0x04000;
+
+	abort :: fn() {
+		_system_call(SYS_exit, 1);
+	}
 
 	alloc :: fn(size: int) -> ?* {
 		myb_ctx := @?*AllocCtx _system_call(SYS_mmap,
@@ -148,5 +160,19 @@ os
 		_system_call(SYS_munmap, ctx, ctx.size);
 	}
 
+    read_stdin_line :: fn(buffer: *, size: u32) -> u32 {
+		buf := @*u8 buffer;
+		count := @u32 0;
+		for count < size {
+			c := @u8 0;
+			_system_call(SYS_read, stdin, &c, 1);
+			if c == '\n' {
+				break;
+			}
+			buf[count] = c;
+			count += 1;
+		}
+		return count;
+	}
 )
 

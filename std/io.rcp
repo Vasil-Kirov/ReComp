@@ -328,7 +328,8 @@ print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
         }
     } else {
         print_type(b, arg);
-        array.add(b, c);
+		if c != 0
+			array.add(b, c);
     }
 }
 

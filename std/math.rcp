@@ -1,0 +1,15 @@
+math
+
+abs :: fn(x: $T) -> T {
+    if x < 0 return -x;
+    return x;
+}
+
+pow :: fn(x: $T, y: int) -> T {
+	res := x;
+	for i := 1; i < y; i += 1 {
+		res *= x;
+	}
+	return res;
+}
+

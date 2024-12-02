@@ -1294,8 +1294,12 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					const type *T = GetType(TypeIdx);
 					if(!HasBasicFlag(T, BasicFlag_Integer) && !HasBasicFlag(T, BasicFlag_Float))
 					{
-						RaiseError(*Expr->ErrorInfo, "Expression to unary - must be an integer, but it's %s",
+						RaiseError(*Expr->ErrorInfo, "Unary `-` can only be used on integers and floats, but here it is used on %s",
 								GetTypeName(T));
+					}
+					if(HasBasicFlag(T, BasicFlag_Unsigned))
+					{
+						RaiseError(*Expr->ErrorInfo, "Cannot use a unary `-` on an unsigned type %s", GetTypeName(T));
 					}
 					Expr->Unary.Type = TypeIdx;
 					if(IsUntyped(T))

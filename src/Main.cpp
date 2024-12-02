@@ -353,6 +353,7 @@ void AddStdFiles(dynamic<string> &Files, b32 NoStdLib)
 		GetFilePath(Dir, "strings.rcp"),
 		GetFilePath(Dir, "array.rcp"),
 		GetFilePath(Dir, "compile.rcp"),
+		GetFilePath(Dir, "math.rcp"),
 	};
 
 	uint Count = ARR_LEN(StdFiles);

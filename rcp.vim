@@ -23,7 +23,7 @@ syn region rcpSString      start=+"+ skip=+\\\\\|\\"+ end=+"+
 
 " Brackets and punctuation
 syn match rcpSBracket "[{}()\[\]]"
-syn match rcpSOperator "[-+=*/<>:]"
+syn match rcpSOperator "[-+=*/<>:&]"
 
 " Keywords
 syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_of size_of as
@@ -37,13 +37,14 @@ syn match rcpSCompilerDir /#public/
 
 " Types
 syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void
-syn keyword rcpSTypeCast @ nextgroup=rcpSType
+syn match rcpSPtrStar /\*/
+syn match rcpSTypeCast /@/ nextgroup=rcpSType,rcpSPtrStar skipwhite
 
 
 " Number literals
 syn match rcpSNumber "\<[0-9_]\+\>"
-
-
+syn match rcpSBinaryNumber /\<0[bB][01_]\+\>/
+syn match rcpSHexNumber /\<0[xX][0-9a-fA-F_]\+\>/
 
 " Comments (starting with //)
 syn keyword rcpSTodo contained TODO FIXME LEAK XXX NOTE
@@ -54,6 +55,8 @@ syn match rcpSComment "//.*$" contains=rcpSTodo
 hi def link rcpSCompilerDir PreProc
 hi def link rcpSImport Include
 hi def link rcpSNumber Number
+hi def link rcpSBinaryNumber Number
+hi def link rcpSHexNumber Number
 hi def link rcpSVariable Identifier
 hi def link rcpSConstant Constant
 hi def link rcpSKeyword Keyword
@@ -64,5 +67,6 @@ hi def link rcpSString String
 " 
 hi def link rcpSOperator Operator
 hi def link rcpSBracket Delimiter
+hi def link rcpSTypeCast Special
 
 let b:current_syntax = "rcpS"

@@ -11,7 +11,7 @@ struct Allocator {
 
 make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
     res := []T{};
-    res.data  = ?allocator.alloc(size, allocator);
+    res.data  = ?allocator.alloc(size * size_of T, allocator);
     res.count = size;
     return res;
 }

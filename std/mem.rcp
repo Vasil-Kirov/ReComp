@@ -16,6 +16,11 @@ make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
     return res;
 }
 
+destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
+	alloc.free(slice.data);
+	slice.count = 0;
+}
+
 generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
     return os.alloc(size);
 }

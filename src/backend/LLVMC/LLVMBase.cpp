@@ -455,6 +455,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
 			Assert(Pointer);
 			Assert(LLVMType);
+			if(T->Kind == TypeKind_Vector)
+			{
+				LDEBUG("HERE");
+			}
+
 			if(IsLoadableType(T))
 			{
 				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
@@ -483,10 +488,28 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				Idx++;
 			LLVMValueRef Arg = LLVMGetParam(gen->fn, Idx);
 			const type *Type = GetType(I.Type);
-			if(IsPassInAsIntType(Type))
+			if(Type->Kind == TypeKind_Struct && IsStructAllFloats(Type))
 			{
 				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "");
+				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "vec");
+				for(int i = 0; i < Type->Struct.Members.Count / 2; ++i)
+				{
+					if(i != 0) {
+						Idx++;
+						Arg = LLVMGetParam(gen->fn, Idx);
+					}
+					
+					auto Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, i * 2, "");
+					//LLVMBuildMemCpy(gen->bld, Ptr, AlignVec2, Arg, AlignVec2, SizeVec2);
+					LLVMBuildStore(gen->bld, Arg, Ptr);
+				}
+
+				gen->map.Add(I.Result, AsArg);
+			}
+			else if(IsPassInAsIntType(Type))
+			{
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
 				LLVMBuildStore(gen->bld, Arg, AsArg);
 				gen->map.Add(I.Result, AsArg);
 			}

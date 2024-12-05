@@ -7,7 +7,7 @@ DO_ASAN='-fsanitize=address'
 DO_ASAN=''
 
 pushd bin
-clang++ $DO_ASAN -orcp --debug -lz ../src/Main.cpp -I../include -I../src $LIBS $DEFINES -mavx -Wall -Wno-format
+clang++ $DO_ASAN -rdynamic -orcp --debug -lz ../src/Main.cpp -I../include -I../src $LIBS $DEFINES -mavx -Wall -Wno-format
 popd
 
 

@@ -146,7 +146,6 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 #elif CM_LINUX
 		for(int i = Info->Args.Count - 1; i >= Idx; --i)
 		{
-			LDEBUG("Here");
 			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
 			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
 			Asm.Push(RegisterOperand(reg_a));

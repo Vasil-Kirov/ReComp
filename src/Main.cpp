@@ -153,11 +153,6 @@ file *LexFile(string File, string *OutModuleName)
 		LFATAL("Couldn't find file: %s", File.Data);
 	}
 
-	if(File == STR_LIT("../file1.rcp"))
-	{
-		LDEBUG("HERE");
-	}
-
 	error_info ErrorInfo = {};
 	ErrorInfo.Data = DupeType(FileData, string);
 	ErrorInfo.FileName = File.Data;

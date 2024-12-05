@@ -3,18 +3,19 @@ main
 #import mem
 #import array as arr
 
-struct ivec2 {
-    x: i32,
-    y: i32,
+struct vec2 {
+    x: f32,
+    y: f32,
+	z: f32
+}
+
+foo :: fn(v: vec2) -> f32 {
+	return v.z;
 }
 
 main :: fn() -> i32 {
-    alloc := mem.create_generic_allocator();
-    f := @*void &alloc;
-    ar := arr.create(ivec2, &alloc);
-    arr.add(&ar, ivec2 { 10, 10 });
-
-    return ar[0].x;
+	v := vec2 { 10, 20 };
+    return @i32 foo(v);
 }
 
 // do_foo :: fn(s: []$T) {

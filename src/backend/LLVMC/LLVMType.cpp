@@ -523,6 +523,19 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 		Type->Vector.ElementCount = 2;
 		u32 FloatVector = AddType(Type);
 
+		for(int i = 0; i < ArgType->Struct.Members.Count / 2; ++i)
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, FloatVector);
+			*IdxOut = *IdxOut + 1;
+		}
+
+		if(ArgType->Struct.Members.Count % 2 != 0)
+		{
+			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_f32);
+			*IdxOut = *IdxOut + 1;
+		}
+
+#if 0
 		ForArray(Idx, ArgType->Struct.Members)
 		{
 			u32 MemTypeIdx = ArgType->Struct.Members[Idx].Type;
@@ -550,6 +563,7 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 				*IdxOut = *IdxOut + 1;
 			}
 		}
+#endif
 		return;
 	}
 

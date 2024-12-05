@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unistd.h>
 #if _WIN32
 #include <windows.h>
 #include <dbghelp.h>
@@ -102,6 +103,7 @@ static void PrintStacktrace()
     for (i = 0; i < size; i++) {
         printf("\t%s\n", strings[i]);
     }
+
 
     free(strings);
 }

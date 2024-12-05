@@ -209,6 +209,23 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		u32 FloatVector = AddType(Type);
 		u32 StructPtr = BuildIRFromExpression(Builder, Expr, IsLHS);
 
+		for(int i = 0; i < ArgType->Struct.Members.Count / 2; ++i)
+		{
+			u32 MemPtr = PushInstruction(Builder,
+					Instruction(OP_INDEX, StructPtr, i * 2, ArgTypeIdx, Builder));
+			u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, FloatVector, Builder));
+			Args.Push(Mem);
+		}
+
+		if(ArgType->Struct.Members.Count % 2 != 0)
+		{
+			u32 MemPtr = PushInstruction(Builder,
+					Instruction(OP_INDEX, StructPtr, ArgType->Struct.Members.Count - 1, ArgTypeIdx, Builder));
+			u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, Basic_f32, Builder));
+			Args.Push(Mem);
+		}
+
+#if 0 
 		ForArray(Idx, ArgType->Struct.Members)
 		{
 			u32 MemTypeIdx = ArgType->Struct.Members[Idx].Type;
@@ -218,6 +235,8 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 				u32 NextMemTypeIdx = ArgType->Struct.Members[Idx+1].Type;
 				if(NextMemTypeIdx != MemTypeIdx || MemType->Basic.Kind == Basic_f64)
 				{
+					Assert(false);
+#if 0
 					u32 Mem1Ptr = PushInstruction(Builder,
 							Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
 					u32 Mem2Ptr = PushInstruction(Builder,
@@ -228,26 +247,29 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 							Instruction(OP_LOAD, 0, Mem2Ptr, NextMemTypeIdx, Builder));
 					Args.Push(Mem1);
 					Args.Push(Mem2);
+#endif
 				}
 				else
 				{
-					u32 Mem1Ptr = PushInstruction(Builder,
-							Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
-					u32 Mem1 = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Mem1Ptr, FloatVector, Builder));
+					PushInstruction(Builder, InstructionStore(Alloc, StructPtr, FloatVector));
+					u32 Mem1 = PushInstruction(Builder, Instruction(OP_LOAD, 0, Alloc, FloatVector, Builder));
 					Args.Push(Mem1);
 				}
 				Idx++;
 			}
 			else
 			{
+				Assert(false);
+#if 0
 				u32 Mem1Ptr = PushInstruction(Builder,
 						Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
 				u32 Mem1 = PushInstruction(Builder,
 						Instruction(OP_LOAD, 0, Mem1Ptr, MemTypeIdx, Builder));
 				Args.Push(Mem1);
+#endif
 			}
 		}
+#endif
 		return;
 	}
 

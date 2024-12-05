@@ -28,6 +28,7 @@ struct generator
 	int CurrentBlock;
 	int BlockCount;
 	b32 IsCurrentFnRetInPtr;
+	u32 StructMembersPassed;
 };
 
 struct llvm_init_info

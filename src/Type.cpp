@@ -312,6 +312,10 @@ int GetTypeSize(const type *Type)
 		{
 			return GetTypeSize(Type->Enum.Type);
 		} break;
+		case TypeKind_Vector:
+		{
+			return Type->Vector.ElementCount * 4;
+		} break;
 		default: {};
 	}
 	unreachable;

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-../bin/rcp build.rcp $1 $2
+rcp build.rcp $1 $2 $3
 

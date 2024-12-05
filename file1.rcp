@@ -8,7 +8,7 @@ foo :: fn(T: type) -> ?*T {
 }
 
 main :: fn() -> i32 {
-    return @i32 @i64 foo(int);
+    return @i32 @i64 foo(*int);
 }
 
 // do_foo :: fn(s: []$T) {

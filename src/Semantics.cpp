@@ -1341,7 +1341,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 				{
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
 					const type *Pointer = GetType(PointerIdx);
-					if(HasBasicFlag(Pointer, Basic_type))
+					if(PointerIdx == Basic_type)
 					{
 						*Expr = *MakePointerType(Expr->ErrorInfo, Expr->Unary.Operand);
 						Expr->PointerType.Analyzed = GetTypeFromTypeNode(Checker, Expr);

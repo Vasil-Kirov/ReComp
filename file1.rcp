@@ -3,12 +3,13 @@ main
 #import mem
 #import array as arr
 
-foo :: fn(T: type) -> ?*T {
+foo :: fn(T: type) -> T {
 	return null;
 }
 
 main :: fn() -> i32 {
-    return @i32 @i64 foo(?*int);
+    x: ?*int = foo(?*int);
+    return @i32 @i64 x;
 }
 
 // do_foo :: fn(s: []$T) {

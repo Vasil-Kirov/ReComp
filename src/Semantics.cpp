@@ -1337,6 +1337,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						}
 						Assert(Expr->Unary.Operand->Type == AST_PTRTYPE);
 						Expr->Unary.Operand->PointerType.Analyzed = GetOptional(GetType(Expr->Unary.Operand->PointerType.Analyzed));
+						Expr->Unary.Operand->PointerType.Flags |= PointerFlag_Optional;
 						*Expr = *Expr->Unary.Operand;
 						return Basic_type;
 					}

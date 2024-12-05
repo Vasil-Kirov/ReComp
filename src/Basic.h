@@ -1,6 +1,5 @@
 #pragma once
 
-#include <unistd.h>
 #if _WIN32
 #include <windows.h>
 #include <dbghelp.h>

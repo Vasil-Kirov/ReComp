@@ -269,6 +269,7 @@ node *MakeID(const error_info *ErrorInfo, const string *ID);
 node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op);
 node *MakeConstant(const error_info *ErrorInfo, const_value Value);
+node *MakePointerType(const error_info *ErrorInfo, node *Pointed);
 node *ParseTopLevel(parser *Parser);
 node *ParseType(parser *Parser, b32 ShouldError = true);
 node *CopyASTNode(node *N);

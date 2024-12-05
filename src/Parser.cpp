@@ -265,7 +265,7 @@ node *MakeID(const error_info *ErrorInfo, const string *ID)
 	return Result;
 }
 
-node *MakePointerType(error_info *ErrorInfo, node *Pointed)
+node *MakePointerType(const error_info *ErrorInfo, node *Pointed)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_PTRTYPE);
 	Result->PointerType.Pointed = Pointed;

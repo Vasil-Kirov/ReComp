@@ -1102,7 +1102,9 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 				break;
 			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve, AR->Pointer.Pointed);
 			if(Pointed != Type->Pointer.Pointed)
-				Result = GetPointerTo(Pointed);
+			{
+				Result = GetPointerTo(Pointed, Type->Pointer.Flags);
+			}
 		} break;
 		case TypeKind_Array:
 		{

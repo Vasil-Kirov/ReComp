@@ -16,6 +16,10 @@ make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
     return res;
 }
 
+make_type :: fn (allocator: *Allocator, T: type) -> ?*T {
+    return @?*T allocator.alloc(size_of T, allocator);
+}
+
 destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
 	alloc.free(slice.data);
 	slice.count = 0;

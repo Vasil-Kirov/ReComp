@@ -284,6 +284,8 @@ char GetEscapedChar(char ToEscape)
 		return '\'';
 		case '0':
 		return '\0';
+		case 'r':
+		return '\r';
 	}
 	return ToEscape;
 }

@@ -1008,6 +1008,37 @@ u32 GetArrayType(u32 Type, u32 ElemCount)
 	return AddType(ArrayType);
 }
 
+u32 GetOptional(const type *Pointer)
+{
+	Assert(Pointer);
+	scratch_arena Scratch = {};
+
+	if(Pointer->Pointer.Pointed != INVALID_TYPE)
+	{
+		string_builder Builder = MakeBuilder();
+		string BaseType = GetTypeNameAsString(Pointer->Pointer.Pointed);
+		Builder += "?*";
+		Builder += BaseType;
+
+		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
+
+		u32 T = TypeMap[Lookup];
+		if(T != INVALID_TYPE)
+			return T;
+	}
+	else
+	{
+		u32 T = TypeMap[STR_LIT("?*")];
+		if(T != INVALID_TYPE)
+			return T;
+	}
+
+	type *New = NewType(type);
+	*New = *Pointer;
+	New->Pointer.Flags |= PointerFlag_Optional;
+	return AddType(New);
+}
+
 u32 GetNonOptional(const type *OptionalPointer)
 {
 	Assert(OptionalPointer);

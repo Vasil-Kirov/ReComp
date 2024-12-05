@@ -226,6 +226,7 @@ u32 GetPointerTo(u32 Type, u32 Flags = 0);
 u32 GetArrayType(u32 Type, u32 ElemCount);
 u32 GetSliceType(u32 Type);
 u32 GetNonOptional(const type *OptionalPointer);
+u32 GetOptional(const type *Pointer);
 uint GetTypeCount();
 b32 IsRetTypePassInPointer(u32 Type);
 b32 IsPassInAsIntType(const type *Type);

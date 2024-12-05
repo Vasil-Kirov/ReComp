@@ -1327,6 +1327,19 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 				{
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
 					const type *Pointer = GetType(PointerIdx);
+					if(PointerIdx == Basic_type)
+					{
+						u32 OptionalType = GetTypeFromTypeNode(Checker, Expr->Unary.Operand);
+						const type *Opt = GetType(OptionalType);
+						if(Opt->Kind != TypeKind_Pointer)
+						{
+							RaiseError(*Expr->ErrorInfo, "Cannot declare optional non pointer type: %s", GetTypeName(Opt));
+						}
+						Assert(Expr->Unary.Operand->Type == AST_PTRTYPE);
+						Expr->Unary.Operand->PointerType.Analyzed = GetOptional(GetType(Expr->Unary.Operand->PointerType.Analyzed));
+						*Expr = *Expr->Unary.Operand;
+						return Basic_type;
+					}
 					if(Pointer->Kind != TypeKind_Pointer)
 					{
 						RaiseError(*Expr->ErrorInfo, "Cannot use ? operator on non pointer type %s", GetTypeName(Pointer));

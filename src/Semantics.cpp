@@ -640,33 +640,36 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				for(int BodyIdx = 0; BodyIdx < Case->Case.Body.Count; ++BodyIdx)
 				{
 					node *Node = Case->Case.Body[BodyIdx];
-					AnalyzeNode(Checker, Node);
 					if(Node->Type == AST_RETURN)
 					{
-						if(!Node->Return.Expression)
+						if(Node->Return.Expression)
 						{
-							RaiseError(*Case->ErrorInfo, "Empty return is not allowed in a match statement");
-						}
-						CaseReturns = true;
-						if(!HasResult)
-						{
-							HasResult = true;
-							if(Idx != 0)
+							u32 TypeIdx = AnalyzeExpression(Checker, Node->Return.Expression);
+							CaseReturns = true;
+							if(!HasResult)
 							{
-								RaiseError(*Case->ErrorInfo, "Previous cases do not return a value but this one does");
+								HasResult = true;
+								if(Idx != 0)
+								{
+									RaiseError(*Case->ErrorInfo, "Previous cases do not return a value but this one does");
+								}
+								Result = TypeIdx;
+								const type *T = GetType(Result);
+								if(IsUntyped(T))
+								{
+									Result = UntypedGetType(T);
+									FillUntypedStack(Checker, Result);
+								}
 							}
-							Result = Node->Return.TypeIdx;
-							const type *T = GetType(Result);
-							if(IsUntyped(T))
+							else
 							{
-								Result = UntypedGetType(T);
-								FillUntypedStack(Checker, Result);
+								TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx]);
 							}
 						}
-						else
-						{
-							TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Node->Return.TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx]);
-						}
+					}
+					else
+					{
+						AnalyzeNode(Checker, Node);
 					}
 				}
 				if(!CaseReturns && HasResult)
@@ -1680,11 +1683,11 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	if(Node->Decl.Expression)
 	{
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
-		const type *ExprTypePointer = GetType(ExprType);
-		if(ExprTypePointer->Kind == TypeKind_Invalid)
+		if(ExprType == INVALID_TYPE)
 		{
 			RaiseError(*Node->ErrorInfo, "Expression does not give a value for the assignment");
 		}
+		const type *ExprTypePointer = GetType(ExprType);
 
 		if(Type != INVALID_TYPE)
 		{
@@ -2131,14 +2134,13 @@ void CheckBodyForUnreachableCode(slice<node *> Body)
 		}
 		if(Node->Type == AST_BREAK && Idx + 1 != Body.Count)
 		{
-			b32 DeadCode = false;
-			if(Idx + 1 != Body.Count)
-			{
-				if(!IsNodeEndScope(Body[Idx+1]) || Idx + 2 != Body.Count)
-					DeadCode = true;
-			}
-			if(DeadCode)
+			if(!IsNodeEndScope(Body[Idx+1]) || Idx + 2 != Body.Count)
 				RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after break statement");
+		}
+		if(Node->Type == AST_CONTINUE && Idx + 1 != Body.Count)
+		{
+			if(!IsNodeEndScope(Body[Idx+1]) || Idx + 2 != Body.Count)
+				RaiseError(*Body[Idx + 1]->ErrorInfo, "Unreachable code after continue statement");
 		}
 	}
 }
@@ -2160,14 +2162,37 @@ void AnalyzeNode(checker *Checker, node *Node)
 		{
 			AnalyzeIf(Checker, Node);
 		} break;
-		case AST_BREAK:
+		case AST_CONTINUE:
 		{
-			b32 FoundBreakableScope = false;
+			b32 FoundContinueScope = false;
 			scope *Current = Checker->Scope.TryPeek();
 
 			while(Current)
 			{
 				if(Current->ScopeNode->Type == AST_FOR)
+				{
+					FoundContinueScope = true;
+					break;
+				}
+				Current = Current->Parent;
+			}
+			if(!FoundContinueScope)
+			{
+				RaiseError(*Node->ErrorInfo, "Invalid context for continue, not a for loop");
+			}
+
+		} break;
+		case AST_BREAK:
+		{
+			b32 FoundBreakableScope = false;
+			scope *Current = Checker->Scope.TryPeek();
+			b32 MatchError = false;
+
+			while(Current)
+			{
+				if(Current->ScopeNode->Type == AST_MATCH)
+					MatchError = true;
+				else if(Current->ScopeNode->Type == AST_FOR)
 				{
 					FoundBreakableScope = true;
 					break;
@@ -2176,7 +2201,14 @@ void AnalyzeNode(checker *Checker, node *Node)
 			}
 			if(!FoundBreakableScope)
 			{
-				RaiseError(*Node->ErrorInfo, "Invalid context for break, not a loop or a match statement");
+				if(MatchError)
+				{
+					RaiseError(*Node->ErrorInfo, "Invalid context for break, not a for loop to break out of a match statement use return instead");
+				}
+				else
+				{
+					RaiseError(*Node->ErrorInfo, "Invalid context for break, not a for loop");
+				}
 			}
 		} break;
 		case AST_FOR:

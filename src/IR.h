@@ -162,6 +162,7 @@ struct block_builder
 	stack<defer_scope> Defered;
 	module *Module;
 	u32 BreakBlockID;
+	u32 ContinueBlockID;
 	u32 LastRegister;
 	u32 LastBlock;
 };

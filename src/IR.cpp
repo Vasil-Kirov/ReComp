@@ -1261,9 +1261,14 @@ void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
 
 	Terminate(Builder, Then);
 
+	uint CurrentBreak = Builder->BreakBlockID;
+	uint CurrentContinue = Builder->ContinueBlockID;
 	Builder->BreakBlockID = End.ID;
+	Builder->ContinueBlockID = Cond.ID;
 	BuildIRBody(Node->For.Body, Builder, Cond);
 	Builder->CurrentBlock = End;
+	Builder->BreakBlockID = CurrentBreak;
+	Builder->ContinueBlockID = CurrentContinue;
 }
 
 void BuildIRForIt(block_builder *Builder, node *Node)
@@ -1345,9 +1350,13 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	}
 	Terminate(Builder, Then);
 
+	uint CurrentBreak = Builder->BreakBlockID;
+	uint CurrentContinue = Builder->ContinueBlockID;
 	// Body
 	{
+
 		Builder->BreakBlockID = End.ID;
+		Builder->ContinueBlockID = Incr.ID;
 
 		// Set It
 		{
@@ -1460,6 +1469,8 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	}
 	Terminate(Builder, End);
+	Builder->BreakBlockID = CurrentBreak;
+	Builder->ContinueBlockID = CurrentContinue;
 }
 
 void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
@@ -1484,7 +1495,11 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
 	}
 	Terminate(Builder, Then);
+
+	uint CurrentBreak = Builder->BreakBlockID;
+	uint CurrentContinue = Builder->ContinueBlockID;
 	Builder->BreakBlockID = End.ID;
+	Builder->ContinueBlockID = Incr.ID;
 	BuildIRBody(Node->For.Body, Builder, Incr);
 
 	if(Node->For.Expr3)
@@ -1492,6 +1507,8 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, End);
+	Builder->BreakBlockID = CurrentBreak;
+	Builder->ContinueBlockID = CurrentContinue;
 }
 
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
@@ -1598,6 +1615,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_BREAK:
 		{
 			PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
+			Builder->CurrentBlock.HasTerminator = true;
+		} break;
+		case AST_CONTINUE:
+		{
+			PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
 			Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_FOR:

@@ -90,6 +90,13 @@ node *MakeReserve(const error_info *ErrorInfo, reserved ID)
 	return Result;
 }
 
+node *MakeContinue(const error_info *ErrorInfo)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_CONTINUE);
+
+	return Result;
+}
+
 node *MakeBreak(const error_info *ErrorInfo)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_BREAK);
@@ -1136,6 +1143,12 @@ node *ParseNode(parser *Parser)
 			GetToken(Parser);
 			Result = MakeBreak(ErrorInfo);
 		} break;
+		case T_CONTINUE:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeContinue(ErrorInfo);
+		} break;
 		case T_RETURN:
 		{
 			ERROR_INFO;
@@ -1722,6 +1735,7 @@ node *CopyASTNode(node *N)
 
 		case AST_NOP:
 		case AST_BREAK:
+		case AST_CONTINUE:
 			// No additional data to copy
 			break;
 

@@ -57,6 +57,7 @@ enum node_type
 	AST_CASE,
 	AST_DEFER,
 	AST_SCOPE,
+	AST_CONTINUE,
 
 	AST_EMBED
 };
@@ -70,6 +71,9 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+
+		} Continue;
 		struct {
 			b32 IsUp; // is {
 		} ScopeDelimiter;

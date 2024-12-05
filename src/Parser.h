@@ -211,10 +211,12 @@ struct node
 		struct {
 			node *Type;
 			node *Expression;
+			u32 Analyzed; // Set by semantic analyzer
 		} ArrayType;
 		struct {
 			node *Pointed;
 			u32 Flags;
+			u32 Analyzed; // Set by semantic analyzer
 		} PointerType;
 		struct {
 			node *Expression;

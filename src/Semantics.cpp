@@ -1272,8 +1272,19 @@ ANALYZE_SLICE_SELECTOR:
 			AnalyzeFunctionBody(Checker, Expr->Fn.Body, Expr, Sym->Type);
 			return GetPointerTo(Sym->Type);
 		} break;
+		case AST_PTRTYPE:
+		{
+			Expr->PointerType.Analyzed = GetTypeFromTypeNode(Checker, Expr);
+			Result = Basic_type;
+		} break;
+		case AST_ARRAYTYPE:
+		{
+			Expr->ArrayType.Analyzed = GetTypeFromTypeNode(Checker, Expr);
+			Result = Basic_type;
+		} break;
 		default:
 		{
+			LDEBUG("TYPE: %d", Expr->Type);
 			Assert(false);
 		} break;
 	}

@@ -1028,6 +1028,14 @@ BUILD_SLICE_SELECTOR:
 			   fn.Type, SymbolFlag_Function);
 			   */
 		} break;
+		case AST_PTRTYPE:
+		{
+			Result = PushInt(Node->PointerType.Analyzed, Builder);
+		} break;
+		case AST_ARRAYTYPE:
+		{
+			Result = PushInt(Node->ArrayType.Analyzed, Builder);
+		} break;
 		default:
 		{
 			Assert(false);

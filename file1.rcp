@@ -11,7 +11,8 @@ foo :: fn(T: type) -> T {
 
 main :: fn() -> i32 {
 
-    for n in 10 io.println("%", n);
+    num: u16 = 10;
+    for n in num io.println("%", n);
 
     return 0;
 }

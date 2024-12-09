@@ -1326,6 +1326,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	basic_block End   = AllocateBlock(Builder);
 
 	u32 IAlloc, ItAlloc, Size, One, Array, StringPtr;
+	u32 IType = Basic_int;
 
 	const type *T = GetType(Node->For.ArrayType);
 	u32 Zero = PushInt(0, Builder);
@@ -1370,6 +1371,8 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		{
 			Array = BuildIRFromExpression(Builder, Node->For.Expr2);
 			Size = Array;
+			IType = Node->For.ArrayType;
+			Zero = PushInt(0, Builder, IType);
 		}
 		else
 			Assert(false);
@@ -1377,9 +1380,9 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		One = PushInt(1, Builder);
 
 		IAlloc = PushInstruction(Builder,
-				Instruction(OP_ALLOC, -1, Basic_int, Builder));
+				Instruction(OP_ALLOC, -1, IType, Builder));
 		PushInstruction(Builder,
-				InstructionStore(IAlloc, Zero, Basic_int));
+				InstructionStore(IAlloc, Zero, IType));
 
 
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
@@ -1390,7 +1393,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	// Condition
 	{
 		u32 I = PushInstruction(Builder, 
-				Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
+				Instruction(OP_LOAD, 0, IAlloc, IType, Builder));
 		u32 Condition = PushInstruction(Builder,
 				Instruction(OP_LESS, I, Size, Basic_bool, Builder));
 		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));

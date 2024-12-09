@@ -1860,6 +1860,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 			{
 				TypeIdx = Basic_int;
 				T = GetType(TypeIdx);
+				FillUntypedStack(Checker, TypeIdx);
 			}
 			Assert(Node->For.Expr1->Type == AST_ID);
 			u32 ItType = INVALID_TYPE;

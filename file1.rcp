@@ -11,14 +11,9 @@ foo :: fn(T: type) -> T {
 
 main :: fn() -> i32 {
 
-    ga := mem.create_generic_allocator();
-    b := str.create(&ga);
-    str.append(&b, "Hello ");
-    str.append(&b, "World!");
-    hw := str.from_builder(&b, &ga);
-    io.println("% %", hw);
+    for n in 10 io.println("%", n);
 
-    return @i32 x;
+    return 0;
 }
 
 // do_foo :: fn(s: []$T) {

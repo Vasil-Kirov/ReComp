@@ -1222,11 +1222,15 @@ node *ParseNode(parser *Parser)
 							RaiseError(*ErrorInfo, "Malformed for loop, couldn't identify type");
 						FoundType = true;
 						Kind = ft::It;
+						break;
 					}
 					else if(T.Type == T_SEMICOL)
 					{
 						if(FoundType && Kind != ft::C)
 							RaiseError(*ErrorInfo, "Malformed for loop, couldn't identify type");
+
+						if(FoundType && Kind == ft::C)
+							break;
 						FoundType = true;
 						Kind = ft::C;
 					}

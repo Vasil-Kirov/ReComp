@@ -1782,7 +1782,6 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body)
 {
-	Assert(Body.IsValid());
 	for(int Idx = 0; Idx < Body.Count; ++Idx)
 	{
 		AnalyzeNode(Checker, Body[Idx]);

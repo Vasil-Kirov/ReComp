@@ -16,8 +16,7 @@ main :: fn() -> i32 {
     str.append(&b, "Hello ");
     str.append(&b, "World!");
     hw := str.from_builder(&b, &ga);
-    io.println("%", hw);
-
+    io.println("% %", hw);
 
     return @i32 x;
 }

@@ -539,9 +539,17 @@ slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(pars
 		node *Node = Fn(Parser);
 		if(Node)
 			Nodes.Push(Node);
-		if(PeekToken(Parser).Type != Deliminator)
-			break;
-		GetToken(Parser);
+		if(Deliminator == 0)
+		{
+			if(Node == NULL)
+				break;
+		}
+		else
+		{
+			if(PeekToken(Parser).Type != Deliminator)
+				break;
+			GetToken(Parser);
+		}
 	}
 	return SliceFromArray(Nodes);
 }
@@ -600,7 +608,8 @@ void ParseBody(parser *Parser, dynamic<node *> &OutBody)
 	while(true)
 	{
 		node *Node = ParseNode(Parser);
-		OutBody.Push(Node);
+		if(Node)
+			OutBody.Push(Node);
 		if(Parser->ScopeLevel == EnterLevel)
 		{
 			break;
@@ -616,7 +625,9 @@ void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
 	}
 	else
 	{
-		OutBody.Push(ParseNode(Parser));
+		node *Node = ParseNode(Parser);
+		if(Node)
+			OutBody.Push(Node);
 	}
 }
 
@@ -833,10 +844,10 @@ node *ParseOperand(parser *Parser)
 				node *Value = ParseExpression(Parser);
 				EatToken(Parser, ':');
 				dynamic<node *> Body = {};
-				ParseBody(Parser, Body);
+				ParseMaybeBody(Parser, Body);
 				return MakeCase(ErrorInfo, Value, SliceFromArray(Body));
 			};
-			slice<node *> Cases = Delimited(Parser, ',', ParseFn);
+			slice<node *> Cases = Delimited(Parser, 0, ParseFn);
 			EatToken(Parser, T_ENDSCOPE);
 			Result = MakeMatch(ErrorInfo, Expr, Cases);
 		} break;
@@ -1298,6 +1309,9 @@ node *ParseNode(parser *Parser)
 			ExpectSemicolon = false;
 			Result = MakeScope(ErrorInfo, false);
 		} break;
+		case T_SEMICOL:
+		{
+		} break;
 		default:
 		{
 			Result = ParseExpression(Parser);
@@ -1432,12 +1446,6 @@ node *ParseTopLevel(parser *Parser)
 			string *Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
 
 			Result = MakeEnum(ErrorInfo, Name, Items, TypeNode);
-			if(Parser->Current->Type == T_SEMICOL)
-			{
-				RaiseError(Parser->Current->ErrorInfo,
-						"Do not put semicolons after enum declarations");
-			}
-
 		} break;
 		case T_UNION:
 		IsStructUnion = true;
@@ -1460,11 +1468,6 @@ node *ParseTopLevel(parser *Parser)
 			auto Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
 			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn), IsStructUnion);
 			EatToken(Parser, T_ENDSCOPE);
-			if(Parser->Current->Type == T_SEMICOL)
-			{
-				RaiseError(Parser->Current->ErrorInfo,
-						"Do not put semicolons after %s declarations", IsStructUnion ? "union" : "struct");
-			}
 		} break;
 		case T_CLOSEPAREN:
 		{
@@ -1507,6 +1510,11 @@ node *ParseTopLevel(parser *Parser)
 				}
 			}
 
+			Result = (node *)0x1;
+		} break;
+		case T_SEMICOL:
+		{
+			GetToken(Parser);
 			Result = (node *)0x1;
 		} break;
 		case T_EOF:

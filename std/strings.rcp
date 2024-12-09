@@ -7,6 +7,37 @@ struct Builder {
     data: []u32,
 }
 
+to_int :: fn (str: string) -> int {
+    neg := false;
+    res := 0;
+    for c in str {
+        if c == '-' {
+            if neg return 0;
+            neg = true;
+            continue;
+        }
+
+        res *= 10;
+        
+        val := match c {
+            '0': return 0;
+            '1': return 1;
+            '2': return 2;
+            '3': return 3;
+            '4': return 4;
+            '5': return 5;
+            '6': return 6;
+            '7': return 7;
+            '8': return 8;
+            '9': return 9;
+        };
+        res += val;
+    }
+
+    if neg res = -res;
+    return res;
+}
+
 create :: fn (alloc: *mem.Allocator) -> Builder {
     return Builder {
         data = array.create(u32, alloc)

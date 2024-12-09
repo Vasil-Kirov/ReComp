@@ -128,10 +128,10 @@ print_typetype :: fn(b: *[]u32, info: init.TypeInfo) {
     match info.kind {
         init.TypeKind.Invalid: {
             push_string(b, "invalid");
-        },
+        }
         init.TypeKind.Basic: {
             push_string(b, info.t.basic.name);
-        },
+        }
         init.TypeKind.Function: {
             push_string(b, "fn(");
             args := info.t.function.args_t;
@@ -146,28 +146,28 @@ print_typetype :: fn(b: *[]u32, info: init.TypeInfo) {
                 push_string(b, " -> ");
                 print_typetype(b, #info info.t.function.return_);
             }
-        },
+        }
         init.TypeKind.Struct: {
             push_string(b, info.t.struct_.name);
-        },
+        }
         init.TypeKind.Pointer: {
             push_string(b, "*");
             print_typetype(b, #info info.t.pointer.pointee);
-        },
+        }
         init.TypeKind.Array: {
             push_string(b, "[x]");
             print_typetype(b, #info info.t.array.t);
-        },
+        }
         init.TypeKind.Slice: {
             push_string(b, "[]");
             print_typetype(b, #info info.t.slice.t);
-        },
+        }
         init.TypeKind.Vector: {
             push_string(b, "<>");
-        },
+        }
         init.TypeKind.Enum: {
             push_string(b, info.t.enum_.name);
-        },
+        }
         init.TypeKind.Generic: {
             push_string(b, info.t.generic.name);
         }
@@ -179,7 +179,7 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
     t := #info arg.t;
     match t.kind {
         init.TypeKind.Invalid: {
-        },
+        }
         init.TypeKind.Basic: {
             basic := t.t.basic;
             if basic.kind == init.BasicKind.Bool {
@@ -256,9 +256,9 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
             else {
                 array.add(b, '%');
             }
-        },
+        }
         init.TypeKind.Function: {
-        },
+        }
         init.TypeKind.Struct: {
             st := t.t.struct_;
             push_string(b, st.name);
@@ -282,17 +282,17 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 }
             }
             push_string(b, " }");
-        },
+        }
         init.TypeKind.Pointer: {
-        },
+        }
         init.TypeKind.Array: {
-        },
+        }
         init.TypeKind.Slice: {
-        },
+        }
         init.TypeKind.Vector: {
-        },
+        }
         init.TypeKind.Enum: {
-        },
+        }
         init.TypeKind.Generic: {
         }
     };
@@ -339,7 +339,7 @@ __internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
     arg_count := 0;
     need_to_print_arg := false;
     for c in fmt {
-        if c == '%' {
+        if c == '%' && args.count > arg_count {
             need_to_print_arg = true;
         } else {
             if need_to_print_arg {

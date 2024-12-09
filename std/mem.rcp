@@ -7,17 +7,15 @@ struct Allocator {
     data: ?*,
 }
 
-//__raw_slice :: fn #intr (T: type, data: *T, size: int) -> []T;
-
-make_slice :: fn (allocator: *Allocator, T: type, size: int) -> []T {
+make_slice :: fn (T: type, size: int, alloc: *Allocator) -> []T {
     res := []T{};
-    res.data  = ?allocator.alloc(size * size_of T, allocator);
+    res.data  = ?alloc.alloc(size * size_of T, alloc);
     res.count = size;
     return res;
 }
 
-make_type :: fn (allocator: *Allocator, T: type) -> ?*T {
-    return @?*T allocator.alloc(size_of T, allocator);
+make_type :: fn (T: type, alloc: *Allocator) -> ?*T {
+    return @?*T alloc.alloc(size_of T, alloc);
 }
 
 destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {

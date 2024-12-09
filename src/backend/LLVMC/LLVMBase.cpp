@@ -845,7 +845,7 @@ void RCGenerateComplexTypes(generator *gen)
 void RCGenerateCompilerTypes(generator *gen)
 {
 	struct_member DataMember = {STR_LIT("data"), GetPointerTo(Basic_u8)};
-	struct_member SizeMember = {STR_LIT("size"), Basic_int};
+	struct_member SizeMember = {STR_LIT("count"), Basic_int};
 	type *StringType = NewType(type);
 
 	StringType->Kind = TypeKind_Struct;

@@ -161,6 +161,16 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 	return Alloc;
 }
 
+const ir_symbol *GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
+{
+	const ir_symbol *Res = GetIRLocal(Builder->Function, &FnName, false);
+	if(Res)
+		return Res;
+	string AsModule = StructToModuleName(FnName, Module);
+	Res = GetIRLocal(Builder->Function, &AsModule);
+	return Res;
+}
+
 u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
 {
 	u32 Ptr = PushAlloc(Type, Builder);
@@ -535,6 +545,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
+#if 0
 			if(Node->Call.Fn->Type == AST_ID || Node->Call.Fn->Type == AST_FN)
 			{
 				static const string Intrinsics[] = {
@@ -575,6 +586,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 				if(Found) break;
 			}
+#endif
 
 			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
 
@@ -793,8 +805,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 							}
 							if(Found == -1)
 							{
-								RaiseError(*Item->ErrorInfo, "No member named %s in struct %s",
-										Name.Data, GetTypeName(Type));
+								unreachable;
 							}
 							MemberIdx = Found;
 						}
@@ -810,6 +821,42 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 								Instruction(OP_INDEX, Alloc, MemberIdx, Node->TypeList.Type, Builder));
 						PushInstruction(Builder,
 								InstructionStore(Location, Expr, Mem.Type));
+					}
+				} break;
+				case TypeKind_Basic:
+				{
+					Assert(IsString(Type));
+					ForArray(Idx, Node->TypeList.Items)
+					{
+						node *Item = Node->TypeList.Items[Idx];
+						const string *NamePtr = Item->Item.Name;
+						int MemberIdx = Idx;
+						if(NamePtr)
+						{
+							string Name = *NamePtr;
+							if(Name == STR_LIT("data"))
+							{
+								MemberIdx = 0;
+							}
+							else if(Name == STR_LIT("count"))
+							{
+								MemberIdx = 1;
+							}
+							else
+							{
+								unreachable;
+							}
+						}
+						u32 Expr = BuildIRFromExpression(Builder, Item->Item.Expression, false);
+						u32 MemType = INVALID_TYPE;
+						if(MemberIdx == 0)
+							MemType = GetPointerTo(Basic_u8);
+						else
+							MemType = Basic_int;
+						u32 Location = PushInstruction(Builder,
+								Instruction(OP_INDEX, Alloc, MemberIdx, Node->TypeList.Type, Builder));
+						PushInstruction(Builder,
+								InstructionStore(Location, Expr, MemType));
 					}
 				} break;
 			}
@@ -1400,8 +1447,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			{
 				u32 Data = PushInstruction(Builder,
 						Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
-				string DerefFnName = STR_LIT("__str_deref");
-				const ir_symbol *DerefFn = GetIRLocal(Builder->Function, &DerefFnName);;
+				const ir_symbol *DerefFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("deref"));;
 
 				call_info *Info = NewType(call_info);
 				Info->Operand = DerefFn->Register;
@@ -1453,8 +1499,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			u32 Data = PushInstruction(Builder,
 					Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 
-			string AdvanceFnName = STR_LIT("__str__it_advance");
-			const ir_symbol *AdvanceFn = GetIRLocal(Builder->Function, &AdvanceFnName);;
+			const ir_symbol *AdvanceFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("_it_advance"));;
 
 			call_info *Info = NewType(call_info);
 			Info->Operand = AdvanceFn->Register;

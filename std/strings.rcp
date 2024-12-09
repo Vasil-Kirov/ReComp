@@ -1,7 +1,48 @@
 str
 
+#import mem 
+#import array
+
+struct Builder {
+    data: []u32,
+}
+
+create :: fn (alloc: *mem.Allocator) -> Builder {
+    return Builder {
+        data = array.create(u32, alloc)
+    };
+}
+
+append :: fn(b: *Builder, str: string) {
+    b := b;
+    for c in str {
+        array.add(&b.data, c);
+    }
+}
+
+from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
+    data := mem.make_slice(u8, b.data.count*4, alloc);
+    len := 0;
+    as_u8 := @*u8 b.data.data;
+    for i := 0; i < b.data.count*4; i += 1 {
+        if as_u8[i] == 0 continue;
+
+        data[len] = as_u8[i];
+        len += 1;
+    }
+
+    return string { &data[0], len };
+}
 
 CONTINUE_BIT :: @u8 0b1000_0000;
+
+substr :: fn(original: string, from: int, to_excl: int) -> string {
+    o := original;
+    r: string;
+    r.data = &o.data[from];
+    r.count = to_excl-from;
+    return r;
+}
 
 get_codepoint_size :: fn(codepoint: *u8) -> int {
     p := codepoint;

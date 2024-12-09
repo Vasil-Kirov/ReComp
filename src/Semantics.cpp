@@ -874,7 +874,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 				default:
 				{
-					RaiseError(*Expr->ErrorInfo, "Cannot create a list of type %s, not a struct, array or slice", GetTypeName(Type));
+					if(!IsString(Type))
+						RaiseError(*Expr->ErrorInfo, "Cannot create a list of type %s, not a struct, array or slice", GetTypeName(Type));
 				} break;
 			}
 
@@ -968,6 +969,38 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						PromotedUntyped = INVALID_TYPE;
 						if(!IsGeneric(Mem.Type))
 							PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression);
+					} break;
+					case TypeKind_Basic:
+					{
+						Assert(HasBasicFlag(Type, BasicFlag_String));
+
+						int MemberIdx = Idx;
+						if(NamePtr)
+						{
+							string Name = *NamePtr;
+							if(Name == STR_LIT("data"))
+							{
+								MemberIdx = 0;
+							}
+							else if(Name == STR_LIT("count"))
+							{
+								MemberIdx = 1;
+							}
+							else
+							{
+								RaiseError(*Item->ErrorInfo, "No member named %s in string",
+										Name.Data);
+							}
+						}
+						u32 Type = INVALID_TYPE;
+						if(MemberIdx == 0)
+							Type = GetPointerTo(Basic_u8);
+						else
+							Type = Basic_int;
+
+						Filled[MemberIdx] = Item;
+						ExprTypes[MemberIdx] = ItemType;
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type, ItemType, NULL, &Item->Item.Expression);
 					} break;
 					default: unreachable;
 				}

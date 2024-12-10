@@ -5,12 +5,15 @@ main
 #import io
 #import str
 
-foo :: fn(T: type) -> T {
-	return null;
+struct Pos { x: int, y: int };
+
+find_path :: fn(map: int, f: Pos, at: int) -> bool {
+	return true;
 }
 
 main :: fn() -> i32 {
-
+    pos := Pos { 10, 10 };
+    if find_path(10, Pos { pos.x+1, pos.y }, at) io.println("YEP");
     num: u16 = 10;
     for n in num io.println("%", n);
 

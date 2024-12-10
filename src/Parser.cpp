@@ -639,6 +639,8 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 		RaiseError(*ErrorInfo, "Trying to call an invalid expression as a function");
 	}
 
+	b32 SaveSLists = Parser->NoStructLists;
+	Parser->NoStructLists = false;
 	dynamic<node *> Args = {};
 	EatToken(Parser, T_OPENPAREN);
 	while(PeekToken(Parser).Type != T_CLOSEPAREN)
@@ -656,6 +658,8 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 		}
 	}
 	EatToken(Parser, T_CLOSEPAREN);
+
+	Parser->NoStructLists = SaveSLists;
 	return MakeCall(ErrorInfo, Operand, SliceFromArray(Args));
 }
 

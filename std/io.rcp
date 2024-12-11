@@ -363,6 +363,13 @@ __internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
     return builder;
 }
 
+vsprint :: fn(str: string, args: []init.Arg) -> string {
+    builder := __internal_print(str, args);
+    res := builder_to_string(&builder);
+    array.free(&builder);
+    return string { data = &res[0], count = res.count };
+}
+
 sprint :: fn(str: string, args: ...) -> string {
     builder := __internal_print(str, args);
     res := builder_to_string(&builder);

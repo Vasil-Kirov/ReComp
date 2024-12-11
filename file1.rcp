@@ -11,12 +11,17 @@ find_path :: fn(map: int, f: Pos, at: int) -> bool {
 	return true;
 }
 
+print_proxy :: fn(fmt: string, args: ...) {
+    str := io.vsprint(fmt, args);
+    io.println(str);
+}
+
 main :: fn() -> i32 {
     pos := Pos { 10, 10 };
     if find_path(10, Pos { pos.x+1, pos.y }, 0) io.println("YEP");
     num: u16 = 10;
     str := io.sprint("foo: %\n", num);
-    io.print("%", str);
+    print_proxy("printing?: %", str);
 
     return 0;
 }

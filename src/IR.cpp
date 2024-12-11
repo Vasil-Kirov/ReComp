@@ -2138,7 +2138,7 @@ ir BuildIR(file *File, u32 StartRegister)
 
 	{
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FileIndex);
 		string GlobalFnName = MakeString(StrBuilder);
 		function GlobalInitializers = {};
 		GlobalInitializers.Name = DupeType(GlobalFnName, string);

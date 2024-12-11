@@ -16,7 +16,7 @@ struct CompileInfo {
     files: []string,
     opt: int,
     flags: u32,
-    target_triplet: string,
+    target_triple: string,
 }
 
 

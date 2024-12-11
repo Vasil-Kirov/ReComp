@@ -958,7 +958,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
 
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FIdx);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FIdx);
 		string BaseName = MakeString(StrBuilder);
 		string LinkName = StructToModuleName(BaseName, M->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
@@ -1004,6 +1004,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 						ConvertToLLVMType(Gen.ctx, s->Type));
 				LLVMSetLinkage(Fn, Linkage);
+				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.map.Add(s->IRRegister, Fn);
 				AddedFns.Add(LinkName, Fn);
@@ -1185,7 +1186,7 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 		int FileIndex = GetFileIndex(File->Module, File);
 
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FileIndex);
 		string GlobalInit = MakeString(StrBuilder);
 		string InitFnName = StructToModuleName(GlobalInit, File->Module->Name);
 		FileFns[Idx] = LLVMAddFunction(gen->mod, InitFnName.Data, FnType);

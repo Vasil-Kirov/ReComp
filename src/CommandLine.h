@@ -12,12 +12,15 @@ enum command_flags
 
 enum compile_flags
 {
-    CF_Debug       	= 0b000001,
-    CF_SanAdress   	= 0b000010,
-    CF_SanMemory   	= 0b000100,
-    CF_SanThread   	= 0b001000,
-    CF_SanUndefined	= 0b010000,
-    CF_NoStdLib		= 0b100000,
+    CF_Debug       	= 0b000000001,
+    CF_SanAdress   	= 0b000000010,
+    CF_SanMemory   	= 0b000000100,
+    CF_SanThread   	= 0b000001000,
+    CF_SanUndefined	= 0b000010000,
+    CF_NoStdLib		= 0b000100000,
+    CF_SharedLib	= 0b001000000,
+	CF_CrossAndroid = 0b010000000,
+	CF_NoLink	    = 0b100000000,
 };
 
 struct command_line

@@ -2456,7 +2456,7 @@ string MakeNonGenericName(string GenericName)
 	b32 IsNameGeneric = false;
 	for(int i = 0; i < GenericName.Size; ++i)
 	{
-		if(GenericName.Data[i] == '@')
+		if(GenericName.Data[i] == ':')
 		{
 			IsNameGeneric = true;
 			break;
@@ -2468,7 +2468,7 @@ string MakeNonGenericName(string GenericName)
 	string_builder Builder = MakeBuilder();
 	for(int i = 0; i < GenericName.Size; ++i)
 	{
-		if(GenericName.Data[i] == '@')
+		if(GenericName.Data[i] == ':')
 			break;
 
 		Builder += GenericName.Data[i];
@@ -2483,7 +2483,7 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 	const type *T = GetType(FnTypeNonGeneric);
 	string_builder Builder = MakeBuilder();
 	Builder += BaseName;
-	Builder += '@';
+	Builder += ':';
 	for(int i = 0; i < T->Function.ArgCount; ++i)
 	{
 		if(IsGeneric(FG->Function.Args[i]))
@@ -2497,19 +2497,19 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 			const type *RG = GetType(ResolvedGenericID);
 			if(RG->Kind == TypeKind_Struct)
 			{
-				Builder += "@@";
+				Builder += "::";
 				ForArray(Idx, RG->Struct.Members)
 				{
 					Builder += GetTypeNameAsString(RG->Struct.Members[Idx].Type);
 					Builder += '_';
 				}
-				Builder += "@@";
+				Builder += "::";
 			}
 		}
 		Builder += GetTypeNameAsString(T->Function.Args[i]);
 		Builder += '_';
 	}
-	Builder += '@';
+	Builder += ':';
 	if(T->Function.Return == INVALID_TYPE)
 		Builder += "void";
 	else

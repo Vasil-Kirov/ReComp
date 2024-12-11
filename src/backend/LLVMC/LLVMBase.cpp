@@ -1,4 +1,5 @@
 #include "LLVMBase.h"
+#include "Interpreter.h"
 #include "Module.h"
 #include "Parser.h"
 #include "Semantics.h"
@@ -888,7 +889,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module*> Modules, slice<file*> Files, int OptimizationLevel, u32 CompileFlags)
+void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module*> Modules, slice<file*> Files, compile_info *Info)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -902,7 +903,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 	char *FileDirectory = NULL;
 	GetNameAndDirectory(&FileName, &FileDirectory, M->Files[0]->Name);
 	LLVMSetSourceFileName(Gen.mod, FileName, strlen(FileName));
-	LLVMSetTarget(Gen.mod, LLVMGetDefaultTargetTriple());
+	LLVMSetTarget(Gen.mod, Info->TargetTriple.Data);
 	Gen.map = {};
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
 	Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
@@ -1061,9 +1062,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 
 	LLVMDIBuilderFinalize(Gen.dbg);
 
-
-
-	RunOptimizationPasses(&Gen, Machine.Target, OptimizationLevel, CompileFlags);
+	RunOptimizationPasses(&Gen, Machine.Target, Info->Optimization, Info->Flags);
 	RCEmitFile(Machine.Target, Gen.mod, M->Name, OutputBC);
 
 	LLVMDisposeDIBuilder(Gen.dbg);
@@ -1130,8 +1129,18 @@ void RCSetBlock(generator *gen, int Index)
 	LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[Index].Block);
 }
 
-llvm_init_info RCInitLLVM()
+llvm_init_info RCInitLLVM(compile_info *Info)
 {
+	const char *features = LLVMGetHostCPUFeatures();
+	if(Info->TargetTriple.Data == NULL)
+	{
+		Info->TargetTriple.Data = LLVMGetDefaultTargetTriple();
+		Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+	}
+	else
+	{
+		features = "";
+	}
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
     LLVMInitializeAllTargetMCs();
@@ -1141,8 +1150,11 @@ llvm_init_info RCInitLLVM()
 
 	LLVMTargetRef Target;
 	LLVMTargetMachineRef Machine;
-	LLVMGetTargetFromTriple(LLVMGetDefaultTargetTriple(), &Target, NULL);
-	Machine = LLVMCreateTargetMachine(Target, LLVMGetDefaultTargetTriple(), "generic", LLVMGetHostCPUFeatures(),
+	char *ErrorMessage = NULL;
+	if(LLVMGetTargetFromTriple(Info->TargetTriple.Data, &Target, &ErrorMessage)) {
+		LFATAL("Failed to find info for target triple %s\nLLVMError: %s", Info->TargetTriple.Data, ErrorMessage);
+	}
+	Machine = LLVMCreateTargetMachine(Target, Info->TargetTriple.Data, "generic", features,
 			LLVMCodeGenLevelNone, LLVMRelocDefault, LLVMCodeModelDefault);
 
 	llvm_init_info Result = {};
@@ -1189,11 +1201,11 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 	return MainFn;
 }
 
-void RCGenerateCode(slice<module*> Modules, slice<file*> Files, llvm_init_info Machine, b32 OutputBC, int OptimizatonLevel, u32 CompileFlags)
+void RCGenerateCode(slice<module*> Modules, slice<file*> Files, llvm_init_info Machine, b32 OutputBC, compile_info *Info)
 {
 	ForArray(Idx, Modules)
 	{
-		RCGenerateFile(Modules[Idx], Machine, OutputBC, Modules, Files, OptimizatonLevel, CompileFlags);
+		RCGenerateFile(Modules[Idx], Machine, OutputBC, Modules, Files, Info);
 		// @THREADING: NOT THREAD SAFE
 		LLVMClearTypeMap();
 	}

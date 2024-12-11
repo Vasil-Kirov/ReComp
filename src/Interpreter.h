@@ -5,6 +5,21 @@
 
 #define mmax(a, b) (a > b) ? a : b
 
+struct interp_string
+{
+	const char *Data;
+	size_t Count;
+};
+
+struct compile_info
+{
+	size_t FileCount;
+	interp_string *FileNames;
+	i64 Optimization;
+	u32 Flags;
+	interp_string TargetTriple;
+};
+
 enum interpret_result_kind
 {
 	INTERPRET_OK,

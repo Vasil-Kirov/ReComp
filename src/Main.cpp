@@ -450,20 +450,6 @@ main(int ArgCount, char *Args[])
 
 	Timers.Push(BuildTimers);
 
-	struct interp_string
-	{
-		const char *Data;
-		size_t Count;
-	};
-
-	struct compile_info
-	{
-		size_t FileCount;
-		interp_string *FileNames;
-		ssize_t Optimization;
-		u32 Flags;
-	};
-
 	compile_info *Info = NewType(compile_info);
 	value InfoValue = {};
 	InfoValue.Type = GetPointerTo(INVALID_TYPE);
@@ -491,6 +477,17 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer);
 
+			if(Info->Flags & CF_CrossAndroid)
+			{
+				PTarget = platform_target::UnixBased;
+				Info->Flags |= CF_SharedLib;
+				if(Info->TargetTriple.Data == NULL)
+				{
+					Info->TargetTriple.Data = "armv7-none-linux-androideabi";
+					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+				}
+			}
+
 			timers FileTimer = {};
 			dynamic<string> FileNames = {};
 			for(int i = 0; i < Info->FileCount; ++i)
@@ -503,8 +500,8 @@ main(int ArgCount, char *Args[])
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			llvm_init_info Machine = RCInitLLVM();
-			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm, Info->Optimization, Info->Flags);
+			llvm_init_info Machine = RCInitLLVM(Info);
+			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm, Info);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -535,17 +532,21 @@ main(int ArgCount, char *Args[])
 
 
 	auto LinkTimer = VLibStartTimer("Linking");
-	system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);
-
-	/* Clean up */
-	ForArray(Idx, ModuleArray)
+	if(Info->Flags & CF_NoLink) {}
+	else
 	{
-		string_builder Builder = MakeBuilder();
-		Builder += ModuleArray[Idx]->Name;
-		Builder += ".obj";
-		string Path = MakeString(Builder);
-		if(!PlatformDeleteFile(Path.Data)) {
-			LDEBUG("Failed to detel file: %s", Path.Data);
+		system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);
+
+		/* Clean up */
+		ForArray(Idx, ModuleArray)
+		{
+			string_builder Builder = MakeBuilder();
+			Builder += ModuleArray[Idx]->Name;
+			Builder += ".obj";
+			string Path = MakeString(Builder);
+			if(!PlatformDeleteFile(Path.Data)) {
+				LDEBUG("Failed to detel file: %s", Path.Data);
+			}
 		}
 	}
 	VLibStopTimer(&LinkTimer);

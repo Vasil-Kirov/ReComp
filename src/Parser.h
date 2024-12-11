@@ -58,6 +58,7 @@ enum node_type
 	AST_DEFER,
 	AST_SCOPE,
 	AST_CONTINUE,
+	AST_PTRDIFF,
 
 	AST_EMBED
 };
@@ -71,6 +72,11 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Left;
+			node *Right;
+			u32 Type; // Set by semantic analyzer
+		} PtrDiff;
 		struct {
 
 		} Continue;
@@ -274,6 +280,7 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression);
 node *MakeUnary(const error_info *ErrorInfo, node *Operand, token_type Op);
 node *MakeConstant(const error_info *ErrorInfo, const_value Value);
 node *MakePointerType(const error_info *ErrorInfo, node *Pointed);
+node *MakePointerDiff(const error_info *ErrorInfo, node *Left, node *Right, u32 Type);
 node *ParseTopLevel(parser *Parser);
 node *ParseType(parser *Parser, b32 ShouldError = true);
 node *CopyASTNode(node *N);

@@ -65,6 +65,16 @@ node *MakeCase(const error_info *ErrorInfo, node *Value, slice<node *> Body)
 	return Result;
 }
 
+node *MakePointerDiff(const error_info *ErrorInfo, node *Left, node *Right, u32 Type)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_PTRDIFF);
+	Result->PtrDiff.Left = Left;
+	Result->PtrDiff.Right = Right;
+	Result->PtrDiff.Type = Type;
+
+	return Result;
+}
+
 node *MakeMatch(const error_info *ErrorInfo, node *Expression, slice<node *> Cases)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_MATCH);
@@ -1789,6 +1799,13 @@ node *CopyASTNode(node *N)
 		{
 			R->TypeInfoLookup.Type = N->TypeInfoLookup.Type;
 			R->TypeInfoLookup.Expression = CopyASTNode(N->TypeInfoLookup.Expression);
+		} break;
+
+		case AST_PTRDIFF:
+		{
+			R->PtrDiff.Left = CopyASTNode(N->PtrDiff.Left);
+			R->PtrDiff.Right = CopyASTNode(N->PtrDiff.Right);
+			R->PtrDiff.Type = N->PtrDiff.Type;
 		} break;
 	}
 

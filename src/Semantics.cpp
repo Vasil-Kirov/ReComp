@@ -1537,6 +1537,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			}
 		}
 
+
 		if(Expr->Binary.Op != '=')
 			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
 		else
@@ -1660,8 +1661,26 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 			memcpy(BinaryExpression, OverwriteIndex, sizeof(node));
 		}
+		else if(LeftType->Kind == TypeKind_Pointer && RightType->Kind == TypeKind_Pointer && BinaryExpression->Binary.Op == '-')
+		{
+			if(LeftType->Pointer.Pointed != RightType->Pointer.Pointed)
+			{
+				const char *LeftName = LeftType->Pointer.Pointed == INVALID_TYPE ? "void" : GetTypeName(LeftType->Pointer.Pointed);
+				const char *RightName = RightType->Pointer.Pointed == INVALID_TYPE ? "void" : GetTypeName(RightType->Pointer.Pointed);
+				RaiseError(*Expr->ErrorInfo, "Cannot do a pointer diff between 2 pointers of different types %s and %s",
+						LeftName, RightName);
+			}
+			node *OverwritePtrDiff = MakePointerDiff(BinaryExpression->ErrorInfo,
+					BinaryExpression->Binary.Left, BinaryExpression->Binary.Right, Left);
 
-		Expr->Binary.ExpressionType = Promoted;
+			memcpy(BinaryExpression, OverwritePtrDiff, sizeof(node));
+			Result = Basic_int;
+		}
+		else
+		{
+			Expr->Binary.ExpressionType = Promoted;
+		}
+
 		return Result;
 	}
 	else

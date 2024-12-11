@@ -861,6 +861,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 			}
 		}break;
+		case AST_PTRDIFF:
+		{
+			u32 Left = BuildIRFromExpression(Builder, Node->PtrDiff.Left);
+			u32 Right = BuildIRFromExpression(Builder, Node->PtrDiff.Right);
+			Result = PushInstruction(Builder, Instruction(OP_PTRDIFF, Left, Right, Node->PtrDiff.Type, Builder));
+		} break;
 		case AST_INDEX:
 		{
 			const type *Type = GetType(Node->Index.OperandType);
@@ -2392,6 +2398,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				PushBuilderFormated(Builder, "MEMSET %%%d", Instr.Right);
 			} break;
+			case OP_PTRDIFF:
+			{
+				PushBuilderFormated(Builder, "%%%d = PTR DIFF %%%d, %%%d", Instr.Result, Instr.Left, Instr.Right);
+			} break;
 			case OP_ARG:
 			{
 				PushBuilderFormated(Builder, "%%%d = ARG #%d", Instr.Result, Instr.BigRegister);
@@ -2642,6 +2652,7 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_DEBUGINFO:
 		{
 		} break;
+		OP_ALL(OP_PTRDIFF);
 		case OP_SPILL:
 		case OP_TOPHYSICAL:
 		case OP_COUNT: unreachable;

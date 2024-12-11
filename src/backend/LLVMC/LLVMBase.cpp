@@ -236,6 +236,16 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			gen->map.Add(I.Result, Value);
 
 		} break;
+		case OP_PTRDIFF:
+		{
+			LLVMValueRef LHS = gen->map.Get(I.Left);
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			const type *T = GetType(I.Type);
+			Assert(T->Kind == TypeKind_Pointer);
+			LLVMTypeRef Type = ConvertToLLVMType(gen->ctx, T->Pointer.Pointed);
+			LLVMValueRef Val = LLVMBuildPtrDiff2(gen->bld, Type, LHS, RHS, "");
+			gen->map.Add(I.Result, Val);
+		} break;
 		LLVM_BIN_OP(ADD, Add) break;
 		LLVM_BIN_OP(SUB, Sub) break;
 		LLVM_BIN_OP(MUL, Mul) break;

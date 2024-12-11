@@ -15,7 +15,8 @@ main :: fn() -> i32 {
     pos := Pos { 10, 10 };
     if find_path(10, Pos { pos.x+1, pos.y }, 0) io.println("YEP");
     num: u16 = 10;
-    for n in num io.println("%", n);
+    str := io.sprint("foo: %\n", num);
+    io.print("%", str);
 
     return 0;
 }

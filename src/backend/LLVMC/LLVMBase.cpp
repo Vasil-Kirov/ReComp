@@ -1154,8 +1154,13 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	if(LLVMGetTargetFromTriple(Info->TargetTriple.Data, &Target, &ErrorMessage)) {
 		LFATAL("Failed to find info for target triple %s\nLLVMError: %s", Info->TargetTriple.Data, ErrorMessage);
 	}
+
+	LLVMRelocMode reloc = LLVMRelocDefault;
+	if(Info->Flags & CF_CrossAndroid)
+		reloc = LLVMRelocPIC;
+
 	Machine = LLVMCreateTargetMachine(Target, Info->TargetTriple.Data, "generic", features,
-			LLVMCodeGenLevelNone, LLVMRelocDefault, LLVMCodeModelDefault);
+			LLVMCodeGenLevelNone, reloc, LLVMCodeModelDefault);
 
 	llvm_init_info Result = {};
 	Result.Context = LLVMContextCreate();

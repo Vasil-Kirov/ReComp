@@ -15,8 +15,8 @@ enum CompileFlag: u32 {
 enum Arch: u32 {
     x86_64      = 0b000,
     x86         = 0b001,
-    Arm64       = 0b010,
-    Arm32       = 0b100,
+    Arm32       = 0b010,
+    Arm64       = 0b100,
 }
 
 struct CompileInfo {

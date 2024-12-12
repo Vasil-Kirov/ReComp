@@ -11,6 +11,7 @@ compile :: fn() -> c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 0,
         flags = 0,
+        arch = c.Arch.Arm64
     };
 
    for f in out.files {

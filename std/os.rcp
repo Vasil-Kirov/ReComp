@@ -125,12 +125,12 @@ assert :: fn(cond: bool, reason: string) {
 )
 #elif arm64
 (
-    SYS_read    :: 63
-    SYS_write   :: 64
-    SYS_open    :: 56
-    SYS_mmap    :: 222
-    SYS_munmap  :: 215
-    SYS_exit    :: 93
+    SYS_read    :: 63;
+    SYS_write   :: 64;
+    SYS_open    :: 56;
+    SYS_mmap    :: 222;
+    SYS_munmap  :: 215;
+    SYS_exit    :: 93;
 )
 
 	syscall :: fn #foreign(number: int, args: ...) -> int;

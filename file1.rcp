@@ -7,7 +7,12 @@ main
         return 0;
     };
 )
-#elif arm64 ()
+#elif arm64
+(
+    main :: fn() -> i32 {
+        return 10;
+    }
+)
 #elif x86
 (
 

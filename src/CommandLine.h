@@ -23,6 +23,14 @@ enum compile_flags
 	CF_NoLink	    = 0b100000000,
 };
 
+enum arch
+{
+	Arch_x86_64	= 0b000,
+	Arch_x86	= 0b001,
+	Arch_arm32	= 0b010,
+	Arch_arm64	= 0b100,
+};
+
 struct command_line
 {
 	string BuildFile;

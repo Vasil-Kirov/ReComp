@@ -1,11 +1,23 @@
 main
 
-main :: fn() -> i32 {
-    x: **;
-    y: **;
+#if arm32
+(
+    foo :: fn () -> i32 {
 
-    return @i32 @int (x - y);
-}
+        return 0;
+    };
+)
+#elif arm64 ()
+#elif x86
+(
+
+    main :: fn() -> i32 {
+        x: **;
+        y: **;
+
+        return @i32 @int (x - y);
+    }
+)
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

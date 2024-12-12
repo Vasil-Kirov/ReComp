@@ -97,25 +97,45 @@ assert :: fn(cond: bool, reason: string) {
         return read - 2;
     }
 )
-
-#if Unix
+#elif Unix
 (
 #private
 		stdin  :: 0;
-		stdout :: 1;
-		stderr :: 2;
+        stdout :: 1;
+        stderr :: 2;
 
 #public
+#if x86
+(
 	SYS_read  	:: 0;
 	SYS_write  	:: 1;
 	SYS_open   	:: 2;
 	SYS_mmap   	:: 9;
 	SYS_munmap 	:: 11;
 	SYS_exit	:: 60;
+)
+#elif arm32
+(
+    SYS_read    :: 3;
+    SYS_write   :: 4;
+    SYS_open    :: 5;
+    SYS_mmap    :: 90;
+    SYS_munmap  :: 91;
+    SYS_exit    :: 1;
+)
+#elif arm64
+(
+    SYS_read    :: 63
+    SYS_write   :: 64
+    SYS_open    :: 56
+    SYS_mmap    :: 222
+    SYS_munmap  :: 215
+    SYS_exit    :: 93
+)
 
-	_system_call :: fn #foreign(number: int, args: ...) -> int;
+	syscall :: fn #foreign(number: int, args: ...) -> int;
 	print :: fn(data: *u8, count: u32) {
-		_system_call(SYS_write, 1, data, count);
+		syscall(SYS_write, 1, data, count);
 	}
 	
 	struct AllocCtx {
@@ -134,18 +154,19 @@ assert :: fn(cond: bool, reason: string) {
 	MAP_NORESERVE	:: 0x04000;
 
 	abort :: fn() {
-		_system_call(SYS_exit, 1);
+		syscall(SYS_exit, 1);
 	}
 
 	alloc :: fn(size: int) -> ?* {
-		myb_ctx := @?*AllocCtx _system_call(SYS_mmap,
+		myb_ctx := @?*AllocCtx syscall(SYS_mmap,
 		null,						// Address
 		size + size_of AllocCtx,	// Size
 		PROT_READ | PROT_WRITE,		// Prot
 		MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,	// Flags
 		-1,							// FD
 		0);							// Offset
-        if myb_ctx == null {
+        FAILED :: -1;
+        if myb_ctx == @?*void FAILED {
             return null;
         }
 
@@ -157,7 +178,7 @@ assert :: fn(cond: bool, reason: string) {
 
 	free :: fn(ptr: *) {
 		ctx := (@*AllocCtx ptr) - 1;
-		_system_call(SYS_munmap, ctx, ctx.size);
+		syscall(SYS_munmap, ctx, ctx.size);
 	}
 
     read_stdin_line :: fn(buffer: *, size: u32) -> u32 {
@@ -165,7 +186,7 @@ assert :: fn(cond: bool, reason: string) {
 		count := @u32 0;
 		for count < size {
 			c := @u8 0;
-			_system_call(SYS_read, stdin, &c, 1);
+			syscall(SYS_read, stdin, &c, 1);
 			if c == '\n' {
 				break;
 			}

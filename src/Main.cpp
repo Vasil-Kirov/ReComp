@@ -164,9 +164,11 @@ file *LexFile(string File, string *OutModuleName)
 	return Result;
 }
 
+dynamic<string> ConfigIDs = {};
+
 void ParseFile(file *File, dynamic<module*> Modules)
 {
-	parse_result Parse = ParseTokens(File);
+	parse_result Parse = ParseTokens(File, SliceFromArray(ConfigIDs));
 	File->Nodes = Parse.Nodes;
 	File->Imported = ResolveImports(Parse.Imports, Modules);
 	File->Checker = NewType(checker);
@@ -486,6 +488,27 @@ main(int ArgCount, char *Args[])
 					Info->TargetTriple.Data = "armv7-none-linux-androideabi";
 					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
 				}
+			}
+			else
+			{
+			}
+			
+			if(Info->Arch == Arch_x86_64)
+			{
+				ConfigIDs.Push(STR_LIT("x86"));
+				ConfigIDs.Push(STR_LIT("x64"));
+			}
+			else if(Info->Arch == Arch_x86)
+			{
+				ConfigIDs.Push(STR_LIT("x86"));
+			}
+			else if(Info->Arch == Arch_arm32)
+			{
+				ConfigIDs.Push(STR_LIT("arm32"));
+			}
+			else if(Info->Arch == Arch_arm64)
+			{
+				ConfigIDs.Push(STR_LIT("arm64"));
 			}
 
 			timers FileTimer = {};

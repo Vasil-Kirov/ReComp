@@ -9,7 +9,14 @@ enum CompileFlag: u32 {
 	NoStdLib	= 0b000100000,
     SharedLib   = 0b001000000,
     CrossAndroid= 0b010000000,
-    NoLink      = 0b100000000
+    NoLink      = 0b100000000,
+}
+
+enum Arch: u32 {
+    x86_64      = 0b000,
+    x86         = 0b001,
+    Arm64       = 0b010,
+    Arm32       = 0b100,
 }
 
 struct CompileInfo {
@@ -17,6 +24,7 @@ struct CompileInfo {
     opt: int,
     flags: u32,
     target_triple: string,
+    arch: Arch,
 }
 
 

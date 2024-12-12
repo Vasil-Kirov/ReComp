@@ -18,6 +18,7 @@ struct compile_info
 	i64 Optimization;
 	u32 Flags;
 	interp_string TargetTriple;
+	u32 Arch;
 };
 
 enum interpret_result_kind

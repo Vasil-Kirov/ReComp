@@ -362,7 +362,7 @@ token EatToken(parser *Parser, char C)
 	return EatToken(Parser, (token_type)C);
 }
 
-parse_result ParseTokens(file *F)
+parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 {
 	dynamic<node *>Nodes = {};
 
@@ -384,6 +384,11 @@ parse_result ParseTokens(file *F)
 		{
 			Parser.ConfigIDs.Push(STR_LIT("Unix"));
 		} break;
+	}
+
+	ForArray(Idx, ConfigIDs)
+	{
+		Parser.ConfigIDs.Push(ConfigIDs[Idx]);
 	}
 
 	size_t TokenCount = ArrLen(F->Tokens);
@@ -1489,29 +1494,18 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_CLOSEPAREN:
 		{
-			if(Parser->ExpectingCloseParen == 0)
-				RaiseError(Parser->Current->ErrorInfo, "Unexpected `)`");
-			Parser->ExpectingCloseParen--;
-		} break;
-		case T_PWDIF:
-		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token ID = EatToken(Parser, T_ID);
-			EatToken(Parser, T_OPENPAREN);
-			b32 IsTrue = false;
-			ForArray(Idx, Parser->ConfigIDs)
+
+			if(Parser->ExpectingCloseParen == 0)
+				RaiseError(*ErrorInfo, "Unexpected `)`");
+			Parser->ExpectingCloseParen--;
+			if(Parser->Current->Type == T_PWDELIF)
 			{
-				if(*ID.ID == Parser->ConfigIDs[Idx])
-				{
-					IsTrue = true;
-					break;
-				}
-			}
-			if(IsTrue)
-				Parser->ExpectingCloseParen++;
-			else
-			{
+				// skip it
+				GetToken(Parser);
+				EatToken(Parser, T_ID);
+				EatToken(Parser, T_OPENPAREN);
 				int depth = 1;
 				while(depth > 0)
 				{
@@ -1525,6 +1519,56 @@ node *ParseTopLevel(parser *Parser)
 						RaiseError(*ErrorInfo, "#if is not terminated");
 					}
 					GetToken(Parser);
+				}
+
+			}
+		} break;
+		case T_PWDELIF:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			RaiseError(*ErrorInfo, "#elif used without an accompanying #if");
+		} break;
+		case T_PWDIF:
+		{
+			while(true) {
+				ERROR_INFO;
+				GetToken(Parser);
+				token ID = EatToken(Parser, T_ID);
+				EatToken(Parser, T_OPENPAREN);
+				b32 IsTrue = false;
+				ForArray(Idx, Parser->ConfigIDs)
+				{
+					if(*ID.ID == Parser->ConfigIDs[Idx])
+					{
+						IsTrue = true;
+						break;
+					}
+				}
+				if(IsTrue)
+				{
+					Parser->ExpectingCloseParen++;
+					break;
+				}
+				else
+				{
+					int depth = 1;
+					while(depth > 0)
+					{
+						token_type Type = Parser->Current->Type;
+						if(Type == T_OPENPAREN)
+							depth++;
+						else if(Type == T_CLOSEPAREN)
+							depth--;
+						else if(Type == T_EOF)
+						{
+							RaiseError(*ErrorInfo, "#if is not terminated");
+						}
+						GetToken(Parser);
+					}
+
+					if(Parser->Current->Type != T_PWDELIF)
+						break;
 				}
 			}
 

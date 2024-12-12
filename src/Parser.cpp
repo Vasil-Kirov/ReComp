@@ -1522,6 +1522,8 @@ node *ParseTopLevel(parser *Parser)
 				}
 
 			}
+
+			Result = (node *)0x1;
 		} break;
 		case T_PWDELIF:
 		{

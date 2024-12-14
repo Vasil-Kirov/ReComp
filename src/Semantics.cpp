@@ -239,16 +239,26 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		case AST_FN:
 		{
 			type *FnType = AllocType(TypeKind_Function);
-			if(TypeNode->Fn.ReturnType)
-				FnType->Function.Return = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnType);
+			if(TypeNode->Fn.ReturnTypes.IsValid())
+			{
+				array<u32> Returns = array<u32>(TypeNode->Fn.ReturnTypes.Count);
+				ForArray(Idx, TypeNode->Fn.ReturnTypes)
+				{
+					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx]);
+				}
+
+				FnType->Function.Returns = SliceFromArray(Returns);
+			}
 			else
-				FnType->Function.Return = INVALID_TYPE;
+			{
+				FnType->Function.Returns = {};
+			}
 			FnType->Function.Flags = TypeNode->Fn.Flags;
 			FnType->Function.ArgCount = TypeNode->Fn.Args.Count;
 			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
-				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Decl.Type);
+				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode);
 			}
 			
 			return AddType(FnType);
@@ -433,7 +443,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	u32 Flags = FnNode->Fn.Flags;
 	ForArray(Idx, FnNode->Fn.Args)
 	{
-		if(FnNode->Fn.Args[Idx]->Decl.Type == NULL)
+		if(FnNode->Fn.Args[Idx]->Var.TypeNode == NULL)
 		{
 			Flags |= SymbolFlag_VarFunc;
 			if(Idx + 1 != FnNode->Fn.Args.Count)
@@ -455,13 +465,13 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
-		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Decl.Type);
+		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode);
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
 			Function.Args[I] = GetPointerTo(Function.Args[I]);
 		else if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
-			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Decl.ID);
+			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Var.Name);
 		}
 		else if(IsGeneric(T))
 		{
@@ -469,13 +479,31 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			Function.Flags |= SymbolFlag_Generic;
 		}
 	}
-	Function.Return = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnType);
-	if(Function.Return != INVALID_TYPE)
+
+	if(FnNode->Fn.ReturnTypes.IsValid())
 	{
-		if(IsGeneric(Function.Return))
+		array<u32> Returns = array<u32>(FnNode->Fn.ReturnTypes.Count);
+		ForArray(Idx, FnNode->Fn.ReturnTypes)
 		{
-			FnNode->Fn.Flags |= SymbolFlag_Generic;
-			Function.Flags |= SymbolFlag_Generic;
+			Returns[Idx] = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnTypes[Idx]);
+		}
+
+		Function.Returns = SliceFromArray(Returns);
+	}
+	else
+	{
+		Function.Returns = {};
+	}
+
+	if(Function.Returns.IsValid())
+	{
+		ForArray(Idx, Function.Returns)
+		{
+			if(IsGeneric(Function.Returns[Idx]))
+			{
+				FnNode->Fn.Flags |= SymbolFlag_Generic;
+				Function.Flags |= SymbolFlag_Generic;
+			}
 		}
 	}
 	
@@ -490,14 +518,14 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	if(FnNode->Fn.AlreadyAnalyzed)
 		return;
 
-	u32 Save = Checker->CurrentFnReturnTypeIdx;
+	slice<u32> Save = Checker->CurrentFnReturnTypeIdx;
 	if(!ScopeNode)
 		Checker->Scope.Push(AllocScope(FnNode, Checker->Scope.TryPeek()));
 	else
 		Checker->Scope.Push(AllocScope(ScopeNode, Checker->Scope.TryPeek()));
 
 	const type *FunctionType = GetType(FunctionTypeIdx);
-	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Return;
+	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Returns;
 
 	for(int I = 0; I < FunctionType->Function.ArgCount; ++I)
 	{
@@ -506,8 +534,8 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		const type *ArgT = GetType(FunctionType->Function.Args[I]);
 		if(IsFnOrPtr(ArgT))
 			flags |= SymbolFlag_Function;
-		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Decl.ID, Arg, flags);
-		Arg->Decl.Flags = flags;
+		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Var.Name, Arg, flags);
+		//Arg->Decl.Flags = flags;
 	}
 	if(FunctionType->Function.Flags & SymbolFlag_VarFunc && !IsForeign(FunctionType))
 	{
@@ -516,7 +544,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		u32 flags = SymbolFlag_Const;
 		u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
 		u32 Type = GetSliceType(ArgType);
-		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Decl.ID, NULL, flags);
+		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Var.Name, NULL, flags);
 
 	}
 
@@ -534,7 +562,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 
 	if(!FoundReturn && Body.Count != 0)
 	{
-		if(FunctionType->Function.Return != INVALID_TYPE)
+		if(FunctionType->Function.Returns.Count != 0)
 		{
 			RaiseError(*Body[Body.Count-1]->ErrorInfo, "Missing a return statement in function that returns a type");
 		}
@@ -586,6 +614,25 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			const type *Type = GetType(Result);
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
+		} break;
+		case AST_LIST:
+		{
+			array<u32> Ts(Expr->List.Nodes.Count);
+			uint At = 0;
+			For(Expr->List.Nodes)
+			{
+				Ts[At] = AnalyzeExpression(Checker, *it);
+				const type *T = GetType(Ts[At]);
+				if(IsUntyped(T))
+				{
+					RaiseError(*Expr->ErrorInfo, "Untyped expressions are not allowed in `,` lists. "
+							"You can cast the untyped values.");
+				}
+				At++;
+			}
+			Expr->List.Types = SliceFromArray(Ts);
+			Expr->List.WholeType = ReturnsToType(SliceFromArray(Ts));
+			Result = Expr->List.WholeType;
 		} break;
 		case AST_TYPEINFO:
 		{
@@ -1730,7 +1777,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 {
 	Assert(Node->Type == AST_DECL);
-	const string *ID = Node->Decl.ID;
+	//const string *ID = Node->Decl.ID;
 	u32 Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
 	if(Node->Decl.Expression)
 	{
@@ -1774,28 +1821,56 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 			RaiseError(*Node->ErrorInfo, "Expected either type or expression in variable declaration");
 		}
 	}
-	const type *TypePtr = GetType(Type);
-	if(IsUntyped(TypePtr))
+
+	const type *T = GetType(Type);
+	if(IsUntyped(T))
 	{
 		// @TODO: This being signed integer could result in some problems
 		// like:
 		// Foo := 0xFF_FF_FF_FF;
 		// Bar := $i32 Foo;
 		// This also happens in the AST_MATCH type checking
-		Type = UntypedGetType(TypePtr);
+		Type = UntypedGetType(T);
 		FillUntypedStack(Checker, Type);
 	}
 	Node->Decl.TypeIndex = Type;
-	if(IsFnOrPtr(TypePtr))
+	if(IsFnOrPtr(T))
 		Node->Decl.Flags |= SymbolFlag_Function;
 
-	if(NoAdd)
+	if(Node->Decl.LHS->Type == AST_LIST)
 	{
+		if(T->Kind != TypeKind_Struct || (T->Struct.Flags & StructFlag_FnReturn) == 0)
+		{
+			RaiseError(*Node->ErrorInfo,
+					"Left-hand side is a declaration list but right-hand does not yield multiple values");
+		}
+		slice<node *> Nodes = Node->Decl.LHS->List.Nodes;
+		uint At = 0;
+		For(Nodes)
+		{
+			if((*it)->Type != AST_ID)
+			{
+				RaiseError(*(*it)->ErrorInfo,
+						"Only identifiers are allowed in the left-hand side list of declaration");
+			}
+
+			AddVariable(Checker, (*it)->ErrorInfo, T->Struct.Members[At++].Type, (*it)->ID.Name, Node, Node->Decl.Flags);
+		}
+	}
+	else if(Node->Decl.LHS->Type == AST_ID)
+	{
+		if(!NoAdd)
+		{
+			AddVariable(Checker, Node->ErrorInfo, Type, Node->Decl.LHS->ID.Name, Node, Node->Decl.Flags);
+		}
 	}
 	else
 	{
-		AddVariable(Checker, Node->ErrorInfo, Type, ID, Node, Node->Decl.Flags);
+		// @NOTE: I don't think there is any way to get here
+		RaiseError(*Node->ErrorInfo, "Invalid left-hand side of declaration");
 	}
+
+
 	return Type;
 }
 
@@ -2120,12 +2195,13 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	array<struct_member> Members {Node->StructDecl.Members.Count};
 	ForArray(Idx, Node->StructDecl.Members)
 	{
-		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Decl.Type);
+		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Var.TypeNode);
 		Type = FixPotentialFunctionPointer(Type);
+
 		const type *T = GetType(Type);
 		if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
-			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Decl.ID);
+			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Var.Name);
 		}
 		else if(IsGeneric(T))
 		{
@@ -2135,7 +2211,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 			}
 		}
 
-		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Decl.ID;
+		Node->StructDecl.Members[Idx]->Var.Type = Type;
+		Members.Data[Idx].ID = *Node->StructDecl.Members[Idx]->Var.Name;
 		Members.Data[Idx].Type = Type;
 	}
 
@@ -2143,10 +2220,10 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	{
 		for(uint j = Idx + 1; j < Node->StructDecl.Members.Count; ++j)
 		{
-			if(*Node->StructDecl.Members[Idx]->Decl.ID == *Node->StructDecl.Members[j]->Decl.ID)
+			if(*Node->StructDecl.Members[Idx]->Var.Name == *Node->StructDecl.Members[j]->Var.Name)
 			{
 				RaiseError(*Node->ErrorInfo, "Invalid struct declaration, members #%d and #%d have the same name `%s`",
-						Idx, j, Node->StructDecl.Members[Idx]->Decl.ID->Data);
+						Idx, j, Node->StructDecl.Members[Idx]->Var.Name->Data);
 			}
 		}
 	}
@@ -2269,16 +2346,30 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_RETURN:
 		{
+			u32 FnRetTypeID = ReturnsToType(Checker->CurrentFnReturnTypeIdx);
 			if(Node->Return.Expression)
 			{
-				if(Checker->CurrentFnReturnTypeIdx == INVALID_TYPE)
+				if(Checker->CurrentFnReturnTypeIdx.Count == 0)
 				{
 					RaiseError(*Node->ErrorInfo, "Trying to return a value in a void function");
 				}
 				u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
 				const type *Type = GetType(Result);
-				const type *Return = GetType(Checker->CurrentFnReturnTypeIdx);
+				const type *Return = GetType(FnRetTypeID);
 				const type *Promotion = NULL;
+
+				if(Checker->CurrentFnReturnTypeIdx.Count > 1)
+				{
+					if(Type->Kind != TypeKind_Struct || (Type->Struct.Flags & StructFlag_FnReturn) == 0)
+					{
+						RaiseError(*Node->ErrorInfo, "Function expects %d values to be returned but only 1 was provided", Checker->CurrentFnReturnTypeIdx.Count);
+					}
+					else if(Type->Struct.Members.Count != Checker->CurrentFnReturnTypeIdx.Count)
+					{
+						RaiseError(*Node->ErrorInfo, "Function expects %d values to be returned but %d were provided", Checker->CurrentFnReturnTypeIdx.Count, Type->Struct.Members.Count);
+					}
+				}
+
 				if(!IsTypeCompatible(Return, Type, &Promotion, true))
 				{
 RetErr:
@@ -2290,7 +2381,7 @@ RetErr:
 				}
 				if(Promotion)
 				{
-					promotion_description Promote = PromoteType(Promotion, Return, Type, Checker->CurrentFnReturnTypeIdx, Result);
+					promotion_description Promote = PromoteType(Promotion, Return, Type, FnRetTypeID, Result);
 					if(Promote.To == Result)
 						goto RetErr;
 					if(!IsUntyped(Type))
@@ -2301,11 +2392,11 @@ RetErr:
 					}
 				}
 			}
-			else if(Checker->CurrentFnReturnTypeIdx != INVALID_TYPE)
+			else if(Checker->CurrentFnReturnTypeIdx.Count != 0)
 			{
 				RaiseError(*Node->ErrorInfo, "Function expects a return value, invalid empty return!");
 			}
-			Node->Return.TypeIdx = Checker->CurrentFnReturnTypeIdx;
+			Node->Return.TypeIdx = FnRetTypeID;
 		} break;
 		case AST_SCOPE:
 		{
@@ -2399,7 +2490,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 	Checker->Nodes = NodesPtr;
 	Checker->Module = ThisModule;
 	Checker->Scope = {};
-	Checker->CurrentFnReturnTypeIdx = INVALID_TYPE;
+	Checker->CurrentFnReturnTypeIdx = {};
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
 
@@ -2426,23 +2517,69 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
-			string Name = *Node->Decl.ID;
 			u32 Type = AnalyzeDeclerations(Checker, Node, true);
-			symbol *Sym = NewType(symbol);
-			Sym->Checker = Checker;
-			Sym->Name = Node->Decl.ID;
-			Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
-			Sym->Type = Type;
-			Sym->Flags = Node->Decl.Flags;
-			Sym->Node = Node;
-			bool Success = Checker->Module->Globals.Add(*Node->Decl.ID, Sym);
-			if(!Success)
+			if(Node->Decl.LHS->Type == AST_ID)
 			{
-				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
-				Assert(Redifined);
-				RaiseError(*Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
-						Node->Fn.Name->Data,
-						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+				string Name = *Node->Decl.LHS->ID.Name;
+				symbol *Sym = NewType(symbol);
+				Sym->Checker = Checker;
+				Sym->Name = Node->Decl.LHS->ID.Name;
+				Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
+				Sym->Type = Type;
+				Sym->Flags = Node->Decl.Flags;
+				Sym->Node = Node;
+				bool Success = Checker->Module->Globals.Add(Name, Sym);
+				if(!Success)
+				{
+					symbol *Redifined = Checker->Module->Globals[Name];
+					Assert(Redifined);
+					RaiseError(*Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+							Name.Data,
+							Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+				}
+			}
+			else if(Node->Decl.LHS->Type == AST_LIST)
+			{
+				const type *T = GetType(Type);
+				if(T->Kind != TypeKind_Struct || (T->Struct.Flags & StructFlag_FnReturn) == 0)
+				{
+					RaiseError(*Node->ErrorInfo,
+							"Left-hand side is a declaration list but right-hand does not yield multiple values");
+				}
+
+				slice<node *> Nodes = Node->Decl.LHS->List.Nodes;
+				For(Nodes)
+				{
+					if((*it)->Type != AST_ID)
+					{
+						RaiseError(*(*it)->ErrorInfo,
+								"Only identifiers are allowed in the left-hand side list of declaration");
+					}
+					string Name = *(*it)->ID.Name;
+					symbol *Sym = NewType(symbol);
+					Sym->Checker = Checker;
+					Sym->Name = (*it)->ID.Name;
+					Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
+					Sym->Type = Type;
+					Sym->Flags = Node->Decl.Flags;
+					Sym->Node = Node;
+					bool Success = Checker->Module->Globals.Add(Name, Sym);
+					if(!Success)
+					{
+						symbol *Redifined = Checker->Module->Globals[Name];
+						Assert(Redifined);
+						RaiseError(*Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+								Name.Data,
+								Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+					}
+
+				}
+
+			}
+			else
+			{
+				// @NOTE: I don't think there is any way to get here
+				RaiseError(*Node->ErrorInfo, "Invalid left-hand side of declaration");
 			}
 		}
 	}
@@ -2503,8 +2640,13 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 	string_builder Builder = MakeBuilder();
 	Builder += BaseName;
 	Builder += ':';
+	Builder += '(';
 	for(int i = 0; i < T->Function.ArgCount; ++i)
 	{
+		if(i != 0)
+			Builder += ',';
+
+		b32 DontPrint = false;
 		if(IsGeneric(FG->Function.Args[i]))
 		{
 			u32 ResolvedGenericID = GetGenericPart(T->Function.Args[i], FG->Function.Args[i]);
@@ -2516,23 +2658,29 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 			const type *RG = GetType(ResolvedGenericID);
 			if(RG->Kind == TypeKind_Struct)
 			{
-				Builder += "::";
+				DontPrint = true;
+				Builder += GetTypeNameAsString(RG);
+				Builder += " {";
 				ForArray(Idx, RG->Struct.Members)
 				{
+					if(Idx != 0)
+						Builder += ',';
 					Builder += GetTypeNameAsString(RG->Struct.Members[Idx].Type);
-					Builder += '_';
 				}
-				Builder += "::";
+				Builder += "}";
 			}
 		}
-		Builder += GetTypeNameAsString(T->Function.Args[i]);
-		Builder += '_';
+		if(!DontPrint)
+			Builder += GetTypeNameAsString(T->Function.Args[i]);
 	}
-	Builder += ':';
-	if(T->Function.Return == INVALID_TYPE)
-		Builder += "void";
+	Builder += ')';
+	if(T->Function.Returns.Count == 0)
+		Builder += "->void";
 	else
-		Builder += GetTypeNameAsString(T->Function.Return);
+	{
+		Builder += "->";
+		Builder += GetTypeNameAsString(ReturnsToType(T->Function.Returns));
+	}
 	string Result = MakeString(Builder);
 	return DupeType(Result, string);
 }
@@ -2540,7 +2688,6 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 u32 FunctionTypeGetNonGeneric(const type *Old, u32 ResolvedType, node *Call, node *FnError)
 {
 	type *NewFT = AllocType(TypeKind_Function);
-	NewFT->Function.Return = Old->Function.Return;
 	NewFT->Function.Flags = Old->Function.Flags & ~SymbolFlag_Generic;
 	NewFT->Function.ArgCount = Old->Function.ArgCount;
 	NewFT->Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Old->Function.ArgCount);
@@ -2554,15 +2701,18 @@ u32 FunctionTypeGetNonGeneric(const type *Old, u32 ResolvedType, node *Call, nod
 		}
 		NewFT->Function.Args[i] = TypeIdx;
 	}
-	u32 TypeIdx = Old->Function.Return;
-	if(TypeIdx != INVALID_TYPE)
+	array<u32> Returns(Old->Function.Returns.Count);
+	uint At = 0;
+	For(Old->Function.Returns)
 	{
-		NewFT->Function.Return = ToNonGeneric(TypeIdx, ResolvedType, TypeIdx);
-		if(NewFT->Function.Return == INVALID_TYPE || IsGeneric(GetType(NewFT->Function.Return)))
+		Returns[At++] = ToNonGeneric(*it, ResolvedType, *it);
+		if(Returns[At-1] == INVALID_TYPE || IsGeneric(GetType(Returns[At-1])))
 		{
-			RaiseError(*FnError->ErrorInfo, "Couldn't resolve the generic return type of the function");
+			RaiseError(*FnError->ErrorInfo, "Couldn't resolve the generic return type of the function: %s",
+					GetTypeName(*it));
 		}
 	}
+	NewFT->Function.Returns = SliceFromArray(Returns);
 
 	return AddType(NewFT);
 }
@@ -2630,10 +2780,10 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						node *Arg = Expr->Call.Args[i];
 						if(ResolvedType != INVALID_TYPE)
 						{
-							if(ResolvedName.Data && ResolvedName != *FnSym->Node->Fn.Args[i]->Decl.ID)
+							if(ResolvedName.Data && ResolvedName != *FnSym->Node->Fn.Args[i]->Var.Name)
 								RaiseError(*Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
 						}
-						ResolvedName = *FnSym->Node->Fn.Args[i]->Decl.ID;
+						ResolvedName = *FnSym->Node->Fn.Args[i]->Var.Name;
 
 						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
 						GenericTypes.Push(ResolvedType);

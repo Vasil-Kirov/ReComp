@@ -120,6 +120,24 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ALLOC: // Handled before
 		{
 		} break;
+		case OP_ZEROUT:
+		{
+			LLVMValueRef Pointer = gen->map.Get(I.Right);
+			LLVMTypeRef LLVMT = ConvertToLLVMType(gen->ctx, I.Type);
+			if(IsLoadableType(I.Type))
+			{
+				LLVMValueRef Zero = LLVMConstNull(LLVMT);
+				LLVMBuildStore(gen->bld, Zero, Pointer);
+			}
+			else
+			{
+				LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
+				u64 Size = LLVMABISizeOfType(gen->data, LLVMT);
+				u64 Alignment = LLVMABIAlignmentOfType(gen->data, LLVMT);
+				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+				LLVMBuildMemSet(gen->bld, Pointer, Zero, ValueSize, Alignment);
+			}
+		} break;
 		case OP_ALLOCGLOBAL:
 		{
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
@@ -771,22 +789,6 @@ void RCGenerateFunction(generator *gen, function fn)
 				default: break;
 			}
 		}
-		LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
-		ForArray(InstrIdx, Block.Code)
-		{
-			instruction I = Block.Code[InstrIdx];
-			if(I.Op == OP_ALLOC)
-			{
-				uint Size = GetTypeSize(I.Type);
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-				uint Alignment = LLVMPreferredAlignmentOfType(gen->data, LLVMType);
-
-				LLVMValueRef LLVMSize = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), Size, false);
-				LLVMValueRef Ptr = gen->map.Get(I.Result);
-
-				LLVMBuildMemSet(gen->bld, Ptr, Zero, LLVMSize, Alignment);
-			}
-		}
 
 		
 	}
@@ -799,7 +801,8 @@ void RCGenerateFunction(generator *gen, function fn)
 	}
 	else
 	{
-		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(fn.Type)->Function.Return);
+		u32 Returns = ReturnsToType(GetType(fn.Type)->Function.Returns);
+		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(Returns);
 		gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
 		LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
 	}

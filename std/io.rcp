@@ -142,9 +142,13 @@ print_typetype :: fn(b: *[]u32, info: init.TypeInfo) {
                 }
             }
             push_string(b, ")");
-            if info.t.function.return_ != init.INVALID_TYPE {
+            if info.t.function.returns.count != 0 {
                 push_string(b, " -> ");
-                print_typetype(b, #info info.t.function.return_);
+                for t in info.t.function.returns {
+                    if i != 0
+                        push_string(b, ", ");
+                    print_typetype(b, #info t);
+                }
             }
         }
         init.TypeKind.Struct: {

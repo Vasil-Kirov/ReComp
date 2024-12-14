@@ -311,6 +311,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_NOP:
 			{
 			} break;
+			case OP_ZEROUT:
+			{
+				value *Value = VM->Registers.GetValue(I.Right);
+				memset(Value->ptr, 0, GetTypeSize(I.Type));
+			} break;
 			case OP_CONSTINT:
 			{
 				u64 Val = I.BigRegister;
@@ -903,7 +908,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 0
+#if 1
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{
@@ -913,7 +918,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
 
-	VM->IsCurrentFnRetInPtr = IsRetTypePassInPointer(GetType(Function.Type)->Function.Return);
+	VM->IsCurrentFnRetInPtr = IsRetTypePassInPointer(ReturnsToType(GetType(Function.Type)->Function.Returns));
 	VM->Stack.Push(Stack);
 
 	interpret_result Result = {};

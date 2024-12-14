@@ -297,16 +297,17 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 		case TypeKind_Function:
 		{
 			LLVMMetadataRef *ArgTypes = (LLVMMetadataRef *)VAlloc(sizeof(LLVMMetadataRef) * (CustomType->Function.ArgCount+1));
-			if(CustomType->Function.Return != INVALID_TYPE)
+			if(CustomType->Function.Returns.Count != 0)
 			{
-				const type *RetType = GetType(CustomType->Function.Return);
+				u32 Returns = ReturnsToType(CustomType->Function.Returns);
+				const type *RetType = GetType(Returns);
 				if(RetType->Kind == TypeKind_Function)
 				{
 					u32 FnPtr = GetPointerTo(INVALID_TYPE);
 					ArgTypes[0] = ToDebugTypeLLVM(gen,  FnPtr);
 				}
 				else
-					ArgTypes[0] = ToDebugTypeLLVM(gen, CustomType->Function.Return);
+					ArgTypes[0] = ToDebugTypeLLVM(gen, Returns);
 			}
 			else
 				ArgTypes[0] = NULL;
@@ -615,14 +616,14 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	int ArgCount = 0;
 
 	LLVMTypeRef ReturnType;
-	if(Type->Function.Return != INVALID_TYPE)
+	if(Type->Function.Returns.Count != 0)
 	{
-		const type *RT = GetType(Type->Function.Return);
-		if(IsRetTypePassInPointer(Type->Function.Return))
+		u32 Returns = ReturnsToType(Type->Function.Returns);
+		const type *RT = GetType(Returns);
+		if(IsRetTypePassInPointer(Returns))
 		{
 			ReturnType = LLVMVoidTypeInContext(Context);
-			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Type->Function.Return), 0);
-
+			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Returns), 0);
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
@@ -637,7 +638,7 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		}
 		else
 		{
-			ReturnType = ConvertToLLVMType(Context, Type->Function.Return);
+			ReturnType = ConvertToLLVMType(Context, Returns);
 		}
 	}
 	else

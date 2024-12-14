@@ -156,13 +156,74 @@ uint GetTypeCount()
 	return TypeCount;
 }
 
+void WriteFunctionReturnType(string_builder *b, slice<u32> Returns)
+{
+	if(Returns.Count == 0)
+		return;
+
+	if(Returns.Count == 1)
+	{
+		*b += GetTypeNameAsString(Returns[0]);
+		return;
+	}
+
+	*b += "{ ";
+	ForArray(Idx, Returns)
+	{
+		if(Idx != 0)
+			*b +=", ";
+		*b += GetTypeNameAsString(Returns[Idx]);
+	}
+	*b += " }";
+}
+
+u32 GetTypeForMultiReturn(slice<u32> Returns)
+{
+	string_builder b = MakeBuilder();
+	b += "return ";
+	WriteFunctionReturnType(&b, Returns);
+
+	string Lookup = MakeString(b);
+
+	u32 T = TypeMap[Lookup];
+	if(T != INVALID_TYPE)
+		return T;
+
+	array<struct_member> Members(Returns.Count);
+
+	ForArray(Idx, Returns)
+	{
+		Members[Idx] = struct_member {
+			.ID = STR_LIT(":arg:"),
+			.Type = Returns[Idx],
+		};
+	}
+
+	type *NewT = AllocType(TypeKind_Struct);
+	NewT->Struct.Name = Lookup;
+	NewT->Struct.Members = SliceFromArray(Members);
+	NewT->Struct.Flags = StructFlag_FnReturn;
+
+	return AddType(NewT);
+}
+
+u32 ReturnsToType(slice<u32> Returns)
+{
+	if(Returns.Count == 0)
+		return INVALID_TYPE;
+	if(Returns.Count == 1)
+		return Returns[0];
+
+	return GetTypeForMultiReturn(Returns);
+}
+
 u32 GetReturnType(const type *Type)
 {
 	Assert(Type->Kind == TypeKind_Function);
-	return Type->Function.Return;
+	return ReturnsToType(Type->Function.Returns);
 }
 
-u32 AddType(type *Type)
+u32 AddTypeWithName(type *Type, string Name)
 {
 	LockMutex();
 
@@ -170,11 +231,16 @@ u32 AddType(type *Type)
 	Assert(TypeCount < MAX_TYPES);
 	u32 Result = TypeCount - 1;
 
-	string TypeString = GetTypeNameAsString(Type);
-	TypeMap.Add(TypeString, Result);
+	TypeMap.Add(Name, Result);
 
 	UnlockMutex();
 	return Result;
+}
+
+u32 AddType(type *Type)
+{
+	string TypeString = GetTypeNameAsString(Type);
+	return AddTypeWithName(Type, TypeString);
 }
 
 void FillOpaqueStruct(u32 TypeIdx, type T)
@@ -532,16 +598,13 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 			if(Left->Function.ArgCount != Right->Function.ArgCount)
 				return false;
 
-			if(Left->Function.Return == INVALID_TYPE ||
-					Right->Function.Return == INVALID_TYPE)
+			if(Left->Function.Returns.Count != Right->Function.Returns.Count)
+				return false;
+
+			if(Left->Function.Returns.Count != 0)
 			{
-				if(Left->Function.Return != Right->Function.Return)
-					return false;
-			}
-			else
-			{
-				const type *RetLeft  = GetType(Left->Function.Return);
-				const type *RetRight = GetType(Right->Function.Return);
+				const type *RetLeft  = GetType(ReturnsToType(Left->Function.Returns));
+				const type *RetRight = GetType(ReturnsToType(Right->Function.Returns));
 				if(!TypesMustMatch(RetLeft, RetRight))
 					return false;
 			}
@@ -692,13 +755,18 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		{
 			if(Left->Function.ArgCount != Right->Function.ArgCount)
 				return false;
+			if(Left->Function.Returns.Count != Right->Function.Returns.Count)
+				return false;
 
-			const type *LeftReturn = GetType(Left->Function.Return);
-			const type *RightReturn = GetType(Right->Function.Return);
-			if((LeftReturn == NULL) != (RightReturn == NULL))
-				return false;
-			if(!TypesMustMatch(LeftReturn, RightReturn))
-				return false;
+			if(Left->Function.Returns.Count != 0)
+			{
+				const type *LeftReturn = GetType( ReturnsToType(Left->Function.Returns));
+				const type *RightReturn = GetType(ReturnsToType(Right->Function.Returns));
+				if((LeftReturn == NULL) != (RightReturn == NULL))
+					return false;
+				if(!TypesMustMatch(LeftReturn, RightReturn))
+					return false;
+			}
 
 			for(int Idx = 0; Idx < Left->Function.ArgCount; ++Idx)
 			{
@@ -901,8 +969,11 @@ string GetTypeNameAsString(const type *Type)
 					PushBuilder(&Builder, ", ");
 			}
 			PushBuilder(&Builder, ')');
-			if(Type->Function.Return != INVALID_TYPE)
-				PushBuilderFormated(&Builder, " -> %s", GetTypeName(Type->Function.Return));
+			if(Type->Function.Returns.Count != 0)
+			{
+				PushBuilderFormated(&Builder, " -> ");
+				WriteFunctionReturnType(&Builder, Type->Function.Returns);
+			}
 			return MakeString(Builder);
 		} break;
 		case TypeKind_Generic:
@@ -1168,19 +1239,31 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 				if(NArgs[i] != Type->Function.Args[i])
 					NeedsNew = true;
 			}
-			u32 RetTypeIdx = Type->Function.Return;
 
-			if(RetTypeIdx != INVALID_TYPE)
-				RetTypeIdx = ToNonGeneric(Type->Function.Return, Resolve, AR->Function.Return);
+			ForArray(Idx, Type->Function.Returns)
+			{
+				u32 RetTypeIdx = ToNonGeneric(Type->Function.Returns[Idx], Resolve, AR->Function.Returns[Idx]);
+				if(RetTypeIdx != Type->Function.Returns[Idx])
+				{
+					NeedsNew = true;
+					break;
+				}
+			}
 
-			if(RetTypeIdx != Type->Function.Return)
-				NeedsNew = true;
 			if(NeedsNew)
 			{
+				array<u32> Returns = Type->Function.Returns.Count;
+				u32 At = 0;
+				For(Type->Function.Returns)
+				{
+					Returns[At] = ToNonGeneric(*it, Resolve, AR->Function.Returns[At]);
+					At++;
+				}
+
 				type *NT = AllocType(TypeKind_Function);
 				*NT = *Type;
 				NT->Function.Args = NArgs;
-				NT->Function.Return = RetTypeIdx;
+				NT->Function.Returns = SliceFromArray(Returns);
 				NT->Function.Flags = Type->Function.Flags & ~SymbolFlag_Generic;
 				Result = AddType(NT);
 			}
@@ -1258,7 +1341,14 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 			}
 			if(Result == INVALID_TYPE)
 			{
-				Result = GetGenericPart(T->Function.Return, G->Function.Return);
+				ForArray(Idx, T->Function.Returns)
+				{
+					if(IsGeneric(G->Function.Returns[Idx]))
+					{
+						Result = GetGenericPart(T->Function.Returns[Idx], G->Function.Returns[Idx]);
+						break;
+					}
+				}
 			}
 		} break;
 		case TypeKind_Generic:
@@ -1312,8 +1402,14 @@ b32 IsGeneric(const type *Type)
 			}
 			if(!Result)
 			{
-				if(Type->Function.Return != INVALID_TYPE)
-					Result = IsGeneric(Type->Function.Return);
+				ForArray(Idx, Type->Function.Returns)
+				{
+					if(IsGeneric(Type->Function.Returns[Idx]))
+					{
+						Result = true;
+						break;
+					}
+				}
 			}
 		} break;
 		case TypeKind_Generic:
@@ -1449,6 +1545,11 @@ b32 IsTypeMatchable(const type *T)
 	}
 
 	return T->Kind == TypeKind_Enum;
+}
+
+b32 IsTypeMultiReturn(const type *T)
+{
+	return T->Kind == TypeKind_Struct && ((T->Struct.Flags & StructFlag_FnReturn) != 0);
 }
 
 b32 IsTypeIterable(const type *T)

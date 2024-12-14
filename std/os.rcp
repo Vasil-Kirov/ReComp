@@ -105,7 +105,7 @@ assert :: fn(cond: bool, reason: string) {
         stderr :: 2;
 
 #public
-#if x86
+#if x64
 (
 	SYS_read  	:: 0;
 	SYS_write  	:: 1;
@@ -113,6 +113,7 @@ assert :: fn(cond: bool, reason: string) {
 	SYS_mmap   	:: 9;
 	SYS_munmap 	:: 11;
 	SYS_exit	:: 60;
+    SYS_clock_gettime :: 228;
 )
 #elif arm32
 (
@@ -122,6 +123,7 @@ assert :: fn(cond: bool, reason: string) {
     SYS_mmap    :: 90;
     SYS_munmap  :: 91;
     SYS_exit    :: 1;
+    SYS_clock_gettime :: 263;
 )
 #elif arm64
 (
@@ -131,7 +133,14 @@ assert :: fn(cond: bool, reason: string) {
     SYS_mmap    :: 222;
     SYS_munmap  :: 215;
     SYS_exit    :: 93;
+    SYS_clock_gettime :: 113;
 )
+    CLOCK_MONOTONIC :: 1;
+
+    struct timespec {
+        tv_sec:     int,       //* seconds */
+        tv_nsec:    int,       //* nanoseconds */
+    };
 
 	syscall :: fn #foreign(number: int, args: ...) -> int;
 	print :: fn(data: *u8, count: u32) {

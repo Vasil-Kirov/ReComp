@@ -1,28 +1,18 @@
 main
 
-#if arm32
-(
-    foo :: fn () -> i32 {
+#import io
 
-        return 0;
-    };
-)
-#elif arm64
-(
-    main :: fn() -> i32 {
-        return 10;
-    }
-)
-#elif x86
-(
+give_nums :: fn() -> (i32, f32) {
+    return @i32 10, @f32 5.4;
+}
 
-    main :: fn() -> i32 {
-        x: **;
-        y: **;
+main :: fn() -> i32 {
+    foo, bar := give_nums();
 
-        return @i32 @int (x - y);
-    }
-)
+    io.println("% %", foo, bar);
+
+    return foo + @i32 bar;
+}
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

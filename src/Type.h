@@ -86,6 +86,7 @@ enum struct_flags
 	StructFlag_Packed = BIT(0),
 	StructFlag_Generic= BIT(1),
 	StructFlag_Union  = BIT(2),
+	StructFlag_FnReturn=BIT(3),
 };
 
 struct basic_type
@@ -116,7 +117,7 @@ struct slice_type
 
 struct function_type
 {
-	u32 Return;
+	slice<u32> Returns;
 	u32 *Args;
 	u32 Flags;
 	int ArgCount;
@@ -252,7 +253,10 @@ b32 IsTypeMatchable(const type *T);
 b32 IsTypeIterable(const type *T);
 b32 IsForeign(const type *T);
 b32 IsCString(const type *T);
+b32 IsTypeMultiReturn(const type *T);
 u32 UntypedGetType(const type *T);
+u32 ReturnsToType(slice<u32> Returns);
+void WriteFunctionReturnType(string_builder *b, slice<u32> Returns);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 

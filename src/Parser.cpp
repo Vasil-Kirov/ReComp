@@ -15,6 +15,23 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_VAR);
+	Result->Var.Name = Name;
+	Result->Var.TypeNode = Type;
+
+	return Result;
+}
+
+node *MakeList(const error_info *ErrorInfo, slice<node *> Nodes)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_LIST);
+	Result->List.Nodes = Nodes;
+
+	return Result;
+}
+
 node *MakeScope(const error_info *ErrorInfo, b32 IsUp)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_SCOPE);
@@ -245,12 +262,12 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, node *ReturnType, u32 Flags)
+node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_FN);
 	Result->Fn.LinkName = LinkName;
 	Result->Fn.Args = Args;
-	Result->Fn.ReturnType = ReturnType;
+	Result->Fn.ReturnTypes = ReturnTypes;
 	Result->Fn.Flags = Flags;
 	Result->Fn.AlreadyAnalyzed = false;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
@@ -298,10 +315,10 @@ node *MakeArrayType(const error_info *ErrorInfo, node *ID, node *Expression)
 	return Result;
 }
 
-node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags)
+node *MakeDecl(const error_info *ErrorInfo, node *LHS, node *Expression, node *MaybeType, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_DECL);
-	Result->Decl.ID = ID;
+	Result->Decl.LHS = LHS;
 	Result->Decl.Expression = Expression;
 	Result->Decl.Type = MaybeType;
 	Result->Decl.Flags = Flags;
@@ -372,6 +389,7 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	Parser.Current = F->Tokens;
 	Parser.ModuleName = F->Module->Name;
 	Parser.CurrentlyPublic = true;
+	Parser.NoItemLists = true;
 
 	using pt = platform_target;
 	switch(PTarget)
@@ -543,11 +561,14 @@ node *ParseFunctionArgument(parser *Parser)
 		EatToken(Parser, T_VARARG);
 	else
 		Type   = ParseType(Parser);
-	return MakeDecl(ErrorInfo, ID.ID, NULL, Type, SymbolFlag_Const);
+	return MakeVar(ErrorInfo, ID.ID, Type);
 }
 
 slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
 {
+	b32 SaveILists = Parser->NoItemLists;
+	Parser->NoItemLists = true;
+
 	dynamic<node *>Nodes{};
 	while(true)
 	{
@@ -566,6 +587,7 @@ slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(pars
 			GetToken(Parser);
 		}
 	}
+	Parser->NoItemLists = SaveILists;
 	return SliceFromArray(Nodes);
 }
 
@@ -601,14 +623,25 @@ node *ParseFunctionType(parser *Parser)
 		Args = Delimited(Parser, ',', ParseFunctionArgument);
 	EatToken(Parser, ')');
 
-	node *ReturnType = NULL;
+	dynamic<node *> ReturnTypes = {};
 	if(PeekToken(Parser).Type == T_ARR)
 	{
 		GetToken(Parser);
-		ReturnType = ParseType(Parser);
+		if(Parser->Current->Type == T_OPENPAREN)
+		{
+			do {
+				GetToken(Parser);
+				ReturnTypes.Push(ParseType(Parser));
+			} while(Parser->Current->Type == T_COMMA);
+			EatToken(Parser, T_CLOSEPAREN);
+		}
+		else
+		{
+			ReturnTypes.Push(ParseType(Parser));
+		}
 	}
 
-	return MakeFunction(ErrorInfo, LinkName, Args, ReturnType, Flags);
+	return MakeFunction(ErrorInfo, LinkName, Args, SliceFromArray(ReturnTypes), Flags);
 }
 
 void ParseBody(parser *Parser, dynamic<node *> &OutBody)
@@ -654,8 +687,10 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 		RaiseError(*ErrorInfo, "Trying to call an invalid expression as a function");
 	}
 
+	b32 SaveILists = Parser->NoItemLists;
 	b32 SaveSLists = Parser->NoStructLists;
 	Parser->NoStructLists = false;
+	Parser->NoItemLists = true;
 	dynamic<node *> Args = {};
 	EatToken(Parser, T_OPENPAREN);
 	while(PeekToken(Parser).Type != T_CLOSEPAREN)
@@ -675,6 +710,7 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 	EatToken(Parser, T_CLOSEPAREN);
 
 	Parser->NoStructLists = SaveSLists;
+	Parser->NoItemLists = SaveILists;
 	return MakeCall(ErrorInfo, Operand, SliceFromArray(Args));
 }
 
@@ -742,6 +778,8 @@ node *ParseList(parser *Parser, node *Operand)
 	return Result;
 }
 
+node *ParseOperand(parser *Parser);
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -768,6 +806,31 @@ node *ParseAtom(parser *Parser, node *Operand)
 					Operand = ParseList(Parser, Operand);
 				else
 					Loop = false;
+			} break;
+			case T_COMMA:
+			{
+				if(!Parser->NoItemLists)
+				{
+					Parser->NoItemLists = true;
+					ERROR_INFO;
+					dynamic<node *> Items = {};
+					Items.Push(Operand);
+					while(Parser->Current->Type == T_COMMA)
+					{
+						ERROR_INFO;
+						GetToken(Parser);
+						node *N = ParseExpression(Parser);
+						if(!N)
+						{
+							RaiseError(*ErrorInfo, "Invalid item after comma in list");
+						}
+						Items.Push(N);
+					}
+					Operand = MakeList(ErrorInfo, SliceFromArray(Items));
+					Parser->NoItemLists = false;
+				}
+				Loop = false;
+
 			} break;
 			default:
 			{
@@ -958,7 +1021,12 @@ node *ParseUnary(parser *Parser)
 		default: break;
 	}
 
+	b32 SaveILists = Parser->NoItemLists;
+	Parser->NoItemLists = true;
+
 	node *Operand = ParseOperand(Parser);
+
+	Parser->NoItemLists = SaveILists;
 	if(!Operand)
 	{
 		RaiseError(Token.ErrorInfo, "Expected operand in expression");
@@ -1071,14 +1139,11 @@ node *ParseExpression(parser *Parser)
 	return ParseExpression(Parser, -999);
 }
 
-node *ParseDeclaration(parser *Parser, b32 IsShadow)
+node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 {
 	b32 IsConst = false;
 
 	ERROR_INFO;
-	token ID = GetToken(Parser);
-	if(ID.Type != T_ID)
-		RaiseError(*ErrorInfo, "Expected decleration!");
 
 	token Decl = GetToken(Parser);
 	switch(Decl.Type)
@@ -1093,7 +1158,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 		} break;
 		default:
 		{
-			RaiseError(*ErrorInfo, "Expected decleration!");
+			RaiseError(*ErrorInfo, "Expected declaration!");
 		} break;
 	}
 
@@ -1115,7 +1180,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow)
 	if(HasExpression)
 		Expression = ParseExpression(Parser);
 	u32 Flags = IsConst ? SymbolFlag_Const : 0 | IsShadow ? SymbolFlag_Shadow : 0;
-	return MakeDecl(ErrorInfo, ID.ID, Expression, MaybeTypeNode, Flags);
+	return MakeDecl(ErrorInfo, LHS, Expression, MaybeTypeNode, Flags);
 }
 
 node *ParseNode(parser *Parser)
@@ -1134,6 +1199,7 @@ node *ParseNode(parser *Parser)
 			Result = MakeDefer(ErrorInfo, Body);
 			ExpectSemicolon = false;
 		} break;
+#if 0
 		case T_SHADOW:
 		{
 			GetToken(Parser);
@@ -1151,21 +1217,19 @@ node *ParseNode(parser *Parser)
 
 			Result = ParseDeclaration(Parser, true);
 		} break;
+#endif
 		case T_ID:
 		{
-			token Next = PeekToken(Parser, 1);
-			switch(Next.Type)
-			{
-				case T_DECL:
-				case T_CONST:
-				{
-					Result = ParseDeclaration(Parser, false);
-				} break;
-				default:
-				{
-					Result = ParseExpression(Parser);
-				} break;
-			}
+			b32 SaveILists = Parser->NoItemLists;
+			Parser->NoItemLists = false;
+
+			node *LHS = ParseExpression(Parser);
+			if(Parser->Current->Type == T_DECL || Parser->Current->Type == T_CONST)
+				Result = ParseDeclaration(Parser, false, LHS);
+			else
+				Result = LHS;
+
+			Parser->NoItemLists = SaveILists;
 		} break;
 		case T_BREAK:
 		{
@@ -1185,7 +1249,12 @@ node *ParseNode(parser *Parser)
 			GetToken(Parser);
 			node *Expr = NULL;
 			if(Parser->Current->Type != ';')
+			{
+				b32 Save = Parser->NoItemLists;
+				Parser->NoItemLists = false;
 				Expr = ParseExpression(Parser);
+				Parser->NoItemLists = Save;
+			}
 			Result = MakeReturn(ErrorInfo, Expr);
 		} break;
 		case T_IF:
@@ -1266,8 +1335,13 @@ node *ParseNode(parser *Parser)
 					node *ForExpr = NULL;
 					node *ForIncr = NULL;
 
-					if(PeekToken(Parser).Type != ';')
-						ForInit = ParseDeclaration(Parser, false);
+					if(PeekToken(Parser).Type != ';') {
+						b32 SaveILists = Parser->NoItemLists;
+						Parser->NoItemLists = false;
+						node *LHS = ParseExpression(Parser);
+						ForInit = ParseDeclaration(Parser, false, LHS);
+						Parser->NoItemLists = SaveILists;
+					}
 					EatToken(Parser, ';');
 
 					b32 nsl = Parser->NoStructLists;
@@ -1383,9 +1457,18 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_ID:
 		{
-			node *Decl = ParseDeclaration(Parser, false);
+			b32 SaveILists = Parser->NoItemLists;
+			Parser->NoItemLists = false;
+			node *LHS = ParseExpression(Parser);
+			node *Decl = ParseDeclaration(Parser, false, LHS);
+			Parser->NoItemLists = SaveILists;
 			if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
 			{
+				if(LHS->Type != AST_ID)
+				{
+					RaiseError(*LHS->ErrorInfo, "Expected a name on the left of function ");
+				}
+
 				node *Fn = Decl->Decl.Expression;
 				if(Fn == NULL)
 				{
@@ -1395,7 +1478,7 @@ node *ParseTopLevel(parser *Parser)
 				{
 					RaiseError(*Decl->ErrorInfo, "Global function declaration needs to be constant");
 				}
-				Fn->Fn.Name = Decl->Decl.ID;
+				Fn->Fn.Name = LHS->ID.Name;
 				if(Parser->CurrentlyPublic)
 					Fn->Fn.Flags |= SymbolFlag_Public;
 				if(!Fn->Fn.Body.IsValid())
@@ -1486,7 +1569,13 @@ node *ParseTopLevel(parser *Parser)
 			auto ParseFn = [](parser *P) -> node* {
 				if(P->Current->Type == T_ENDSCOPE)
 					return NULL;
-				return ParseDeclaration(P, false);
+				error_info *ErrorInfo = &P->Tokens[P->TokenIndex].ErrorInfo;
+
+				token ID = EatToken(P, T_ID);
+				EatToken(P, T_DECL);
+				node *Type = ParseType(P);
+				
+				return MakeVar(ErrorInfo, ID.ID, Type);
 			};
 			auto Name = StructToModuleNamePtr(*NameT.ID, Parser->ModuleName);
 			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn), IsStructUnion);
@@ -1610,14 +1699,26 @@ dynamic<node *> CopyNodeDynamic(dynamic<node *> Body)
 
 slice<node *> CopyNodeSlice(slice<node *> Body)
 {
-	dynamic<node *> Result = {};
+	array<node *> Result(Body.Count);
 	ForArray(Idx, Body)
 	{
-		Result.Push(CopyASTNode(Body[Idx]));
+		Result[Idx] = CopyASTNode(Body[Idx]);
 	}
 
 	return SliceFromArray(Result);
 }
+
+slice<u32> CopyTypeSlice(slice<u32> Body)
+{
+	array<u32> Result(Body.Count);
+	ForArray(Idx, Body)
+	{
+		Result[Idx] = Body[Idx];
+	}
+
+	return SliceFromArray(Result);
+}
+
 
 node *CopyASTNode(node *N)
 {
@@ -1631,6 +1732,18 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_VAR:
+		{
+			R->Var.Name = N->Var.Name;
+			R->Var.Type = N->Var.Type;
+			R->Var.TypeNode = CopyASTNode(N->Var.TypeNode);
+		} break;
+		case AST_LIST:
+		{
+			R->List.Nodes = CopyNodeSlice(N->List.Nodes);
+			R->List.Types = CopyTypeSlice(N->List.Types);
+			R->List.WholeType = N->List.WholeType;
+		} break;
 		case AST_EMBED:
 		{
 			R->Embed.IsString = N->Embed.IsString;
@@ -1690,7 +1803,7 @@ node *CopyASTNode(node *N)
 
 		case AST_DECL:
 		{
-			R->Decl.ID = N->Decl.ID;
+			R->Decl.LHS = CopyASTNode(N->Decl.LHS);
 			R->Decl.Expression = CopyASTNode(N->Decl.Expression);
 			R->Decl.Type = CopyASTNode(N->Decl.Type);
 			R->Decl.TypeIndex = N->Decl.TypeIndex;
@@ -1729,7 +1842,7 @@ node *CopyASTNode(node *N)
 			R->Fn.Name = N->Fn.Name;
 			R->Fn.Name = N->Fn.LinkName;
 			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
-			R->Fn.ReturnType = CopyASTNode(N->Fn.ReturnType);
+			R->Fn.ReturnTypes = CopyNodeSlice(N->Fn.ReturnTypes);
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);
 			R->Fn.TypeIdx = N->Fn.TypeIdx;
 			R->Fn.Flags = N->Fn.Flags;

@@ -45,6 +45,7 @@ enum op
 	OP_SPILL,
 	OP_TOPHYSICAL,
 	OP_PTRDIFF,
+	OP_ZEROUT,
 
 
 	OP_COUNT,
@@ -133,7 +134,7 @@ struct ir_symbol
 	const string *Name;
 	u32 Register;
 	u32 Type;
-	u32 Flags;
+	u32 _Flags;
 };
 
 struct function

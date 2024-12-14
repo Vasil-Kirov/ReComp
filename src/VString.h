@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <ctype.h>
 
 struct string
 {

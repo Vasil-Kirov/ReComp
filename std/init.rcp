@@ -91,7 +91,7 @@ struct StructType {
 }
 
 struct FunctionType {
-    return_: type,
+    returns: []type,
     args_t: []type,
 }
 

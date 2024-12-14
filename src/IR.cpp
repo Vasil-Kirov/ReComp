@@ -69,6 +69,17 @@ inline instruction InstructionStore(u32 Left, u32 Right, u32 Type)
 	return Result;
 }
 
+inline instruction InstructionZeroOut(u32 Ptr, u32 Type)
+{
+	instruction Result;
+	Result.Left = 0;
+	Result.Right = Ptr;
+	Result.Op = OP_ZEROUT;
+	Result.Type = Type;
+	Result.Result = Ptr;
+	return Result;
+}
+
 inline instruction Instruction(op Op, u32 Left, u32 Right, u32 ResultRegister, u32 Type)
 {
 	instruction Result;
@@ -115,7 +126,7 @@ void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type,
 	Local.Register = Register;
 	Local.Name  = Name;
 	Local.Type  = Type;
-	Local.Flags = Flags;
+	Local._Flags = Flags;
 	Function->Locals.Push(Local);
 }
 
@@ -459,6 +470,24 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
 		} break;
+		case AST_LIST:
+		{
+			u32 ResultPtr = PushInstruction(Builder,
+					Instruction(OP_ALLOC, -1, Node->List.WholeType, Builder));
+			array<u32> Expressions(Node->List.Nodes.Count);
+			ForArray(Idx, Node->List.Nodes)
+			{
+				Expressions[Idx] = BuildIRFromExpression(Builder, Node->List.Nodes[Idx], IsLHS);
+			}
+			ForArray(Idx, Expressions)
+			{
+				u32 MemPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, ResultPtr, Idx, Node->List.WholeType, Builder));
+				PushInstruction(Builder, InstructionStore(MemPtr, Expressions[Idx], Node->List.Types[Idx]));
+			}
+
+			Result = ResultPtr;
+		} break;
 		case AST_TYPEINFO:
 		{
 			string TableID = STR_LIT("__init_type_table");
@@ -598,13 +627,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			u32 ResultPtr = -1;
 			u32 ReturnedWrongType = -1;
-			if(Type->Function.Return != INVALID_TYPE)
+			if(Type->Function.Returns.Count != 0)
 			{
-				const type *RT = GetType(Type->Function.Return);
-				if(IsRetTypePassInPointer(Type->Function.Return))
+				u32 RTID = ReturnsToType(Type->Function.Returns);
+				const type *RT = GetType(RTID);
+				if(IsRetTypePassInPointer(RTID))
 				{
 					ResultPtr = PushInstruction(Builder,
-							Instruction(OP_ALLOC, -1, Type->Function.Return, Builder));
+							Instruction(OP_ALLOC, -1, RTID, Builder));
 					Args.Push(ResultPtr);
 				}
 				else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
@@ -716,9 +746,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 CallType = Node->Call.Type;
 			if(ReturnedWrongType != -1)
 			{
+				array<u32> Returns(1);
+				Returns[0] = ReturnedWrongType;
 				type *NT = AllocType(TypeKind_Function);
 				*NT = *Type;
-				NT->Function.Return = ReturnedWrongType;
+				NT->Function.Returns = SliceFromArray(Returns);
 				CallType = AddType(NT);
 			}
 
@@ -727,7 +759,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				Result = ResultPtr;
 			else if(ReturnedWrongType != -1)
 			{
-				u32 R = Type->Function.Return;
+				u32 R = ReturnsToType(Type->Function.Returns);
 				u32 Alloced = PushInstruction(Builder,
 						Instruction(OP_ALLOC, -1, R, Builder));
 				Result = PushInstruction(Builder,
@@ -1277,19 +1309,51 @@ u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx)
 void BuildIRFromDecleration(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_DECL);
-	u32 Var = -1;
-	if(Node->Decl.Expression)
+	if(Node->Decl.LHS->Type == AST_ID)
 	{
+		u32 Var = -1;
+		if(Node->Decl.Expression)
+		{
+			u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
+			Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
+		}
+		else
+		{
+			Var = PushInstruction(Builder,
+					Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
+			PushInstruction(Builder,
+					InstructionZeroOut(Var, Node->Decl.TypeIndex));
+		}
+		IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.LHS->ID.Name, Node->Decl.TypeIndex, Var);
+		PushIRLocal(Builder->Function, Node->Decl.LHS->ID.Name, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
+	}
+	else if(Node->Decl.LHS->Type == AST_LIST)
+	{
+		const type *T = GetType(Node->Decl.TypeIndex);
+
+		Assert(Node->Decl.Expression);
+		Assert(T->Kind == TypeKind_Struct);
+		Assert(T->Struct.Flags & StructFlag_FnReturn);
+
 		u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
-		Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
+		uint At = 0;
+		For(Node->Decl.LHS->List.Nodes)
+		{
+			Assert((*it)->Type == AST_ID);
+			u32 MemT = T->Struct.Members[At].Type;
+			u32 MemPtr = PushInstruction(Builder, 
+					Instruction(OP_INDEX, ExpressionRegister, At, Node->Decl.TypeIndex, Builder));
+			u32 Mem = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, MemPtr, MemT, Builder));
+
+			u32 Var = BuildIRStoreVariable(Builder, Mem, MemT);
+			IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *(*it)->ID.Name, MemT, Var);
+			PushIRLocal(Builder->Function, (*it)->ID.Name, Var, MemT, Node->Decl.Flags);
+
+			At++;
+		}
 	}
-	else
-	{
-		Var = PushInstruction(Builder,
-				Instruction(OP_ALLOC, -1, Node->Decl.TypeIndex, Builder));
-	}
-	IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.ID, Node->Decl.TypeIndex, Var);
-	PushIRLocal(Builder->Function, Node->Decl.ID, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
+	else unreachable;
 }
 
 void BuildIRBody(dynamic<node *> &Body, block_builder *Block, basic_block Then);
@@ -1820,9 +1884,10 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			Register = PushInstruction(&Builder,
 					InstructionStore(Alloc, Register, Type));
 
-			PushIRLocal(&Function, Args[Idx]->Decl.ID, Register,
-					Type, Args[Idx]->Decl.Flags);
-			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Decl.ID, Type);
+			Assert(Args[Idx]->Type == AST_VAR);
+			PushIRLocal(&Function, Args[Idx]->Var.Name, Register,
+					Type, 0); // @TODO: Flags?
+			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Var.Name, Type);
 		}
 
 		ForArray(Idx, Body)
@@ -1981,34 +2046,61 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 				u32 args_tPtr = PushInstruction(Builder, 
 						Instruction(OP_INDEX, tPtr, 1, FunctionTypeType, Builder)
 						);
-				PushInstruction(Builder, 
-						InstructionStore(return_Ptr, PushInt(T->Function.Return, Builder, Basic_type), Basic_type)
-						);
 
-				u32 SliceSize = PushInstruction(Builder, 
-						Instruction(OP_INDEX, args_tPtr, 0, TypeSlice, Builder)
-						);
-				u32 SliceData = PushInstruction(Builder, 
-						Instruction(OP_INDEX, args_tPtr, 1, TypeSlice, Builder)
-						);
-				u32 Alloc = PushInstruction(Builder, 
-						Instruction(OP_ALLOCGLOBAL, T->Function.ArgCount, Basic_type, Builder));
-				for(int Idx = 0; Idx < T->Function.ArgCount; ++Idx)
 				{
-					u32 MemberPtr = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), TypePointer, Builder)
+					u32 SliceSize = PushInstruction(Builder, 
+							Instruction(OP_INDEX, return_Ptr, 0, TypeSlice, Builder)
 							);
+					u32 SliceData = PushInstruction(Builder, 
+							Instruction(OP_INDEX, return_Ptr, 1, TypeSlice, Builder)
+							);
+					u32 Alloc = PushInstruction(Builder, 
+							Instruction(OP_ALLOCGLOBAL, T->Function.Returns.Count, Basic_type, Builder));
+					for(int Idx = 0; Idx < T->Function.Returns.Count; ++Idx)
+					{
+						u32 MemberPtr = PushInstruction(Builder, 
+								Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), TypePointer, Builder)
+								);
 
+						PushInstruction(Builder, 
+								InstructionStore(MemberPtr, PushInt(T->Function.Returns[Idx], Builder, Basic_type), Basic_type)
+								);
+					}
 					PushInstruction(Builder, 
-							InstructionStore(MemberPtr, PushInt(T->Function.Args[Idx], Builder, Basic_type), Basic_type)
+							InstructionStore(SliceSize, PushInt(T->Function.Returns.Count, Builder, Basic_int), Basic_int)
+							);
+					PushInstruction(Builder, 
+							InstructionStore(SliceData, Alloc, TypePointer)
 							);
 				}
-				PushInstruction(Builder, 
-						InstructionStore(SliceSize, PushInt(T->Function.ArgCount, Builder, Basic_int), Basic_int)
-						);
-				PushInstruction(Builder, 
-						InstructionStore(SliceData, Alloc, TypePointer)
-						);
+
+				{
+					u32 SliceSize = PushInstruction(Builder, 
+							Instruction(OP_INDEX, args_tPtr, 0, TypeSlice, Builder)
+							);
+					u32 SliceData = PushInstruction(Builder, 
+							Instruction(OP_INDEX, args_tPtr, 1, TypeSlice, Builder)
+							);
+					u32 Alloc = PushInstruction(Builder, 
+							Instruction(OP_ALLOCGLOBAL, T->Function.ArgCount, Basic_type, Builder));
+					for(int Idx = 0; Idx < T->Function.ArgCount; ++Idx)
+					{
+						u32 MemberPtr = PushInstruction(Builder, 
+								Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), TypePointer, Builder)
+								);
+
+						PushInstruction(Builder, 
+								InstructionStore(MemberPtr, PushInt(T->Function.Args[Idx], Builder, Basic_type), Basic_type)
+								);
+					}
+					PushInstruction(Builder, 
+							InstructionStore(SliceSize, PushInt(T->Function.ArgCount, Builder, Basic_int), Basic_int)
+							);
+					PushInstruction(Builder, 
+							InstructionStore(SliceData, Alloc, TypePointer)
+							);
+				}
+
 			} break;
 			case TypeKind_Pointer:
 			{
@@ -2157,7 +2249,7 @@ ir BuildIR(file *File, u32 StartRegister)
 			type *NT = AllocType(TypeKind_Function);
 			NT->Function.Args = NULL;
 			NT->Function.ArgCount = 0;
-			NT->Function.Return = INVALID_TYPE;
+			NT->Function.Returns = {};
 			NT->Function.Flags = 0;
 			GlobalInitializers.Type = AddType(NT);
 		}
@@ -2172,26 +2264,57 @@ ir BuildIR(file *File, u32 StartRegister)
 			node *Node = File->Nodes[I];
 			if(Node->Type == AST_DECL)
 			{
-				if(Node->Decl.Expression)
+				if(Node->Decl.LHS->Type == AST_ID)
 				{
+					const string *Name = Node->Decl.LHS->ID.Name;
+					if(Node->Decl.Expression)
+					{
+						u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
+						const ir_symbol *Sym = GetIRLocal(Builder.Function, Name);
+						Assert(Sym);
+						PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+					}
+					else if(*Name == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
+					{
+						uint TypeCount = GetTypeCount();
+						const ir_symbol *Sym = GetIRLocal(Builder.Function, Name);
+						Assert(Sym);
+						u32 TypeInfoType = FindStruct(STR_LIT("__init_TypeInfo"));
+						u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
+						u32 Data = PushInstruction(&Builder, 
+								Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
+						u32 Size = PushInt(TypeCount, &Builder);
+						BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
+						BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
+					}
+				}
+				else if(Node->Decl.LHS->Type == AST_LIST)
+				{
+					const type *T = GetType(Node->Decl.TypeIndex);
+
+					Assert(Node->Decl.Expression);
+					Assert(T->Kind == TypeKind_Struct);
+					Assert(T->Struct.Flags & StructFlag_FnReturn);
+
 					u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
-					const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
-					Assert(Sym);
-					PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
+					uint At = 0;
+					For(Node->Decl.LHS->List.Nodes)
+					{
+						Assert((*it)->Type == AST_ID);
+						u32 MemT = T->Struct.Members[At].Type;
+						u32 MemPtr = PushInstruction(&Builder, 
+								Instruction(OP_INDEX, Expr, 1, Node->Decl.TypeIndex, &Builder));
+						u32 Mem = PushInstruction(&Builder,
+								Instruction(OP_LOAD, 0, MemPtr, MemT, &Builder));
+
+						const ir_symbol *Sym = GetIRLocal(Builder.Function, (*it)->ID.Name);
+						Assert(Sym);
+						PushInstruction(&Builder, InstructionStore(Sym->Register, Mem, Node->Decl.TypeIndex));
+
+						At++;
+					}
 				}
-				else if(*Node->Decl.ID == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
-				{
-					uint TypeCount = GetTypeCount();
-					const ir_symbol *Sym = GetIRLocal(Builder.Function, Node->Decl.ID);
-					Assert(Sym);
-					u32 TypeInfoType = FindStruct(STR_LIT("__init_TypeInfo"));
-					u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
-					u32 Data = PushInstruction(&Builder, 
-							Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
-					u32 Size = PushInt(TypeCount, &Builder);
-					BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
-					BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
-				}
+				else unreachable;
 			}
 		}
 		PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
@@ -2253,6 +2376,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			case OP_NOP:
 			{
 				PushBuilder(Builder, "NOP");
+			} break;
+			case OP_ZEROUT:
+			{
+				PushBuilderFormated(Builder, "ZEROUT %%%d %s", Instr.Right, GetTypeName(Type));
 			} break;
 			case OP_CONSTINT:
 			{
@@ -2491,9 +2618,10 @@ string DissasembleFunction(function Fn, int indent)
 			PushBuilder(&Builder, ", ");
 	}
 	PushBuilder(&Builder, ')');
-	if(FnType->Function.Return != INVALID_TYPE)
+	if(FnType->Function.Returns.Count != 0)
 	{
-		PushBuilderFormated(&Builder, " -> %s", GetTypeName(FnType->Function.Return));
+		Builder += " -> ";
+		WriteFunctionReturnType(&Builder, FnType->Function.Returns);
 	}
 
 	if(Fn.Blocks.Count != 0)
@@ -2547,6 +2675,10 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		} break;
 		OP_RESULT(OP_CONSTINT);
 		OP_RESULT(OP_CONST);
+		case OP_ZEROUT:
+		{
+			out.Push(I.Right);
+		} break;
 		case OP_FN:
 		{
 			out.Push(I.Result);

@@ -3,6 +3,9 @@
 
 void RunOptimizationPasses(generator *g, LLVMTargetMachineRef T, int Level, u32 Flags)
 {
+	if(Level == 0)
+		return;
+
 	LLVMPassBuilderOptionsRef pb = LLVMCreatePassBuilderOptions();
 
 	// LLVMPassBuilderOptionsSetLoopInterleaving(
@@ -38,6 +41,7 @@ void RunOptimizationPasses(generator *g, LLVMTargetMachineRef T, int Level, u32 
 	dynamic<const char *> Passes = {};
 	switch(Level)
 	{
+		// @NOTE: currently not doing optimizations for level 0
 		case 0:
 		{
 			Passes.Push("always-inline");

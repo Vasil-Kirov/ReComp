@@ -59,6 +59,8 @@ enum node_type
 	AST_SCOPE,
 	AST_CONTINUE,
 	AST_PTRDIFF,
+	AST_LIST,
+	AST_VAR,
 
 	AST_EMBED
 };
@@ -72,6 +74,16 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			const string *Name;
+			node *TypeNode;
+			u32 Type; // Set by semantic analyzer
+		} Var;
+		struct {
+			slice<node *> Nodes;
+			slice<u32> Types; // Set by semantic analyzer
+			u32 WholeType; // Set by semantic analyzer
+		} List;
 		struct {
 			node *Left;
 			node *Right;
@@ -192,7 +204,7 @@ struct node
 			u32 Type;
 		} Constant;
 		struct {
-			const string *ID;
+			node *LHS;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable
 			u32 TypeIndex; // Set by semantic analyzer
@@ -202,7 +214,7 @@ struct node
 			const string *Name;
 			const string *LinkName; // @Nullable til semantic analysis
 			slice<node *> Args;
-			node *ReturnType; // @Nullable
+			slice<node *>ReturnTypes; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
 			struct module *FnModule;
 			function *IR; // @Nullable
@@ -253,6 +265,7 @@ struct parser
 	u64 TokenIndex;
 	b32 CurrentlyPublic;
 	b32 NoStructLists;
+	b32 NoItemLists;
 	uint ScopeLevel;
 	uint ExpectingCloseParen;
 };
@@ -270,7 +283,7 @@ node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
-node *MakeFunction(const error_info *ErrorInfo, slice<node *> Args, node *ReturnType, u32 Flags);
+node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags);
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags);
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
 node *MakeReserve(const error_info *ErrorInfo, reserved ID);

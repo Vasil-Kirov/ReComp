@@ -49,7 +49,7 @@ struct dynamic {
 		Count = 0;
 		Capacity = 0;
 	}
-	b32 IsValid() { return Data != NULL; }
+	b32 IsValid() const { return Data != NULL; }
 };
 
 template <typename T>
@@ -62,7 +62,7 @@ struct slice {
 		Assert(Index < Count);
 		return Data[Index];
 	}
-	b32 IsValid() { return Data != NULL; }
+	b32 IsValid() const { return Data != NULL; }
 };
 
 template <typename T>
@@ -122,4 +122,5 @@ slice<T> SliceFromConst(std::initializer_list<T> List)
 }
 
 #define ForArray(_Index, _Array) for(int _Index = 0; _Index < (_Array).Count; ++_Index)
+#define For(_Array) for(auto *it = _Array.Data; it - _Array.Data < _Array.Count; ++it)
 

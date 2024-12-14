@@ -46,7 +46,7 @@ struct checker
 	stack<u32 *> UntypedStack;
 	dynamic<node *> *Nodes;
 	dynamic<node *> GeneratedGlobalNodes;
-	u32 CurrentFnReturnTypeIdx;
+	slice<u32> CurrentFnReturnTypeIdx;
 };
 
 void AddFunctionToModule(checker *Checker, node *FnNode);

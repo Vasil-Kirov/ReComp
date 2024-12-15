@@ -542,7 +542,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		int I = FunctionType->Function.ArgCount;
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
+		u32 ArgType = FindStruct(STR_LIT("init.Arg"));
 		u32 Type = GetSliceType(ArgType);
 		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Var.Name, NULL, flags);
 
@@ -644,7 +644,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						GetTypeName(ExprType));
 			}
 			Expr->TypeInfoLookup.Type = ExprTypeIdx;
-			Result = FindStruct(STR_LIT("__init_TypeInfo"));
+			Result = FindStruct(STR_LIT("init.TypeInfo"));
 		} break;
 		case AST_MATCH:
 		{

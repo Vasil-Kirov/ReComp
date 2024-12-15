@@ -29,7 +29,6 @@ struct generator
 	int CurrentBlock;
 	int BlockCount;
 	b32 IsCurrentFnRetInPtr;
-	u32 StructMembersPassed;
 	dynamic<LLVMTypeEntry> LLVMTypeMap;
 	dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
 

@@ -1430,9 +1430,9 @@ string *StructToModuleNamePtr(string &StructName, string &ModuleName)
 string StructToModuleName(string &StructName, string &ModuleName)
 {
 	string_builder Builder = MakeBuilder();
-	Builder += "__";
+	//Builder += "";
 	Builder += ModuleName;
-	Builder += "_";
+	Builder += ".";
 	Builder += StructName;
 	return MakeString(Builder);
 }

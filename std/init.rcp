@@ -277,7 +277,7 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     return result;
 }
 
-main :: fn #link="__main_main"() -> i32;
+main :: fn #link="main.main"() -> i32;
 
 entry :: fn #link="main"() -> i32 {
     global_initializers();

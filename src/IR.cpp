@@ -490,7 +490,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_TYPEINFO:
 		{
-			string TableID = STR_LIT("__init_type_table");
+			string TableID = STR_LIT("init.type_table");
 			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
 			const ir_symbol *s = GetIRLocal(Builder->Function, &TableID);
 			u32 DataPtr = PushInstruction(Builder, 
@@ -654,7 +654,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(Type->Function.Flags & SymbolFlag_VarFunc &&
 					!IsForeign(Type))
 			{
-				VarArgT          = FindStruct(STR_LIT("__init_Arg"));
+				VarArgT          = FindStruct(STR_LIT("init.Arg"));
 				VarArgSliceType  = GetSliceType(VarArgT);
 				VarArgAlloc = PushInstruction(Builder, 
 						Instruction(OP_ALLOC, -1, VarArgSliceType, Builder));
@@ -1870,7 +1870,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			u32 Type = INVALID_TYPE;
 			if(Idx >= FnType->Function.ArgCount)
 			{
-				u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
+				u32 ArgType = FindStruct(STR_LIT("init.Arg"));
 				Type = GetSliceType(ArgType);
 			}
 			else
@@ -1915,22 +1915,22 @@ void WriteString(block_builder *Builder, u32 Ptr, string S)
 
 void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 TypeCount)
 {
-	u32 TypeInfoType = FindStruct(STR_LIT("__init_TypeInfo"));
-	u32 TypeKindType = FindEnum(STR_LIT("__init_TypeKind"));
+	u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
+	u32 TypeKindType = FindEnum(STR_LIT("init.TypeKind"));
 	//u32 TypeUnionType = FindStruct(STR_LIT("__init!TypeUnion"));
-	u32 BasicTypeType = FindStruct(STR_LIT("__init_BasicType"));
-	u32 StructTypeType   = FindStruct(STR_LIT("__init_StructType"));
-	u32 FunctionTypeType = FindStruct(STR_LIT("__init_FunctionType"));
-	u32 PointerTypeType  = FindStruct(STR_LIT("__init_PointerType"));
-	u32 ArrayTypeType    = FindStruct(STR_LIT("__init_ArrayType"));
-	u32 SliceTypeType    = FindStruct(STR_LIT("__init_SliceType"));
-	u32 EnumTypeType     = FindStruct(STR_LIT("__init_EnumType"));
-	u32 VectorTypeType   = FindStruct(STR_LIT("__init_VectorType"));
-	u32 GenericTypeType  = FindStruct(STR_LIT("__init_GenericType"));
+	u32 BasicTypeType = FindStruct(STR_LIT("init.BasicType"));
+	u32 StructTypeType   = FindStruct(STR_LIT("init.StructType"));
+	u32 FunctionTypeType = FindStruct(STR_LIT("init.FunctionType"));
+	u32 PointerTypeType  = FindStruct(STR_LIT("init.PointerType"));
+	u32 ArrayTypeType    = FindStruct(STR_LIT("init.ArrayType"));
+	u32 SliceTypeType    = FindStruct(STR_LIT("init.SliceType"));
+	u32 EnumTypeType     = FindStruct(STR_LIT("init.EnumType"));
+	u32 VectorTypeType   = FindStruct(STR_LIT("init.VectorType"));
+	u32 GenericTypeType  = FindStruct(STR_LIT("init.GenericType"));
 
-	u32 BasicKindType = FindEnum(STR_LIT("__init_BasicKind"));
-	u32 StructMemberType = FindStruct(STR_LIT("__init_StructMember"));
-	u32 VectorKindType = FindEnum(STR_LIT("__init_VectorKind"));
+	u32 BasicKindType = FindEnum(STR_LIT("init.BasicKind"));
+	u32 StructMemberType = FindStruct(STR_LIT("init.StructMember"));
+	u32 VectorKindType = FindEnum(STR_LIT("init.VectorKind"));
 	u32 SliceMemberType = GetSliceType(StructMemberType);
 	u32 PointerMemberType = GetPointerTo(StructMemberType);
 	u32 TypeSlice   = GetSliceType(Basic_type);
@@ -2236,7 +2236,7 @@ ir BuildIR(file *File, u32 StartRegister)
 
 	{
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FileIndex);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
 		string GlobalFnName = MakeString(StrBuilder);
 		function GlobalInitializers = {};
 		GlobalInitializers.Name = DupeType(GlobalFnName, string);
@@ -2279,7 +2279,7 @@ ir BuildIR(file *File, u32 StartRegister)
 						uint TypeCount = GetTypeCount();
 						const ir_symbol *Sym = GetIRLocal(Builder.Function, Name);
 						Assert(Sym);
-						u32 TypeInfoType = FindStruct(STR_LIT("__init_TypeInfo"));
+						u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
 						u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
 						u32 Data = PushInstruction(&Builder, 
 								Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));

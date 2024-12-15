@@ -23,3 +23,7 @@ compile :: fn() -> c.CompileInfo {
     return out;
 }
 
+after_link :: fn() {
+    io.println("Done!");
+}
+

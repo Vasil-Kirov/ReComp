@@ -843,8 +843,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			Value.Type = s->Type;
 			if(s->LinkName)
 			{
-				static const string GlobalInits = STR_LIT("__init_global_initializers");
-				static const string Main = STR_LIT("__main_main");
+				static const string GlobalInits = STR_LIT("init.global_initializers");
+				static const string Main = STR_LIT("main.main");
 				if(*s->LinkName == GlobalInits || *s->LinkName == Main)
 					continue;
 			}

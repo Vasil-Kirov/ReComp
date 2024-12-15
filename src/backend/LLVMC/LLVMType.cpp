@@ -662,7 +662,7 @@ LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID)
 		}
 		else
 		{
-			u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
+			u32 ArgType = FindStruct(STR_LIT("init.Arg"));
 			u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
 			ArgTypes[ArgCount++] = ConvertToLLVMType(g, VarArgType);
 		}

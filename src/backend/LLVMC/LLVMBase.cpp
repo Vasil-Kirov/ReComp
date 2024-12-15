@@ -347,6 +347,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.f_dbg = gen->f_dbg;
 			NewGen.data = gen->data;
 			NewGen.fn = LLVMFn;
+			NewGen.LLVMTypeMap = gen->LLVMTypeMap;
+			NewGen.LLVMDebugTypeMap = gen->LLVMDebugTypeMap;
 
 			gen->map.Add(I.Result, LLVMFn);
 			for(int i = 0; i < gen->map.Bottom; ++i)
@@ -976,7 +978,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
 
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FIdx);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FIdx);
 		string BaseName = MakeString(StrBuilder);
 		string LinkName = StructToModuleName(BaseName, M->Name);
 		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
@@ -1204,13 +1206,13 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 		int FileIndex = GetFileIndex(File->Module, File);
 
 		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction_%d", FileIndex);
+		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
 		string GlobalInit = MakeString(StrBuilder);
 		string InitFnName = StructToModuleName(GlobalInit, File->Module->Name);
 		FileFns[Idx] = LLVMAddFunction(gen->mod, InitFnName.Data, FnType);
 	}
 
-	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "__init_global_initializers", FnType);
+	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "init.global_initializers", FnType);
 	LLVMBasicBlockRef Block = LLVMAppendBasicBlockInContext(gen->ctx, MainFn, "only_block");
 	LLVMPositionBuilderAtEnd(gen->bld, Block);
 

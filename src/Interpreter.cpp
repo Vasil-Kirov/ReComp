@@ -908,7 +908,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 1
+#if 0
 	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
 	ForArray(Idx, Args)
 	{

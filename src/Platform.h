@@ -4,6 +4,10 @@
 #include "Log.h"
 
 
+typedef void *t_handle;
+typedef void *t_semaphore;
+
+typedef unsigned long (*t_proc)(void *);
 
 void PlatformWriteFile(const char *Path, u8 *Data, u32 Size); 
 string ReadEntireFile(string Path);
@@ -12,4 +16,15 @@ void *PlatformReserveMemory(size_t Size);
 void PlatformAllocateReserved(void *Memory, size_t Size);
 void PlatformOutputString(string String, log_level Level);
 b32 PlatformDeleteFile(const char *Path);
+t_handle PlatformCreateThread(t_proc Proc, void *PassValue);
+t_semaphore PlatformCreateSemaphore(uint MaxCount);
+void PlatformSleepOnSemaphore(t_semaphore);
+void PlatformSignalSemaphore(t_semaphore);
+
+
+#if _WIN32
+#define AtomicIncrement InterlockedIncrement 
+#else
+#error IMPLEMENT
+#endif
 

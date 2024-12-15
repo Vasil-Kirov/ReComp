@@ -523,8 +523,7 @@ main(int ArgCount, char *Args[])
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			llvm_init_info Machine = RCInitLLVM(Info);
-			RCGenerateCode(ModuleArray, FileArray, Machine, CommandLine.Flags & CommandFlag_llvm, Info);
+			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags & CommandFlag_llvm, Info);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},

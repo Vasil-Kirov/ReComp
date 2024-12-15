@@ -7,76 +7,74 @@
 #include "llvm-c/Core.h"
 #include "llvm-c/DebugInfo.h"
 
-dynamic<LLVMTypeEntry> LLVMTypeMap;
-dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
-
-LLVMTypeRef LLVMFindMapType(u32 ToFind)
+LLVMTypeRef LLVMFindMapType(generator *g, u32 ToFind)
 {
-	ForArray(Idx, LLVMTypeMap)
+	ForArray(Idx, g->LLVMTypeMap)
 	{
-		if(LLVMTypeMap[Idx].TypeID == ToFind)
+		if(g->LLVMTypeMap[Idx].TypeID == ToFind)
 		{
-			return LLVMTypeMap[Idx].LLVMRef;
+			return g->LLVMTypeMap[Idx].LLVMRef;
 		}
 	}
 	return NULL;
 }
 
-void LLVMMapType(u32 TypeID, LLVMTypeRef LLVMType)
+void LLVMMapType(generator *g, u32 TypeID, LLVMTypeRef LLVMType)
 {
 	LLVMTypeEntry Entry;
 	Entry.TypeID = TypeID;
 	Entry.LLVMRef = LLVMType;
-	LLVMTypeMap.Push(Entry);
+	g->LLVMTypeMap.Push(Entry);
 }
 
-void LLVMClearTypeMap()
+void LLVMClearTypeMap(generator *g)
 {
-	LLVMTypeMap.Count = 0;
+	g->LLVMTypeMap.Count = 0;
 }
 
-LLVMMetadataRef LLVMDebugFindMapType(u32 ToFind)
+LLVMMetadataRef LLVMDebugFindMapType(generator *g, u32 ToFind)
 {
-	ForArray(Idx, LLVMDebugTypeMap)
+	ForArray(Idx, g->LLVMDebugTypeMap)
 	{
-		if(LLVMDebugTypeMap[Idx].TypeID == ToFind)
+		if(g->LLVMDebugTypeMap[Idx].TypeID == ToFind)
 		{
-			return LLVMDebugTypeMap[Idx].Ref;
+			return g->LLVMDebugTypeMap[Idx].Ref;
 		}
 	}
 	return NULL;
 }
 
-void LLVMDebugMapType(u32 TypeID, LLVMMetadataRef LLVMType)
+void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType)
 {
 	LLVMDebugMetadataEntry Entry;
 	Entry.TypeID = TypeID;
 	Entry.Ref = LLVMType;
-	LLVMDebugTypeMap.Push(Entry);
+	g->LLVMDebugTypeMap.Push(Entry);
 }
 
-void LLVMDebugReMapType(u32 TypeID, LLVMMetadataRef LLVMType)
+void LLVMDebugReMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType)
 {
-	ForArray(Idx, LLVMDebugTypeMap)
+	ForArray(Idx, g->LLVMDebugTypeMap)
 	{
-		if(LLVMDebugTypeMap[Idx].TypeID == TypeID)
+		if(g->LLVMDebugTypeMap[Idx].TypeID == TypeID)
 		{
-			LLVMDebugTypeMap.Data[Idx].Ref = LLVMType;
+			g->LLVMDebugTypeMap.Data[Idx].Ref = LLVMType;
 			return;
 		}
 	}
 	unreachable;
 }
 
-void LLVMDebugClearTypeMap()
+void LLVMDebugClearTypeMap(generator *g)
 {
-	LLVMDebugTypeMap.Count = 0;
+	g->LLVMDebugTypeMap.Count = 0;
 }
 
-LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
+LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID) {
 	if(TypeID == INVALID_TYPE)
-		return LLVMVoidTypeInContext(Context);
+		return LLVMVoidTypeInContext(g->ctx);
 	const type *CustomType = GetType(TypeID);
+	LLVMContextRef Context = g->ctx;
 
 	Assert(Context);
 	Assert(CustomType);
@@ -112,7 +110,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 				case Basic_uint:
 				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
 				case Basic_string:
-				return LLVMFindMapType(TypeID);
+				return LLVMFindMapType(g, TypeID);
 				case Basic_type:
 				return LLVMIntTypeInContext(Context, GetRegisterTypeSize());
 				default:
@@ -122,21 +120,21 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 		case TypeKind_Array:
 		{
-			return LLVMArrayType2(ConvertToLLVMType(Context, CustomType->Array.Type), CustomType->Array.MemberCount);
+			return LLVMArrayType2(ConvertToLLVMType(g, CustomType->Array.Type), CustomType->Array.MemberCount);
 		} break;
 
 		case TypeKind_Slice:
 		{
-			LLVMTypeRef Result = LLVMFindMapType(TypeID);
+			LLVMTypeRef Result = LLVMFindMapType(g, TypeID);
 			if(Result == NULL)
 			{
 				LLVMTypeRef Members[] = {
-					ConvertToLLVMType(Context, Basic_int),
-					ConvertToLLVMType(Context, GetPointerTo(CustomType->Slice.Type)),
+					ConvertToLLVMType(g, Basic_int),
+					ConvertToLLVMType(g, GetPointerTo(CustomType->Slice.Type)),
 				};
 				Result = LLVMStructCreateNamed(Context, "slice");
 				LLVMStructSetBody(Result, Members, 2, false);
-				LLVMMapType(TypeID, Result);
+				LLVMMapType(g, TypeID, Result);
 			}
 
 			return Result;
@@ -144,12 +142,12 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 		case TypeKind_Function:
 		{
-			return LLVMCreateFunctionType(Context, TypeID);
+			return LLVMCreateFunctionType(g, TypeID);
 		} break;
 
 		case TypeKind_Struct:
 		{
-			return LLVMFindMapType(TypeID);
+			return LLVMFindMapType(g, TypeID);
 		} break;
 
 		case TypeKind_Vector:
@@ -169,14 +167,14 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 		case TypeKind_Enum:
 		{
-			return ConvertToLLVMType(Context, CustomType->Enum.Type);
+			return ConvertToLLVMType(g, CustomType->Enum.Type);
 		} break;
 
 		case TypeKind_Pointer:
 		{
 			if(CustomType->Pointer.Pointed == INVALID_TYPE)
 				return LLVMPointerType(LLVMVoidTypeInContext(Context), 0);
-			LLVMTypeRef Pointed = ConvertToLLVMType(Context, CustomType->Pointer.Pointed);
+			LLVMTypeRef Pointed = ConvertToLLVMType(g, CustomType->Pointer.Pointed);
 			return LLVMPointerType(Pointed, 0);
 		} break;
 
@@ -191,7 +189,7 @@ LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID) {
 
 LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 {
-	LLVMMetadataRef Found = LLVMDebugFindMapType(TypeID);
+	LLVMMetadataRef Found = LLVMDebugFindMapType(gen, TypeID);
 	if(Found)
 		return Found;
 
@@ -343,7 +341,7 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 		default: unreachable;
 	}
 	Assert(Made);
-	LLVMDebugMapType(TypeID, Made);
+	LLVMDebugMapType(gen, TypeID, Made);
 	return Made;
 }
 
@@ -381,7 +379,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 	   0);
 	   */
 
-	LLVMDebugMapType(TypeID, Made);
+	LLVMDebugMapType(gen, TypeID, Made);
 }
 
 LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
@@ -408,7 +406,7 @@ LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
 			Size, Align,
 			Elements, T->Enum.Members.Count,
 			NULL);
-	LLVMDebugMapType(TypeID, Made);
+	LLVMDebugMapType(gen, TypeID, Made);
 	return Made;
 }
 
@@ -443,28 +441,30 @@ LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 			NULL,
 			0);
 
-	LLVMDebugReMapType(TypeID, Made);
+	LLVMDebugReMapType(gen, TypeID, Made);
 	return Made;
 }
 
-void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID)
+void LLVMCreateOpaqueStructType(generator *g, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
-	Assert(Context);
+	Assert(g);
+	Assert(g->ctx);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
-	LLVMTypeRef Opaque = LLVMStructCreateNamed(Context, Type->Struct.Name.Data);
-	LLVMMapType(TypeID, Opaque);
+	LLVMTypeRef Opaque = LLVMStructCreateNamed(g->ctx, Type->Struct.Name.Data);
+	LLVMMapType(g, TypeID, Opaque);
 }
 
-LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
+LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID)
 {
 	const type *Type = GetType(TypeID);
+	LLVMContextRef Context = g->ctx;
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
 	Assert(Type);
 
-	LLVMTypeRef Opaque = LLVMFindMapType(TypeID);
+	LLVMTypeRef Opaque = LLVMFindMapType(g, TypeID);
 	Assert(Opaque);
 
 	if(Type->Struct.Flags & StructFlag_Union)
@@ -481,7 +481,7 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 				BiggestMemberTypeID = MemberType;
 			}
 		}
-		LLVMTypeRef BiggestType = ConvertToLLVMType(Context, BiggestMemberTypeID);
+		LLVMTypeRef BiggestType = ConvertToLLVMType(g, BiggestMemberTypeID);
 		LLVMStructSetBody(Opaque, &BiggestType, 1, Type->Struct.Flags & StructFlag_Packed);
 	}
 	else
@@ -490,7 +490,7 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 		LLVMTypeRef *MemberTypes = (LLVMTypeRef *)VAlloc(MemberCount * sizeof(LLVMTypeRef));
 		for (size_t Idx = 0; Idx < MemberCount; ++Idx) {
 			u32 MemberType = Type->Struct.Members[Idx].Type;
-			MemberTypes[Idx] = ConvertToLLVMType(Context, MemberType);
+			MemberTypes[Idx] = ConvertToLLVMType(g, MemberType);
 		}
 		LLVMStructSetBody(Opaque, MemberTypes, MemberCount, Type->Struct.Flags & StructFlag_Packed);
 		VFree(MemberTypes);
@@ -498,11 +498,11 @@ LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID)
 	return Opaque;
 }
 
-void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, const type *ArgType, LLVMTypeRef *Result, int *IdxOut)
+void LLVMFixFunctionComplexParameter(generator *g, u32 ArgTypeIdx, const type *ArgType, LLVMTypeRef *Result, int *IdxOut)
 {
 	if(ArgType->Kind != TypeKind_Struct)
 	{
-		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(g, ArgTypeIdx), 0);
 		*IdxOut = *IdxOut + 1;
 		return;
 	}
@@ -511,7 +511,7 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 	int Size = GetTypeSize(ArgType);
 	if(Size > MAX_PARAMETER_SIZE)
 	{
-		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+		Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(g, ArgTypeIdx), 0);
 		*IdxOut = *IdxOut + 1;
 		return;
 	}
@@ -526,13 +526,13 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 
 		for(int i = 0; i < ArgType->Struct.Members.Count / 2; ++i)
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, FloatVector);
+			Result[*IdxOut] = ConvertToLLVMType(g, FloatVector);
 			*IdxOut = *IdxOut + 1;
 		}
 
 		if(ArgType->Struct.Members.Count % 2 != 0)
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_f32);
+			Result[*IdxOut] = ConvertToLLVMType(g, Basic_f32);
 			*IdxOut = *IdxOut + 1;
 		}
 
@@ -572,19 +572,19 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 	{
 		case 8:
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u64);
+			Result[*IdxOut] = ConvertToLLVMType(g, Basic_u64);
 		} break;
 		case 4:
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u32);
+			Result[*IdxOut] = ConvertToLLVMType(g, Basic_u32);
 		} break;
 		case 2:
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u16);
+			Result[*IdxOut] = ConvertToLLVMType(g, Basic_u16);
 		} break;
 		case 1:
 		{
-			Result[*IdxOut] = ConvertToLLVMType(Context, Basic_u8);
+			Result[*IdxOut] = ConvertToLLVMType(g, Basic_u8);
 		} break;
 		default:
 		{
@@ -594,17 +594,18 @@ void LLVMFixFunctionComplexParameter(LLVMContextRef Context, u32 ArgTypeIdx, con
 				WarningGiven = true;
 				LWARN("Passing structs of size %d to functions is not properly supported, if it's used to interface with other languages, it will result in unspecified behavior", Size);
 			}
-			Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(Context, ArgTypeIdx), 0);
+			Result[*IdxOut] = LLVMPointerType(ConvertToLLVMType(g, ArgTypeIdx), 0);
 		} break;
 	}
 	*IdxOut = *IdxOut + 1;
 }
 
-LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
+LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID)
 {
+	LLVMContextRef Context = g->ctx;
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
-	LLVMTypeRef Found = LLVMFindMapType(TypeID);
+	LLVMTypeRef Found = LLVMFindMapType(g, TypeID);
 	if(Found)
 		return Found;
 
@@ -623,14 +624,14 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		if(IsRetTypePassInPointer(Returns))
 		{
 			ReturnType = LLVMVoidTypeInContext(Context);
-			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(Context, Returns), 0);
+			ArgTypes[ArgCount++] = LLVMPointerType(ConvertToLLVMType(g, Returns), 0);
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
 			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && PTarget != platform_target::Windows)
-				ReturnType = ConvertToLLVMType(Context, AllFloatsStructToReturnType(RT));
+				ReturnType = ConvertToLLVMType(g, AllFloatsStructToReturnType(RT));
 			else
-				ReturnType = ConvertToLLVMType(Context, ComplexTypeToSizeType(RT));
+				ReturnType = ConvertToLLVMType(g, ComplexTypeToSizeType(RT));
 		}
 		else if(RT->Kind == TypeKind_Function)
 		{
@@ -638,7 +639,7 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		}
 		else
 		{
-			ReturnType = ConvertToLLVMType(Context, Returns);
+			ReturnType = ConvertToLLVMType(g, Returns);
 		}
 	}
 	else
@@ -647,9 +648,9 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 	for (int i = 0; i < Type->Function.ArgCount; ++i) {
 		const type *ArgType = GetType(Type->Function.Args[i]);
 		if(!IsLoadableType(ArgType))
-			LLVMFixFunctionComplexParameter(Context, Type->Function.Args[i], ArgType, ArgTypes, &ArgCount);
+			LLVMFixFunctionComplexParameter(g, Type->Function.Args[i], ArgType, ArgTypes, &ArgCount);
 		else
-			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, Type->Function.Args[i]);
+			ArgTypes[ArgCount++] = ConvertToLLVMType(g, Type->Function.Args[i]);
 	}
 
 	bool IsVarArg = false;
@@ -663,13 +664,13 @@ LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID)
 		{
 			u32 ArgType = FindStruct(STR_LIT("__init_Arg"));
 			u32 VarArgType = GetPointerTo(GetSliceType(ArgType));
-			ArgTypes[ArgCount++] = ConvertToLLVMType(Context, VarArgType);
+			ArgTypes[ArgCount++] = ConvertToLLVMType(g, VarArgType);
 		}
 	}
 
 	Assert(ArgCount < (Type->Function.ArgCount+2)*12);
 	LLVMTypeRef FuncType = LLVMFunctionType(ReturnType, ArgTypes, ArgCount, IsVarArg);
-	LLVMMapType(TypeID, FuncType);
+	LLVMMapType(g, TypeID, FuncType);
 	VFree(ArgTypes);
 
 	return FuncType;

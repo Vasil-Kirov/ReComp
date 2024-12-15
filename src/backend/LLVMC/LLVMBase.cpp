@@ -12,12 +12,15 @@
 #include "Dynamic.h"
 #include "Type.h"
 #include "Dynamic.h"
+#include "Threading.h"
 #include "LLVMPasses.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/DebugInfo.h"
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
+
+std::mutex LLVMNoThreadSafetyMutex;
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
@@ -26,7 +29,7 @@ LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 
 void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef OutArray[2])
 {
-	OutArray[0] = LLVMConstInt(ConvertToLLVMType(gen->ctx, Basic_uint), 0, false);
+	OutArray[0] = LLVMConstInt(ConvertToLLVMType(gen, Basic_uint), 0, false);
 	OutArray[1] = Index;
 }
 
@@ -123,7 +126,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ZEROUT:
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
-			LLVMTypeRef LLVMT = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMT = ConvertToLLVMType(gen, I.Type);
 			if(IsLoadableType(I.Type))
 			{
 				LLVMValueRef Zero = LLVMConstNull(LLVMT);
@@ -140,7 +143,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ALLOCGLOBAL:
 		{
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 			LLVMValueRef Value = LLVMAddGlobal(gen->mod, LLVMArrayType2(LLVMType, I.BigRegister), "");
 			LLVMSetInitializer(Value, LLVMConstNull(LLVMArrayType2(LLVMType, I.BigRegister)));
 			gen->map.Add(I.Result, Value);
@@ -148,7 +151,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_CONSTINT:
 		{
 			const type *T = GetType(I.Type);
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 			if(HasBasicFlag(T, BasicFlag_Float))
 			{
 				f64 Val = I.BigRegister;
@@ -167,7 +170,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			const_value *Val = (const_value *)I.BigRegister;
 			const type *Type = GetType(I.Type);
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 
 			LLVMValueRef Value;
 			if(Type->Kind == TypeKind_Pointer)
@@ -212,7 +215,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(Type->Basic.Flags & BasicFlag_String)
 			{
-				LLVMTypeRef IntType = ConvertToLLVMType(gen->ctx, Basic_int);
+				LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
 				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
 				LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
 				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
@@ -260,7 +263,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef RHS = gen->map.Get(I.Right);
 			const type *T = GetType(I.Type);
 			Assert(T->Kind == TypeKind_Pointer);
-			LLVMTypeRef Type = ConvertToLLVMType(gen->ctx, T->Pointer.Pointed);
+			LLVMTypeRef Type = ConvertToLLVMType(gen, T->Pointer.Pointed);
 			LLVMValueRef Val = LLVMBuildPtrDiff2(gen->bld, Type, LHS, RHS, "");
 			gen->map.Add(I.Result, Val);
 		} break;
@@ -331,7 +334,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_FN:
 		{
 			function *Fn = (function *)I.BigRegister;
-			LLVMTypeRef FnType = LLVMCreateFunctionType(gen->ctx, Fn->Type);
+			LLVMTypeRef FnType = LLVMCreateFunctionType(gen, Fn->Type);
 			LLVMValueRef LLVMFn = LLVMAddFunction(gen->mod, Fn->Name->Data, FnType);
 			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);
 
@@ -355,7 +358,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			u32 FromType = I.Right;
 			u32 ToType = I.Type;
-			LLVMTypeRef LLVMToType = ConvertToLLVMType(gen->ctx, ToType);
+			LLVMTypeRef LLVMToType = ConvertToLLVMType(gen, ToType);
 			LLVMOpcode Op = RCCast(GetType(FromType), GetType(ToType));
 			LLVMValueRef Val = gen->map.Get(I.Left);
 			if(Op != LLVMCatchSwitch)
@@ -366,15 +369,15 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ARRAYLIST:
 		{
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 			array_list_info *Info = (array_list_info *)I.BigRegister;
 			LLVMValueRef Val = gen->map.Get(Info->Alloc);
 			const type *T = GetType(I.Type);
 			Assert(T->Kind == TypeKind_Array);
 			b32 Loadable = IsLoadableType(T->Array.Type);
-			LLVMTypeRef MemberLLVM = ConvertToLLVMType(gen->ctx, T->Array.Type);
+			LLVMTypeRef MemberLLVM = ConvertToLLVMType(gen, T->Array.Type);
 
-			LLVMTypeRef uintT = ConvertToLLVMType(gen->ctx, Basic_uint);
+			LLVMTypeRef uintT = ConvertToLLVMType(gen, Basic_uint);
 			for(int Idx = 0; Idx < Info->Count; ++Idx)
 			{
 				LLVMValueRef Member = gen->map.Get(Info->Registers[Idx]);
@@ -403,7 +406,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_INDEX:
 		{
 			LLVMValueRef Operand = gen->map.Get(I.Left);
-			LLVMTypeRef  LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef  LLVMType = ConvertToLLVMType(gen, I.Type);
 			const type *Type = GetType(I.Type);
 
 			LLVMValueRef Val;
@@ -417,7 +420,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			else if(Type->Kind == TypeKind_Pointer)
 			{
 				LLVMValueRef Index = gen->map.Get(I.Right);
-				LLVMType = ConvertToLLVMType(gen->ctx, Type->Pointer.Pointed);
+				LLVMType = ConvertToLLVMType(gen, Type->Pointer.Pointed);
 				Val = LLVMBuildGEP2(gen->bld, LLVMType, Operand, &Index, 1, "");
 			}
 			else if(IsString(Type))
@@ -429,7 +432,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				if(Type->Struct.Flags & StructFlag_Union)
 				{
 					u32 ToPointer = GetPointerTo(Type->Struct.Members[I.Right].Type);
-					LLVMTypeRef ResType = ConvertToLLVMType(gen->ctx, ToPointer);
+					LLVMTypeRef ResType = ConvertToLLVMType(gen, ToPointer);
 					Val = LLVMBuildBitCast(gen->bld, Operand, ResType, "");
 				}
 				else
@@ -459,7 +462,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				u64 Size = GetTypeSize(I.Type);//LLVMABISizeOfType(gen->data, LLVMType);
 				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
 				uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
@@ -470,7 +473,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_MEMSET:
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Result);
-			LLVMTypeRef Type = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef Type = ConvertToLLVMType(gen, I.Type);
 			u64 Size = LLVMABISizeOfType(gen->data, Type);
 			u64 Alignment = LLVMABIAlignmentOfType(gen->data, Type);
 			LLVMValueRef ValueZero = LLVMConstInt(LLVMInt8TypeInContext(gen->ctx), 0, false);
@@ -480,7 +483,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_LOAD:
 		{
 			const type *T = GetType(I.Type);
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
 			Assert(Pointer);
 			Assert(LLVMType);
@@ -497,7 +500,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			else if(T->Kind == TypeKind_Function)
 			{
 				u32 FnPtr = GetPointerTo(I.Type);
-				LLVMType = ConvertToLLVMType(gen->ctx, FnPtr);
+				LLVMType = ConvertToLLVMType(gen, FnPtr);
 				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
 				gen->map.Add(I.Result, Value);
 			}
@@ -519,7 +522,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			const type *Type = GetType(I.Type);
 			if(Type->Kind == TypeKind_Struct && IsStructAllFloats(Type))
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "vec");
 				for(int i = 0; i < Type->Struct.Members.Count / 2; ++i)
 				{
@@ -537,7 +540,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(IsPassInAsIntType(Type))
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
 				LLVMBuildStore(gen->bld, Arg, AsArg);
 				gen->map.Add(I.Result, AsArg);
@@ -564,7 +567,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				if(gen->IsCurrentFnRetInPtr)
 				{
 					LLVMValueRef RetPtr = LLVMGetParam(gen->fn, 0);
-					LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 					u64 Size = LLVMABISizeOfType(gen->data, LLVMType);
 					LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
 					uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
@@ -707,7 +710,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			const type *Type = GetType(I.Type);
 			if(Type->Kind == TypeKind_Pointer)
 				CallType = Type->Pointer.Pointed;
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, CallType);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, CallType);
 			Assert(CallInfo);
 			Assert(LLVMType);
 
@@ -772,7 +775,7 @@ void RCGenerateFunction(generator *gen, function fn)
 			{
 				case OP_ALLOC:
 				{
-					LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 					LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
 
 					gen->map.Add(I.Result, Val);
@@ -781,7 +784,7 @@ void RCGenerateFunction(generator *gen, function fn)
 				{
 					if(!IsLoadableType(I.Type))
 					{
-						LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
+						LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 						LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
 						gen->map.Add(I.Result, Val);
 					}
@@ -821,8 +824,8 @@ void RCGenerateFunction(generator *gen, function fn)
 
 LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
 {
-	LLVMCreateFunctionType(gen->ctx, Function.Type);
-	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen->ctx, Function.Type));
+	LLVMCreateFunctionType(gen, Function.Type);
+	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen, Function.Type));
 }
 
 void RCGenerateComplexTypes(generator *gen)
@@ -837,7 +840,7 @@ void RCGenerateComplexTypes(generator *gen)
 			{
 				continue;
 			}
-			LLVMCreateOpaqueStructType(gen->ctx, Index);
+			LLVMCreateOpaqueStructType(gen, Index);
 			LLMVDebugOpaqueStruct(gen, Index);
 		}
 		else if(T->Kind == TypeKind_Enum)
@@ -850,7 +853,7 @@ void RCGenerateComplexTypes(generator *gen)
 		const type *T = GetType(Index);
 		if(T->Kind == TypeKind_Struct && (T->Struct.Flags & StructFlag_Generic) == 0)
 		{
-			LLVMDefineStructType(gen->ctx, Index);
+			LLVMDefineStructType(gen, Index);
 			LLMVDebugDefineStruct(gen, Index);
 		}
 	}
@@ -869,12 +872,12 @@ void RCGenerateCompilerTypes(generator *gen)
 		.Flags = 0,
 	};
 	u32 String = AddType(StringType);
-	LLVMCreateOpaqueStructType(gen->ctx, String);
+	LLVMCreateOpaqueStructType(gen, String);
 	LLMVDebugOpaqueStruct(gen, String);
-	auto LLVMType = LLVMDefineStructType(gen->ctx, String);
+	auto LLVMType = LLVMDefineStructType(gen, String);
 	auto DebugType = LLMVDebugDefineStruct(gen, String);
-	LLVMMapType(Basic_string, LLVMType);
-	LLVMDebugMapType(Basic_string, DebugType);
+	LLVMMapType(gen, Basic_string, LLVMType);
+	LLVMDebugMapType(gen, Basic_string, DebugType);
 }
 
 void GetNameAndDirectory(char **OutName, char **OutDirectory, string Relative)
@@ -902,13 +905,15 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<module*> Modules, slice<file*> Files, compile_info *Info)
+void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*> Files, compile_info *Info)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
+	llvm_init_info Machine = RCInitLLVM(Info);
+
 	generator Gen = {};
 	//file *File = M->Files[0];
-	Gen.ctx = Machine.Context;
+	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
 
 
@@ -1015,7 +1020,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 				string LinkName = *s->LinkName;
 				//LLVMCreateFunctionType(Gen.ctx, s->Type);
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
-						ConvertToLLVMType(Gen.ctx, s->Type));
+						ConvertToLLVMType(&Gen, s->Type));
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
@@ -1025,7 +1030,7 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 			else
 			{
 				string LinkName = *s->LinkName;
-				LLVMTypeRef LLVMType = ConvertToLLVMType(Gen.ctx, s->Type);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, s->Type);
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 				LLVMSetLinkage(Global, Linkage);
 				if(m->Name == M->Name)
@@ -1066,7 +1071,6 @@ void RCGenerateFile(module *M, llvm_init_info Machine, b32 OutputBC, slice<modul
 			char *FileName = NULL;
 			char *FileDirectory = NULL;
 			GetNameAndDirectory(&FileName, &FileDirectory, M->Files[FIdx+1]->Name);
-			LDEBUG("file: %s", FileName);
 			Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
 					FileName, VStrLen(FileName),
 					FileDirectory, VStrLen(FileDirectory));
@@ -1145,6 +1149,7 @@ void RCSetBlock(generator *gen, int Index)
 
 llvm_init_info RCInitLLVM(compile_info *Info)
 {
+	LLVMNoThreadSafetyMutex.lock();
 	const char *features = LLVMGetHostCPUFeatures();
 	if(Info->TargetTriple.Data == NULL)
 	{
@@ -1177,8 +1182,8 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 			LLVMCodeGenLevelNone, reloc, LLVMCodeModelDefault);
 
 	llvm_init_info Result = {};
-	Result.Context = LLVMContextCreate();
 	Result.Target = Machine;
+	LLVMNoThreadSafetyMutex.unlock();
 	return Result;
 }
 
@@ -1220,13 +1225,46 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 	return MainFn;
 }
 
-void RCGenerateCode(slice<module*> Modules, slice<file*> Files, llvm_init_info Machine, b32 OutputBC, compile_info *Info)
+struct file_generate_info
 {
+	module *M;
+	b32 OutputBC;
+	slice<module*> Modules;
+	slice<file*> Files;
+	compile_info *Info;
+};
+
+void GenWorkerFn(void *Data)
+{
+	file_generate_info *Info = (file_generate_info *)Data;
+	RCGenerateFile(Info->M, Info->OutputBC, Info->Modules, Info->Files, Info->Info);
+	LDEBUG("Done with module: %s", Info->M->Name.Data);
+}
+
+void RCGenerateCode(slice<module*> Modules, slice<file*> Files, b32 OutputBC, compile_info *Info)
+{
+	work_queue *Queue = CreateWorkQueue();
+	InitWorkQueue(Queue);
+	Assert(LLVMIsMultithreaded());
+
 	ForArray(Idx, Modules)
 	{
-		RCGenerateFile(Modules[Idx], Machine, OutputBC, Modules, Files, Info);
-		// @THREADING: NOT THREAD SAFE
-		LLVMClearTypeMap();
+		file_generate_info *FInfo = NewType(file_generate_info);
+		FInfo->M = Modules[Idx];
+		FInfo->OutputBC = OutputBC;
+		FInfo->Modules = Modules;
+		FInfo->Files = Files;
+		FInfo->Info = Info;
+		job Job = {
+			.Task = GenWorkerFn,
+			.Data = FInfo,
+		};
+		PostJob(Queue, Job);
+	}
+
+	while(!IsQueueDone(Queue))
+	{
+		TryDoWork(Queue);
 	}
 }
 

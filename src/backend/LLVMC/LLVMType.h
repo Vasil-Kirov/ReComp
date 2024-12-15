@@ -16,20 +16,20 @@ struct LLVMDebugMetadataEntry
 
 struct generator;
 
-LLVMTypeRef ConvertToLLVMType(LLVMContextRef Context, u32 TypeID);
+LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID);
 
-void LLVMCreateOpaqueStructType(LLVMContextRef Context, u32 TypeID);
-LLVMTypeRef LLVMDefineStructType(LLVMContextRef Context, u32 TypeID);
-LLVMTypeRef LLVMCreateFunctionType(LLVMContextRef Context, u32 TypeID);
+void LLVMCreateOpaqueStructType(generator *g, u32 TypeID);
+LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID);
+LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID);
 void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID);
 LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID);
 LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID);
 LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID);
 
 LLVMOpcode RCCast(const type *From, const type *To);
-void LLVMClearTypeMap();
-void LLVMMapType(u32 TypeID, LLVMTypeRef LLVMType);
-void LLVMDebugMapType(u32 TypeID, LLVMMetadataRef LLVMType);
+void LLVMClearTypeMap(generator *g);
+void LLVMMapType(generator *g, u32 TypeID, LLVMTypeRef LLVMType);
+void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType);
 
 enum {
 	DW_ATE_address       = 1,

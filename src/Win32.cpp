@@ -1,9 +1,31 @@
-#include "Windows.h"
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #include "Platform.h"
+
 
 b32 PlatformDeleteFile(const char *Path)
 {
 	return DeleteFileA(Path);
+}
+
+t_handle PlatformCreateThread(t_proc Proc, void *PassValue)
+{
+	return CreateThread(NULL, 0, Proc, PassValue, 0, NULL);
+}
+
+t_semaphore PlatformCreateSemaphore(uint MaxCount)
+{
+	return CreateSemaphoreA(NULL, 0, MaxCount, NULL);
+}
+
+void PlatformSleepOnSemaphore(t_semaphore Semaphore)
+{
+	WaitForSingleObject(Semaphore, INFINITE);
+}
+
+void PlatformSignalSemaphore(t_semaphore Semaphore)
+{
+	ReleaseSemaphore(Semaphore, 1, NULL);
 }
 
 void PlatformWriteFile(const char *Path, u8 *Data, u32 Size)

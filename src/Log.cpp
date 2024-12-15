@@ -2,6 +2,9 @@
 #include "Log.h"
 #include <stdarg.h>
 #include "Platform.h"
+#include <mutex>
+
+std::mutex LogMutex = {};
 
 static const char * const LevelLabels[] = {
 	"[FATAL] ", "[ERROR] ", "[WARNING] ", "[INFO] ", "[DEBUG] "
@@ -51,14 +54,10 @@ Log(log_level Level, const char *Format, ...)
 	PushBuilder(&PrintBuilder, "\n");
 	string Print = MakeString(PrintBuilder);
 	
+	LogMutex.lock();
 	PlatformOutputString(Print, Level);
+	LogMutex.unlock();
 	
-	if(Level < LOG_WARN || Level == LOG_DEBUG)
-	{
-#if 0
-		platform_write_file(ToPrint, (i32)vstd_strlen(ToPrint), LogFile, false);
-#endif
-	}
 	
 	if(Level == LOG_FATAL)
 	{

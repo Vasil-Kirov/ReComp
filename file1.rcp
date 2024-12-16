@@ -12,7 +12,11 @@ main :: fn() -> i32 {
         100: return "x";
         0: return "x";
     };
-    io.println("%", str);
+    for i := 0; i < 10; i += 1 {}
+    for i := 0; i < 10; i += 1 {
+        io.println("%c", 'a');
+    }
+
     //ga := mem.create_generic_allocator();
     //foo := arr.create(string, &ga);
     //arr.add(&foo, "asd");

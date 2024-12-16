@@ -1707,6 +1707,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_IF:
 		{
+			Builder->Scope.Push({});
 			u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
 			basic_block ThenBlock = AllocateBlock(Builder);
 			basic_block ElseBlock = AllocateBlock(Builder);
@@ -1725,6 +1726,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				PushInstruction(Builder, Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
 				Terminate(Builder, EndBlock);
 			}
+			Builder->Scope.Pop();
 		} break;
 		case AST_BREAK:
 		{
@@ -1738,6 +1740,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_FOR:
 		{
+			Builder->Scope.Push({});
 			using ft = for_type;
 			switch(Node->For.Kind)
 			{
@@ -1758,6 +1761,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 					BuildIRForIt(Builder, Node);
 				} break;
 			}
+			Builder->Scope.Pop();
 		} break;
 		default:
 		{

@@ -1,8 +1,6 @@
 #include "Threading.h"
 #include "Memory.h"
 
-std::mutex GlobalMutex = {};
-
 bool TryDoWork(work_queue *Queue)
 {
 	auto OriginalAtJob = Queue->AtJob.load();
@@ -45,7 +43,8 @@ void PostJob(work_queue *Queue, job Job)
 
 	Queue->Jobs[Queue->JobCount % MAX_JOBS] = Job;
 	++Queue->JobCount;
-	PlatformSignalSemaphore(Queue->Semaphore);
+	if(Queue->Semaphore)
+		PlatformSignalSemaphore(Queue->Semaphore);
 
 	Queue->Mutex.unlock();
 }
@@ -57,7 +56,8 @@ work_queue *CreateWorkQueue()
 	Queue->JobCount = 0;
 	Queue->JobsCompleted = 0;
 	Queue->Semaphore = PlatformCreateSemaphore(MAX_THREADS);
-	Assert(Queue->Semaphore);
+	if(MAX_THREADS != 0)
+		Assert(Queue->Semaphore);
 	return Queue;
 }
 
@@ -68,13 +68,4 @@ void InitWorkQueue(work_queue *Queue)
 		Queue->Threads[i] = PlatformCreateThread(ThreadProc, Queue);
 }
 
-void LockMutex()
-{
-	GlobalMutex.lock();
-}
-
-void UnlockMutex()
-{
-	GlobalMutex.unlock();
-}
 

@@ -1,0 +1,2523 @@
+[WARNING] [ MODULE io ]
+
+
+fn __GlobalInitializerFunction.0() {
+
+	block_0:
+		RET
+
+}
+
+fn push_string(*[]u32 %0, string %1) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC string
+		%105 = STORE string %104
+		%106 = int 0
+		%107 = %105[%1] string
+		%108 = LOAD int %107
+		%109 = ALLOC *u8
+		%110 = %105[%0] string
+		%111 = LOAD *u8 %110
+		%109 = STORE *u8 %111
+		%112 = int 1
+		%113 = ALLOC int
+		%113 = STORE int %106
+		JMP block_1
+
+
+	block_1:
+		%115 = LOAD int %113
+		%116 = %115 < %108
+		IF %116 goto block_2, else goto block_4
+
+
+	block_2:
+		%117 = LOAD *u8 %109
+		%118 = CALL %84(%117)
+		%119 = ALLOC u32
+		%119 = STORE u32 %118
+		%120 = LOAD *[]u32 %103
+		%121 = LOAD u32 %119
+		%122 = CALL %91(%120, %121)
+		JMP block_3
+
+
+	block_3:
+		%124 = LOAD int %113
+		%125 = int %124 + %112
+		%113 = STORE int %125
+		%126 = LOAD *u8 %109
+		%127 = CALL %83(%126, %108, %124)
+		%109 = STORE *u8 %127
+		JMP block_1
+
+
+	block_4:
+		RET
+
+}
+
+fn format_uint(*[]u32 %0, uint %1) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC uint
+		%105 = STORE uint %104
+		%106 = ALLOC [256]u32
+		%107 = ALLOC [256]u32
+		%107 = STORE [256]u32 %106
+		%108 = LOAD uint %105
+		%109 = ALLOC uint
+		%109 = STORE uint %108
+		%110 = LOAD uint %109
+		%111 = uint 0
+		%112 = %110 == %111
+		IF %112 goto block_1, else goto block_2
+
+
+	block_1:
+		%113 = LOAD *[]u32 %103
+		%114 = u32 48
+		%115 = CALL %91(%113, %114)
+		RET
+
+
+	block_2:
+		JMP block_3
+
+
+	block_3:
+		%118 = int 0
+		%119 = ALLOC int
+		%119 = STORE int %118
+		JMP block_4
+
+
+	block_4:
+		%121 = LOAD uint %109
+		%122 = uint 0
+		%123 = %121 > %122
+		IF %123 goto block_5, else goto block_6
+
+
+	block_5:
+		%124 = LOAD uint %109
+		%125 = uint 10
+		%126 = uint %124 % %125
+		%127 = ALLOC uint
+		%127 = STORE uint %126
+		%128 = LOAD uint %109
+		%129 = uint 10
+		%130 = uint %128 / %129
+		%109 = STORE uint %130
+		%131 = u32 48
+		%132 = CAST u32 to uint %131
+		%133 = LOAD uint %127
+		%134 = uint %132 + %133
+		%135 = ALLOC uint
+		%135 = STORE uint %134
+		%136 = LOAD int %119
+		%137 = %107[%136] [256]u32
+		%138 = LOAD uint %135
+		%139 = CAST uint to u32 %138
+		%137 = STORE u32 %139
+		%140 = LOAD int %119
+		%141 = int 1
+		%142 = int %140 + %141
+		%119 = STORE int %142
+		JMP block_4
+
+
+	block_6:
+		%144 = int 0
+		%145 = LOAD int %119
+		%146 = int 0
+		%147 = int 1
+		%148 = ALLOC int
+		%148 = STORE int %146
+		JMP block_7
+
+
+	block_7:
+		%150 = LOAD int %148
+		%151 = %150 < %145
+		IF %151 goto block_8, else goto block_10
+
+
+	block_8:
+		%152 = LOAD *[]u32 %103
+		%153 = LOAD int %119
+		%154 = LOAD int %148
+		%155 = int %153 - %154
+		%156 = int 1
+		%157 = int %155 - %156
+		%158 = %107[%157] [256]u32
+		%159 = LOAD u32 %158
+		%160 = CALL %91(%152, %159)
+		JMP block_9
+
+
+	block_9:
+		%162 = LOAD int %148
+		%163 = int %162 + %147
+		%148 = STORE int %163
+		JMP block_7
+
+
+	block_10:
+		RET
+
+}
+
+fn format_int(*[]u32 %0, int %1) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC int
+		%105 = STORE int %104
+		%106 = ALLOC [256]u32
+		%107 = ALLOC [256]u32
+		%107 = STORE [256]u32 %106
+		%108 = LOAD int %105
+		%109 = ALLOC int
+		%109 = STORE int %108
+		%110 = LOAD int %109
+		%111 = int 0
+		%112 = %110 == %111
+		IF %112 goto block_1, else goto block_2
+
+
+	block_1:
+		%113 = LOAD *[]u32 %103
+		%114 = u32 48
+		%115 = CALL %91(%113, %114)
+		RET
+
+
+	block_2:
+		JMP block_3
+
+
+	block_3:
+		%118 = bool 0
+		%119 = ALLOC bool
+		%119 = STORE bool %118
+		%120 = LOAD int %109
+		%121 = int 0
+		%122 = %120 < %121
+		IF %122 goto block_4, else goto block_5
+
+
+	block_4:
+		%123 = int 0
+		%124 = LOAD int %109
+		%125 = int %123 - %124
+		%109 = STORE int %125
+		%126 = bool 1
+		%119 = STORE bool %126
+		JMP block_6
+
+
+	block_5:
+		JMP block_6
+
+
+	block_6:
+		%129 = int 0
+		%130 = ALLOC int
+		%130 = STORE int %129
+		JMP block_7
+
+
+	block_7:
+		%132 = LOAD int %109
+		%133 = int 0
+		%134 = %132 > %133
+		IF %134 goto block_8, else goto block_9
+
+
+	block_8:
+		%135 = LOAD int %109
+		%136 = int 10
+		%137 = int %135 % %136
+		%138 = ALLOC int
+		%138 = STORE int %137
+		%139 = LOAD int %109
+		%140 = int 10
+		%141 = int %139 / %140
+		%109 = STORE int %141
+		%142 = u32 48
+		%143 = LOAD int %138
+		%144 = CAST int to u8 %143
+		%145 = CAST u8 to u32 %144
+		%146 = u32 %142 + %145
+		%147 = ALLOC u32
+		%147 = STORE u32 %146
+		%148 = LOAD int %130
+		%149 = %107[%148] [256]u32
+		%150 = LOAD u32 %147
+		%149 = STORE u32 %150
+		%151 = LOAD int %130
+		%152 = int 1
+		%153 = int %151 + %152
+		%130 = STORE int %153
+		JMP block_7
+
+
+	block_9:
+		%155 = LOAD bool %119
+		IF %155 goto block_10, else goto block_11
+
+
+	block_10:
+		%156 = LOAD *[]u32 %103
+		%157 = u32 45
+		%158 = CALL %91(%156, %157)
+		JMP block_12
+
+
+	block_11:
+		JMP block_12
+
+
+	block_12:
+		%161 = int 0
+		%162 = LOAD int %130
+		%163 = int 0
+		%164 = int 1
+		%165 = ALLOC int
+		%165 = STORE int %163
+		JMP block_13
+
+
+	block_13:
+		%167 = LOAD int %165
+		%168 = %167 < %162
+		IF %168 goto block_14, else goto block_16
+
+
+	block_14:
+		%169 = LOAD *[]u32 %103
+		%170 = LOAD int %130
+		%171 = LOAD int %165
+		%172 = int %170 - %171
+		%173 = int 1
+		%174 = int %172 - %173
+		%175 = %107[%174] [256]u32
+		%176 = LOAD u32 %175
+		%177 = CALL %91(%169, %176)
+		JMP block_15
+
+
+	block_15:
+		%179 = LOAD int %165
+		%180 = int %179 + %164
+		%165 = STORE int %180
+		JMP block_13
+
+
+	block_16:
+		RET
+
+}
+
+fn print_typetype(*[]u32 %0, init.TypeInfo %1) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC init.TypeInfo
+		%105 = STORE init.TypeInfo %104
+		%106 = %105[%0] init.TypeInfo
+		%107 = LOAD init.TypeKind %106
+		%108 = int 0
+		%109 = int 1
+		%110 = int 2
+		%111 = int 3
+		%112 = int 4
+		%113 = int 5
+		%114 = int 6
+		%115 = int 7
+		%116 = int 8
+		%117 = int 9
+		%301 = switch %107 [%108 block_2, %109 block_3, %110 block_4, %111 block_22, %112 block_23, %113 block_24, %114 block_25, %115 block_26, %116 block_27, %117 block_28]
+
+
+	block_2:
+		%118 = LOAD *[]u32 %103
+		%119 = string "invalid"
+		%120 = ALLOC string
+		%120 = STORE string %119
+		%121 = CALL %44(%118, %120)
+		JMP block_1
+
+
+	block_3:
+		%123 = LOAD *[]u32 %103
+		%124 = %105[%1] init.TypeInfo
+		%125 = %124[%0] init.TypeUnion
+		%126 = %125[%3] init.BasicType
+		%127 = ALLOC string
+		%127 = STORE string %126
+		%128 = CALL %44(%123, %127)
+		JMP block_1
+
+
+	block_4:
+		%130 = LOAD *[]u32 %103
+		%131 = string "fn("
+		%132 = ALLOC string
+		%132 = STORE string %131
+		%133 = CALL %44(%130, %132)
+		%134 = %105[%1] init.TypeInfo
+		%135 = %134[%2] init.TypeUnion
+		%136 = %135[%1] init.FunctionType
+		%137 = ALLOC []type
+		%137 = STORE []type %136
+		%138 = int 0
+		%139 = %137[%0] []type
+		%140 = LOAD int %139
+		%141 = int 1
+		%142 = ALLOC int
+		%142 = STORE int %138
+		JMP block_5
+
+
+	block_5:
+		%144 = LOAD int %142
+		%145 = %144 < %140
+		IF %145 goto block_6, else goto block_8
+
+
+	block_6:
+		%146 = LOAD int %142
+		%147 = %137[%1] []type
+		%148 = LOAD *type %147
+		%149 = %148[%146] *type
+		%150 = LOAD type %149
+		%151 = ALLOC type
+		%151 = STORE type %150
+		%152 = LOAD *[]u32 %103
+		%153 = LOAD type %151
+		%154 = %10[%1] []init.TypeInfo
+		%155 = LOAD *init.TypeInfo %154
+		%156 = %155[%153] *init.TypeInfo
+		%157 = ALLOC init.TypeInfo
+		%157 = STORE init.TypeInfo %156
+		%158 = CALL %48(%152, %157)
+		%159 = LOAD int %142
+		%160 = int 1
+		%161 = int %159 + %160
+		%162 = %137[%0] []type
+		%163 = LOAD int %162
+		%164 = %161 != %163
+		IF %164 goto block_9, else goto block_10
+
+
+	block_9:
+		%165 = LOAD *[]u32 %103
+		%166 = string ", "
+		%167 = ALLOC string
+		%167 = STORE string %166
+		%168 = CALL %44(%165, %167)
+		JMP block_11
+
+
+	block_10:
+		JMP block_11
+
+
+	block_11:
+		JMP block_7
+
+
+	block_7:
+		%172 = LOAD int %142
+		%173 = int %172 + %141
+		%142 = STORE int %173
+		JMP block_5
+
+
+	block_8:
+		%175 = LOAD *[]u32 %103
+		%176 = string ")"
+		%177 = ALLOC string
+		%177 = STORE string %176
+		%178 = CALL %44(%175, %177)
+		%179 = %105[%1] init.TypeInfo
+		%180 = %179[%2] init.TypeUnion
+		%181 = %180[%0] init.FunctionType
+		%182 = %181[%0] []type
+		%183 = LOAD int %182
+		%184 = int 0
+		%185 = %183 != %184
+		IF %185 goto block_12, else goto block_13
+
+
+	block_12:
+		%186 = LOAD *[]u32 %103
+		%187 = string " -> "
+		%188 = ALLOC string
+		%188 = STORE string %187
+		%189 = CALL %44(%186, %188)
+		%190 = int 0
+		%191 = %105[%1] init.TypeInfo
+		%192 = %191[%2] init.TypeUnion
+		%193 = %192[%0] init.FunctionType
+		%194 = %193[%0] []type
+		%195 = LOAD int %194
+		%196 = int 1
+		%197 = ALLOC int
+		%197 = STORE int %190
+		JMP block_15
+
+
+	block_15:
+		%199 = LOAD int %197
+		%200 = %199 < %195
+		IF %200 goto block_16, else goto block_18
+
+
+	block_16:
+		%201 = LOAD int %197
+		%202 = %193[%1] []type
+		%203 = LOAD *type %202
+		%204 = %203[%201] *type
+		%205 = LOAD type %204
+		%206 = ALLOC type
+		%206 = STORE type %205
+		%207 = LOAD int %197
+		%208 = int 0
+		%209 = %207 != %208
+		IF %209 goto block_19, else goto block_20
+
+
+	block_19:
+		%210 = LOAD *[]u32 %103
+		%211 = string ", "
+		%212 = ALLOC string
+		%212 = STORE string %211
+		%213 = CALL %44(%210, %212)
+		JMP block_21
+
+
+	block_20:
+		JMP block_21
+
+
+	block_21:
+		%216 = LOAD *[]u32 %103
+		%217 = LOAD type %206
+		%218 = %10[%1] []init.TypeInfo
+		%219 = LOAD *init.TypeInfo %218
+		%220 = %219[%217] *init.TypeInfo
+		%221 = ALLOC init.TypeInfo
+		%221 = STORE init.TypeInfo %220
+		%222 = CALL %48(%216, %221)
+		JMP block_17
+
+
+	block_17:
+		%224 = LOAD int %197
+		%225 = int %224 + %196
+		%197 = STORE int %225
+		JMP block_15
+
+
+	block_18:
+		JMP block_14
+
+
+	block_13:
+		JMP block_14
+
+
+	block_14:
+		JMP block_1
+
+
+	block_22:
+		%230 = LOAD *[]u32 %103
+		%231 = %105[%1] init.TypeInfo
+		%232 = %231[%1] init.TypeUnion
+		%233 = %232[%1] init.StructType
+		%234 = ALLOC string
+		%234 = STORE string %233
+		%235 = CALL %44(%230, %234)
+		JMP block_1
+
+
+	block_23:
+		%237 = LOAD *[]u32 %103
+		%238 = string "*"
+		%239 = ALLOC string
+		%239 = STORE string %238
+		%240 = CALL %44(%237, %239)
+		%241 = LOAD *[]u32 %103
+		%242 = %105[%1] init.TypeInfo
+		%243 = %242[%3] init.TypeUnion
+		%244 = %243[%0] init.PointerType
+		%245 = LOAD type %244
+		%246 = %10[%1] []init.TypeInfo
+		%247 = LOAD *init.TypeInfo %246
+		%248 = %247[%245] *init.TypeInfo
+		%249 = ALLOC init.TypeInfo
+		%249 = STORE init.TypeInfo %248
+		%250 = CALL %48(%241, %249)
+		JMP block_1
+
+
+	block_24:
+		%252 = LOAD *[]u32 %103
+		%253 = string "[x]"
+		%254 = ALLOC string
+		%254 = STORE string %253
+		%255 = CALL %44(%252, %254)
+		%256 = LOAD *[]u32 %103
+		%257 = %105[%1] init.TypeInfo
+		%258 = %257[%4] init.TypeUnion
+		%259 = %258[%0] init.ArrayType
+		%260 = LOAD type %259
+		%261 = %10[%1] []init.TypeInfo
+		%262 = LOAD *init.TypeInfo %261
+		%263 = %262[%260] *init.TypeInfo
+		%264 = ALLOC init.TypeInfo
+		%264 = STORE init.TypeInfo %263
+		%265 = CALL %48(%256, %264)
+		JMP block_1
+
+
+	block_25:
+		%267 = LOAD *[]u32 %103
+		%268 = string "[]"
+		%269 = ALLOC string
+		%269 = STORE string %268
+		%270 = CALL %44(%267, %269)
+		%271 = LOAD *[]u32 %103
+		%272 = %105[%1] init.TypeInfo
+		%273 = %272[%5] init.TypeUnion
+		%274 = %273[%0] init.SliceType
+		%275 = LOAD type %274
+		%276 = %10[%1] []init.TypeInfo
+		%277 = LOAD *init.TypeInfo %276
+		%278 = %277[%275] *init.TypeInfo
+		%279 = ALLOC init.TypeInfo
+		%279 = STORE init.TypeInfo %278
+		%280 = CALL %48(%271, %279)
+		JMP block_1
+
+
+	block_26:
+		%282 = LOAD *[]u32 %103
+		%283 = string "<>"
+		%284 = ALLOC string
+		%284 = STORE string %283
+		%285 = CALL %44(%282, %284)
+		JMP block_1
+
+
+	block_27:
+		%287 = LOAD *[]u32 %103
+		%288 = %105[%1] init.TypeInfo
+		%289 = %288[%6] init.TypeUnion
+		%290 = %289[%0] init.EnumType
+		%291 = ALLOC string
+		%291 = STORE string %290
+		%292 = CALL %44(%287, %291)
+		JMP block_1
+
+
+	block_28:
+		%294 = LOAD *[]u32 %103
+		%295 = %105[%1] init.TypeInfo
+		%296 = %295[%8] init.TypeUnion
+		%297 = %296[%0] init.GenericType
+		%298 = ALLOC string
+		%298 = STORE string %297
+		%299 = CALL %44(%294, %298)
+		JMP block_1
+
+
+	block_1:
+		RET
+
+}
+
+fn print_type(*[]u32 %0, init.Arg %1) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC init.Arg
+		%105 = STORE init.Arg %104
+		%106 = %105[%0] init.Arg
+		%107 = LOAD type %106
+		%108 = %10[%1] []init.TypeInfo
+		%109 = LOAD *init.TypeInfo %108
+		%110 = %109[%107] *init.TypeInfo
+		%111 = ALLOC init.TypeInfo
+		%111 = STORE init.TypeInfo %110
+		%112 = %111[%0] init.TypeInfo
+		%113 = LOAD init.TypeKind %112
+		%114 = int 0
+		%115 = int 1
+		%116 = int 2
+		%117 = int 3
+		%118 = int 4
+		%119 = int 5
+		%120 = int 6
+		%121 = int 7
+		%122 = int 8
+		%123 = int 9
+		%449 = switch %113 [%114 block_2, %115 block_3, %116 block_52, %117 block_53, %118 block_61, %119 block_62, %120 block_63, %121 block_64, %122 block_65, %123 block_66]
+
+
+	block_2:
+		JMP block_1
+
+
+	block_3:
+		%125 = %111[%1] init.TypeInfo
+		%126 = %125[%0] init.TypeUnion
+		%127 = ALLOC init.BasicType
+		%127 = STORE init.BasicType %126
+		%128 = %127[%0] init.BasicType
+		%129 = LOAD init.BasicKind %128
+		%130 = int 0
+		%131 = %129 == %130
+		IF %131 goto block_4, else goto block_5
+
+
+	block_4:
+		%132 = %105[%1] init.Arg
+		%133 = LOAD * %132
+		%134 = LOAD bool %133
+		IF %134 goto block_7, else goto block_8
+
+
+	block_7:
+		%135 = LOAD *[]u32 %103
+		%136 = string "true"
+		%137 = ALLOC string
+		%137 = STORE string %136
+		%138 = CALL %44(%135, %137)
+		JMP block_9
+
+
+	block_8:
+		%140 = LOAD *[]u32 %103
+		%141 = string "false"
+		%142 = ALLOC string
+		%142 = STORE string %141
+		%143 = CALL %44(%140, %142)
+		JMP block_9
+
+
+	block_9:
+		JMP block_6
+
+
+	block_5:
+		%146 = %127[%0] init.BasicType
+		%147 = LOAD init.BasicKind %146
+		%148 = int 1
+		%149 = %147 == %148
+		IF %149 goto block_10, else goto block_11
+
+
+	block_10:
+		%150 = %105[%1] init.Arg
+		%151 = LOAD * %150
+		%152 = LOAD string %151
+		%153 = ALLOC string
+		%153 = STORE string %152
+		%154 = LOAD *[]u32 %103
+		%155 = ALLOC string
+		%155 = STORE string %153
+		%156 = CALL %44(%154, %155)
+		JMP block_12
+
+
+	block_11:
+		%158 = %127[%0] init.BasicType
+		%159 = LOAD init.BasicKind %158
+		%160 = int 2
+		%161 = %159 == %160
+		IF %161 goto block_13, else goto block_14
+
+
+	block_13:
+		%162 = %105[%1] init.Arg
+		%163 = LOAD * %162
+		%164 = LOAD u8 %163
+		%165 = CAST u8 to uint %164
+		%166 = ALLOC uint
+		%166 = STORE uint %165
+		%167 = LOAD *[]u32 %103
+		%168 = LOAD uint %166
+		%169 = CALL %45(%167, %168)
+		JMP block_15
+
+
+	block_14:
+		%171 = %127[%0] init.BasicType
+		%172 = LOAD init.BasicKind %171
+		%173 = int 3
+		%174 = %172 == %173
+		IF %174 goto block_16, else goto block_17
+
+
+	block_16:
+		%175 = %105[%1] init.Arg
+		%176 = LOAD * %175
+		%177 = LOAD u16 %176
+		%178 = CAST u16 to uint %177
+		%179 = ALLOC uint
+		%179 = STORE uint %178
+		%180 = LOAD *[]u32 %103
+		%181 = LOAD uint %179
+		%182 = CALL %45(%180, %181)
+		JMP block_18
+
+
+	block_17:
+		%184 = %127[%0] init.BasicType
+		%185 = LOAD init.BasicKind %184
+		%186 = int 4
+		%187 = %185 == %186
+		IF %187 goto block_19, else goto block_20
+
+
+	block_19:
+		%188 = %105[%1] init.Arg
+		%189 = LOAD * %188
+		%190 = LOAD u32 %189
+		%191 = CAST u32 to uint %190
+		%192 = ALLOC uint
+		%192 = STORE uint %191
+		%193 = LOAD *[]u32 %103
+		%194 = LOAD uint %192
+		%195 = CALL %45(%193, %194)
+		JMP block_21
+
+
+	block_20:
+		%197 = %127[%0] init.BasicType
+		%198 = LOAD init.BasicKind %197
+		%199 = int 5
+		%200 = %198 == %199
+		IF %200 goto block_22, else goto block_23
+
+
+	block_22:
+		%201 = %105[%1] init.Arg
+		%202 = LOAD * %201
+		%203 = LOAD u64 %202
+		%204 = ALLOC uint
+		%204 = STORE uint %203
+		%205 = LOAD *[]u32 %103
+		%206 = LOAD uint %204
+		%207 = CALL %45(%205, %206)
+		JMP block_24
+
+
+	block_23:
+		%209 = %127[%0] init.BasicType
+		%210 = LOAD init.BasicKind %209
+		%211 = int 6
+		%212 = %210 == %211
+		IF %212 goto block_25, else goto block_26
+
+
+	block_25:
+		%213 = %105[%1] init.Arg
+		%214 = LOAD * %213
+		%215 = LOAD i8 %214
+		%216 = CAST i8 to int %215
+		%217 = ALLOC int
+		%217 = STORE int %216
+		%218 = LOAD *[]u32 %103
+		%219 = LOAD int %217
+		%220 = CALL %46(%218, %219)
+		JMP block_27
+
+
+	block_26:
+		%222 = %127[%0] init.BasicType
+		%223 = LOAD init.BasicKind %222
+		%224 = int 7
+		%225 = %223 == %224
+		IF %225 goto block_28, else goto block_29
+
+
+	block_28:
+		%226 = %105[%1] init.Arg
+		%227 = LOAD * %226
+		%228 = LOAD i16 %227
+		%229 = CAST i16 to int %228
+		%230 = ALLOC int
+		%230 = STORE int %229
+		%231 = LOAD *[]u32 %103
+		%232 = LOAD int %230
+		%233 = CALL %46(%231, %232)
+		JMP block_30
+
+
+	block_29:
+		%235 = %127[%0] init.BasicType
+		%236 = LOAD init.BasicKind %235
+		%237 = int 8
+		%238 = %236 == %237
+		IF %238 goto block_31, else goto block_32
+
+
+	block_31:
+		%239 = %105[%1] init.Arg
+		%240 = LOAD * %239
+		%241 = LOAD i32 %240
+		%242 = CAST i32 to int %241
+		%243 = ALLOC int
+		%243 = STORE int %242
+		%244 = LOAD *[]u32 %103
+		%245 = LOAD int %243
+		%246 = CALL %46(%244, %245)
+		JMP block_33
+
+
+	block_32:
+		%248 = %127[%0] init.BasicType
+		%249 = LOAD init.BasicKind %248
+		%250 = int 9
+		%251 = %249 == %250
+		IF %251 goto block_34, else goto block_35
+
+
+	block_34:
+		%252 = %105[%1] init.Arg
+		%253 = LOAD * %252
+		%254 = LOAD i64 %253
+		%255 = ALLOC int
+		%255 = STORE int %254
+		%256 = LOAD *[]u32 %103
+		%257 = LOAD int %255
+		%258 = CALL %46(%256, %257)
+		JMP block_36
+
+
+	block_35:
+		%260 = %127[%0] init.BasicType
+		%261 = LOAD init.BasicKind %260
+		%262 = int 14
+		%263 = %261 == %262
+		IF %263 goto block_37, else goto block_38
+
+
+	block_37:
+		%264 = %105[%1] init.Arg
+		%265 = LOAD * %264
+		%266 = LOAD int %265
+		%267 = ALLOC int
+		%267 = STORE int %266
+		%268 = LOAD *[]u32 %103
+		%269 = LOAD int %267
+		%270 = CALL %46(%268, %269)
+		JMP block_39
+
+
+	block_38:
+		%272 = %127[%0] init.BasicType
+		%273 = LOAD init.BasicKind %272
+		%274 = int 15
+		%275 = %273 == %274
+		IF %275 goto block_40, else goto block_41
+
+
+	block_40:
+		%276 = %105[%1] init.Arg
+		%277 = LOAD * %276
+		%278 = LOAD uint %277
+		%279 = ALLOC uint
+		%279 = STORE uint %278
+		%280 = LOAD *[]u32 %103
+		%281 = LOAD uint %279
+		%282 = CALL %45(%280, %281)
+		JMP block_42
+
+
+	block_41:
+		%284 = %127[%0] init.BasicType
+		%285 = LOAD init.BasicKind %284
+		%286 = int 10
+		%287 = %285 == %286
+		IF %287 goto block_43, else goto block_44
+
+
+	block_43:
+		%288 = %105[%1] init.Arg
+		%289 = LOAD * %288
+		%290 = LOAD f32 %289
+		%291 = ALLOC f32
+		%291 = STORE f32 %290
+		%292 = uint 10
+		%293 = LOAD *[]u32 %103
+		%294 = LOAD f32 %291
+		%295 = i32 100
+		%296 = CALL %59(%292, %293, %294, %295)
+		JMP block_45
+
+
+	block_44:
+		%298 = %127[%0] init.BasicType
+		%299 = LOAD init.BasicKind %298
+		%300 = int 11
+		%301 = %299 == %300
+		IF %301 goto block_46, else goto block_47
+
+
+	block_46:
+		%302 = %105[%1] init.Arg
+		%303 = LOAD * %302
+		%304 = LOAD f64 %303
+		%305 = ALLOC f64
+		%305 = STORE f64 %304
+		%306 = uint 11
+		%307 = LOAD *[]u32 %103
+		%308 = LOAD f64 %305
+		%309 = i32 100
+		%310 = CALL %60(%306, %307, %308, %309)
+		JMP block_48
+
+
+	block_47:
+		%312 = %127[%0] init.BasicType
+		%313 = LOAD init.BasicKind %312
+		%314 = int 16
+		%315 = %313 == %314
+		IF %315 goto block_49, else goto block_50
+
+
+	block_49:
+		%316 = %105[%1] init.Arg
+		%317 = LOAD * %316
+		%318 = LOAD type %317
+		%319 = ALLOC type
+		%319 = STORE type %318
+		%320 = LOAD type %319
+		%321 = %10[%1] []init.TypeInfo
+		%322 = LOAD *init.TypeInfo %321
+		%323 = %322[%320] *init.TypeInfo
+		%324 = ALLOC init.TypeInfo
+		%324 = STORE init.TypeInfo %323
+		%325 = LOAD *[]u32 %103
+		%326 = ALLOC init.TypeInfo
+		%326 = STORE init.TypeInfo %324
+		%327 = CALL %48(%325, %326)
+		JMP block_51
+
+
+	block_50:
+		%329 = LOAD *[]u32 %103
+		%330 = u32 37
+		%331 = CALL %91(%329, %330)
+		JMP block_51
+
+
+	block_51:
+		JMP block_48
+
+
+	block_48:
+		JMP block_45
+
+
+	block_45:
+		JMP block_42
+
+
+	block_42:
+		JMP block_39
+
+
+	block_39:
+		JMP block_36
+
+
+	block_36:
+		JMP block_33
+
+
+	block_33:
+		JMP block_30
+
+
+	block_30:
+		JMP block_27
+
+
+	block_27:
+		JMP block_24
+
+
+	block_24:
+		JMP block_21
+
+
+	block_21:
+		JMP block_18
+
+
+	block_18:
+		JMP block_15
+
+
+	block_15:
+		JMP block_12
+
+
+	block_12:
+		JMP block_6
+
+
+	block_6:
+		JMP block_1
+
+
+	block_52:
+		JMP block_1
+
+
+	block_53:
+		%349 = %111[%1] init.TypeInfo
+		%350 = %349[%1] init.TypeUnion
+		%351 = ALLOC init.StructType
+		%351 = STORE init.StructType %350
+		%352 = LOAD *[]u32 %103
+		%353 = %351[%1] init.StructType
+		%354 = ALLOC string
+		%354 = STORE string %353
+		%355 = CALL %44(%352, %354)
+		%356 = LOAD *[]u32 %103
+		%357 = string " { "
+		%358 = ALLOC string
+		%358 = STORE string %357
+		%359 = CALL %44(%356, %358)
+		%360 = int 0
+		%361 = %351[%0] init.StructType
+		%362 = %361[%0] []init.StructMember
+		%363 = LOAD int %362
+		%364 = int 0
+		%365 = int 1
+		%366 = ALLOC int
+		%366 = STORE int %364
+		JMP block_54
+
+
+	block_54:
+		%368 = LOAD int %366
+		%369 = %368 < %363
+		IF %369 goto block_55, else goto block_57
+
+
+	block_55:
+		%370 = %351[%0] init.StructType
+		%371 = LOAD int %366
+		%372 = %370[%1] []init.StructMember
+		%373 = LOAD *init.StructMember %372
+		%374 = %373[%371] *init.StructMember
+		%375 = ALLOC init.StructMember
+		%375 = STORE init.StructMember %374
+		%376 = ALLOC []init.Arg
+		%377 = %376[%0] []init.Arg
+		%378 = %376[%1] []init.Arg
+		%379 = int 1
+		%380 = ALLOC [1]init.Arg
+		%377 = STORE int %379
+		%378 = STORE *init.Arg %380
+		%381 = string "mem: %
+"
+		%382 = ALLOC string
+		%382 = STORE string %381
+		%383 = %375[%0] init.StructMember
+		%384 = int 0
+		%385 = ALLOC string
+		%385 = STORE string %383
+		%386 = %380[%384] [1]init.Arg
+		%387 = %386[%0] init.Arg
+		%388 = %386[%1] init.Arg
+		%389 = int 1
+		%387 = STORE type %389
+		%388 = STORE *string %385
+		%390 = CALL %55(%382, %376)
+		%391 = LOAD *[]u32 %103
+		%392 = %375[%0] init.StructMember
+		%393 = ALLOC string
+		%393 = STORE string %392
+		%394 = CALL %44(%391, %393)
+		%395 = LOAD *[]u32 %103
+		%396 = string " = "
+		%397 = ALLOC string
+		%397 = STORE string %396
+		%398 = CALL %44(%395, %397)
+		%399 = %105[%1] init.Arg
+		%400 = LOAD * %399
+		%401 = ALLOC *u8
+		%401 = STORE *u8 %400
+		%402 = ALLOC init.StructType
+		%402 = STORE init.StructType %351
+		%403 = LOAD int %366
+		%404 = CALL %6(%402, %403)
+		%405 = ALLOC int
+		%405 = STORE int %404
+		%406 = ALLOC init.Arg
+		%407 = %375[%1] init.StructMember
+		%408 = LOAD type %407
+		%409 = %406[%0] init.Arg
+		%409 = STORE type %408
+		%410 = LOAD *u8 %401
+		%411 = LOAD int %405
+		%412 = %410[%411] *u8
+		%413 = %406[%1] init.Arg
+		%413 = STORE * %412
+		%414 = ALLOC init.Arg
+		%414 = STORE init.Arg %406
+		%415 = %414[%0] init.Arg
+		%416 = %375[%1] init.StructMember
+		%417 = LOAD type %416
+		%415 = STORE type %417
+		%418 = LOAD *[]u32 %103
+		%419 = ALLOC init.Arg
+		%419 = STORE init.Arg %414
+		%420 = CALL %49(%418, %419)
+		%421 = LOAD int %366
+		%422 = int 1
+		%423 = int %421 + %422
+		%424 = %351[%0] init.StructType
+		%425 = %424[%0] []init.StructMember
+		%426 = LOAD int %425
+		%427 = %423 != %426
+		IF %427 goto block_58, else goto block_59
+
+
+	block_58:
+		%428 = LOAD *[]u32 %103
+		%429 = string ", "
+		%430 = ALLOC string
+		%430 = STORE string %429
+		%431 = CALL %44(%428, %430)
+		JMP block_60
+
+
+	block_59:
+		JMP block_60
+
+
+	block_60:
+		JMP block_56
+
+
+	block_56:
+		%435 = LOAD int %366
+		%436 = int %435 + %365
+		%366 = STORE int %436
+		JMP block_54
+
+
+	block_57:
+		%438 = LOAD *[]u32 %103
+		%439 = string " }"
+		%440 = ALLOC string
+		%440 = STORE string %439
+		%441 = CALL %44(%438, %440)
+		JMP block_1
+
+
+	block_61:
+		JMP block_1
+
+
+	block_62:
+		JMP block_1
+
+
+	block_63:
+		JMP block_1
+
+
+	block_64:
+		JMP block_1
+
+
+	block_65:
+		JMP block_1
+
+
+	block_66:
+		JMP block_1
+
+
+	block_1:
+		RET
+
+}
+
+fn builder_to_string(*[]u32 %0) -> []u8 {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = LOAD *[]u32 %103
+		%105 = ALLOC *[]u32
+		%105 = STORE *[]u32 %104
+		%106 = ALLOC mem.Allocator
+		%107 = CALL %66(%106)
+		%108 = ALLOC mem.Allocator
+		%108 = STORE mem.Allocator %106
+		%109 = ALLOC []u8
+		%110 = uint 2
+		%111 = CALL %92(%109, %110, %108)
+		%112 = ALLOC []u8
+		%112 = STORE []u8 %109
+		%113 = int 0
+		%114 = LOAD *[]u32 %105
+		%115 = %114[%0] []u32
+		%116 = LOAD int %115
+		%117 = int 0
+		%118 = int 1
+		%119 = ALLOC int
+		%119 = STORE int %117
+		JMP block_1
+
+
+	block_1:
+		%121 = LOAD int %119
+		%122 = %121 < %116
+		IF %122 goto block_2, else goto block_4
+
+
+	block_2:
+		%123 = LOAD *[]u32 %105
+		%124 = %123[%1] []u32
+		%125 = LOAD *u32 %124
+		%126 = LOAD int %119
+		%127 = %125[%126] *u32
+		%128 = ALLOC *u8
+		%128 = STORE *u8 %127
+		%129 = LOAD *u8 %128
+		%130 = i64 3
+		%131 = %129[%130] *u8
+		%128 = STORE *u8 %131
+		JMP block_5
+
+
+	block_5:
+		%133 = LOAD *u8 %128
+		%134 = LOAD u8 %133
+		%135 = u8 0
+		%136 = %134 == %135
+		IF %136 goto block_6, else goto block_7
+
+
+	block_6:
+		%137 = LOAD *u8 %128
+		%138 = i64 1
+		%139 = int 0
+		%140 = int %139 - %138
+		%141 = %137[%140] *u8
+		%128 = STORE *u8 %141
+		JMP block_5
+
+
+	block_7:
+		%143 = LOAD *u8 %128
+		%144 = CALL %81(%143)
+		%145 = ALLOC int
+		%145 = STORE int %144
+		%146 = int 0
+		%147 = LOAD int %145
+		%148 = int 0
+		%149 = int 1
+		%150 = ALLOC int
+		%150 = STORE int %148
+		JMP block_8
+
+
+	block_8:
+		%152 = LOAD int %150
+		%153 = %152 < %147
+		IF %153 goto block_9, else goto block_11
+
+
+	block_9:
+		%154 = LOAD *u8 %128
+		%155 = LOAD int %150
+		%156 = int 0
+		%157 = int %156 - %155
+		%158 = %154[%157] *u8
+		%159 = LOAD u8 %158
+		%160 = CALL %93(%112, %159)
+		JMP block_10
+
+
+	block_10:
+		%162 = LOAD int %150
+		%163 = int %162 + %149
+		%150 = STORE int %163
+		JMP block_8
+
+
+	block_11:
+		JMP block_3
+
+
+	block_3:
+		%166 = LOAD int %119
+		%167 = int %166 + %118
+		%119 = STORE int %167
+		JMP block_1
+
+
+	block_4:
+		RET []u8 %112
+
+}
+
+fn print_type_with_formatter(*[]u32 %0, u32 %1, init.Arg %2) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *[]u32
+		%103 = STORE *[]u32 %102
+		%104 = ARG #1
+		%105 = ALLOC u32
+		%105 = STORE u32 %104
+		%106 = ARG #2
+		%107 = ALLOC init.Arg
+		%107 = STORE init.Arg %106
+		%108 = %107[%0] init.Arg
+		%109 = LOAD type %108
+		%110 = %10[%1] []init.TypeInfo
+		%111 = LOAD *init.TypeInfo %110
+		%112 = %111[%109] *init.TypeInfo
+		%113 = ALLOC init.TypeInfo
+		%113 = STORE init.TypeInfo %112
+		%114 = LOAD u32 %105
+		%115 = u32 115
+		%116 = %114 == %115
+		%117 = %113[%0] init.TypeInfo
+		%118 = LOAD init.TypeKind %117
+		%119 = int 4
+		%120 = %118 == %119
+		%121 = %116 && %120
+		%122 = %113[%1] init.TypeInfo
+		%123 = %122[%3] init.TypeUnion
+		%124 = %123[%0] init.PointerType
+		%125 = LOAD type %124
+		%126 = uint 2
+		%127 = %125 == %126
+		%128 = %121 && %127
+		IF %128 goto block_1, else goto block_2
+
+
+	block_1:
+		%129 = %107[%1] init.Arg
+		%130 = LOAD * %129
+		%131 = LOAD *u8 %130
+		%132 = ALLOC *u8
+		%132 = STORE *u8 %131
+		%133 = int 0
+		%134 = ALLOC int
+		%134 = STORE int %133
+		JMP block_4
+
+
+	block_4:
+		%136 = LOAD *u8 %132
+		%137 = LOAD int %134
+		%138 = %136[%137] *u8
+		%139 = LOAD u8 %138
+		%140 = CAST u8 to u32 %139
+		%141 = u32 0
+		%142 = %140 != %141
+		IF %142 goto block_5, else goto block_7
+
+
+	block_5:
+		%143 = LOAD *[]u32 %103
+		%144 = LOAD *u8 %132
+		%145 = LOAD int %134
+		%146 = %144[%145] *u8
+		%147 = LOAD u8 %146
+		%148 = CAST u8 to u32 %147
+		%149 = CALL %91(%143, %148)
+		JMP block_6
+
+
+	block_6:
+		%151 = LOAD int %134
+		%152 = int 1
+		%153 = int %151 + %152
+		%134 = STORE int %153
+		%154 = LOAD int %134
+		JMP block_4
+
+
+	block_7:
+		JMP block_3
+
+
+	block_2:
+		%157 = LOAD u32 %105
+		%158 = u32 99
+		%159 = %157 == %158
+		%160 = %113[%0] init.TypeInfo
+		%161 = LOAD init.TypeKind %160
+		%162 = int 1
+		%163 = %161 == %162
+		%164 = %159 && %163
+		%165 = %113[%1] init.TypeInfo
+		%166 = %165[%0] init.TypeUnion
+		%167 = %166[%0] init.BasicType
+		%168 = LOAD init.BasicKind %167
+		%169 = int 2
+		%170 = %168 == %169
+		%171 = %113[%1] init.TypeInfo
+		%172 = %171[%0] init.TypeUnion
+		%173 = %172[%0] init.BasicType
+		%174 = LOAD init.BasicKind %173
+		%175 = int 4
+		%176 = %174 == %175
+		%177 = %170 || %176
+		%178 = %164 && %177
+		IF %178 goto block_8, else goto block_9
+
+
+	block_8:
+		%179 = ALLOC u32
+		ZEROUT %179 u32
+		JMP block_10
+
+
+	block_9:
+		%181 = LOAD *[]u32 %103
+		%182 = ALLOC init.Arg
+		%182 = STORE init.Arg %107
+		%183 = CALL %49(%181, %182)
+		%184 = LOAD u32 %179
+		%185 = u32 0
+		%186 = %184 != %185
+		IF %186 goto block_11, else goto block_12
+
+
+	block_11:
+		%187 = LOAD *[]u32 %103
+		%188 = LOAD u32 %179
+		%189 = CALL %91(%187, %188)
+		JMP block_13
+
+
+	block_12:
+		JMP block_13
+
+
+	block_13:
+		JMP block_10
+
+
+	block_10:
+		JMP block_3
+
+
+	block_3:
+		RET
+
+}
+
+fn __internal_print(string %0, []init.Arg %1) -> []u32 {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC string
+		%103 = STORE string %102
+		%104 = ARG #1
+		%105 = ALLOC []init.Arg
+		%105 = STORE []init.Arg %104
+		%106 = ALLOC mem.Allocator
+		%107 = CALL %66(%106)
+		%108 = ALLOC mem.Allocator
+		%108 = STORE mem.Allocator %106
+		%109 = ALLOC []u32
+		%110 = uint 4
+		%111 = CALL %94(%109, %110, %108)
+		%112 = ALLOC []u32
+		%112 = STORE []u32 %109
+		%113 = int 0
+		%114 = ALLOC int
+		%114 = STORE int %113
+		%115 = bool 0
+		%116 = ALLOC bool
+		%116 = STORE bool %115
+		%117 = int 0
+		%118 = %103[%1] string
+		%119 = LOAD int %118
+		%120 = ALLOC *u8
+		%121 = %103[%0] string
+		%122 = LOAD *u8 %121
+		%120 = STORE *u8 %122
+		%123 = int 1
+		%124 = ALLOC int
+		%124 = STORE int %117
+		JMP block_1
+
+
+	block_1:
+		%126 = LOAD int %124
+		%127 = %126 < %119
+		IF %127 goto block_2, else goto block_4
+
+
+	block_2:
+		%128 = LOAD *u8 %120
+		%129 = CALL %84(%128)
+		%130 = ALLOC u32
+		%130 = STORE u32 %129
+		%131 = LOAD u32 %130
+		%132 = u32 37
+		%133 = %131 == %132
+		%134 = %105[%0] []init.Arg
+		%135 = LOAD int %134
+		%136 = LOAD int %114
+		%137 = %135 > %136
+		%138 = %133 && %137
+		IF %138 goto block_5, else goto block_6
+
+
+	block_5:
+		%139 = bool 1
+		%116 = STORE bool %139
+		JMP block_7
+
+
+	block_6:
+		%141 = LOAD bool %116
+		IF %141 goto block_8, else goto block_9
+
+
+	block_8:
+		%142 = LOAD int %114
+		%143 = %105[%1] []init.Arg
+		%144 = LOAD *init.Arg %143
+		%145 = %144[%142] *init.Arg
+		%146 = ALLOC init.Arg
+		%146 = STORE init.Arg %145
+		%147 = LOAD int %114
+		%148 = int 1
+		%149 = int %147 + %148
+		%114 = STORE int %149
+		%150 = LOAD u32 %130
+		%151 = ALLOC init.Arg
+		%151 = STORE init.Arg %146
+		%152 = CALL %51(%112, %150, %151)
+		%153 = bool 0
+		%116 = STORE bool %153
+		JMP block_10
+
+
+	block_9:
+		%155 = LOAD u32 %130
+		%156 = CALL %91(%112, %155)
+		JMP block_10
+
+
+	block_10:
+		JMP block_7
+
+
+	block_7:
+		JMP block_3
+
+
+	block_3:
+		%160 = LOAD int %124
+		%161 = int %160 + %123
+		%124 = STORE int %161
+		%162 = LOAD *u8 %120
+		%163 = CALL %83(%162, %119, %160)
+		%120 = STORE *u8 %163
+		JMP block_1
+
+
+	block_4:
+		%165 = LOAD bool %116
+		IF %165 goto block_11, else goto block_12
+
+
+	block_11:
+		%166 = LOAD int %114
+		%167 = %105[%1] []init.Arg
+		%168 = LOAD *init.Arg %167
+		%169 = %168[%166] *init.Arg
+		%170 = ALLOC init.Arg
+		%170 = STORE init.Arg %169
+		%171 = LOAD int %114
+		%172 = int 1
+		%173 = int %171 + %172
+		%114 = STORE int %173
+		%174 = u32 0
+		%175 = ALLOC init.Arg
+		%175 = STORE init.Arg %170
+		%176 = CALL %51(%112, %174, %175)
+		%177 = bool 0
+		%116 = STORE bool %177
+		JMP block_13
+
+
+	block_12:
+		JMP block_13
+
+
+	block_13:
+		RET []u32 %112
+
+}
+
+fn vsprint(string %0, []init.Arg %1) -> string {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC string
+		%103 = STORE string %102
+		%104 = ARG #1
+		%105 = ALLOC []init.Arg
+		%105 = STORE []init.Arg %104
+		%106 = ALLOC []u32
+		%107 = ALLOC string
+		%107 = STORE string %103
+		%108 = CALL %52(%106, %107, %105)
+		%109 = ALLOC []u32
+		%109 = STORE []u32 %106
+		%110 = ALLOC []u8
+		%111 = CALL %50(%110, %109)
+		%112 = ALLOC []u8
+		%112 = STORE []u8 %110
+		%113 = CALL %95(%109)
+		%114 = ALLOC string
+		%115 = uint 0
+		%116 = %112[%1] []u8
+		%117 = LOAD *u8 %116
+		%118 = %117[%115] *u8
+		%119 = %114[%0] string
+		%119 = STORE *u8 %118
+		%120 = %112[%0] []u8
+		%121 = LOAD int %120
+		%122 = %114[%1] string
+		%122 = STORE int %121
+		RET string %114
+
+}
+
+fn sprint(string %0) -> string {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC string
+		%103 = STORE string %102
+		%104 = ARG #1
+		%105 = ALLOC []init.Arg
+		%105 = STORE []init.Arg %104
+		%106 = ALLOC []u32
+		%107 = ALLOC string
+		%107 = STORE string %103
+		%108 = CALL %52(%106, %107, %105)
+		%109 = ALLOC []u32
+		%109 = STORE []u32 %106
+		%110 = ALLOC []u8
+		%111 = CALL %50(%110, %109)
+		%112 = ALLOC []u8
+		%112 = STORE []u8 %110
+		%113 = CALL %95(%109)
+		%114 = ALLOC string
+		%115 = uint 0
+		%116 = %112[%1] []u8
+		%117 = LOAD *u8 %116
+		%118 = %117[%115] *u8
+		%119 = %114[%0] string
+		%119 = STORE *u8 %118
+		%120 = %112[%0] []u8
+		%121 = LOAD int %120
+		%122 = %114[%1] string
+		%122 = STORE int %121
+		RET string %114
+
+}
+
+fn print(string %0) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC string
+		%103 = STORE string %102
+		%104 = ARG #1
+		%105 = ALLOC []init.Arg
+		%105 = STORE []init.Arg %104
+		%106 = ALLOC []u32
+		%107 = ALLOC string
+		%107 = STORE string %103
+		%108 = CALL %52(%106, %107, %105)
+		%109 = ALLOC []u32
+		%109 = STORE []u32 %106
+		%110 = ALLOC []u8
+		%111 = CALL %50(%110, %109)
+		%112 = ALLOC []u8
+		%112 = STORE []u8 %110
+		%113 = uint 0
+		%114 = %112[%1] []u8
+		%115 = LOAD *u8 %114
+		%116 = %115[%113] *u8
+		%117 = %112[%0] []u8
+		%118 = LOAD int %117
+		%119 = CAST int to u32 %118
+		%120 = CALL %20(%116, %119)
+		%121 = CALL %95(%109)
+		%122 = CALL %96(%112)
+		RET
+
+}
+
+fn println(string %0) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC string
+		%103 = STORE string %102
+		%104 = ARG #1
+		%105 = ALLOC []init.Arg
+		%105 = STORE []init.Arg %104
+		%106 = ALLOC []u32
+		%107 = ALLOC string
+		%107 = STORE string %103
+		%108 = CALL %52(%106, %107, %105)
+		%109 = ALLOC []u32
+		%109 = STORE []u32 %106
+		%110 = u32 10
+		%111 = CALL %91(%109, %110)
+		%112 = ALLOC []u8
+		%113 = CALL %50(%112, %109)
+		%114 = ALLOC []u8
+		%114 = STORE []u8 %112
+		%115 = uint 0
+		%116 = %114[%1] []u8
+		%117 = LOAD *u8 %116
+		%118 = %117[%115] *u8
+		%119 = %114[%0] []u8
+		%120 = LOAD int %119
+		%121 = CAST int to u32 %120
+		%122 = CALL %20(%118, %121)
+		%123 = CALL %95(%109)
+		%124 = CALL %96(%114)
+		RET
+
+}
+
+fn readln(*mem.Allocator %0, u32 %1) -> string {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *mem.Allocator
+		%103 = STORE *mem.Allocator %102
+		%104 = ARG #1
+		%105 = ALLOC u32
+		%105 = STORE u32 %104
+		%106 = LOAD *mem.Allocator %103
+		%107 = %106[%0] mem.Allocator
+		%108 = LOAD *fn(int, *mem.Allocator) -> ?* %107
+		%109 = LOAD u32 %105
+		%110 = CAST u32 to int %109
+		%111 = LOAD *mem.Allocator %103
+		%112 = CALL %108(%110, %111)
+		%113 = ALLOC ?*
+		%113 = STORE ?* %112
+		%114 = LOAD ?* %113
+		%115 = ?* 0
+		%116 = %114 == %115
+		IF %116 goto block_1, else goto block_2
+
+
+	block_1:
+		%117 = string ""
+		RET string %117
+
+
+	block_2:
+		JMP block_3
+
+
+	block_3:
+		%120 = LOAD ?* %113
+		%121 = ALLOC *u8
+		%121 = STORE *u8 %120
+		%122 = LOAD *u8 %121
+		%123 = LOAD u32 %105
+		%124 = CALL %23(%122, %123)
+		%125 = ALLOC u32
+		%125 = STORE u32 %124
+		%126 = LOAD u32 %125
+		%127 = u32 0
+		%128 = %126 == %127
+		IF %128 goto block_4, else goto block_5
+
+
+	block_4:
+		%129 = string ""
+		RET string %129
+
+
+	block_5:
+		JMP block_6
+
+
+	block_6:
+		%132 = ALLOC string
+		ZEROUT %132 string
+		%133 = %132[%0] string
+		%134 = LOAD *u8 %121
+		%133 = STORE *u8 %134
+		%135 = %132[%1] string
+		%136 = LOAD u32 %125
+		%137 = CAST u32 to int %136
+		%135 = STORE int %137
+		RET string %132
+
+}
+
+fn get_next(*u8 %0) -> u32 {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC *u8
+		%103 = STORE *u8 %102
+		%104 = LOAD *u8 %103
+		%105 = ALLOC *u8
+		%105 = STORE *u8 %104
+		%106 = LOAD *u8 %105
+		%107 = LOAD u8 %106
+		%108 = CAST u8 to u32 %107
+		%109 = ALLOC u32
+		%109 = STORE u32 %108
+		JMP block_1
+
+
+	block_1:
+		JMP block_2
+
+
+	block_2:
+		%112 = LOAD *u8 %105
+		%113 = LOAD u8 %112
+		%114 = u8 128
+		%115 = %113 & %114
+		%116 = u8 0
+		%117 = %115 != %116
+		IF %117 goto block_4, else goto block_5
+
+
+	block_4:
+		%118 = LOAD *u8 %105
+		%119 = i64 1
+		%120 = %118[%119] *u8
+		%105 = STORE *u8 %120
+		%121 = LOAD u32 %109
+		%122 = u32 8
+		%123 = %121 << %122
+		%124 = LOAD *u8 %105
+		%125 = LOAD u8 %124
+		%126 = CAST u8 to u32 %125
+		%127 = %123 | %126
+		%109 = STORE u32 %127
+		JMP block_6
+
+
+	block_5:
+		%129 = LOAD u32 %109
+		RET u32 %129
+
+
+	block_6:
+		JMP block_1
+
+
+	block_3:
+		%132 = LOAD u32 %109
+		RET u32 %132
+
+}
+
+fn format_float:(type,*[]u32,f32,i32)->void(type %0, *[]u32 %1, f32 %2, i32 %3) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC type
+		%103 = STORE type %102
+		%104 = ARG #1
+		%105 = ALLOC *[]u32
+		%105 = STORE *[]u32 %104
+		%106 = ARG #2
+		%107 = ALLOC f32
+		%107 = STORE f32 %106
+		%108 = ARG #3
+		%109 = ALLOC i32
+		%109 = STORE i32 %108
+		%110 = ALLOC [256]u32
+		%111 = ALLOC [256]u32
+		%111 = STORE [256]u32 %110
+		%112 = int 0
+		%113 = ALLOC int
+		%113 = STORE int %112
+		%114 = LOAD f32 %107
+		%115 = ALLOC f32
+		%115 = STORE f32 %114
+		%116 = LOAD type %103
+		%117 = uint 10
+		%118 = %116 != %117
+		%119 = LOAD type %103
+		%120 = uint 11
+		%121 = %119 != %120
+		%122 = %118 && %121
+		IF %122 goto block_1, else goto block_2
+
+
+	block_1:
+		RET
+
+
+	block_2:
+		JMP block_3
+
+
+	block_3:
+		%125 = LOAD f32 %115
+		%126 = f32 0
+		%127 = %125 == %126
+		IF %127 goto block_4, else goto block_5
+
+
+	block_4:
+		%128 = LOAD *[]u32 %105
+		%129 = u32 48
+		%130 = CALL %91(%128, %129)
+		RET
+
+
+	block_5:
+		JMP block_6
+
+
+	block_6:
+		%133 = bool 0
+		%134 = ALLOC bool
+		%134 = STORE bool %133
+		%135 = LOAD f32 %115
+		%136 = f32 0
+		%137 = %135 < %136
+		IF %137 goto block_7, else goto block_8
+
+
+	block_7:
+		%138 = f32 0
+		%139 = LOAD f32 %115
+		%140 = f32 %138 - %139
+		%115 = STORE f32 %140
+		%141 = bool 1
+		%134 = STORE bool %141
+		JMP block_9
+
+
+	block_8:
+		JMP block_9
+
+
+	block_9:
+		%144 = LOAD f32 %115
+		%145 = f32 0.005000
+		%146 = f32 %144 + %145
+		%115 = STORE f32 %146
+		%147 = LOAD f32 %115
+		%148 = CAST f32 to i32 %147
+		%149 = ALLOC i32
+		%149 = STORE i32 %148
+		%150 = LOAD f32 %115
+		%151 = LOAD i32 %109
+		%152 = CAST i32 to f32 %151
+		%153 = f32 %150 * %152
+		%154 = CAST f32 to i32 %153
+		%155 = LOAD i32 %109
+		%156 = i32 %154 % %155
+		%157 = ALLOC i32
+		%157 = STORE i32 %156
+		%158 = LOAD i32 %157
+		%159 = i32 0
+		%160 = %158 == %159
+		IF %160 goto block_10, else goto block_11
+
+
+	block_10:
+		%161 = LOAD int %113
+		%162 = %111[%161] [256]u32
+		%163 = u32 48
+		%162 = STORE u32 %163
+		%164 = LOAD int %113
+		%165 = int 1
+		%166 = int %164 + %165
+		%113 = STORE int %166
+		JMP block_12
+
+
+	block_11:
+		JMP block_13
+
+
+	block_13:
+		%169 = LOAD i32 %157
+		%170 = i32 0
+		%171 = %169 > %170
+		IF %171 goto block_14, else goto block_15
+
+
+	block_14:
+		%172 = LOAD int %113
+		%173 = %111[%172] [256]u32
+		%174 = u32 48
+		%175 = LOAD i32 %157
+		%176 = i32 10
+		%177 = i32 %175 % %176
+		%178 = CAST i32 to u8 %177
+		%179 = CAST u8 to u32 %178
+		%180 = u32 %174 + %179
+		%173 = STORE u32 %180
+		%181 = LOAD int %113
+		%182 = int 1
+		%183 = int %181 + %182
+		%113 = STORE int %183
+		%184 = LOAD i32 %157
+		%185 = i32 10
+		%186 = i32 %184 / %185
+		%157 = STORE i32 %186
+		JMP block_13
+
+
+	block_15:
+		JMP block_12
+
+
+	block_12:
+		%189 = LOAD int %113
+		%190 = %111[%189] [256]u32
+		%191 = u32 46
+		%190 = STORE u32 %191
+		%192 = LOAD int %113
+		%193 = int 1
+		%194 = int %192 + %193
+		%113 = STORE int %194
+		%195 = LOAD i32 %149
+		%196 = i32 0
+		%197 = %195 == %196
+		IF %197 goto block_16, else goto block_17
+
+
+	block_16:
+		%198 = LOAD int %113
+		%199 = %111[%198] [256]u32
+		%200 = u32 48
+		%199 = STORE u32 %200
+		%201 = LOAD int %113
+		%202 = int 1
+		%203 = int %201 + %202
+		%113 = STORE int %203
+		JMP block_18
+
+
+	block_17:
+		JMP block_19
+
+
+	block_19:
+		%206 = LOAD i32 %149
+		%207 = i32 0
+		%208 = %206 > %207
+		IF %208 goto block_20, else goto block_21
+
+
+	block_20:
+		%209 = LOAD int %113
+		%210 = %111[%209] [256]u32
+		%211 = u32 48
+		%212 = LOAD i32 %149
+		%213 = i32 10
+		%214 = i32 %212 % %213
+		%215 = CAST i32 to u32 %214
+		%216 = u32 %211 + %215
+		%210 = STORE u32 %216
+		%217 = LOAD int %113
+		%218 = int 1
+		%219 = int %217 + %218
+		%113 = STORE int %219
+		%220 = LOAD i32 %149
+		%221 = i32 10
+		%222 = i32 %220 / %221
+		%149 = STORE i32 %222
+		JMP block_19
+
+
+	block_21:
+		JMP block_18
+
+
+	block_18:
+		%225 = LOAD bool %134
+		IF %225 goto block_22, else goto block_23
+
+
+	block_22:
+		%226 = LOAD *[]u32 %105
+		%227 = u32 45
+		%228 = CALL %91(%226, %227)
+		JMP block_24
+
+
+	block_23:
+		JMP block_24
+
+
+	block_24:
+		%231 = int 0
+		%232 = LOAD int %113
+		%233 = int 0
+		%234 = int 1
+		%235 = ALLOC int
+		%235 = STORE int %233
+		JMP block_25
+
+
+	block_25:
+		%237 = LOAD int %235
+		%238 = %237 < %232
+		IF %238 goto block_26, else goto block_28
+
+
+	block_26:
+		%239 = LOAD *[]u32 %105
+		%240 = LOAD int %113
+		%241 = LOAD int %235
+		%242 = int %240 - %241
+		%243 = int 1
+		%244 = int %242 - %243
+		%245 = %111[%244] [256]u32
+		%246 = LOAD u32 %245
+		%247 = CALL %91(%239, %246)
+		JMP block_27
+
+
+	block_27:
+		%249 = LOAD int %235
+		%250 = int %249 + %234
+		%235 = STORE int %250
+		JMP block_25
+
+
+	block_28:
+		RET
+
+}
+
+fn format_float:(type,*[]u32,f64,i32)->void(type %0, *[]u32 %1, f64 %2, i32 %3) {
+
+	block_0:
+		%102 = ARG #0
+		%103 = ALLOC type
+		%103 = STORE type %102
+		%104 = ARG #1
+		%105 = ALLOC *[]u32
+		%105 = STORE *[]u32 %104
+		%106 = ARG #2
+		%107 = ALLOC f64
+		%107 = STORE f64 %106
+		%108 = ARG #3
+		%109 = ALLOC i32
+		%109 = STORE i32 %108
+		%110 = ALLOC [256]u32
+		%111 = ALLOC [256]u32
+		%111 = STORE [256]u32 %110
+		%112 = int 0
+		%113 = ALLOC int
+		%113 = STORE int %112
+		%114 = LOAD f64 %107
+		%115 = ALLOC f64
+		%115 = STORE f64 %114
+		%116 = LOAD type %103
+		%117 = uint 10
+		%118 = %116 != %117
+		%119 = LOAD type %103
+		%120 = uint 11
+		%121 = %119 != %120
+		%122 = %118 && %121
+		IF %122 goto block_1, else goto block_2
+
+
+	block_1:
+		RET
+
+
+	block_2:
+		JMP block_3
+
+
+	block_3:
+		%125 = LOAD f64 %115
+		%126 = f64 0
+		%127 = %125 == %126
+		IF %127 goto block_4, else goto block_5
+
+
+	block_4:
+		%128 = LOAD *[]u32 %105
+		%129 = u32 48
+		%130 = CALL %91(%128, %129)
+		RET
+
+
+	block_5:
+		JMP block_6
+
+
+	block_6:
+		%133 = bool 0
+		%134 = ALLOC bool
+		%134 = STORE bool %133
+		%135 = LOAD f64 %115
+		%136 = f64 0
+		%137 = %135 < %136
+		IF %137 goto block_7, else goto block_8
+
+
+	block_7:
+		%138 = f64 0
+		%139 = LOAD f64 %115
+		%140 = f64 %138 - %139
+		%115 = STORE f64 %140
+		%141 = bool 1
+		%134 = STORE bool %141
+		JMP block_9
+
+
+	block_8:
+		JMP block_9
+
+
+	block_9:
+		%144 = LOAD f64 %115
+		%145 = f64 0.005000
+		%146 = f64 %144 + %145
+		%115 = STORE f64 %146
+		%147 = LOAD f64 %115
+		%148 = CAST f64 to i32 %147
+		%149 = ALLOC i32
+		%149 = STORE i32 %148
+		%150 = LOAD f64 %115
+		%151 = LOAD i32 %109
+		%152 = CAST i32 to f64 %151
+		%153 = f64 %150 * %152
+		%154 = CAST f64 to i32 %153
+		%155 = LOAD i32 %109
+		%156 = i32 %154 % %155
+		%157 = ALLOC i32
+		%157 = STORE i32 %156
+		%158 = LOAD i32 %157
+		%159 = i32 0
+		%160 = %158 == %159
+		IF %160 goto block_10, else goto block_11
+
+
+	block_10:
+		%161 = LOAD int %113
+		%162 = %111[%161] [256]u32
+		%163 = u32 48
+		%162 = STORE u32 %163
+		%164 = LOAD int %113
+		%165 = int 1
+		%166 = int %164 + %165
+		%113 = STORE int %166
+		JMP block_12
+
+
+	block_11:
+		JMP block_13
+
+
+	block_13:
+		%169 = LOAD i32 %157
+		%170 = i32 0
+		%171 = %169 > %170
+		IF %171 goto block_14, else goto block_15
+
+
+	block_14:
+		%172 = LOAD int %113
+		%173 = %111[%172] [256]u32
+		%174 = u32 48
+		%175 = LOAD i32 %157
+		%176 = i32 10
+		%177 = i32 %175 % %176
+		%178 = CAST i32 to u8 %177
+		%179 = CAST u8 to u32 %178
+		%180 = u32 %174 + %179
+		%173 = STORE u32 %180
+		%181 = LOAD int %113
+		%182 = int 1
+		%183 = int %181 + %182
+		%113 = STORE int %183
+		%184 = LOAD i32 %157
+		%185 = i32 10
+		%186 = i32 %184 / %185
+		%157 = STORE i32 %186
+		JMP block_13
+
+
+	block_15:
+		JMP block_12
+
+
+	block_12:
+		%189 = LOAD int %113
+		%190 = %111[%189] [256]u32
+		%191 = u32 46
+		%190 = STORE u32 %191
+		%192 = LOAD int %113
+		%193 = int 1
+		%194 = int %192 + %193
+		%113 = STORE int %194
+		%195 = LOAD i32 %149
+		%196 = i32 0
+		%197 = %195 == %196
+		IF %197 goto block_16, else goto block_17
+
+
+	block_16:
+		%198 = LOAD int %113
+		%199 = %111[%198] [256]u32
+		%200 = u32 48
+		%199 = STORE u32 %200
+		%201 = LOAD int %113
+		%202 = int 1
+		%203 = int %201 + %202
+		%113 = STORE int %203
+		JMP block_18
+
+
+	block_17:
+		JMP block_19
+
+
+	block_19:
+		%206 = LOAD i32 %149
+		%207 = i32 0
+		%208 = %206 > %207
+		IF %208 goto block_20, else goto block_21
+
+
+	block_20:
+		%209 = LOAD int %113
+		%210 = %111[%209] [256]u32
+		%211 = u32 48
+		%212 = LOAD i32 %149
+		%213 = i32 10
+		%214 = i32 %212 % %213
+		%215 = CAST i32 to u32 %214
+		%216 = u32 %211 + %215
+		%210 = STORE u32 %216
+		%217 = LOAD int %113
+		%218 = int 1
+		%219 = int %217 + %218
+		%113 = STORE int %219
+		%220 = LOAD i32 %149
+		%221 = i32 10
+		%222 = i32 %220 / %221
+		%149 = STORE i32 %222
+		JMP block_19
+
+
+	block_21:
+		JMP block_18
+
+
+	block_18:
+		%225 = LOAD bool %134
+		IF %225 goto block_22, else goto block_23
+
+
+	block_22:
+		%226 = LOAD *[]u32 %105
+		%227 = u32 45
+		%228 = CALL %91(%226, %227)
+		JMP block_24
+
+
+	block_23:
+		JMP block_24
+
+
+	block_24:
+		%231 = int 0
+		%232 = LOAD int %113
+		%233 = int 0
+		%234 = int 1
+		%235 = ALLOC int
+		%235 = STORE int %233
+		JMP block_25
+
+
+	block_25:
+		%237 = LOAD int %235
+		%238 = %237 < %232
+		IF %238 goto block_26, else goto block_28
+
+
+	block_26:
+		%239 = LOAD *[]u32 %105
+		%240 = LOAD int %113
+		%241 = LOAD int %235
+		%242 = int %240 - %241
+		%243 = int 1
+		%244 = int %242 - %243
+		%245 = %111[%244] [256]u32
+		%246 = LOAD u32 %245
+		%247 = CALL %91(%239, %246)
+		JMP block_27
+
+
+	block_27:
+		%249 = LOAD int %235
+		%250 = int %249 + %234
+		%235 = STORE int %250
+		JMP block_25
+
+
+	block_28:
+		RET
+
+}
+

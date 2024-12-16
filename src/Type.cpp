@@ -223,9 +223,18 @@ u32 GetReturnType(const type *Type)
 	return ReturnsToType(Type->Function.Returns);
 }
 
+std::mutex TypeMutex;
+
 u32 AddTypeWithName(type *Type, string Name)
 {
-	LockMutex();
+	TypeMutex.lock();
+	
+	u32 Lookup = TypeMap[Name];
+	if(Lookup != INVALID_TYPE && Type->Kind != TypeKind_Generic) {
+
+		TypeMutex.unlock();
+		return Lookup;
+	}
 
 	TypeTable[TypeCount++] = Type;
 	Assert(TypeCount < MAX_TYPES);
@@ -233,7 +242,7 @@ u32 AddTypeWithName(type *Type, string Name)
 
 	TypeMap.Add(Name, Result);
 
-	UnlockMutex();
+	TypeMutex.unlock();
 	return Result;
 }
 
@@ -245,10 +254,10 @@ u32 AddType(type *Type)
 
 void FillOpaqueStruct(u32 TypeIdx, type T)
 {
-	LockMutex();
+	TypeMutex.lock();
 	Assert(TypeTable[TypeIdx]->Kind == TypeKind_Struct);
 	*(type *)(TypeTable[TypeIdx]) = T;
-	UnlockMutex();
+	TypeMutex.unlock();
 }
 
 int GetRegisterTypeSize()
@@ -264,6 +273,8 @@ int GetBasicTypeSize(const type *Type)
 		return Type->Basic.Size;
 	else if(Type->Basic.Kind == Basic_int || Type->Basic.Kind == Basic_uint)
 		return GetRegisterTypeSize() / 8;
+	else if(Type->Basic.Kind == Basic_string)
+		return GetRegisterTypeSize() / 4;
 	else
 		return GetRegisterTypeSize() / 8;
 	unreachable;

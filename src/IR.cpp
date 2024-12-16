@@ -118,27 +118,27 @@ basic_block AllocateBlock(block_builder *Builder)
 	return Block;
 }
 
-// @TODO: no? like why no scope tracking
-void PushIRLocal(function *Function, const string *Name, u32 Register, u32 Type, u32 Flags)
+void PushIRLocal(block_builder *Builder, const string *Name, u32 Register, u32 Type, u32 Flags)
 {
-	//LDEBUG("Pushing: %s", Name->Data);
 	ir_symbol Local;
 	Local.Register = Register;
 	Local.Name  = Name;
 	Local.Type  = Type;
 	Local._Flags = Flags;
-	Function->Locals.Push(Local);
+
+	Builder->Scope.Peek().Add(*Name, Local);
 }
 
-// @TODO: This is bad
-const ir_symbol *GetIRLocal(function *Function, const string *Name, b32 Error = true)
+const ir_symbol *GetIRLocal(block_builder *Builder, const string *Name, b32 Error = true)
 {
 	ir_symbol *Found = NULL;
-	for(int I = 0; I < Function->Locals.Count; ++I)
+	for(int i = Builder->Scope.Data.Count-1; i >= 0; i--)
 	{
-		if(*Function->Locals[I].Name == *Name)
+		ir_symbol *s = Builder->Scope.Data[i].GetUnstablePtr(*Name);
+		if(s)
 		{
-			Found = &Function->Locals.Data[I];
+			Found = s;
+			break;
 		}
 	}
 	if(!Found && Error)
@@ -174,11 +174,11 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 
 const ir_symbol *GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
 {
-	const ir_symbol *Res = GetIRLocal(Builder->Function, &FnName, false);
+	const ir_symbol *Res = GetIRLocal(Builder, &FnName, false);
 	if(Res)
 		return Res;
 	string AsModule = StructToModuleName(FnName, Module);
-	Res = GetIRLocal(Builder->Function, &AsModule);
+	Res = GetIRLocal(Builder, &AsModule);
 	return Res;
 }
 
@@ -358,6 +358,8 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		u32 Value = BuildIRFromExpression(Builder, Case->Case.Value);
 		OnValues.Push(Value);
 	}
+
+	u32 ReturnType = Node->Match.ReturnType;
 	ForArray(Idx, Node->Match.Cases)
 	{
 		basic_block CaseBlock = AllocateBlock(Builder);
@@ -371,7 +373,7 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 				Assert(Result != -1);
 				u32 Expr = BuildIRFromExpression(Builder, Node->Return.Expression);
 				PushInstruction(Builder, 
-						InstructionStore(Result, Expr, Node->Return.TypeIdx));
+						InstructionStore(Result, Expr, ReturnType));
 			}
 			else
 			{
@@ -403,8 +405,11 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 
 	if(Result != -1)
 	{
-		Result = PushInstruction(Builder,
-				Instruction(OP_LOAD, 0, Result, Node->Match.MatchType, Builder));
+		if(IsLoadableType(Node->Match.ReturnType))
+		{
+			Result = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Result, Node->Match.ReturnType, Builder));
+		}
 	}
 	return Result;
 }
@@ -449,7 +454,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Instruction(OP_CONSTINT, Node->ID.Type, Basic_uint, Builder));
 				break;
 			}
-			const ir_symbol *Local = GetIRLocal(Builder->Function, Node->ID.Name);
+			const ir_symbol *Local = GetIRLocal(Builder, Node->ID.Name);
 			Result = Local->Register;
 
 			b32 ShouldLoad = true;
@@ -492,7 +497,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			string TableID = STR_LIT("init.type_table");
 			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
-			const ir_symbol *s = GetIRLocal(Builder->Function, &TableID);
+			const ir_symbol *s = GetIRLocal(Builder, &TableID);
 			u32 DataPtr = PushInstruction(Builder, 
 					Instruction(OP_INDEX, s->Register, 1, s->Type, Builder));
 			const type *SliceType = GetType(s->Type);
@@ -551,23 +556,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		case AST_SIZE:
 		{
 			const type *Type = GetType(Node->Size.Type);
-			if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
-			{
-				u32 StringRegister = BuildIRFromExpression(Builder, Node->Size.Expression, true);
-				u32 SizePtr = PushInstruction(Builder,
-						Instruction(OP_INDEX, StringRegister, 1, Basic_string, Builder));
-				Result = PushInstruction(Builder,
-						Instruction(OP_LOAD, 0, SizePtr, Basic_int, Builder));
-			}
-			else
-			{
-				const_value *Size = NewType(const_value);
-				Size->Type = const_type::Integer;
-				Size->Int.IsSigned = false;
-				Size->Int.Unsigned = GetTypeSize(Type);
-				Result = PushInstruction(Builder, 
-						Instruction(OP_CONST, (u64)Size, Basic_u64, Builder));
-			}
+			const_value *Size = NewType(const_value);
+			Size->Type = const_type::Integer;
+			Size->Int.IsSigned = false;
+			Size->Int.Unsigned = GetTypeSize(Type);
+			Result = PushInstruction(Builder, 
+					Instruction(OP_CONST, (u64)Size, Basic_u64, Builder));
 		} break;
 		case AST_CALL:
 		{
@@ -945,7 +939,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				// @TODO: This is for selecting enums from modules
 				// Ex. my_mod.my_enum.VALUE
 				// but it's kinda hacky, find a better way to do this
-				const ir_symbol *Sym = GetIRLocal(Builder->Function, Mangled, false);
+				const ir_symbol *Sym = GetIRLocal(Builder, Mangled, false);
 				if(!Sym)
 				{
 					string Name = *Mangled;
@@ -1325,7 +1319,7 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 					InstructionZeroOut(Var, Node->Decl.TypeIndex));
 		}
 		IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *Node->Decl.LHS->ID.Name, Node->Decl.TypeIndex, Var);
-		PushIRLocal(Builder->Function, Node->Decl.LHS->ID.Name, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
+		PushIRLocal(Builder, Node->Decl.LHS->ID.Name, Var, Node->Decl.TypeIndex, Node->Decl.Flags);
 	}
 	else if(Node->Decl.LHS->Type == AST_LIST)
 	{
@@ -1348,7 +1342,7 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 
 			u32 Var = BuildIRStoreVariable(Builder, Mem, MemT);
 			IRPushDebugVariableInfo(Builder, Node->ErrorInfo, *(*it)->ID.Name, MemT, Var);
-			PushIRLocal(Builder->Function, (*it)->ID.Name, Var, MemT, Node->Decl.Flags);
+			PushIRLocal(Builder, (*it)->ID.Name, Var, MemT, Node->Decl.Flags);
 
 			At++;
 		}
@@ -1541,7 +1535,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 			IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
 					*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
-			PushIRLocal(Builder->Function, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType, 0);
+			PushIRLocal(Builder, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType, 0);
 
 			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
 			{
@@ -1549,7 +1543,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				*n = STR_LIT("i");
 				IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
 						*n, Basic_int, IAlloc);
-				PushIRLocal(Builder->Function, n, IAlloc, Basic_int, 0);
+				PushIRLocal(Builder, n, IAlloc, Basic_int, 0);
 			}
 		}
 
@@ -1651,9 +1645,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 						BuildIRFunctionLevel(Builder, s.Expressions[ActualIdx]);
 					}
 				}
+				Builder->Scope.Pop().Free();
 			}
 			else
 			{
+				Builder->Scope.Push({});
 				Builder->Defered.Push({});
 			}
 		} break;
@@ -1794,7 +1790,7 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module
 			symbol *s = M->Globals.Data[GIdx];
 			if(s->Checker->Module->Name == ThisModule->Name)
 			{
-				PushIRLocal(Fn, s->Name, s->IRRegister,
+				PushIRLocal(Builder, s->Name, s->IRRegister,
 						s->Type, s->Flags);
 			}
 			else
@@ -1802,7 +1798,7 @@ void IRPushGlobalSymbolsForFunction(block_builder *Builder, function *Fn, module
 				string sName = *s->Name;
 
 				string *Mangled = StructToModuleNamePtr(sName, M->Name);
-				PushIRLocal(Fn, Mangled, s->IRRegister,
+				PushIRLocal(Builder, Mangled, s->IRRegister,
 						s->Type, s->Flags);
 			}
 		}
@@ -1854,8 +1850,8 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		Function.LinkName = StructToModuleNamePtr(NameNoPtr, Function.ModuleName);
 	if(Body.IsValid())
 	{
-		Function.Locals = {};
 		block_builder Builder = {};
+		Builder.Scope.Push({});
 		Builder.Function = &Function;
 		Builder.CurrentBlock = AllocateBlock(&Builder);
 		Builder.Imported = Imported;
@@ -1885,7 +1881,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 					InstructionStore(Alloc, Register, Type));
 
 			Assert(Args[Idx]->Type == AST_VAR);
-			PushIRLocal(&Function, Args[Idx]->Var.Name, Register,
+			PushIRLocal(&Builder, Args[Idx]->Var.Name, Register,
 					Type, 0); // @TODO: Flags?
 			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Var.Name, Type);
 		}
@@ -1897,7 +1893,6 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		Terminate(&Builder, {});
 		Function.LastRegister = Builder.LastRegister;
 		Builder.Function = NULL;
-		Function.Locals.Free();
 	}
 	return Function;
 }
@@ -1941,6 +1936,8 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 	for(int i = 0; i < TypeCount; ++i)
 	{
 		const type *T = GetType(i);
+		if(T->Kind == TypeKind_Generic)
+			continue;
 
 		u32 MemberPtr = PushInstruction(Builder, 
 				Instruction(OP_INDEX, TablePtr, PushInt(i, Builder), TableType, Builder)
@@ -2241,7 +2238,6 @@ ir BuildIR(file *File, u32 StartRegister)
 		function GlobalInitializers = {};
 		GlobalInitializers.Name = DupeType(GlobalFnName, string);
 		GlobalInitializers.Type = INVALID_TYPE;
-		GlobalInitializers.Locals = {};
 		GlobalInitializers.LinkName = StructToModuleNamePtr(GlobalFnName, File->Module->Name);
 		GlobalInitializers.NoDebugInfo = true;
 
@@ -2255,6 +2251,7 @@ ir BuildIR(file *File, u32 StartRegister)
 		}
 
 		block_builder Builder = {};
+		Builder.Scope.Push({});
 		Builder.Function = &GlobalInitializers;
 		Builder.CurrentBlock = AllocateBlock(&Builder);
 		IRPushGlobalSymbolsForFunction(&Builder, &GlobalInitializers, File->Module, StartRegister);
@@ -2270,14 +2267,14 @@ ir BuildIR(file *File, u32 StartRegister)
 					if(Node->Decl.Expression)
 					{
 						u32 Expr = BuildIRFromExpression(&Builder, Node->Decl.Expression);
-						const ir_symbol *Sym = GetIRLocal(Builder.Function, Name);
+						const ir_symbol *Sym = GetIRLocal(&Builder, Name);
 						Assert(Sym);
 						PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
 					}
 					else if(*Name == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
 					{
 						uint TypeCount = GetTypeCount();
-						const ir_symbol *Sym = GetIRLocal(Builder.Function, Name);
+						const ir_symbol *Sym = GetIRLocal(&Builder, Name);
 						Assert(Sym);
 						u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
 						u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
@@ -2307,7 +2304,7 @@ ir BuildIR(file *File, u32 StartRegister)
 						u32 Mem = PushInstruction(&Builder,
 								Instruction(OP_LOAD, 0, MemPtr, MemT, &Builder));
 
-						const ir_symbol *Sym = GetIRLocal(Builder.Function, (*it)->ID.Name);
+						const ir_symbol *Sym = GetIRLocal(&Builder, (*it)->ID.Name);
 						Assert(Sym);
 						PushInstruction(&Builder, InstructionStore(Sym->Register, Mem, Node->Decl.TypeIndex));
 
@@ -2324,7 +2321,6 @@ ir BuildIR(file *File, u32 StartRegister)
 		IR.Functions.Push(GlobalInitializers);
 		Builder.Function = NULL;
 
-		GlobalInitializers.Locals.Free();
 	}
 
 	for(int I = 0; I < NodeCount; ++I)

@@ -142,7 +142,7 @@ struct function
 	const string *Name;
 	const string *LinkName;
 	dynamic<basic_block> Blocks;
-	dynamic<ir_symbol> Locals;
+	dynamic<ir_symbol> _Locals;
 	slice<ir_symbol> ModuleSymbols;
 	string ModuleName;
 	u32 LineNo;
@@ -163,6 +163,7 @@ struct block_builder
 	slice<import> Imported;
 	stack<defer_scope> Defered;
 	module *Module;
+	stack<dict<ir_symbol>> Scope;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;
 	u32 LastRegister;

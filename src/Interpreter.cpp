@@ -10,6 +10,8 @@
 #include <x64CodeWriter.h>
 #include <math.h>
 
+bool InterpreterTrace = false;
+
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
 	void *Memory = VM->Stack.Peek().Allocate(String->Size + 1);
@@ -782,11 +784,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(LOR, ||);
 			case OP_DEBUGINFO:
 			{
-#if 0
-				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
-				if(Info->type == IR_DBG_LOCATION)
-					LDEBUG("At line: %d", Info->loc.LineNo);
-#endif
+				if(InterpreterTrace)
+				{
+					ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+					if(Info->type == IR_DBG_LOCATION)
+						LINFO("%s at line: %d", VM->CurrentFnName.Data, Info->loc.LineNo);
+				}
 			} break;
 			default:
 			{
@@ -908,13 +911,17 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
 
-#if 0
-	LDEBUG("Interp calling function %s with args:", Function.Name->Data);
-	ForArray(Idx, Args)
+	string SaveCurrentFn = VM->CurrentFnName;
+
+	if(InterpreterTrace && Function.Name)
 	{
-		LDEBUG("\t[%d]%s", Idx, GetTypeName(Args[Idx].Type));
+		VM->CurrentFnName = *Function.Name;
+		LINFO("Interp calling function %s with args:", Function.Name->Data);
+		ForArray(Idx, Args)
+		{
+			LINFO("\t[%d]%s", Idx, GetTypeName(Args[Idx].Type));
+		}
 	}
-#endif
 
 	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
 
@@ -931,6 +938,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 
+	VM->CurrentFnName = SaveCurrentFn;
 	return Result;
 }
 

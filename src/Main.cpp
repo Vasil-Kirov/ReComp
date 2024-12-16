@@ -485,12 +485,21 @@ main(int ArgCount, char *Args[])
 		LFATAL("compile function needs to return compile.CompileInfo");
 	}
 
+#if 0
+	for(int i = 0; i < GetTypeCount(); ++i)
+	{
+		LDEBUG("%d: %s", i, GetTypeName(i));
+	}
+#endif
+	
 	timer_group VMBuildTimer = VLibStartTimer("VM");
 	slice<module*> ModuleArray = {};
 	interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 	{
 
 
+		if(InterpreterTrace)
+			LINFO("Interpreting compile function");
 		interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
 
 		VLibStopTimer(&VMBuildTimer);
@@ -586,9 +595,10 @@ main(int ArgCount, char *Args[])
 	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
 	if(AfterFunction)
 	{
+		if(InterpreterTrace)
+			LINFO("Interpreting after_link function");
 		InterpretFunction(&VM, *AfterFunction, {});
 	}
-
 
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;

@@ -5,6 +5,8 @@
 #include "Log.h"
 #include "Platform.h"
 
+std::mutex MemMutex;
+
 static ap_memory MemoryAllocators[2];
 
 #define PERM_SIZE GB(4)
@@ -73,12 +75,12 @@ InternalAllocateMemory(ap_memory *Arena, u64 Size, const char *NAME)
 void *
 AllocateMemory(u64 Size, i8 Index)
 {
-	LockMutex();
+	MemMutex.lock();
 
 	const char *NAME[2] = { "permanent", "string" };
 	void *Result = InternalAllocateMemory(&MemoryAllocators[Index], Size, NAME[Index]);
 
-	UnlockMutex();
+	MemMutex.unlock();
 	return Result;
 }
 

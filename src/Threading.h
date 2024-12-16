@@ -6,7 +6,7 @@
 #define READ_BARRIER atomic_thread_fence(std::memory_order_acquire)
 #define WRITE_BARRIER atomic_thread_fence(std::memory_order_release)
 #define RW_BARRIER atomic_thread_fence(std::memory_order_seq_cst)
-const int MAX_THREADS = 12;
+const int MAX_THREADS = 8;
 const int MAX_JOBS = 128;
 
 struct job

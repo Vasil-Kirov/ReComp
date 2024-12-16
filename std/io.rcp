@@ -330,6 +330,15 @@ print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
         for i := 0; str[i] != '\0'; i += 1 {
             array.add(b, str[i]);
         }
+    } else if c == 'c' && t.kind == init.TypeKind.Basic &&
+        (t.t.basic.kind == init.BasicKind.U8 || t.t.basic.kind == init.BasicKind.U32) {
+            c: u32;
+            if t.t.basic.kind == init.BasicKind.U8 {
+                c = *@*u8 arg.val;
+            } else if t.t.basic.kind == init.BasicKind.U32 {
+                c = *@*u32 arg.val;
+            }
+            array.add(b, c);
     } else {
         print_type(b, arg);
 		if c != 0
@@ -337,6 +346,7 @@ print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
     }
 }
 
+#private
 __internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
     alloc := mem.create_generic_allocator();
     builder := array.create(u32, &alloc);
@@ -366,6 +376,7 @@ __internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
 
     return builder;
 }
+#public
 
 vsprint :: fn(str: string, args: []init.Arg) -> string {
     builder := __internal_print(str, args);

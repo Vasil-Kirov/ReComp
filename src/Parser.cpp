@@ -1617,8 +1617,24 @@ node *ParseTopLevel(parser *Parser)
 		case T_PWDELIF:
 		{
 			ERROR_INFO;
+			// skip it
 			GetToken(Parser);
-			RaiseError(*ErrorInfo, "#elif used without an accompanying #if");
+			EatToken(Parser, T_ID);
+			EatToken(Parser, T_OPENPAREN);
+			int depth = 1;
+			while(depth > 0)
+			{
+				token_type Type = Parser->Current->Type;
+				if(Type == T_OPENPAREN)
+					depth++;
+				else if(Type == T_CLOSEPAREN)
+					depth--;
+				else if(Type == T_EOF)
+				{
+					RaiseError(*ErrorInfo, "#if is not terminated");
+				}
+				GetToken(Parser);
+			}
 		} break;
 		case T_PWDIF:
 		{

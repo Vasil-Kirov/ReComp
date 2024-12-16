@@ -1,0 +1,91 @@
+==29288==ERROR: AddressSanitizer: heap-use-after-free on address 0x125134eed780 at pc 0x7ff78161c4ec bp 0x006f6a4fbbf0 sp 0x006f6a4fbc38
+READ of size 16 at 0x125134eed780 thread T0
+    #0 0x7ff78161c4eb in __asan_memcpy C:\src\llvm_package_18.1.4\llvm-project\compiler-rt\lib\asan\asan_interceptors_memintrinsics.cpp:63
+    #1 0x7ff7815deeb6 in dynamic<struct LLVMDebugMetadataEntry>::operator[](unsigned __int64) const E:\C_Projects\ReComp\src\Dynamic.h:38
+    #2 0x7ff7815c8b5a in LLVMDebugFindMapType(struct generator *, unsigned int) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:39
+    #3 0x7ff7815b057c in ToDebugTypeLLVM(struct generator *, unsigned int) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:192
+    #4 0x7ff7815c02c4 in RCGenerateDebugInfoForFunction(struct generator *, struct function) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:745
+    #5 0x7ff7815bf68d in RCGenerateFunction(struct generator *, struct function) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:811
+    #6 0x7ff7815c5bd9 in RCGenerateFile(struct module *, unsigned int, struct slice<struct module *>, struct slice<struct file *>, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1065
+    #7 0x7ff7815c81e4 in GenWorkerFn(void *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1242
+    #8 0x7ff7815990c1 in TryDoWork(struct work_queue *) E:\C_Projects\ReComp\src\Threading.cpp:15
+    #9 0x7ff7815c86ab in RCGenerateCode(struct slice<struct module *>, struct slice<struct file *>, unsigned int, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1269
+    #10 0x7ff7815d41bc in main E:\C_Projects\ReComp\src\Main.cpp:542
+    #11 0x7ff78163a1df in invoke_main D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:78
+    #12 0x7ff78163a1df in __scrt_common_main_seh D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+    #13 0x7fff56997373  (C:\Windows\System32\KERNEL32.DLL+0x180017373)
+    #14 0x7fff57fbcc90  (C:\Windows\SYSTEM32\ntdll.dll+0x18004cc90)
+
+0x125134eed780 is located 0 bytes inside of 1552-byte region [0x125134eed780,0x125134eedd90)
+freed by thread T0 here:
+    #0 0x7ff78161ae54 in realloc C:\src\llvm_package_18.1.4\llvm-project\compiler-rt\lib\asan\asan_malloc_win.cpp:135
+    #1 0x7ff7815e08e0 in ReallocateMemory(void *, int, int) E:\C_Projects\ReComp\src\vlib.h:146
+    #2 0x7ff7815e7b76 in dynamic<struct LLVMDebugMetadataEntry>::EnsureCapacity(void) E:\C_Projects\ReComp\src\Dynamic.h:26
+    #3 0x7ff7815deefd in dynamic<struct LLVMDebugMetadataEntry>::Push(struct LLVMDebugMetadataEntry) E:\C_Projects\ReComp\src\Dynamic.h:42
+    #4 0x7ff7815c3a58 in LLVMDebugMapType(struct generator *, unsigned int, struct LLVMOpaqueMetadata *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:52
+    #5 0x7ff7815b1fb8 in ToDebugTypeLLVM(struct generator *, unsigned int) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:344
+    #6 0x7ff7815c02c4 in RCGenerateDebugInfoForFunction(struct generator *, struct function) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:745
+    #7 0x7ff7815bf68d in RCGenerateFunction(struct generator *, struct function) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:811
+    #8 0x7ff7815b6736 in RCGenerateInstruction(struct generator *, struct instruction) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:356
+    #9 0x7ff7815bf884 in RCGenerateFunction(struct generator *, struct function) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:821
+    #10 0x7ff7815c5bd9 in RCGenerateFile(struct module *, unsigned int, struct slice<struct module *>, struct slice<struct file *>, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1065
+    #11 0x7ff7815c81e4 in GenWorkerFn(void *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1242
+    #12 0x7ff7815990c1 in TryDoWork(struct work_queue *) E:\C_Projects\ReComp\src\Threading.cpp:15
+    #13 0x7ff7815c86ab in RCGenerateCode(struct slice<struct module *>, struct slice<struct file *>, unsigned int, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1269
+    #14 0x7ff7815d41bc in main E:\C_Projects\ReComp\src\Main.cpp:542
+    #15 0x7ff78163a1df in invoke_main D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:78
+    #16 0x7ff78163a1df in __scrt_common_main_seh D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+    #17 0x7fff56997373  (C:\Windows\System32\KERNEL32.DLL+0x180017373)
+    #18 0x7fff57fbcc90  (C:\Windows\SYSTEM32\ntdll.dll+0x18004cc90)
+
+previously allocated by thread T0 here:
+    #0 0x7ff78161ae54 in realloc C:\src\llvm_package_18.1.4\llvm-project\compiler-rt\lib\asan\asan_malloc_win.cpp:135
+    #1 0x7ff7815e08e0 in ReallocateMemory(void *, int, int) E:\C_Projects\ReComp\src\vlib.h:146
+    #2 0x7ff7815e7b76 in dynamic<struct LLVMDebugMetadataEntry>::EnsureCapacity(void) E:\C_Projects\ReComp\src\Dynamic.h:26
+    #3 0x7ff7815deefd in dynamic<struct LLVMDebugMetadataEntry>::Push(struct LLVMDebugMetadataEntry) E:\C_Projects\ReComp\src\Dynamic.h:42
+    #4 0x7ff7815c3a58 in LLVMDebugMapType(struct generator *, unsigned int, struct LLVMOpaqueMetadata *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:52
+    #5 0x7ff7815c1467 in LLMVDebugOpaqueStruct(struct generator *, unsigned int) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMType.cpp:382
+    #6 0x7ff7815c0dae in RCGenerateComplexTypes(struct generator *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:846
+    #7 0x7ff7815c4917 in RCGenerateFile(struct module *, unsigned int, struct slice<struct module *>, struct slice<struct file *>, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:964
+    #8 0x7ff7815c81e4 in GenWorkerFn(void *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1242
+    #9 0x7ff7815990c1 in TryDoWork(struct work_queue *) E:\C_Projects\ReComp\src\Threading.cpp:15
+    #10 0x7ff7815c86ab in RCGenerateCode(struct slice<struct module *>, struct slice<struct file *>, unsigned int, struct compile_info *) E:\C_Projects\ReComp\src\backend\LLVMC\LLVMBase.cpp:1269
+    #11 0x7ff7815d41bc in main E:\C_Projects\ReComp\src\Main.cpp:542
+    #12 0x7ff78163a1df in invoke_main D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:78
+    #13 0x7ff78163a1df in __scrt_common_main_seh D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl:288
+    #14 0x7fff56997373  (C:\Windows\System32\KERNEL32.DLL+0x180017373)
+    #15 0x7fff57fbcc90  (C:\Windows\SYSTEM32\ntdll.dll+0x18004cc90)
+
+SUMMARY: AddressSanitizer: heap-use-after-free C:\src\llvm_package_18.1.4\llvm-project\compiler-rt\lib\asan\asan_interceptors_memintrinsics.cpp:63 in __asan_memcpy
+Shadow bytes around the buggy address:
+  0x125134eed500: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed580: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed600: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed680: fd fd fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+  0x125134eed700: fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa fa
+=>0x125134eed780:[fd]fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed800: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed880: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed900: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eed980: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+  0x125134eeda00: fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd fd
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==29288==ABORTING

@@ -98,6 +98,7 @@ struct interpreter
 	interpreter_scope Registers;
 	stack<binary_stack> Stack;
 	slice<function> Imported;
+	string CurrentFnName;
 	b32 IsCurrentFnRetInPtr;
 };
 

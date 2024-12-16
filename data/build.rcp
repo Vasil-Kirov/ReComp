@@ -4,10 +4,22 @@ build
 #import io
 #import init
 #import os
+#import array as arr
+#import mem
 
 puts :: fn #foreign(str: *u8);
 
 compile :: fn() -> c.CompileInfo {
+    c := 0;
+    if false {
+        c: u32;
+    } else {
+        c = 10;
+    }
+    ga := mem.create_generic_allocator();
+    //foo := arr.create(string, &ga);
+    //arr.add(&foo, "asd");
+    //io.println("%", foo[0]);
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 0,
@@ -25,5 +37,6 @@ compile :: fn() -> c.CompileInfo {
 
 after_link :: fn() {
     io.println("Done!");
+    return;
 }
 

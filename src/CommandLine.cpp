@@ -3,6 +3,8 @@
 #include "Log.h"
 #include "VString.h"
 
+extern bool InterpreterTrace;
+
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rcp
 
@@ -36,6 +38,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--link"),
 		STR_LIT("--llvm"),
 		STR_LIT("--log"),
+		STR_LIT("--interp-trace"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -95,6 +98,10 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		else if(StringsMatchNoCase(Arg, CompileCommands[6]))
 		{
 			SetLogLevel(LOG_DEBUG);
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[7]))
+		{
+			InterpreterTrace = true;
 		}
 		else
 		{

@@ -269,7 +269,6 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
             push_string(b, " { ");
             for n in st.members.count {
                 m := st.members[n];
-                print("mem: %\n", m.name);
                 push_string(b, m.name);
                 push_string(b, " = ");
                 ptr := @*u8 arg.val;
@@ -296,6 +295,18 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
         init.TypeKind.Vector: {
         }
         init.TypeKind.Enum: {
+            e := t.t.enum_;
+            size := init.get_type_size(e.t);
+            val := match size {
+                1: { return @int *@*i8 arg.val; }
+                2: { return @int *@*i16 arg.val; }
+                4: { return @int *@*i32 arg.val; }
+                8: { return @int *@*i64 arg.val; }
+            };
+
+            if val < e.member_names.count {
+                push_string(b, e.member_names[val]);
+            }
         }
         init.TypeKind.Generic: {
         }

@@ -66,6 +66,7 @@ const type **InitializeTypeTable()
 
 const type **TypeTable = InitializeTypeTable();
 dict<u32> TypeMap = { .Default = INVALID_TYPE };
+std::mutex TypeMutex;
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT)
@@ -183,9 +184,12 @@ u32 GetTypeForMultiReturn(slice<u32> Returns)
 	b += "return ";
 	WriteFunctionReturnType(&b, Returns);
 
-	string Lookup = MakeString(b);
+	TypeMutex.lock();
 
+	string Lookup = MakeString(b);
 	u32 T = TypeMap[Lookup];
+
+	TypeMutex.unlock();
 	if(T != INVALID_TYPE)
 		return T;
 
@@ -222,8 +226,6 @@ u32 GetReturnType(const type *Type)
 	Assert(Type->Kind == TypeKind_Function);
 	return ReturnsToType(Type->Function.Returns);
 }
-
-std::mutex TypeMutex;
 
 u32 AddTypeWithName(type *Type, string Name)
 {
@@ -1026,17 +1028,21 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 		Builder += BaseType;
 		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
+		TypeMutex.lock();
 		u32 T = TypeMap[Lookup];
+		TypeMutex.unlock();
 		if(T != INVALID_TYPE)
 			return T;
 	}
 	else
 	{
+		TypeMutex.lock();
 		u32 T = INVALID_TYPE;
 		if(Flags & PointerFlag_Optional)
 			T = TypeMap[STR_LIT("?*")];
 		else
 			T = TypeMap[STR_LIT("*")];
+		TypeMutex.unlock();
 
 		if(T != INVALID_TYPE)
 			return T;
@@ -1059,7 +1065,9 @@ u32 GetSliceType(u32 Type)
 
 	string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
+	TypeMutex.lock();
 	u32 T = TypeMap[Lookup];
+	TypeMutex.unlock();
 	if(T != INVALID_TYPE)
 		return T;
 
@@ -1079,7 +1087,9 @@ u32 GetArrayType(u32 Type, u32 ElemCount)
 
 	string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
+	TypeMutex.lock();
 	u32 T = TypeMap[Lookup];
+	TypeMutex.unlock();
 	if(T != INVALID_TYPE)
 		return T;
 
@@ -1104,13 +1114,17 @@ u32 GetOptional(const type *Pointer)
 
 		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
+		TypeMutex.lock();
 		u32 T = TypeMap[Lookup];
+		TypeMutex.unlock();
 		if(T != INVALID_TYPE)
 			return T;
 	}
 	else
 	{
+		TypeMutex.lock();
 		u32 T = TypeMap[STR_LIT("?*")];
+		TypeMutex.unlock();
 		if(T != INVALID_TYPE)
 			return T;
 	}
@@ -1135,13 +1149,17 @@ u32 GetNonOptional(const type *OptionalPointer)
 
 		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
+		TypeMutex.lock();
 		u32 T = TypeMap[Lookup];
+		TypeMutex.unlock();
 		if(T != INVALID_TYPE)
 			return T;
 	}
 	else
 	{
+		TypeMutex.lock();
 		u32 T = TypeMap[STR_LIT("*")];
+		TypeMutex.unlock();
 		if(T != INVALID_TYPE)
 			return T;
 	}

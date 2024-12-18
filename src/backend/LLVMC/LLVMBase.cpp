@@ -433,8 +433,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				if(Type->Struct.Flags & StructFlag_Union)
 				{
-					u32 ToPointer = GetPointerTo(Type->Struct.Members[I.Right].Type);
-					LLVMTypeRef ResType = ConvertToLLVMType(gen, ToPointer);
+					LLVMTypeRef Pointee = ConvertToLLVMType(gen, Type->Struct.Members[I.Right].Type);
+					LLVMTypeRef ResType = LLVMPointerType(Pointee, 0);
 					Val = LLVMBuildBitCast(gen->bld, Operand, ResType, "");
 				}
 				else
@@ -501,8 +501,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else if(T->Kind == TypeKind_Function)
 			{
-				u32 FnPtr = GetPointerTo(I.Type);
-				LLVMType = ConvertToLLVMType(gen, FnPtr);
+				LLVMType = ConvertToLLVMType(gen, I.Type);
+				LLVMType = LLVMPointerType(LLVMType, 0);
 				LLVMValueRef Value = LLVMBuildLoad2(gen->bld, LLVMType, Pointer, "");
 				gen->map.Add(I.Result, Value);
 			}

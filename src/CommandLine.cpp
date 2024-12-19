@@ -39,6 +39,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--llvm"),
 		STR_LIT("--log"),
 		STR_LIT("--interp-trace"),
+		STR_LIT("--file"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -103,6 +104,15 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		{
 			InterpreterTrace = true;
 		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[8]))
+		{
+			if(i + 1 == ArgCount)
+			{
+				LFATAL("Expected file name after --file");
+			}
+			i++;
+			Result.SingleFile = Args[i];
+		}
 		else
 		{
 			if(Result.BuildFile.Data != NULL)
@@ -114,10 +124,14 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			Result.BuildFile = Arg;
 		}
 	}
-	if(Result.BuildFile.Data == NULL)
+	if(Result.BuildFile.Data == NULL && Result.SingleFile.Data == NULL)
 	{
 		LFATAL("No input file");
 		RET_EMPTY(command_line);
+	}
+	if(Result.BuildFile.Data != NULL && Result.SingleFile.Data != NULL)
+	{
+		LFATAL("Build file %s passed despite --file flag", Result.BuildFile.Data);
 	}
 
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);

@@ -34,6 +34,7 @@ enum arch
 struct command_line
 {
 	string BuildFile;
+	string SingleFile;
 	slice<string> ImportDLLs;
 	slice<string> LinkArgs;
 	slice<string> IRModules;

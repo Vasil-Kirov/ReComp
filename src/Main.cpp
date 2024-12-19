@@ -451,124 +451,142 @@ main(int ArgCount, char *Args[])
 	}
 
 	dynamic<timers> Timers = {};
-	timers BuildTimers = {};
-	u32 CompileInfo;
-	file BuildFile = {};
-	slice<module*> BuildModules = {};
-
-	//u32 BeforeTypeCount = GetTypeCount();
-	CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
-
-	slice<function> BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
-
-	Timers.Push(BuildTimers);
-
+	slice<module*> ModuleArray = {};
 	compile_info *Info = NewType(compile_info);
-	value InfoValue = {};
-	InfoValue.Type = GetPointerTo(INVALID_TYPE);
-	InfoValue.ptr = Info;
+	slice<function> BuildFileFunctions = {};
+	interpreter VM = {};
+	timer_group VMBuildTimer = {};
+	if(CommandLine.SingleFile.Data == NULL)
+	{
+		timers BuildTimers = {};
+		u32 CompileInfo;
+		file BuildFile = {};
+		slice<module*> BuildModules = {};
 
-	function *CompileFunction = FindFunction(BuildFileFunctions, STR_LIT("compile"));
-	if(!CompileFunction)
-	{
-		LFATAL("File %s doesn't have the `compile` function defined, this function is used to define how to build the program", CommandLine.BuildFile.Data);
-	}
-	if(!CompileFunction || CompileFunction->Blocks.Count == 0)
-	{
-		LFATAL("compile function is empty");
-	}
-	const type *CompileT = GetType(CompileFunction->Type);
-	Assert(CompileT->Kind == TypeKind_Function);
-	if(CompileT->Function.Returns.Count != 1 ||
-			GetTypeNameAsString(CompileT->Function.Returns[0]) != STR_LIT("compile.CompileInfo"))
-	{
-		LFATAL("compile function needs to return compile.CompileInfo");
-	}
+		//u32 BeforeTypeCount = GetTypeCount();
+		CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
+
+		BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
+
+		Timers.Push(BuildTimers);
+
+		value InfoValue = {};
+		InfoValue.Type = GetPointerTo(INVALID_TYPE);
+		InfoValue.ptr = Info;
+
+		function *CompileFunction = FindFunction(BuildFileFunctions, STR_LIT("compile"));
+		if(!CompileFunction)
+		{
+			LFATAL("File %s doesn't have the `compile` function defined, this function is used to define how to build the program", CommandLine.BuildFile.Data);
+		}
+		if(!CompileFunction || CompileFunction->Blocks.Count == 0)
+		{
+			LFATAL("compile function is empty");
+		}
+		const type *CompileT = GetType(CompileFunction->Type);
+		Assert(CompileT->Kind == TypeKind_Function);
+		if(CompileT->Function.Returns.Count != 1 ||
+				GetTypeNameAsString(CompileT->Function.Returns[0]) != STR_LIT("compile.CompileInfo"))
+		{
+			LFATAL("compile function needs to return compile.CompileInfo");
+		}
 
 #if 0
-	for(int i = 0; i < GetTypeCount(); ++i)
-	{
-		LDEBUG("%d: %s", i, GetTypeName(i));
-	}
+		for(int i = 0; i < GetTypeCount(); ++i)
+		{
+			LDEBUG("%d: %s", i, GetTypeName(i));
+		}
 #endif
-	
-	timer_group VMBuildTimer = VLibStartTimer("VM");
-	slice<module*> ModuleArray = {};
-	interpreter VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
-	{
 
-
-		if(InterpreterTrace)
-			LINFO("Interpreting compile function");
-		interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
-
-		VLibStopTimer(&VMBuildTimer);
-
-		if(Info->Flags & CF_CrossAndroid)
+		VMBuildTimer = VLibStartTimer("VM");
+		VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 		{
-			PTarget = platform_target::UnixBased;
-			Info->Flags |= CF_SharedLib;
-			if(Info->TargetTriple.Data == NULL)
+
+
+			if(InterpreterTrace)
+				LINFO("Interpreting compile function");
+			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
+
+			VLibStopTimer(&VMBuildTimer);
+
+			if(Info->Flags & CF_CrossAndroid)
 			{
-				Info->TargetTriple.Data = "armv7-none-linux-androideabi";
-				Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+				PTarget = platform_target::UnixBased;
+				Info->Flags |= CF_SharedLib;
+				if(Info->TargetTriple.Data == NULL)
+				{
+					Info->TargetTriple.Data = "armv7-none-linux-androideabi";
+					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+				}
 			}
-		}
-		else
-		{
-		}
+			else
+			{
+			}
 
-		if(Info->Arch == Arch_x86_64)
-		{
-			ConfigIDs.Push(STR_LIT("x86"));
-			ConfigIDs.Push(STR_LIT("x64"));
-		}
-		else if(Info->Arch == Arch_x86)
-		{
-			ConfigIDs.Push(STR_LIT("x86"));
-		}
-		else if(Info->Arch == Arch_arm32)
-		{
-			ConfigIDs.Push(STR_LIT("arm32"));
-		}
-		else if(Info->Arch == Arch_arm64)
-		{
-			ConfigIDs.Push(STR_LIT("arm64"));
-		}
+			if(Info->Arch == Arch_x86_64)
+			{
+				ConfigIDs.Push(STR_LIT("x86"));
+				ConfigIDs.Push(STR_LIT("x64"));
+			}
+			else if(Info->Arch == Arch_x86)
+			{
+				ConfigIDs.Push(STR_LIT("x86"));
+			}
+			else if(Info->Arch == Arch_arm32)
+			{
+				ConfigIDs.Push(STR_LIT("arm32"));
+			}
+			else if(Info->Arch == Arch_arm64)
+			{
+				ConfigIDs.Push(STR_LIT("arm64"));
+			}
 
+			timers FileTimer = {};
+			dynamic<string> FileNames = {};
+			for(int i = 0; i < Info->FileCount; ++i)
+			{
+				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
+			}
+			AddStdFiles(FileNames, Info->Flags & CF_NoStdLib);
+
+			slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
+
+			FileTimer.LLVM = VLibStartTimer("LLVM");
+#if 1
+			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags & CommandFlag_llvm, Info);
+#else
+			slice<reg_reserve_instruction> Reserved = SliceFromConst({
+					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
+					});
+
+			reg_allocator r = MakeRegisterAllocator(Reserved, 4);
+			ForArray(fi, FileArray)
+			{
+				ir *IR = FileArray[fi].IR;
+				AllocateRegisters(&r, IR);
+				string Dissasembly = Dissasemble(SliceFromArray(IR->Functions));
+				LWARN("\t----[ALLOCATED]----\t\n[ MODULE %s ]\n\n%s", FileArray[fi].Module->Name.Data, Dissasembly.Data);\
+			}
+#endif
+			VLibStopTimer(&FileTimer.LLVM);
+
+			Timers.Push(FileTimer);
+
+			if(Result.ToFreeStackMemory)
+				VFree(Result.ToFreeStackMemory);
+		}
+	}
+	else
+	{
 		timers FileTimer = {};
 		dynamic<string> FileNames = {};
-		for(int i = 0; i < Info->FileCount; ++i)
-		{
-			FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
-		}
-		AddStdFiles(FileNames, Info->Flags & CF_NoStdLib);
-
+		FileNames.Push(CommandLine.SingleFile);
+		AddStdFiles(FileNames, false);
 		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-#if 1
 		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags & CommandFlag_llvm, Info);
-#else
-		slice<reg_reserve_instruction> Reserved = SliceFromConst({
-				reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
-				});
-
-		reg_allocator r = MakeRegisterAllocator(Reserved, 4);
-		ForArray(fi, FileArray)
-		{
-			ir *IR = FileArray[fi].IR;
-			AllocateRegisters(&r, IR);
-			string Dissasembly = Dissasemble(SliceFromArray(IR->Functions));
-			LWARN("\t----[ALLOCATED]----\t\n[ MODULE %s ]\n\n%s", FileArray[fi].Module->Name.Data, Dissasembly.Data);\
-		}
-#endif
 		VLibStopTimer(&FileTimer.LLVM);
-
-		Timers.Push(FileTimer);
-
-		if(Result.ToFreeStackMemory)
-			VFree(Result.ToFreeStackMemory);
 	}
 
 

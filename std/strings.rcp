@@ -104,13 +104,6 @@ advance :: fn(pos: *u8) -> *u8 {
     return &p[size];
 }
 
-_it_advance :: fn(pos: *u8, count: int, at: int) -> ?*u8 {
-    if at + 1 == count || at >= count
-    	return null;
-
-    return advance(pos);
-}
-
 deref :: fn(pos: *u8) -> u32 {
     p := pos;
     size := get_codepoint_size(p);

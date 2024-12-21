@@ -1566,11 +1566,11 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			u32 Data = PushInstruction(Builder,
 					Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 
-			const ir_symbol *AdvanceFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("_it_advance"));;
+			const ir_symbol *AdvanceFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("advance"));;
 
 			call_info *Info = NewType(call_info);
 			Info->Operand = AdvanceFn->Register;
-			Info->Args = SliceFromConst({Data, Size, I});
+			Info->Args = SliceFromConst({Data});
 			Data = PushInstruction(Builder, 
 					Instruction(OP_CALL, (u64)Info, AdvanceFn->Type, Builder));
 

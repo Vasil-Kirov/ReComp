@@ -1189,33 +1189,37 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 		}
 		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left, IsLeftLHS);
 		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsRightLHS);
+		u32 Type = Node->Binary.ExpressionType;
+		const type *T = GetType(Node->Binary.ExpressionType);
+		if(T->Kind == TypeKind_Enum)
+			Type = T->Enum.Type;
 
 		instruction I;
 		switch((int)Node->Binary.Op)
 		{
 			case '+':
 			{
-				I = Instruction(OP_ADD, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_ADD, Left, Right, Type, Builder);
 			} break;
 			case '-':
 			{
-				I = Instruction(OP_SUB, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_SUB, Left, Right, Type, Builder);
 			} break;
 			case '*':
 			{
-				I = Instruction(OP_MUL, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_MUL, Left, Right, Type, Builder);
 			} break;
 			case '/':
 			{
-				I = Instruction(OP_DIV, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_DIV, Left, Right, Type, Builder);
 			} break;
 			case '%':
 			{
-				I = Instruction(OP_MOD, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_MOD, Left, Right, Type, Builder);
 			} break;
 			case '=':
 			{
-				I = InstructionStore(Left, Right, Node->Binary.ExpressionType);
+				I = InstructionStore(Left, Right, Type);
 				if(NeedResult && !IsLHS)
 				{
 					PushInstruction(Builder, I);
@@ -1224,31 +1228,31 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			} break;
 			case '&':
 			{
-				I = Instruction(OP_AND, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_AND, Left, Right, Type, Builder);
 			} break;
 			case '|':
 			{
-				I = Instruction(OP_OR, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_OR, Left, Right,  Type, Builder);
 			} break;
 			case '^':
 			{
-				I = Instruction(OP_XOR, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_XOR, Left, Right, Type, Builder);
 			} break;
 			case T_SLEFT:
 			{
-				I = Instruction(OP_SL, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_SL, Left, Right, Type, Builder);
 			} break;
 			case T_SRIGHT:
 			{
-				I = Instruction(OP_SR, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_SR, Left, Right, Type, Builder);
 			} break;
 			case T_GREAT:
 			{
-				I = Instruction(OP_GREAT, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_GREAT, Left, Right, Type, Builder);
 			} break;
 			case T_LESS:
 			{
-				I = Instruction(OP_LESS, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_LESS, Left, Right,  Type, Builder);
 			} break;
 			case T_NEQ:
 			case T_GEQ:
@@ -1256,15 +1260,15 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			case T_EQEQ:
 			{
 				op Op = (op)((-Node->Binary.Op - -T_NEQ) + OP_NEQ);
-				I = Instruction(Op, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(Op, Left, Right, Type, Builder);
 			} break;
 			case T_LAND:
 			{
-				I = Instruction(OP_LAND, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_LAND, Left, Right, Type, Builder);
 			} break;
 			case T_LOR:
 			{
-				I = Instruction(OP_LOR, Left, Right, Node->Binary.ExpressionType, Builder);
+				I = Instruction(OP_LOR, Left, Right,  Type, Builder);
 			} break;
 			default:
 			{

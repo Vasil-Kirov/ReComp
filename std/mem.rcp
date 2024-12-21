@@ -82,4 +82,5 @@ destroy_scratch :: fn(a: *Allocator) {
 
 copy  :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;
 set   :: fn #link="memset"(dst: *, c: i32, size: int) -> *;
+cmp   :: fn #link="memcmp"(p1: *, p2: *, size: int) -> i32;
 

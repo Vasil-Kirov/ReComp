@@ -12,6 +12,12 @@ main :: fn() -> i32 {
         100: return "x";
         0: return "x";
     };
+
+    c := '0';
+    if c == '\\' {
+        return 10;
+    }
+
     for i := 0; i < 10; i += 1 {}
     for i := 0; i < 10; i += 1 {
         io.println("%c", 'a');

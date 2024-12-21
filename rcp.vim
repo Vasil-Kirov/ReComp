@@ -21,6 +21,10 @@ syn match rcpSDecl /\w\+\s*:/ contains=rcpSVariable
 syn region rcpSString      start=+c"+ skip=+\\\\\|\\"+ end=+"+
 syn region rcpSString      start=+"+ skip=+\\\\\|\\"+ end=+"+
 
+" Strings
+syn region rcpSChar      start=+c'+ skip=+\\\\\|\\'+ end=+'+
+syn region rcpSChar      start=+'+ skip=+\\\\\|\\'+ end=+'+
+
 " Brackets and punctuation
 syn match rcpSBracket "[{}()\[\]]"
 syn match rcpSOperator "[-+=*/<>:&]"
@@ -66,6 +70,7 @@ hi def link rcpSType Type
 hi def link rcpSTodo Todo
 hi def link rcpSComment Comment
 hi def link rcpSString String
+hi def link rcpSChar SpecialChar
 " 
 hi def link rcpSOperator Operator
 hi def link rcpSBracket Delimiter

@@ -344,7 +344,7 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 		{
 			char escaped = AdvanceC(String, ErrorInfo);
 			c = GetEscapedChar(escaped);
-			if(c == escaped)
+			if(c == escaped && c != '\\')
 			{
 				RaiseError(StartErrorInfo, "Unkown escape sequence \\%c", escaped);
 			}

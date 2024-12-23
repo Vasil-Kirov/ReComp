@@ -72,7 +72,7 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
         len += 1;
     }
 
-    return string { &data[0], len };
+    return string { len, &data[0] };
 }
 
 CONTINUE_BIT :: @u8 0b1000_0000;

@@ -1027,11 +1027,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							string Name = *NamePtr;
 							if(Name == STR_LIT("data"))
 							{
-								MemberIdx = 0;
+								MemberIdx = 1;
 							}
 							else if(Name == STR_LIT("count"))
 							{
-								MemberIdx = 1;
+								MemberIdx = 0;
 							}
 							else
 							{
@@ -1040,7 +1040,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 						}
 						u32 Type = INVALID_TYPE;
-						if(MemberIdx == 0)
+						if(MemberIdx == 1)
 							Type = GetPointerTo(Basic_u8);
 						else
 							Type = Basic_int;

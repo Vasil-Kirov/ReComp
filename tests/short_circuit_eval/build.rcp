@@ -1,0 +1,11 @@
+build
+#import compile as c
+
+compile :: fn() -> c.CompileInfo {
+    out := c.CompileInfo {
+        files = []string { "short_circuit_eval.rcp" },
+        opt = 0,
+        flags = @u32 c.CompileFlag.SanAddress,
+    };
+    return out;
+}

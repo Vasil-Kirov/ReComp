@@ -1006,7 +1006,7 @@ SEARCH_TYPE_DONE:
 						if(!IsLHS)
 						{
 							u32 T = Basic_int;
-							if(Node->Selector.Index == 0)
+							if(Node->Selector.Index == 1)
 								T = GetPointerTo(Basic_u8);
 							Result = PushInstruction(Builder, 
 									Instruction(OP_LOAD, 0, Result, T, Builder));

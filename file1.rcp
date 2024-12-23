@@ -5,10 +5,8 @@ main
 #import io
 
 main :: fn() -> i32 {
-    x := "foo";
-    y := "bar";
-    io.println("%", x != y);
-    return 0;
+    foo := "foo";
+	return @i32 foo.count;
 }
 
 

@@ -1180,12 +1180,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						{
 							if(*Expr->Selector.Member == STR_LIT("count"))
 							{
-								Expr->Selector.Index = 1;
+								Expr->Selector.Index = 0;
 								Result = Basic_int;
 							}
 							else if(*Expr->Selector.Member == STR_LIT("data"))
 							{
-								Expr->Selector.Index = 0;
+								Expr->Selector.Index = 1;
 								Result = GetPointerTo(Basic_u8);
 							}
 							else

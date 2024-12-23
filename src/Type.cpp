@@ -835,12 +835,15 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 			return true;
 		} break;
 		case TypeKind_Struct:
+		case TypeKind_Array:
+		case TypeKind_Slice:
 		return Op == T_EQ;
 
 		case TypeKind_Invalid:
 		return false;
 		case TypeKind_Enum:
 		return CanTypePerformBinExpression(GetType(T->Enum.Type), Op);
+
 		default: return false;
 	}
 }

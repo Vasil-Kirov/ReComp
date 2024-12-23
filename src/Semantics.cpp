@@ -668,7 +668,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				node *Case = Expr->Match.Cases[Idx];
 
 				u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
-				TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value);
+				TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
 			}
 
 			Result = INVALID_TYPE;
@@ -686,6 +686,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				b32 CaseReturns = false;
 				for(int BodyIdx = 0; BodyIdx < Case->Case.Body.Count; ++BodyIdx)
 				{
+					// @TODO: This is buggy with if and for statements (I think)
 					node *Node = Case->Case.Body[BodyIdx];
 					if(Node->Type == AST_RETURN)
 					{
@@ -710,7 +711,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							else
 							{
-								TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx]);
+								TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx], "match expected a return of type %s, got type %s");
 							}
 						}
 					}
@@ -980,12 +981,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					case TypeKind_Array: 
 					{
 						Filled[Idx] = Item;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression);
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
 					} break;
 					case TypeKind_Slice:
 					{
 						Filled[Idx] = Item;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Slice.Type, ItemType, NULL, &Item->Item.Expression);
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Slice.Type, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
 					} break;
 					case TypeKind_Struct:
 					{
@@ -1015,7 +1016,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						struct_member Mem = Type->Struct.Members[MemberIdx];
 						PromotedUntyped = INVALID_TYPE;
 						if(!IsGeneric(Mem.Type))
-							PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression);
+							PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
 					} break;
 					case TypeKind_Basic:
 					{
@@ -1047,7 +1048,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 						Filled[MemberIdx] = Item;
 						ExprTypes[MemberIdx] = ItemType;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type, ItemType, NULL, &Item->Item.Expression);
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type, ItemType, NULL, &Item->Item.Expression, "string type list expected type %s but got %s");
 					} break;
 					default: unreachable;
 				}
@@ -1089,7 +1090,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						Assert(GenericResolved != INVALID_TYPE);
 						u32 NonGeneric = ToNonGeneric(Member.Type, GenericResolved, Member.Type);
 						TypeCheckAndPromote(Checker, Expr->ErrorInfo, NonGeneric, ExprTypes[Idx], NULL,
-								&Filled[Idx]->Item.Expression);
+								&Filled[Idx]->Item.Expression, "Generic struct member should be type %s but got type %s");
 						Members.Data[Idx].Type = NonGeneric;
 					}
 				}
@@ -1516,7 +1517,7 @@ node *OverwriteOpEqExpression(node *Expr, char Op)
 	return NewOp;
 }
 
-u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode)
+u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left, u32 Right, node **LeftNode, node **RightNode, const char *ErrorFmt)
 {
 	u32 Result = Left;
 
@@ -1527,7 +1528,7 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 	if(!IsTypeCompatible(LeftType, RightType, &Promotion, IsAssignment))
 	{
 TYPE_ERR:
-		RaiseError(*ErrorInfo, "Cannot perform binary expression with types.\nLeft: %s\nRight: %s",
+		RaiseError(*ErrorInfo, ErrorFmt,
 				GetTypeName(LeftType), GetTypeName(RightType));
 	}
 	if(Promotion)
@@ -1598,9 +1599,9 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 
 		if(Expr->Binary.Op != '=')
-			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right);
+			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, &Expr->Binary.Left, &Expr->Binary.Right,  "Cannot perform binary expression with types.\nLeft: %s\nRight: %s");
 		else
-			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, NULL, &Expr->Binary.Right);
+			Promoted = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Left, Right, NULL, &Expr->Binary.Right, "Cannot assign to type %s from type %s");
 
 		u32 Result = Promoted;
 		switch(Expr->Binary.Op)

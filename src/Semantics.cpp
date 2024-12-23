@@ -1527,7 +1527,7 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 	if(!IsTypeCompatible(LeftType, RightType, &Promotion, IsAssignment))
 	{
 TYPE_ERR:
-		RaiseError(*ErrorInfo, "Incompatible types.\nLeft: %s\nRight: %s",
+		RaiseError(*ErrorInfo, "Cannot perform binary expression with types.\nLeft: %s\nRight: %s",
 				GetTypeName(LeftType), GetTypeName(RightType));
 	}
 	if(Promotion)
@@ -1567,6 +1567,18 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 		const type *LeftType = GetType(Left);
 		const type *RightType = GetType(Right);
+
+		if(!CanTypePerformBinExpression(LeftType, Expr->Binary.Op))
+		{
+			RaiseError(*Expr->ErrorInfo, "Cannot perform a binary %s with %s",
+					GetTokenName(Expr->Binary.Op), GetTypeName(LeftType));
+		}
+
+		if(!CanTypePerformBinExpression(RightType, Expr->Binary.Op))
+		{
+			RaiseError(*Expr->ErrorInfo, "Cannot perform a binary %s with %s",
+					GetTokenName(Expr->Binary.Op), GetTypeName(RightType));
+		}
 
 		// @TODO: Check how type checking and casting here works with +=, -=, etc... substitution
 		u32 Promoted;

@@ -395,10 +395,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					else if(Type->Basic.Flags & BasicFlag_String)
 					{
 						void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
+
+						*(size_t *)Memory = GetUTF8Count(Val->String.Data);
+
 						void *StringData = InterpreterAllocateString(VM, Val->String.Data);
-						*(void **)Memory = StringData;
-						size_t *SizeLocation = (size_t *)Memory + 1;
-						*SizeLocation = GetUTF8Count(Val->String.Data);
+						void **MemoryLocation = (void **)Memory + 1;
+						*MemoryLocation = StringData;
 
 						VMValue.ptr = Memory;
 					}
@@ -770,6 +772,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
+			case OP_MEMCMP:
+			{
+				ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
+				value *p1 = VM->Registers.GetValue(Info->LeftPtr);
+				value *p2 = VM->Registers.GetValue(Info->RightPtr);
+				value *count = VM->Registers.GetValue(Info->Count);
+				value Result = {};
+				Result.Type = Basic_bool;
+				Result.u64 = memcmp(p1->ptr, p2->ptr, count->i64) == 0;
+				VM->Registers.AddValue(I.Result, Result);
+			} break;
 			BIN_BIN_OP(AND, &);
 			BIN_BIN_OP(OR, |);
 			BIN_BIN_OP(SR, >>);
@@ -780,8 +793,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(LEQ, <=);
 			BIN_COMP_OP(EQEQ,==);
 			BIN_COMP_OP(NEQ, !=);
-			BIN_COMP_OP(LAND, &&);
-			BIN_COMP_OP(LOR, ||);
 			case OP_DEBUGINFO:
 			{
 				if(InterpreterTrace)

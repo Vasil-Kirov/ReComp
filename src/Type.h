@@ -213,6 +213,7 @@ int GetStructMemberOffset(const type *Type, uint Member);
 int GetStructMemberOffset(u32 Type, uint Member);
 int GetRegisterTypeSize();
 
+b32 CanTypePerformBinExpression(const type *T, enum token_type Op);
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);
 b32 TypesMustMatch(const type *Left, const type *Right);
 b32 IsUntyped(const type *Type);

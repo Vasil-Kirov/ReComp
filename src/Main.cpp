@@ -648,6 +648,8 @@ main(int ArgCount, char *Args[])
 
 const char* GetTokenName(token_type Token) {
     switch (Token) {
+		case T_PLUS:		return "+";
+		case T_MIN:			return "-";
 		case T_PTR:         return "*";
         case T_ADDROF:      return "&";
 		case T_DECL:        return ":";
@@ -657,7 +659,7 @@ const char* GetTokenName(token_type Token) {
         case T_CLOSEPAREN:  return ")";
         case T_OPENBRACKET: return "[";
         case T_CLOSEBRACKET:return "]";
-        case T_CAST:        return "Cast";
+        case T_CAST:        return "cast";
         case T_EQ:          return "=";
         case T_LESS:        return "<";
         case T_GREAT:       return ">";

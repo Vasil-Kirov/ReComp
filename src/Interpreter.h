@@ -7,8 +7,8 @@
 
 struct interp_string
 {
-	const char *Data;
 	size_t Count;
+	const char *Data;
 };
 
 struct compile_info

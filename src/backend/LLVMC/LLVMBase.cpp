@@ -220,10 +220,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
 				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
 
-				LLVMValueRef StringPtr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "String");
-				LLVMValueRef SizePtr   = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 1, "Size");
-				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
+				LLVMValueRef SizePtr   = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "Size");
+				LLVMValueRef StringPtr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 1, "String");
 				LLVMBuildStore(gen->bld, Size,    SizePtr);
+				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
 			}
 			else if(Type->Basic.Flags & BasicFlag_Boolean)
 			{
@@ -648,8 +648,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			else
 			{
-				LLVMIntPredicate Op = LLVMIntEQ;
-				Value = LLVMBuildICmp(gen->bld, Op, LHS, RHS, "");
+				Value = LLVMBuildICmp(gen->bld, LLVMIntEQ, LHS, RHS, "");
 			}
 			gen->map.Add(I.Result, Value);
 		} break;
@@ -680,31 +679,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 			gen->map.Add(I.Result, Value);
 		} break;
-		case OP_LAND:
-		{
-			LLVMValueRef LHS = gen->map.Get(I.Left);
-			LLVMValueRef RHS = gen->map.Get(I.Right);
-			LLVMValueRef Zero = LLVMConstNull(LLVMInt1TypeInContext(gen->ctx));
-			LLVMValueRef LNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, LHS, Zero, "");
-			LLVMValueRef RNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, RHS, Zero, "");
-
-			LLVMValueRef Value = LLVMBuildAnd(gen->bld, LNonZero, RNonZero, "");
-
-			gen->map.Add(I.Result, Value);
-		} break;
-		case OP_LOR:
-		{
-			LLVMValueRef LHS = gen->map.Get(I.Left);
-			LLVMValueRef RHS = gen->map.Get(I.Right);
-			LLVMValueRef Zero = LLVMConstNull(LLVMInt1TypeInContext(gen->ctx));
-			LLVMValueRef LNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, LHS, Zero, "");
-			LLVMValueRef RNonZero = LLVMBuildICmp(gen->bld, LLVMIntNE, RHS, Zero, "");
-
-			LLVMValueRef Value = LLVMBuildOr(gen->bld, LNonZero, RNonZero, "");
-
-			gen->map.Add(I.Result, Value);
-			gen->map.Add(I.Result, Value);
-		} break;
 		case OP_CALL:
 		{
 			call_info *CallInfo = (call_info *)I.BigRegister;
@@ -724,6 +698,27 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 			LLVMValueRef Operand = gen->map.Get(CallInfo->Operand);
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
+			gen->map.Add(I.Result, Result);
+		} break;
+		case OP_MEMCMP:
+		{
+			if(gen->MemCmpRegister == -1)
+				LFATAL("memcmp not found, it is necessary for compilation, please define it somewhere\n"
+						"memcmp :: fn #link=\"memcmp\"(p1: *, p2: *, num: int) -> i32;");
+
+			ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
+			LLVMValueRef Args[3] = {};
+			Args[0] = gen->map.Get(Info->LeftPtr);
+			Args[1] = gen->map.Get(Info->RightPtr);
+			Args[2] = gen->map.Get(Info->Count);
+
+			LLVMValueRef Operand = gen->map.Get(gen->MemCmpRegister);
+			LLVMTypeRef Type = ConvertToLLVMType(gen, gen->MemCmpType);
+
+			LLVMValueRef Result = LLVMBuildCall2(gen->bld, Type, Operand, Args, 3, "memcmp");
+			LLVMValueRef Zero = LLVMConstNull(LLVMInt32TypeInContext(gen->ctx));
+
+			Result = LLVMBuildICmp(gen->bld, LLVMIntEQ, Result, Zero, "to_bool");
 			gen->map.Add(I.Result, Result);
 		} break;
 		case OP_DEBUGINFO:
@@ -869,7 +864,7 @@ void RCGenerateCompilerTypes(generator *gen)
 
 	StringType->Kind = TypeKind_Struct;
 	StringType->Struct = {
-		.Members = SliceFromConst({DataMember, SizeMember}),
+		.Members = SliceFromConst({SizeMember, DataMember}),
 		.Name = STR_LIT("string"),
 		.Flags = 0,
 	};
@@ -914,6 +909,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	llvm_init_info Machine = RCInitLLVM(Info);
 
 	generator Gen = {};
+	Gen.MemCmpRegister = -1;
 	//file *File = M->Files[0];
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
@@ -987,6 +983,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		AddedFns.Add(LinkName, Fn);
 	}
 
+	string MemCmpName = STR_LIT("memcmp");
 	ForArray(MIdx, Modules)
 	{
 		// shadow
@@ -1020,6 +1017,26 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
 			{
 				string LinkName = *s->LinkName;
+				if(LinkName == MemCmpName)
+				{
+					Gen.MemCmpRegister = s->IRRegister;
+					Gen.MemCmpType = s->Type;
+
+					// @TODO: move this to semantics.cpp it doesn't belong here
+					const type *MemCmp = GetType(s->Type);
+					if(MemCmp->Kind != TypeKind_Function || ReturnsToType(MemCmp->Function.Returns) != Basic_i32
+							|| MemCmp->Function.ArgCount != 3
+							|| GetType(MemCmp->Function.Args[0])->Kind != TypeKind_Pointer
+							|| GetType(MemCmp->Function.Args[1])->Kind != TypeKind_Pointer
+							|| GetType(MemCmp->Function.Args[2])->Kind != TypeKind_Basic
+							|| GetType(MemCmp->Function.Args[2])->Basic.Kind != Basic_int
+							)
+					{
+						RaiseError(*s->Node->ErrorInfo, "Incorrect signature of memcmp function, define it as\n"
+								"memcmp :: fn #link=\"memcmp\"(p1: *, p2: *, num: int) -> i32;");
+					}
+				}
+
 				//LLVMCreateFunctionType(Gen.ctx, s->Type);
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 						ConvertToLLVMType(&Gen, s->Type));

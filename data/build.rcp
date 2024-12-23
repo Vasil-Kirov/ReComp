@@ -36,7 +36,9 @@ compile :: fn() -> c.CompileInfo {
 }
 
 after_link :: fn() {
-    io.println("Done!");
+    for c in "Done" {
+        io.println("%c", c);
+    }
     return;
 }
 

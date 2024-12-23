@@ -61,7 +61,10 @@ InternalAllocateMemory(ap_memory *Arena, u64 Size, const char *NAME)
 	{
 		if(Arena->ChunkIndex * Arena->ChunkSize > Arena->MaxSize)
 		{
-			LFATAL("MEMORY OVERFLOW when allocating %s memory", NAME);
+			// @NOTE: use fprintf because my logger needs to allocate memoroy
+			fprintf(stderr, "MEMORY OVERFLOW WHEN ALLOCATING %s MEMORY\n", NAME);
+			PrintStacktrace();
+			exit(1);
 		}
 		PlatformAllocateReserved((u8 *)Arena->Start + Arena->ChunkIndex * Arena->ChunkSize, Arena->ChunkSize);
 		Arena->ChunkIndex++;

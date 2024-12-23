@@ -277,6 +277,8 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     return result;
 }
 
+memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> i32;
+
 main :: fn #link="main.main"() -> i32;
 
 entry :: fn #link="main"() -> i32 {

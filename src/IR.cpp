@@ -862,11 +862,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 							string Name = *NamePtr;
 							if(Name == STR_LIT("data"))
 							{
-								MemberIdx = 0;
+								MemberIdx = 1;
 							}
 							else if(Name == STR_LIT("count"))
 							{
-								MemberIdx = 1;
+								MemberIdx = 0;
 							}
 							else
 							{
@@ -915,7 +915,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			else if(HasBasicFlag(Type, BasicFlag_String))
 			{
 				u32 u8ptr = GetPointerTo(Basic_u8);
-				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Basic_string, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Basic_string, Builder));
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, u8ptr, Builder));
 				Result = PushInstruction(Builder, Instruction(OP_INDEX, Result, Index, u8ptr, Builder));
 				if(!IsLHS)
@@ -1176,6 +1176,78 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 	return Result;
 }
 
+u32 BuildLogicalAnd(block_builder *Builder, node *Left, node *Right)
+{
+	basic_block TrueBlock = AllocateBlock(Builder);
+	basic_block FalseBlock = AllocateBlock(Builder);
+	basic_block EvaluateRight = AllocateBlock(Builder);
+	basic_block After = AllocateBlock(Builder);
+	u32 ResultAlloc = PushInstruction(Builder, 
+			Instruction(OP_ALLOC, -1, Basic_bool, Builder));
+
+	u32 LeftResult = BuildIRFromExpression(Builder, Left);
+	PushInstruction(Builder, 
+			Instruction(OP_IF, EvaluateRight.ID, FalseBlock.ID, LeftResult, Basic_bool));
+
+	Terminate(Builder, EvaluateRight);
+	u32 RightResult = BuildIRFromExpression(Builder, Right);
+	PushInstruction(Builder, 
+			Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, RightResult, Basic_bool));
+
+	Terminate(Builder, TrueBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, FalseBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, After);
+
+	return PushInstruction(Builder, 
+			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
+}
+
+u32 BuildLogicalOr(block_builder *Builder, node *Left, node *Right)
+{
+	basic_block TrueBlock = AllocateBlock(Builder);
+	basic_block FalseBlock = AllocateBlock(Builder);
+	basic_block EvaluateRight = AllocateBlock(Builder);
+	basic_block After = AllocateBlock(Builder);
+	u32 ResultAlloc = PushInstruction(Builder, 
+			Instruction(OP_ALLOC, -1, Basic_bool, Builder));
+
+	u32 LeftResult = BuildIRFromExpression(Builder, Left);
+	PushInstruction(Builder, 
+			Instruction(OP_IF, TrueBlock.ID, EvaluateRight.ID, LeftResult, Basic_bool));
+
+	Terminate(Builder, EvaluateRight);
+	u32 RightResult = BuildIRFromExpression(Builder, Right);
+	PushInstruction(Builder, 
+			Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, RightResult, Basic_bool));
+
+	Terminate(Builder, TrueBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, FalseBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, After);
+
+	return PushInstruction(Builder, 
+			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
+}
+
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 NeedResult)
 {
 	if(Node->Type == AST_BINARY)
@@ -1187,12 +1259,24 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			IsLeftLHS = true;
 			IsRightLHS = false;
 		}
+		else if(Node->Binary.Op == T_LAND)
+		{
+			return BuildLogicalAnd(Builder, Node->Binary.Left, Node->Binary.Right);
+		}
+		else if(Node->Binary.Op == T_LOR)
+		{
+			return BuildLogicalOr(Builder, Node->Binary.Left, Node->Binary.Right);
+		}
+
 		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left, IsLeftLHS);
 		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsRightLHS);
 		u32 Type = Node->Binary.ExpressionType;
 		const type *T = GetType(Node->Binary.ExpressionType);
 		if(T->Kind == TypeKind_Enum)
+		{
 			Type = T->Enum.Type;
+			T = GetType(Type);
+		}
 
 		instruction I;
 		switch((int)Node->Binary.Op)
@@ -1255,20 +1339,86 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 				I = Instruction(OP_LESS, Left, Right,  Type, Builder);
 			} break;
 			case T_NEQ:
+			{
+				I = Instruction(OP_NEQ, Left, Right, Type, Builder);
+			} break;
 			case T_GEQ:
+			{
+				I = Instruction(OP_GEQ, Left, Right, Type, Builder);
+			} break;
 			case T_LEQ:
+			{
+				I = Instruction(OP_LEQ, Left, Right, Type, Builder);
+			} break;
 			case T_EQEQ:
 			{
-				op Op = (op)((-Node->Binary.Op - -T_NEQ) + OP_NEQ);
-				I = Instruction(Op, Left, Right, Type, Builder);
-			} break;
-			case T_LAND:
-			{
-				I = Instruction(OP_LAND, Left, Right, Type, Builder);
-			} break;
-			case T_LOR:
-			{
-				I = Instruction(OP_LOR, Left, Right,  Type, Builder);
+				if(IsString(T))
+				{
+					u32 LeftCount = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Left, 0, Basic_string, Builder));
+					u32 LeftData = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Left, 1, Basic_string, Builder));
+					u32 RightCount = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Right, 0, Basic_string, Builder));
+					u32 RightData = PushInstruction(Builder, 
+							Instruction(OP_INDEX, Right, 1, Basic_string, Builder));
+
+					LeftCount = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, LeftCount, Basic_int, Builder));
+					RightCount = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, RightCount, Basic_int, Builder));
+
+					basic_block TrueBlock = AllocateBlock(Builder);
+					basic_block FalseBlock = AllocateBlock(Builder);
+					basic_block EvaluateRight = AllocateBlock(Builder);
+					basic_block After = AllocateBlock(Builder);
+
+					u32 ResultAlloc = PushInstruction(Builder, 
+							Instruction(OP_ALLOC, -1, Basic_bool, Builder));
+
+					u32 IsCount = PushInstruction(Builder, 
+							Instruction(OP_EQEQ, LeftCount, RightCount, Basic_int, Builder));
+					PushInstruction(Builder, 
+							Instruction(OP_IF, EvaluateRight.ID, FalseBlock.ID, IsCount, Basic_bool));
+
+					Terminate(Builder, EvaluateRight);
+					u32 u8ptr = GetPointerTo(Basic_u8);
+					LeftData = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, LeftData, u8ptr, Builder));
+					RightData = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, RightData, u8ptr, Builder));
+					ir_memcmp *MemCmpInfo = NewType(ir_memcmp);
+					MemCmpInfo->LeftPtr = LeftData;
+					MemCmpInfo->RightPtr= RightData;
+					MemCmpInfo->Count	= RightCount;
+
+					u32 MemCmpResult = PushInstruction(Builder, 
+							Instruction(OP_MEMCMP, (u64)MemCmpInfo, Basic_bool, Builder));
+					PushInstruction(Builder, 
+							Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, MemCmpResult, Basic_bool));
+
+					Terminate(Builder, TrueBlock);
+					PushInstruction(Builder, 
+							InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
+					PushInstruction(Builder, 
+							Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+					Terminate(Builder, FalseBlock);
+					PushInstruction(Builder, 
+							InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
+					PushInstruction(Builder, 
+							Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+					Terminate(Builder, After);
+
+					return PushInstruction(Builder, 
+							Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
+
+				}
+				else
+				{
+					I = Instruction(OP_EQEQ, Left, Right, Type, Builder);
+				}
 			} break;
 			default:
 			{
@@ -1420,14 +1570,14 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			u32 DataPtrT = GetPointerTo(Basic_u8);
 			Array = BuildIRFromExpression(Builder, Node->For.Expr2, true);
 			Size = PushInstruction(Builder, 
-					Instruction(OP_INDEX, Array, 1, Node->For.ArrayType, Builder));
+					Instruction(OP_INDEX, Array, 0, Node->For.ArrayType, Builder));
 			Size = PushInstruction(Builder, 
 					Instruction(OP_LOAD, 0, Size, Basic_int, Builder));
 			StringPtr = PushInstruction(Builder, 
 					Instruction(OP_ALLOC, -1, DataPtrT, Builder));
 
 			u32 Data = PushInstruction(Builder, 
-					Instruction(OP_INDEX, Array, 0, Node->For.ArrayType, Builder));
+					Instruction(OP_INDEX, Array, 1, Node->For.ArrayType, Builder));
 			Data = PushInstruction(Builder, 
 					Instruction(OP_LOAD, 0, Data, DataPtrT, Builder));
 
@@ -2381,6 +2531,11 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				PushBuilder(Builder, "NOP");
 			} break;
+			case OP_MEMCMP:
+			{
+				ir_memcmp *Info = (ir_memcmp *)Instr.BigRegister;
+				PushBuilderFormated(Builder, "%%%d = MEMCMP (PTR %%%d, PTR %%%d, COUNT %%%d)", Instr.Result, Info->LeftPtr, Info->RightPtr, Info->Count);
+			} break;
 			case OP_ZEROUT:
 			{
 				PushBuilderFormated(Builder, "ZEROUT %%%d %s", Instr.Right, GetTypeName(Type));
@@ -2552,8 +2707,6 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			CASE_OP(OP_SL,    "<<")
 			CASE_OP(OP_SR,    ">>")
 			CASE_OP(OP_EQEQ,  "==")
-			CASE_OP(OP_LAND,  "&&")
-			CASE_OP(OP_LOR,   "||")
 			CASE_OP(OP_AND,   "&")
 			CASE_OP(OP_OR,    "|")
 			CASE_OP(OP_XOR,   "^")
@@ -2732,8 +2885,17 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 				out.Push(-1);
 			}
 		} break;
+		case OP_MEMCMP:
+		{
+			// Needs special handling (maybe) (idk basic block stuff)
+			ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
+			out.Push(Info->LeftPtr);
+			out.Push(Info->RightPtr);
+			out.Push(Info->Count);
+		} break;
 		case OP_CALL:
 		{
+			// Needs special handling (maybe) (idk basic block stuff)
 			out.Push(I.Result);
 			call_info *Info = (call_info *)I.BigRegister;
 			out.Push(Info->Operand);
@@ -2780,8 +2942,6 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		OP_ALL(OP_SL);
 		OP_ALL(OP_SR);
 		OP_ALL(OP_EQEQ);
-		OP_ALL(OP_LAND);
-		OP_ALL(OP_LOR);
 		OP_ALL(OP_AND);
 		OP_ALL(OP_OR);
 		OP_ALL(OP_XOR);

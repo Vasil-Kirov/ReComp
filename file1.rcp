@@ -5,28 +5,9 @@ main
 #import io
 
 main :: fn() -> i32 {
-    foo := 10;
-    str := match foo {
-        1: return "x";
-        10: return "v";
-        100: return "x";
-        0: return "x";
-    };
-
-    c := '0';
-    if c == '\\' {
-        return 10;
-    }
-
-    for i := 0; i < 10; i += 1 {}
-    for i := 0; i < 10; i += 1 {
-        io.println("%c", 'a');
-    }
-
-    //ga := mem.create_generic_allocator();
-    //foo := arr.create(string, &ga);
-    //arr.add(&foo, "asd");
-    //io.println("%", foo[0]);
+    x := "foo";
+    y := "foo";
+    io.println("%", x == y);
     return 0;
 }
 

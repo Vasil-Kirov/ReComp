@@ -800,6 +800,49 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 	return false;
 }
 
+b32 CanTypePerformBinExpression(const type *T, token_type Op)
+{
+	switch(T->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			if(T->Basic.Kind == Basic_module)
+				return false;
+			if(T->Basic.Kind == Basic_string)
+			{
+				if(Op != T_EQEQ)
+					return false;
+			}
+			return true;
+		} break;
+		case TypeKind_Pointer:
+		{
+			// Allowed pointer ops:
+			// ?, +, -, !=, ==, >=, <=, >, <, +, -, =
+			if(Op == T_QMARK)
+				return true;
+
+			if(Op != T_PLUS && Op != T_MIN)
+			{
+				if(Op > T_NEQ || Op < T_EQEQ)
+				{
+					if(Op != T_LESS & Op != T_GREAT && Op != T_EQ)
+						return false;
+				}
+			}
+			return true;
+		} break;
+		case TypeKind_Struct:
+		return Op == T_EQ;
+
+		case TypeKind_Invalid:
+		return false;
+		case TypeKind_Enum:
+		return CanTypePerformBinExpression(GetType(T->Enum.Type), Op);
+		default: return false;
+	}
+}
+
 b32 IsCastRedundant(const type *From, const type *To)
 {
 	if(From->Kind == To->Kind)

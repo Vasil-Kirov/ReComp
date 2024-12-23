@@ -26,6 +26,8 @@ enum token_type
 	T_MINUS = '-',
 	T_SEMICOL= ';',
 	T_DOLLAR = '$',
+	T_PLUS  = '+',
+	T_MIN   = '-',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,

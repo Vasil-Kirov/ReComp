@@ -33,8 +33,6 @@ enum op
 	OP_GEQ,
 	OP_LEQ,
 	OP_EQEQ,
-	OP_LAND,
-	OP_LOR,
 	OP_CALL,
 	OP_INDEX,
 	OP_ARRAYLIST,
@@ -47,8 +45,18 @@ enum op
 	OP_PTRDIFF,
 	OP_ZEROUT,
 
+	// BigRegister = ir_memcmp *
+	// Result = true if success, false otherwise
+	OP_MEMCMP,
 
 	OP_COUNT,
+};
+
+struct ir_memcmp
+{
+	u32 LeftPtr;
+	u32 RightPtr;
+	u32 Count;
 };
 
 struct ir_switchint

@@ -31,7 +31,8 @@ struct generator
 	b32 IsCurrentFnRetInPtr;
 	dynamic<LLVMTypeEntry> LLVMTypeMap;
 	dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
-
+	u32 MemCmpRegister;
+	u32 MemCmpType;
 };
 
 struct llvm_init_info

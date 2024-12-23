@@ -6,8 +6,8 @@ main
 
 main :: fn() -> i32 {
     x := "foo";
-    y := "foo";
-    io.println("%", x == y);
+    y := "bar";
+    io.println("%", x != y);
     return 0;
 }
 

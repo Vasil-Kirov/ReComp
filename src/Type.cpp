@@ -810,7 +810,7 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 				return false;
 			if(T->Basic.Kind == Basic_string)
 			{
-				if(Op != T_EQEQ)
+				if(Op != T_EQEQ && Op != T_NEQ)
 					return false;
 			}
 			return true;

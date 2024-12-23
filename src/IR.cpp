@@ -1248,6 +1248,93 @@ u32 BuildLogicalOr(block_builder *Builder, node *Left, node *Right)
 			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
 }
 
+u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=false)
+{
+	u32 LeftCount = PushInstruction(Builder, 
+			Instruction(OP_INDEX, Left, 0, Basic_string, Builder));
+	u32 LeftData = PushInstruction(Builder, 
+			Instruction(OP_INDEX, Left, 1, Basic_string, Builder));
+	u32 RightCount = PushInstruction(Builder, 
+			Instruction(OP_INDEX, Right, 0, Basic_string, Builder));
+	u32 RightData = PushInstruction(Builder, 
+			Instruction(OP_INDEX, Right, 1, Basic_string, Builder));
+
+	LeftCount = PushInstruction(Builder,
+			Instruction(OP_LOAD, 0, LeftCount, Basic_int, Builder));
+	RightCount = PushInstruction(Builder,
+			Instruction(OP_LOAD, 0, RightCount, Basic_int, Builder));
+
+	basic_block TrueBlock = AllocateBlock(Builder);
+	basic_block FalseBlock = AllocateBlock(Builder);
+	basic_block EvaluateRight = AllocateBlock(Builder);
+	basic_block After = AllocateBlock(Builder);
+
+	u32 ResultAlloc = PushInstruction(Builder, 
+			Instruction(OP_ALLOC, -1, Basic_bool, Builder));
+
+	u32 IsCount = PushInstruction(Builder, 
+			Instruction(OP_EQEQ, LeftCount, RightCount, Basic_int, Builder));
+
+	if(IsNeq)
+	{
+		// if count == other_count {
+		//		memcmp
+		// } else {
+		//		neq
+		// }
+		PushInstruction(Builder, 
+				Instruction(OP_IF, EvaluateRight.ID, TrueBlock.ID, IsCount, Basic_bool));
+	}
+	else
+	{
+		PushInstruction(Builder, 
+				Instruction(OP_IF, EvaluateRight.ID, FalseBlock.ID, IsCount, Basic_bool));
+	}
+
+	Terminate(Builder, EvaluateRight);
+	u32 u8ptr = GetPointerTo(Basic_u8);
+	LeftData = PushInstruction(Builder,
+			Instruction(OP_LOAD, 0, LeftData, u8ptr, Builder));
+	RightData = PushInstruction(Builder,
+			Instruction(OP_LOAD, 0, RightData, u8ptr, Builder));
+	ir_memcmp *MemCmpInfo = NewType(ir_memcmp);
+	MemCmpInfo->LeftPtr = LeftData;
+	MemCmpInfo->RightPtr= RightData;
+	MemCmpInfo->Count	= RightCount;
+
+	u32 MemCmpResult = PushInstruction(Builder, 
+			Instruction(OP_MEMCMP, (u64)MemCmpInfo, Basic_bool, Builder));
+
+	if(IsNeq)
+	{
+		PushInstruction(Builder, 
+				Instruction(OP_IF, FalseBlock.ID, TrueBlock.ID, MemCmpResult, Basic_bool));
+	}
+	else
+	{
+		PushInstruction(Builder, 
+				Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, MemCmpResult, Basic_bool));
+	}
+
+	Terminate(Builder, TrueBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, FalseBlock);
+	PushInstruction(Builder, 
+			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
+	PushInstruction(Builder, 
+			Instruction(OP_JMP, After.ID, Basic_type, Builder));
+
+	Terminate(Builder, After);
+
+	return PushInstruction(Builder, 
+							Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
+
+}
+
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 NeedResult)
 {
 	if(Node->Type == AST_BINARY)
@@ -1338,10 +1425,6 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			{
 				I = Instruction(OP_LESS, Left, Right,  Type, Builder);
 			} break;
-			case T_NEQ:
-			{
-				I = Instruction(OP_NEQ, Left, Right, Type, Builder);
-			} break;
 			case T_GEQ:
 			{
 				I = Instruction(OP_GEQ, Left, Right, Type, Builder);
@@ -1354,70 +1437,22 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			{
 				if(IsString(T))
 				{
-					u32 LeftCount = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Left, 0, Basic_string, Builder));
-					u32 LeftData = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Left, 1, Basic_string, Builder));
-					u32 RightCount = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Right, 0, Basic_string, Builder));
-					u32 RightData = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Right, 1, Basic_string, Builder));
-
-					LeftCount = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, LeftCount, Basic_int, Builder));
-					RightCount = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, RightCount, Basic_int, Builder));
-
-					basic_block TrueBlock = AllocateBlock(Builder);
-					basic_block FalseBlock = AllocateBlock(Builder);
-					basic_block EvaluateRight = AllocateBlock(Builder);
-					basic_block After = AllocateBlock(Builder);
-
-					u32 ResultAlloc = PushInstruction(Builder, 
-							Instruction(OP_ALLOC, -1, Basic_bool, Builder));
-
-					u32 IsCount = PushInstruction(Builder, 
-							Instruction(OP_EQEQ, LeftCount, RightCount, Basic_int, Builder));
-					PushInstruction(Builder, 
-							Instruction(OP_IF, EvaluateRight.ID, FalseBlock.ID, IsCount, Basic_bool));
-
-					Terminate(Builder, EvaluateRight);
-					u32 u8ptr = GetPointerTo(Basic_u8);
-					LeftData = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, LeftData, u8ptr, Builder));
-					RightData = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, RightData, u8ptr, Builder));
-					ir_memcmp *MemCmpInfo = NewType(ir_memcmp);
-					MemCmpInfo->LeftPtr = LeftData;
-					MemCmpInfo->RightPtr= RightData;
-					MemCmpInfo->Count	= RightCount;
-
-					u32 MemCmpResult = PushInstruction(Builder, 
-							Instruction(OP_MEMCMP, (u64)MemCmpInfo, Basic_bool, Builder));
-					PushInstruction(Builder, 
-							Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, MemCmpResult, Basic_bool));
-
-					Terminate(Builder, TrueBlock);
-					PushInstruction(Builder, 
-							InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
-					PushInstruction(Builder, 
-							Instruction(OP_JMP, After.ID, Basic_type, Builder));
-
-					Terminate(Builder, FalseBlock);
-					PushInstruction(Builder, 
-							InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
-					PushInstruction(Builder, 
-							Instruction(OP_JMP, After.ID, Basic_type, Builder));
-
-					Terminate(Builder, After);
-
-					return PushInstruction(Builder, 
-							Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
-
+					return BuildStringCompare(Builder, Left, Right);
 				}
 				else
 				{
 					I = Instruction(OP_EQEQ, Left, Right, Type, Builder);
+				}
+			} break;
+			case T_NEQ:
+			{
+				if(IsString(T))
+				{
+					return BuildStringCompare(Builder, Left, Right, true);
+				}
+				else
+				{
+					I = Instruction(OP_NEQ, Left, Right, Type, Builder);
 				}
 			} break;
 			default:

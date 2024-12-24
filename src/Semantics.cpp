@@ -2933,6 +2933,28 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 	}
 }
 
+b32 IsFunctionCorrectProfileCallback(const type *T)
+{
+	if(T->Kind == TypeKind_Pointer)
+	{
+		if(T->Pointer.Pointed == INVALID_TYPE)
+			return false;
+		T = GetType(T->Pointer.Pointed);
+	}
+	if(T->Kind != TypeKind_Function)
+		return false;
+
+	if(T->Function.ArgCount != 2
+			|| !IsString(GetType(T->Function.Args[0]))
+			|| T->Function.Args[1] != Basic_int)
+		return false;
+
+	if(T->Function.Returns.Count != 0)
+		return false;
+
+	return true;
+}
+
 void Analyze(checker *Checker, dynamic<node *> &Nodes)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
@@ -2941,7 +2963,22 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		{
 			node *Node = Nodes[I];
 			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0 && (Node->Fn.Flags & SymbolFlag_Generic) == 0)
+			{
+				if(Node->Fn.ProfileCallback)
+				{
+					u32 TIdx = AnalyzeExpression(Checker, Node->Fn.ProfileCallback);
+					Node->Fn.CallbackType = TIdx;
+					const type *T = GetType(TIdx);
+					if(!IsFunctionCorrectProfileCallback(T))
+					{
+						RaiseError(*Node->ErrorInfo, 
+								"@profile callback is of incorrect type %s\n"
+								"Expected fn(fn_name: string, cycles_taken: int);",
+								GetTypeName(T));
+					}
+				}
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
+			}
 		}
 	}
 	ForArray(Idx, Checker->GeneratedGlobalNodes)

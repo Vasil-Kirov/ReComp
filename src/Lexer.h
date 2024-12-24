@@ -87,6 +87,7 @@ enum token_type
 	T_VOID = -67,
 	T_CONTINUE = -68,
 	T_PWDELIF=-69,
+	T_PROFILE=-70,
 };
 
 struct token

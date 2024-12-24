@@ -1441,6 +1441,7 @@ node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
 	b32 IsStructUnion = false;
+	node *ProfileCallback = NULL;
 	switch(Parser->Current->Type)
 	{
 		case T_PUBLIC:
@@ -1455,6 +1456,13 @@ node *ParseTopLevel(parser *Parser)
 			Parser->CurrentlyPublic = false;
 			Result = (node *)0x1;
 		} break;
+		case T_PROFILE:
+		{
+			GetToken(Parser);
+			EatToken(Parser, T_EQ);
+			ProfileCallback = ParseExpression(Parser);
+		}
+		// fallthrough
 		case T_ID:
 		{
 			b32 SaveILists = Parser->NoItemLists;
@@ -1478,6 +1486,7 @@ node *ParseTopLevel(parser *Parser)
 				{
 					RaiseError(*Decl->ErrorInfo, "Global function declaration needs to be constant");
 				}
+				Fn->Fn.ProfileCallback = ProfileCallback;
 				Fn->Fn.Name = LHS->ID.Name;
 				if(Parser->CurrentlyPublic)
 					Fn->Fn.Flags |= SymbolFlag_Public;
@@ -1635,6 +1644,8 @@ node *ParseTopLevel(parser *Parser)
 				}
 				GetToken(Parser);
 			}
+
+			Result = (node *)0x1;
 		} break;
 		case T_PWDIF:
 		{
@@ -1863,6 +1874,8 @@ node *CopyASTNode(node *N)
 			R->Fn.TypeIdx = N->Fn.TypeIdx;
 			R->Fn.Flags = N->Fn.Flags;
 			R->Fn.FnModule = N->Fn.FnModule;
+			R->Fn.ProfileCallback = CopyASTNode(N->Fn.ProfileCallback);
+			R->Fn.CallbackType = N->Fn.CallbackType;
 		} break;
 
 		case AST_CAST:

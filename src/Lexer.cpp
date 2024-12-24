@@ -3,6 +3,7 @@
 #include "Memory.h"
 #include "VString.h"
 #include "Module.h"
+#include <ctype.h>
 
 keyword *KeywordTable = NULL;
 
@@ -258,11 +259,26 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 	}
 	if(String->Size > 1)
 	{
-		string PotentialKeywordString = MakeString(Start, 2);
+		string PotentialKeywordString = MakeStringSlice(Start, 2);
 		token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
 		if(PotentialKeyword != T_ID)
 		{
 			AdvanceC(String, ErrorInfo);
+			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+		}
+	}
+
+	for(int i = 0; i < String->Size && !isspace(String->Data[i]) &&
+			IsIDCharacter(String->Data[i]); ++i)
+	{
+		string PotentialKeywordString = MakeStringSlice(Start, i+2);
+		token_type PotentialKeyword = GetKeyword(PotentialKeywordString);
+		if(PotentialKeyword != T_ID)
+		{
+			for(int j = i; j >= 0; j--)
+			{
+				AdvanceC(String, ErrorInfo);
+			}
 			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
 		}
 	}
@@ -488,5 +504,6 @@ void InitializeLexer()
 	AddKeyword("size_of", T_SIZEOF);
 	AddKeyword("type_of", T_TYPEOF);
 	AddKeyword("void", T_VOID);
+	AddKeyword("@profile", T_PROFILE);
 }
 

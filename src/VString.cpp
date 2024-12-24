@@ -1,5 +1,6 @@
 #include "VString.h"
 #include "Memory.h"
+#include <ctype.h>
 #include <immintrin.h>
 #include <pmmintrin.h>
 
@@ -68,6 +69,14 @@ void PushBuilderFormated(string_builder *Builder, const char *Format, ...)
 	
 	va_end(Args);
 	PushBuilder(Builder, ToPush);
+}
+
+string MakeStringSlice(const char *Ptr, size_t Size)
+{
+	string Result;
+	Result.Data = Ptr;
+	Result.Size = Size;
+	return Result;
 }
 
 string MakeString(const char *CString, size_t Size)

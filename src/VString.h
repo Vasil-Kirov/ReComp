@@ -54,5 +54,7 @@ void PushBuilder(string_builder *Builder, const char *Data);
 void PushBuilder(string_builder *Builder, char C);
 void PushBuilderFormated(string_builder *Builder, const char *Format, ...);
 
+string MakeStringSlice(const char *Ptr, size_t Size);
+
 size_t CStrLen(const char *CString);
 

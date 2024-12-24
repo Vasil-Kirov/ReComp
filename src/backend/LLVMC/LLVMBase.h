@@ -1,6 +1,7 @@
 #pragma once
 #include <llvm-c/Core.h>
 #include <llvm-c/Types.h>
+#include "Dict.h"
 #include "LLVMValue.h"
 #include "LLVMType.h"
 #include "llvm-c/Target.h"
@@ -10,6 +11,12 @@
 struct rc_block
 {
 	LLVMBasicBlockRef Block;
+};
+
+struct llvm_intrin
+{
+	LLVMValueRef Fn;
+	LLVMTypeRef Type;
 };
 
 // Using short names here because these will be used everywhere
@@ -31,8 +38,7 @@ struct generator
 	b32 IsCurrentFnRetInPtr;
 	dynamic<LLVMTypeEntry> LLVMTypeMap;
 	dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
-	u32 MemCmpRegister;
-	u32 MemCmpType;
+	dict<llvm_intrin> Intrinsics;
 };
 
 struct llvm_init_info

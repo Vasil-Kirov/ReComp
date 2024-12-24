@@ -218,6 +218,8 @@ struct node
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
 			struct module *FnModule;
 			function *IR; // @Nullable
+			node *ProfileCallback;
+			u32 CallbackType;
 			u32 TypeIdx; // Set by semantic analyzer
 			u32 Flags;
 			b32 AlreadyAnalyzed;

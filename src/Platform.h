@@ -4,8 +4,14 @@
 #include "Log.h"
 
 
+#if _WIN32
 typedef void *t_handle;
 typedef void *t_semaphore;
+#else
+#include <semaphore.h>
+typedef unsigned long t_handle;
+typedef sem_t *t_semaphore;
+#endif
 
 typedef unsigned long (*t_proc)(void *);
 
@@ -21,10 +27,4 @@ t_semaphore PlatformCreateSemaphore(uint MaxCount);
 void PlatformSleepOnSemaphore(t_semaphore);
 void PlatformSignalSemaphore(t_semaphore);
 
-
-#if _WIN32
-#define AtomicIncrement InterlockedIncrement 
-#else
-#error IMPLEMENT
-#endif
 

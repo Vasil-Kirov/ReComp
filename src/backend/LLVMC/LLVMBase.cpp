@@ -33,6 +33,29 @@ void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef Ou
 	OutArray[1] = Index;
 }
 
+void RCGenerateIntrins(generator *gen)
+{
+	string RDTSC = STR_LIT("llvm.readcyclecounter");
+	LLVMTypeRef RDTSCType = LLVMFunctionType(LLVMIntTypeInContext(gen->ctx,
+				GetRegisterTypeSize()),
+				NULL, 0, false);
+	LLVMValueRef RDTSCLLVM = LLVMAddFunction(gen->mod, RDTSC.Data, RDTSCType);
+	gen->Intrinsics.Add(RDTSC, llvm_intrin { RDTSCLLVM, RDTSCType } );
+
+	string MemCmp = STR_LIT("memcmp");
+	LLVMTypeRef MemCmpArgs[] = {
+		LLVMPointerType(LLVMVoidTypeInContext(gen->ctx), 0),
+		LLVMPointerType(LLVMVoidTypeInContext(gen->ctx), 0),
+		LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize())
+	};
+
+	LLVMTypeRef MemCmpType = LLVMFunctionType(
+			LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()/2),
+				MemCmpArgs, 3, false);
+	LLVMValueRef MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
+	gen->Intrinsics.Add(RDTSC, llvm_intrin { MemCmpLLVM, MemCmpType } );
+}
+
 void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 {
 	switch(Info->type)
@@ -122,6 +145,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ALLOC: // Handled before
 		{
+		} break;
+		case OP_RDTSC:
+		{
+			llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.readcyclecounter")];
+			Assert(Intrin.Fn);
+			LLVMValueRef Time = LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "rdtsc");
+			gen->map.Add(I.Result, Time);
 		} break;
 		case OP_ZEROUT:
 		{
@@ -349,6 +379,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.fn = LLVMFn;
 			NewGen.LLVMTypeMap = gen->LLVMTypeMap;
 			NewGen.LLVMDebugTypeMap = gen->LLVMDebugTypeMap;
+			NewGen.Intrinsics = gen->Intrinsics;
 
 			gen->map.Add(I.Result, LLVMFn);
 			for(int i = 0; i < gen->map.Bottom; ++i)
@@ -697,14 +728,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 
 			LLVMValueRef Operand = gen->map.Get(CallInfo->Operand);
+			Assert(Operand);
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
 			gen->map.Add(I.Result, Result);
 		} break;
 		case OP_MEMCMP:
 		{
-			if(gen->MemCmpRegister == -1)
-				LFATAL("memcmp not found, it is necessary for compilation, please define it somewhere\n"
-						"memcmp :: fn #link=\"memcmp\"(p1: *, p2: *, num: int) -> i32;");
 
 			ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
 			LLVMValueRef Args[3] = {};
@@ -712,8 +741,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			Args[1] = gen->map.Get(Info->RightPtr);
 			Args[2] = gen->map.Get(Info->Count);
 
-			LLVMValueRef Operand = gen->map.Get(gen->MemCmpRegister);
-			LLVMTypeRef Type = ConvertToLLVMType(gen, gen->MemCmpType);
+			llvm_intrin MemCmp = gen->Intrinsics[STR_LIT("memcmp")];
+			Assert(MemCmp.Fn);
+
+			LLVMValueRef Operand = MemCmp.Fn;
+			LLVMTypeRef Type = MemCmp.Type;
 
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, Type, Operand, Args, 3, "memcmp");
 			LLVMValueRef Zero = LLVMConstNull(LLVMInt32TypeInContext(gen->ctx));
@@ -909,7 +941,6 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	llvm_init_info Machine = RCInitLLVM(Info);
 
 	generator Gen = {};
-	Gen.MemCmpRegister = -1;
 	//file *File = M->Files[0];
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
@@ -931,6 +962,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 	string CompilerName = STR_LIT("RCP Compiler");
 
+	RCGenerateIntrins(&Gen);
 
 	LLVMDIBuilderCreateCompileUnit(
 			Gen.dbg,
@@ -983,7 +1015,6 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		AddedFns.Add(LinkName, Fn);
 	}
 
-	string MemCmpName = STR_LIT("memcmp");
 	ForArray(MIdx, Modules)
 	{
 		// shadow
@@ -1017,25 +1048,6 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
 			{
 				string LinkName = *s->LinkName;
-				if(LinkName == MemCmpName)
-				{
-					Gen.MemCmpRegister = s->IRRegister;
-					Gen.MemCmpType = s->Type;
-
-					// @TODO: move this to semantics.cpp it doesn't belong here
-					const type *MemCmp = GetType(s->Type);
-					if(MemCmp->Kind != TypeKind_Function || ReturnsToType(MemCmp->Function.Returns) != Basic_i32
-							|| MemCmp->Function.ArgCount != 3
-							|| GetType(MemCmp->Function.Args[0])->Kind != TypeKind_Pointer
-							|| GetType(MemCmp->Function.Args[1])->Kind != TypeKind_Pointer
-							|| GetType(MemCmp->Function.Args[2])->Kind != TypeKind_Basic
-							|| GetType(MemCmp->Function.Args[2])->Basic.Kind != Basic_int
-							)
-					{
-						RaiseError(*s->Node->ErrorInfo, "Incorrect signature of memcmp function, define it as\n"
-								"memcmp :: fn #link=\"memcmp\"(p1: *, p2: *, num: int) -> i32;");
-					}
-				}
 
 				//LLVMCreateFunctionType(Gen.ctx, s->Type);
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 

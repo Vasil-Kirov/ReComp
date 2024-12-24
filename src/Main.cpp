@@ -463,6 +463,9 @@ main(int ArgCount, char *Args[])
 		file BuildFile = {};
 		slice<module*> BuildModules = {};
 
+		// @TODO: maybe actually check the host machine?
+		ConfigIDs.Push(STR_LIT("x86"));
+		ConfigIDs.Push(STR_LIT("x64"));
 		//u32 BeforeTypeCount = GetTypeCount();
 		CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
 
@@ -490,6 +493,7 @@ main(int ArgCount, char *Args[])
 		{
 			LFATAL("compile function needs to return compile.CompileInfo");
 		}
+		ConfigIDs.Count = 0;
 
 #if 0
 		for(int i = 0; i < GetTypeCount(); ++i)
@@ -548,6 +552,11 @@ main(int ArgCount, char *Args[])
 				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
 			}
 			AddStdFiles(FileNames, Info->Flags & CF_NoStdLib);
+
+			For(ConfigIDs)
+			{
+				LDEBUG("CONFIG %s", it->Data);
+			}
 
 			slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
@@ -717,6 +726,7 @@ const char* GetTokenName(token_type Token) {
         case T_CHAR:        return "Character";
 		case T_ENUM:        return "Enum";
 		case T_DEFER:       return "defer";
+		case T_PROFILE:		return "@profile";
         default: {
             char *C = AllocateString(2);
             C[0] = (char)Token;

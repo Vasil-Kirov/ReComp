@@ -4,11 +4,39 @@
 #include "VString.h"
 #include <cstdio>
 #include <cstdlib>
+#include <semaphore.h>
+#include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+
+typedef void *(*linux_start_thread)(void*);
+
+t_handle PlatformCreateThread(t_proc Proc, void *PassValue)
+{
+	pthread_t thread = {};
+	pthread_create(&thread, NULL, (linux_start_thread)Proc, PassValue);
+	return thread;
+}
+
+t_semaphore PlatformCreateSemaphore(uint MaxCount)
+{
+	sem_t *sem = (sem_t *)malloc(sizeof(sem_t));
+	sem_init(sem, 0, 0);
+	return sem;
+}
+
+void PlatformSleepOnSemaphore(t_semaphore Semaphore)
+{
+	sem_wait(Semaphore);
+}
+
+void PlatformSignalSemaphore(t_semaphore Semaphore)
+{
+	sem_post(Semaphore);
+}
 
 b32 PlatformDeleteFile(const char *Path)
 {

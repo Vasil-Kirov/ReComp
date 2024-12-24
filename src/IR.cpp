@@ -129,6 +129,14 @@ void PushIRLocal(block_builder *Builder, const string *Name, u32 Register, u32 T
 	Builder->Scope.Peek().Add(*Name, Local);
 }
 
+u32 MakeIRString(block_builder *Builder, string S)
+{
+	const_value *Val = NewType(const_value);
+	*Val = MakeConstString(DupeType(S, string));
+	return PushInstruction(Builder, 
+			Instruction(OP_CONST, (u64)Val, Basic_string, Builder));
+}
+
 const ir_symbol *GetIRLocal(block_builder *Builder, const string *Name, b32 Error = true)
 {
 	ir_symbol *Found = NULL;
@@ -1891,6 +1899,25 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 					}
 				}
 			}
+
+			if(Builder->Profile)
+			{
+				u32 Callback = BuildIRFromExpression(Builder, Builder->Profile->Callback);
+				u32 EndTime = PushInstruction(Builder, 
+						Instruction(OP_RDTSC, 0, Basic_int, Builder));
+
+				u32 Taken = PushInstruction(Builder, 
+						Instruction(OP_SUB, EndTime, Builder->Profile->StartTime, Basic_int, Builder));
+				u32 FnName = MakeIRString(Builder, *Builder->Function->Name);
+
+				call_info *Call = NewType(call_info);
+				Call->Operand = Callback;
+				Call->Args = SliceFromConst({FnName, Taken});
+				
+				PushInstruction(Builder,
+						Instruction(OP_CALL, (u64)Call, Builder->Profile->CallbackType, Builder));
+			}
+
 			PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
 			Builder->CurrentBlock.HasTerminator = true;
 		} break;
@@ -2079,10 +2106,22 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 			IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Var.Name, Type);
 		}
 
+		u32 StartTime = -1;
+		if(Node->Fn.ProfileCallback)
+		{
+			StartTime = PushInstruction(&Builder, 
+					Instruction(OP_RDTSC, 0, Basic_int, &Builder));
+			Builder.Profile = NewType(profiling);
+			Builder.Profile->StartTime = StartTime;
+			Builder.Profile->Callback = Node->Fn.ProfileCallback;
+			Builder.Profile->CallbackType = Node->Fn.CallbackType;
+		}
+
 		ForArray(Idx, Body)
 		{
 			BuildIRFunctionLevel(&Builder, Body[Idx]);
 		}
+
 		Terminate(&Builder, {});
 		Function.LastRegister = Builder.LastRegister;
 		Builder.Function = NULL;
@@ -2092,10 +2131,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 void WriteString(block_builder *Builder, u32 Ptr, string S)
 {
-	const_value *Val = NewType(const_value);
-	*Val = MakeConstString(DupeType(S, string));
-	u32 Const = PushInstruction(Builder, 
-			Instruction(OP_CONST, (u64)Val, Basic_string, Builder));
+	u32 Const = MakeIRString(Builder, S);
 
 	PushInstruction(Builder, 
 			InstructionStore(Ptr, Const, Basic_string));
@@ -2566,6 +2602,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				PushBuilder(Builder, "NOP");
 			} break;
+			case OP_RDTSC:
+			{
+				PushBuilderFormated(Builder, "%%%d = TIME", Instr.Result);
+			} break;
 			case OP_MEMCMP:
 			{
 				ir_memcmp *Info = (ir_memcmp *)Instr.BigRegister;
@@ -2865,6 +2905,7 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_NOP:
 		{
 		} break;
+		case OP_RDTSC: Assert(false);
 		OP_RESULT(OP_CONSTINT);
 		OP_RESULT(OP_CONST);
 		case OP_ZEROUT:

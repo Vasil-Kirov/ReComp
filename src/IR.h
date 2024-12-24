@@ -45,6 +45,9 @@ enum op
 	OP_PTRDIFF,
 	OP_ZEROUT,
 
+	// Result = time
+	OP_RDTSC,
+
 	// BigRegister = ir_memcmp *
 	// Result = true if success, false otherwise
 	OP_MEMCMP,
@@ -164,6 +167,13 @@ struct defer_scope
 	dynamic<node *> Expressions;
 };
 
+struct profiling
+{
+	u32 CallbackType;
+	u32 StartTime;  // Int Register
+	node *Callback;
+};
+
 struct block_builder
 {
 	basic_block CurrentBlock;
@@ -171,6 +181,7 @@ struct block_builder
 	slice<import> Imported;
 	stack<defer_scope> Defered;
 	module *Module;
+	profiling *Profile;
 	stack<dict<ir_symbol>> Scope;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;

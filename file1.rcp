@@ -1,9 +1,12 @@
 main
 
-#import mem
-#import array as arr
 #import io
 
+callback :: fn(fn_name: string, time_taken: int) {
+	io.println("% took %ccy", fn_name, time_taken);
+}
+
+@profile=callback
 main :: fn() -> i32 {
     foo := "foo";
 	return @i32 foo.count;

@@ -22,7 +22,7 @@ compile :: fn() -> c.CompileInfo {
     //io.println("%", foo[0]);
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
-        opt = 0,
+        opt = 3,
         //flags = @u32 (c.CompileFlag.NoLink | c.CompileFlag.CrossAndroid | c.CompileFlag.NoStdLib),
         //target_triple="arm64v8a-unknown-linux-androideabi30",
         //arch = c.Arch.Arm64,

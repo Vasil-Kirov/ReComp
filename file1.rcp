@@ -2,14 +2,28 @@ main
 
 #import io
 
+printf :: fn #foreign(fmt: *u8, args: ...);
+
 callback :: fn(fn_name: string, time_taken: int) {
-	io.println("% took %ccy", fn_name, time_taken);
+	io.println("% took\n\t%ccy", fn_name, time_taken);
 }
 
-@profile=callback
+@profile = callback
+call_printf :: fn() {
+	for i in 100
+		printf(c"Three numbers: %d %d %d\n", 1, 2, 3);
+}
+
+@profile = callback
+call_println :: fn() {
+	for i in 100
+		io.println("Three numbers: % % %", 1, 2, 3);
+}
+
 main :: fn() -> i32 {
-    foo := "foo";
-	return @i32 foo.count;
+	call_printf();
+	call_println();
+	return 0;
 }
 
 

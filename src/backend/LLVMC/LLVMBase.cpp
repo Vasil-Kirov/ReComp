@@ -150,7 +150,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.readcyclecounter")];
 			Assert(Intrin.Fn);
+			// @NOTE: I don't think the fences are needed
+			//LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent,
+			//		0, "");
 			LLVMValueRef Time = LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "rdtsc");
+			//LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent,
+			//		0, "");
 			gen->map.Add(I.Result, Time);
 		} break;
 		case OP_ZEROUT:

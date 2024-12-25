@@ -100,9 +100,9 @@ assert :: fn(cond: bool, reason: string) {
 #elif Unix
 (
 #private
-		stdin  :: 0;
-        stdout :: 1;
-        stderr :: 2;
+		handle_stdin  :: 0;
+        handle_stdout :: 1;
+        handle_stderr :: 2;
 
 #public
 #if x64
@@ -110,11 +110,17 @@ assert :: fn(cond: bool, reason: string) {
 	SYS_read  	:: 0;
 	SYS_write  	:: 1;
 	SYS_open   	:: 2;
-	SYS_close	:: 60;
+	SYS_close	:: 3;
 	SYS_mmap   	:: 9;
 	SYS_munmap 	:: 11;
 	SYS_exit	:: 60;
+	SYS_fstat	:: 5;
     SYS_clock_gettime :: 228;
+	struct stat {
+		pad0: [48]u8,
+		size: int,
+		pad1: [88]u8,
+	}
 )
 #elif x86
 (
@@ -201,13 +207,27 @@ assert :: fn(cond: bool, reason: string) {
 		return ctx + 1;
 	}
 
+	stdin :: fn() -> * {
+		return @*void handle_stdin;
+	}
+
+	stdout :: fn() -> * {
+		return @*void handle_stdout;
+	}
+
+	get_file_size :: fn(fd: *) -> int {
+		fstat := stat {};
+		syscall(SYS_fstat, &fstat);
+		return fstat.size;
+	}
+
 	open :: fn(name: string) -> ?* {
 		fd := syscall(SYS_open, name.data, O_RDWR);
 		if fd == -1 return null;
 		return @*void fd;
 	}
 
-	write :: fn(fd: *, buf: *u8, count: u32) {
+	write :: fn(fd: *, buf: *u8, count: int) {
 		syscall(SYS_write, fd, buf, count);
 	}
 
@@ -225,7 +245,7 @@ assert :: fn(cond: bool, reason: string) {
 		count := @u32 0;
 		for count < size {
 			c := @u8 0;
-			syscall(SYS_read, stdin, &c, 1);
+			syscall(SYS_read, stdin(), &c, 1);
 			if c == '\n' {
 				break;
 			}
@@ -233,6 +253,10 @@ assert :: fn(cond: bool, reason: string) {
 			count += 1;
 		}
 		return count;
+	}
+
+	read :: fn(fd: *, buf: *, size: int) -> int {
+		return syscall(SYS_read, fd, buf, size);
 	}
 )
 

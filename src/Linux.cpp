@@ -45,7 +45,7 @@ b32 PlatformDeleteFile(const char *Path)
 
 void PlatformWriteFile(const char *Path, u8 *Data, u32 Size)
 {
-	int fd = open(Path, O_APPEND);
+	int fd = open(Path, O_TRUNC | O_WRONLY | O_CREAT, 0666);
 	if(fd != -1)
 	{
 		write(fd, Data, Size);

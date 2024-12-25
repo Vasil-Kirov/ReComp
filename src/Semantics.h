@@ -47,6 +47,7 @@ struct checker
 	dynamic<node *> *Nodes;
 	dynamic<node *> GeneratedGlobalNodes;
 	slice<u32> CurrentFnReturnTypeIdx;
+	string File;
 };
 
 void AddFunctionToModule(checker *Checker, node *FnNode);

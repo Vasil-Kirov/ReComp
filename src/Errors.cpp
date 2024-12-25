@@ -3,6 +3,7 @@
 #include "Log.h"
 
 string BonusErrorMessage = {};
+bool DumpingInfo = false;
 
 void SetBonusMessage(string S)
 {
@@ -95,6 +96,13 @@ RaiseError(error_info ErrorInfo, const char *_ErrorMessage, ...)
 	va_end(Args);
 	
 	string ErrorSegment = GetErrorSegment(ErrorInfo);
+
+	if(DumpingInfo)
+	{
+		void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg);
+		WriteStringError(ErrorInfo.FileName, ErrorInfo.Line, FinalFormat);
+		exit(0);
+	}
 	
 	LFATAL("\n%s%s (%d, %d):\n%s\n\n%s",
 			BonusErrorMessage.Data,

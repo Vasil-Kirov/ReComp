@@ -425,6 +425,7 @@ readln :: fn(alloc: *mem.Allocator) -> string {
 	MAX :: 1024;
     mem := alloc.alloc(MAX, alloc);
     if mem == null {
+		println("Failed to allocate buffer for readln");
         return "";
     }
 
@@ -439,6 +440,18 @@ readln :: fn(alloc: *mem.Allocator) -> string {
     res.count = @int count;
 
     return res;
+}
+
+read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
+	stdin := os.stdin();
+	buf := @*u8 alloc.alloc(bytes, alloc);
+	read := os.read(stdin, buf, bytes);
+	if read == -1 || read == 0 {
+		alloc.free(buf, alloc);
+		return "";
+	}
+
+	return string { read, buf };
 }
 
 get_next :: fn(curr: *u8) -> u32 {

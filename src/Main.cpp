@@ -1,6 +1,8 @@
 #include "Dynamic.h"
 #include "Memory.h"
 #include "vlib.h"
+#include <cstddef>
+#include <sys/types.h>
 static b32 _MemoryInitializer = InitializeMemory();
 
 #include "Module.h"
@@ -51,6 +53,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Interpreter.cpp"
 #include "x64CodeWriter.cpp"
 #include "CommandLine.cpp"
+#include "DumpInfo.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -174,6 +177,7 @@ void ParseFile(file *File, dynamic<module*> Modules)
 	File->Checker = NewType(checker);
 	File->Checker->Module = File->Module;
 	File->Checker->Imported = File->Imported;
+	File->Checker->File = File->Name;
 }
 
 void AnalyzeFile(file *File)
@@ -232,6 +236,18 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		}
 		MaxCount = AssignIRRegistersForModuleSymbols(Modules);
 		VLibStopTimer(&Timers->TypeCheck);
+	}
+
+	if(DumpingInfo)
+	{
+		binary_blob Blob = StartOutput();
+		DumpU32(&Blob, Modules.Count);
+		For(Modules)
+		{
+			DumpModule(&Blob, *it);
+		}
+		DumpTypeTable(&Blob);
+		WriteBlobToFile(&Blob);
 	}
 
 	{
@@ -421,6 +437,8 @@ main(int ArgCount, char *Args[])
 #endif
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
+
+	DumpingInfo = (CommandLine.Flags & CF_DumpInfo) != 0;
 
 	DLIB DLLs[256] = {};
 	int DLLCount = 0;

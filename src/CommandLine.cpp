@@ -17,6 +17,16 @@ OPTIONS:
 		Add Shared Library file to be used by the interpreter
 	--ir module
 		Show the internal representation for the specified module
+	--llvm
+		Output llvm ir files
+	--log
+		Output debug prints
+	--interp-trace
+		Print the location of the interpreter, useful for debugging crashes
+	--file name
+		Compile single code file instead of build file
+	--dump-info
+		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
 )#";
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
@@ -40,6 +50,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--log"),
 		STR_LIT("--interp-trace"),
 		STR_LIT("--file"),
+		STR_LIT("--dump-info"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -112,6 +123,10 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			}
 			i++;
 			Result.SingleFile = Args[i];
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[9]))
+		{
+			Result.Flags |= CF_DumpInfo;
 		}
 		else
 		{

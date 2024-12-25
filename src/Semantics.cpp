@@ -849,9 +849,21 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_EMBED:
 		{
-			string File = ReadEntireFile(*Expr->Embed.FileName);
-			if(File.Data == NULL)
-				RaiseError(*Expr->ErrorInfo, "Couldn't open #embed_%s file %s", Expr->Embed.IsString ? "str" : "bin", Expr->Embed.FileName->Data);
+			string File = Checker->File;
+			auto b = MakeBuilder();
+			int end = File.Size-1;
+			for(; end >= 0
+					&& File.Data[end] != '/'
+					&& File.Data[end] != '\\'
+					; --end);
+			string Tmp = {File.Data, (size_t)end+1};
+
+			b += Tmp;
+			b += *Expr->Embed.FileName;
+			string FileName = MakeString(b);
+			string Read = ReadEntireFile(FileName);
+			if(Read.Data == NULL)
+				RaiseError(*Expr->ErrorInfo, "Couldn't open #embed_%s file %s", Expr->Embed.IsString ? "str" : "bin", FileName.Data);
 
 			Expr->Embed.Content = File;
 			Result = Expr->Embed.IsString ? Basic_string : GetPointerTo(Basic_u8);

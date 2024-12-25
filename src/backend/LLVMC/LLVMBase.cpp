@@ -1121,7 +1121,6 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
-	LLVMShutdown();
 }
 
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)
@@ -1302,5 +1301,6 @@ void RCGenerateCode(slice<module*> Modules, slice<file*> Files, b32 OutputBC, co
 	{
 		TryDoWork(Queue);
 	}
+	LLVMShutdown();
 }
 

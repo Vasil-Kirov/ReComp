@@ -421,14 +421,15 @@ println :: fn(str: string, args: ...) {
 
 }
 
-readln :: fn(alloc: *mem.Allocator, max: u32) -> string {
-    mem := alloc.alloc(@int max, alloc);
+readln :: fn(alloc: *mem.Allocator) -> string {
+	MAX :: 1024;
+    mem := alloc.alloc(MAX, alloc);
     if mem == null {
         return "";
     }
 
     buf := @*u8 ?mem;
-    count := os.read_stdin_line(buf, max);
+    count := os.read_stdin_line(buf, @u32 MAX);
     if count == 0 {
         return "";
     }

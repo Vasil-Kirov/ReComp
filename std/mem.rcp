@@ -1,6 +1,10 @@
 mem
 #import os
 
+kb :: fn(b: int) -> int { return b << 10; }
+mb :: fn(b: int) -> int { return b << 20; }
+gb :: fn(b: int) -> int { return b << 30; }
+
 struct Allocator {
     alloc: fn(size: int, this: *Allocator) -> ?*,
     free:  fn(ptr: *, this: *Allocator),

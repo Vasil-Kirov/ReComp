@@ -57,7 +57,7 @@ string ReadEntireFile(string Path)
 {
 	int fd = open(Path.Data, O_APPEND);
 	if(fd == -1)
-		return STR_LIT("");
+		return string {};
 
 	struct stat s_info = {};
 	fstat(fd, &s_info);

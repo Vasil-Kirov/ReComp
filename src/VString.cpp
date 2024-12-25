@@ -125,7 +125,11 @@ string MakeString(const char *CString)
 
 void string_builder::operator+=(const string& B)
 {
-	PushBuilder(this, B.Data);
+	for(int I = 0; I < B.Size; ++I)
+	{
+		this->Data.Push(B.Data[I]);
+		this->Size++;
+	}
 }
 
 void string_builder::operator+=(const char *String)

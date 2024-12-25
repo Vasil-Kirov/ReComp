@@ -46,6 +46,7 @@ void DumpModule(binary_blob *Blob, module* M)
 void DumpTypeTable(binary_blob *Blob)
 {
 	uint TypeCount = GetTypeCount();
+	DumpU32(Blob, TypeCount);
 	for(int i = 0; i < TypeCount; ++i)
 	{
 		const type *T = GetType(i);

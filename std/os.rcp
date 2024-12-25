@@ -217,7 +217,7 @@ assert :: fn(cond: bool, reason: string) {
 
 	get_file_size :: fn(fd: *) -> int {
 		fstat := stat {};
-		syscall(SYS_fstat, &fstat);
+		syscall(SYS_fstat, fd, &fstat);
 		return fstat.size;
 	}
 

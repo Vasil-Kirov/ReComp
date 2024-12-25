@@ -53,7 +53,7 @@ void RCGenerateIntrins(generator *gen)
 			LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()/2),
 				MemCmpArgs, 3, false);
 	LLVMValueRef MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
-	gen->Intrinsics.Add(RDTSC, llvm_intrin { MemCmpLLVM, MemCmpType } );
+	gen->Intrinsics.Add(MemCmp, llvm_intrin { MemCmpLLVM, MemCmpType } );
 }
 
 void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)

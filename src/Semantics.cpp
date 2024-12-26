@@ -2868,6 +2868,10 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 					ResolvedType = UntypedGetType(RT);
 				}
 			}
+			else
+			{
+				RaiseError(*Expr->ErrorInfo, "Call doesn't resolve generic type");
+			}
 
 			for(int i = 0; i < T->Function.ArgCount; ++i)
 			{

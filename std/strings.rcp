@@ -62,7 +62,9 @@ append_u8 :: fn(b: *Builder, c: u8) {
 }
 
 from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
-    data := mem.make_slice(u8, b.data.count*4, alloc);
+    data_ := alloc.alloc((b.data.count*4)+1, alloc);
+	if data_ == null return "";
+	data := @*u8 ?data_;
     len := 0;
     as_u8 := @*u8 b.data.data;
     for i := 0; i < b.data.count*4; i += 1 {
@@ -71,8 +73,9 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
         data[len] = as_u8[i];
         len += 1;
     }
+	data[len] = 0;
 
-    return string { len, &data[0] };
+    return string { len, data };
 }
 
 CONTINUE_BIT :: @u8 0b1000_0000;

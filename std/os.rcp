@@ -183,6 +183,7 @@ assert :: fn(cond: bool, reason: string) {
 	MAP_NORESERVE	:: 0x04000;
 
 	O_RDWR :: 0x2;
+	O_APPEND :: 0x400;
 
 	abort :: fn() {
 		syscall(SYS_exit, 1);
@@ -222,7 +223,7 @@ assert :: fn(cond: bool, reason: string) {
 	}
 
 	open :: fn(name: string) -> ?* {
-		fd := syscall(SYS_open, name.data, O_RDWR);
+		fd := syscall(SYS_open, name.data, O_RDWR | O_APPEND);
 		if fd == -1 return null;
 		return @*void fd;
 	}

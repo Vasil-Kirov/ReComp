@@ -21,9 +21,11 @@ call_println :: fn() {
 }
 
 main :: fn() -> i32 {
-	call_printf();
-	call_println();
-	return 0;
+	foo := 10;
+	defer {
+		foo = 9;
+	}
+	return @i32 foo;
 }
 
 

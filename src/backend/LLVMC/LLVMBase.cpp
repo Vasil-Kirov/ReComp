@@ -96,6 +96,17 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 	}
 }
 
+template<typename t>
+dynamic<t> RCCopyTypeMap(dynamic<t> Map)
+{
+	dynamic<t> Result = {};
+	For(Map) {
+		t Add = t { it->TypeID, it->Ref };
+		Result.Push(Add);
+	}
+	return Result;
+}
+
 void RCGenerateInstruction(generator *gen, instruction I)
 {
 #define LLVM_BIN_OP(CAPITAL_OP, Op) \
@@ -382,8 +393,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.f_dbg = gen->f_dbg;
 			NewGen.data = gen->data;
 			NewGen.fn = LLVMFn;
-			NewGen.LLVMTypeMap = gen->LLVMTypeMap;
-			NewGen.LLVMDebugTypeMap = gen->LLVMDebugTypeMap;
+			NewGen.LLVMTypeMap = RCCopyTypeMap(gen->LLVMTypeMap);
+			NewGen.LLVMDebugTypeMap = RCCopyTypeMap(gen->LLVMDebugTypeMap);
 			NewGen.Intrinsics = gen->Intrinsics;
 
 			gen->map.Add(I.Result, LLVMFn);
@@ -391,6 +402,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				NewGen.map.Add(gen->map.Data[i].Register, gen->map.Data[i].Value);
 			RCGenerateFunction(&NewGen, *Fn);
 			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
+			NewGen.LLVMTypeMap.Free();
+			NewGen.LLVMDebugTypeMap.Free();
 		} break;
 		case OP_CAST:
 		{
@@ -1121,6 +1134,8 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 	LLVMDisposeDIBuilder(Gen.dbg);
 	LLVMDisposeBuilder(Gen.bld);
+	Gen.LLVMDebugTypeMap.Free();
+	Gen.LLVMTypeMap.Free();
 }
 
 void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)

@@ -13,7 +13,7 @@ LLVMTypeRef LLVMFindMapType(generator *g, u32 ToFind)
 	{
 		if(g->LLVMTypeMap[Idx].TypeID == ToFind)
 		{
-			return g->LLVMTypeMap[Idx].LLVMRef;
+			return g->LLVMTypeMap[Idx].Ref;
 		}
 	}
 	return NULL;
@@ -23,7 +23,7 @@ void LLVMMapType(generator *g, u32 TypeID, LLVMTypeRef LLVMType)
 {
 	LLVMTypeEntry Entry;
 	Entry.TypeID = TypeID;
-	Entry.LLVMRef = LLVMType;
+	Entry.Ref = LLVMType;
 	g->LLVMTypeMap.Push(Entry);
 }
 

@@ -5,7 +5,7 @@
 struct LLVMTypeEntry
 {
 	u32 TypeID;
-	LLVMTypeRef LLVMRef;
+	LLVMTypeRef Ref;
 };
 
 struct LLVMDebugMetadataEntry

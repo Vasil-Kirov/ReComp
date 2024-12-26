@@ -1839,7 +1839,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 					ForArray(Idx, s.Expressions)
 					{
 						int ActualIdx = s.Expressions.Count - 1 - Idx;
-						BuildIRFunctionLevel(Builder, s.Expressions[ActualIdx]);
+						auto ExprBody = s.Expressions[ActualIdx];
+						For(ExprBody)
+						{
+							BuildIRFunctionLevel(Builder, (*it));
+						}
 					}
 				}
 				Builder->Scope.Pop().Free();
@@ -1852,10 +1856,12 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_DEFER:
 		{
+			dynamic<node *> Defer = {};
 			ForArray(Idx, Node->Defer.Body)
 			{
-				Builder->Defered.Peek().Expressions.Push(Node->Defer.Body[Idx]);
+				Defer.Push(Node->Defer.Body[Idx]);
 			}
+			Builder->Defered.Peek().Expressions.Push(Defer);
 		} break;
 		case AST_DECL:
 		{
@@ -1874,7 +1880,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				ForArray(SIdx, s.Expressions)
 				{
 					int ActualSIdx = s.Expressions.Count - 1 - SIdx;
-					BuildIRFunctionLevel(Builder, s.Expressions[ActualSIdx]);
+					auto ExprBody = s.Expressions[ActualSIdx];
+					For(ExprBody)
+					{
+						BuildIRFunctionLevel(Builder, (*it));
+					}
 				}
 			}
 

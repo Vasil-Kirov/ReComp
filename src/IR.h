@@ -164,7 +164,7 @@ struct function
 
 struct defer_scope
 {
-	dynamic<node *> Expressions;
+	dynamic<dynamic<node *>> Expressions;
 };
 
 struct profiling

@@ -16,10 +16,10 @@ binary_blob StartOutput()
 
 void DumpU32(binary_blob *Blob, u32 Num)
 {
-	Blob->Buf.Push((u8)(Num >> 24));
-	Blob->Buf.Push((u8)(Num >> 16));
-	Blob->Buf.Push((u8)(Num >> 8));
-	Blob->Buf.Push((u8)(Num));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 24)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 16)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 8)));
+	Blob->Buf.Push((u8)(0xFF & (Num)));
 }
 
 void DumpString(binary_blob *Blob, string S)

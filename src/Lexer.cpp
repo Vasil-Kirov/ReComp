@@ -319,15 +319,7 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 		{
 			char ToEscape = AdvanceC(String, ErrorInfo);
 			char Escaped = GetEscapedChar(ToEscape);
-			if(Escaped == ToEscape)
-			{
-				PushBuilder(&Builder, Next);
-				PushBuilder(&Builder, ToEscape);
-			}
-			else
-			{
-				PushBuilder(&Builder, Escaped);
-			}
+			PushBuilder(&Builder, Escaped);
 		}
 		else
 		{
@@ -360,10 +352,6 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 		{
 			char escaped = AdvanceC(String, ErrorInfo);
 			c = GetEscapedChar(escaped);
-			if(c == escaped && c != '\\')
-			{
-				RaiseError(StartErrorInfo, "Unkown escape sequence \\%c", escaped);
-			}
 		}
 
 		u32 zero_ext = (c & 0xFF);

@@ -2,30 +2,22 @@ main
 
 #import io
 
-printf :: fn #foreign(fmt: *u8, args: ...);
-
-callback :: fn(fn_name: string, time_taken: int) {
-	io.println("% took\n\t%ccy", fn_name, time_taken);
+struct v2 {
+	x: i32,
+	y: i32,
 }
 
-@profile = callback
-call_printf :: fn() {
-	for i in 100
-		printf(c"Three numbers: %d %d %d\n", 1, 2, 3);
-}
-
-@profile = callback
-call_println :: fn() {
-	for i in 100
-		io.println("Three numbers: % % %", 1, 2, 3);
+v2_add :: fn(a: v2, b: v2) -> v2 {
+	return v2 { a.x + b.x, a.y + b.y };
 }
 
 main :: fn() -> i32 {
-	foo := 10;
-	defer {
-		foo = 9;
-	}
-	return @i32 foo;
+	a := v2 { 5, 3 };
+	b := v2 { 1, 1 };
+
+	r := v2_add(v2_add(v2_add(a, b), b), v2_add(a, b));
+	
+	return @i32 r.x;
 }
 
 

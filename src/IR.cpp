@@ -734,7 +734,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					}
 					else
 					{
-						u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], IsLHS);
+						u32 Expr = BuildIRFromExpression(Builder, Node->Call.Args[Idx], false);
 						Args.Push(Expr);
 					}
 				}
@@ -1846,6 +1846,12 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 						}
 					}
 				}
+				
+				ForArray(Idx, s.Expressions)
+				{
+					s.Expressions[Idx].Free();
+				}
+				s.Expressions.Free();
 				Builder->Scope.Pop().Free();
 			}
 			else

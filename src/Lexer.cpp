@@ -57,7 +57,7 @@ char AdvanceC(string *String, error_info *Error)
 {
 	if(String->Size == 0)
 	{
-		RaiseError(*Error, "Unexpected end of file"); 
+		RaiseError(true, *Error, "Unexpected end of file"); 
 	}
 	char Result = *String->Data;
 	if(Result == '\n')
@@ -93,7 +93,7 @@ file *StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
 	token ModuleName = GetNextToken(&String, &ErrorInfo);
 	if(ModuleName.Type != T_ID)
 	{
-		RaiseError(ModuleName.ErrorInfo, "Expected module name at the start of file"); 
+		RaiseError(true, ModuleName.ErrorInfo, "Expected module name at the start of file"); 
 	}
 	*OutModuleName = *ModuleName.ID;
 	token *Tokens = ArrCreate(token);
@@ -120,7 +120,7 @@ token TokinizeCompilerDirective(string *String, error_info *ErrorInfo)
 	string ID = MakeString(Start, End - Start);
 	token_type TokenType = GetKeyword(ID);
 	if(TokenType == T_ID)
-		RaiseError(StartErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
+		RaiseError(true, StartErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
 
 	token Token = {};
 	Token.Type = TokenType;
@@ -171,7 +171,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 				break;
 			if(c != '0' && c != '1')
 			{
-				RaiseError(StartErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
+				RaiseError(true, StartErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -179,7 +179,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(StartErrorInfo, "Invalid binary number");
+			RaiseError(true, StartErrorInfo, "Invalid binary number");
 		}
 
 		string Number = MakeString(Builder);
@@ -206,7 +206,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 			{}
 			else
 			{
-				RaiseError(StartErrorInfo, "Invalid character in hex number: %c", c);
+				RaiseError(true, StartErrorInfo, "Invalid character in hex number: %c", c);
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -214,7 +214,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(StartErrorInfo, "Invalid hex number");
+			RaiseError(true, StartErrorInfo, "Invalid hex number");
 		}
 
 		string Number = MakeString(Builder);
@@ -345,7 +345,7 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	{
 		if (i >= 4)
 		{
-			RaiseError(StartErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+			RaiseError(true, StartErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
 		}
 		char c = AdvanceC(String, ErrorInfo);
 		if(c == '\\')

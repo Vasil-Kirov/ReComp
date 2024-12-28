@@ -183,6 +183,8 @@ void ParseFile(file *File, dynamic<module*> Modules)
 void AnalyzeFile(file *File)
 {
 	Analyze(File->Checker, File->Nodes);
+	if(HasErroredOut())
+		exit(1);
 }
 
 void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
@@ -224,6 +226,10 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		ParseFile(F, Modules);
 	}
 	VLibStopTimer(&Timers->Parse);
+
+	if(HasErroredOut())
+		exit(1);
+
 	CurrentModules = SliceFromArray(Modules);
 	u32 MaxCount;
 	{

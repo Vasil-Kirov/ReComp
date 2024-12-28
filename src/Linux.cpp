@@ -90,6 +90,11 @@ void PlatformAllocateReserved(void *Memory, size_t Size)
 
 void PlatformOutputString(string String, log_level Level)
 {
+	if((int)Level == -1)
+	{
+		write(2, String.Data, String.Size);
+		return;
+	}
 	int out_fd = 1;
 	if(Level <= LOG_ERROR)
 		out_fd = 2;
@@ -101,8 +106,10 @@ void PlatformOutputString(string String, log_level Level)
 		"\u001b[36m ",
 		"\u001b[32m ",
 	};
+	const char CLEAR[] = "\u001b[0m";
 	write(out_fd, Colors[Level], sizeof(Colors[Level])-1);
 	write(out_fd, String.Data, String.Size);
+	write(out_fd, CLEAR, sizeof(CLEAR)-1);
 }
 
 void PlatformFreeMemory(void *Mem, uint Size)

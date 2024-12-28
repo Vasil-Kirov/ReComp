@@ -40,12 +40,12 @@ Log(log_level Level, const char *Format, ...)
 
 	string FormatCopy = MakeString(Builder);
 	
-	char *FinalFormat = (char *)VAlloc(MB(1));
+	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
 
 	va_list Args;
 	va_start(Args, Format);
 	
-	vsnprintf(FinalFormat, MB(1), FormatCopy.Data, Args);
+	vsnprintf(FinalFormat, LOG_BUFFER_SIZE, FormatCopy.Data, Args);
 	
 	va_end(Args);
 
@@ -67,6 +67,30 @@ Log(log_level Level, const char *Format, ...)
 //		platform_message_box("Error", ToPrint);
 		exit(1);
 	}
+	VFree(FinalFormat);
+}
+
+void LogCompilerError(const char *Format, ...)
+{
+
+	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
+
+	va_list Args;
+	va_start(Args, Format);
+	
+	vsnprintf(FinalFormat, MB(1), Format, Args);
+	
+	va_end(Args);
+
+	string_builder PrintBuilder = MakeBuilder();
+	PushBuilder(&PrintBuilder, FinalFormat);
+	PushBuilder(&PrintBuilder, "\n");
+	string Print = MakeString(PrintBuilder);
+
+	LogMutex.lock();
+	PlatformOutputString(Print, (log_level)-1);
+	LogMutex.unlock();
+
 	VFree(FinalFormat);
 }
 

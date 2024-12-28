@@ -52,7 +52,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 		if(!Found)
 		{
-			RaiseError(*ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
+			RaiseError(true, *ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
 		}
 	}
 

@@ -37,7 +37,7 @@ const type BasicTypes[] = {
 	{TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
 
 	{TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
-	{TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("!invalid module type!")}},
+	{TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
 };
 
 //#pragma clang diagnostic pop
@@ -135,11 +135,11 @@ inline const type *GetTypeRaw(u32 TypeIdx)
 
 inline const type *GetType(u32 TypeIdx)
 {
-	// Bad?
-#if defined(DEBUG)
 	if(TypeIdx == INVALID_TYPE)
-		return NULL;
-#endif
+	{
+		static type Invalid = {.Kind = TypeKind_Invalid};
+		return &Invalid;
+	}
 
 	const type *Type = TypeTable[TypeIdx];
 	if(Type->Kind == TypeKind_Generic)
@@ -960,6 +960,10 @@ string GetTypeNameAsString(const type *Type)
 {
 	switch (Type->Kind)
 	{
+		case TypeKind_Invalid:
+		{
+			return STR_LIT("void");
+		} break;
 		case TypeKind_Enum:
 		{
 			return Type->Enum.Name;
@@ -1044,11 +1048,8 @@ string GetTypeNameAsString(const type *Type)
 			Builder += Type->Generic.Name;
 			return MakeString(Builder);
 		} break;
-		case TypeKind_Invalid:
-		{
-			return STR_LIT("(Error! Unkown type name)");
-		} break;
 	}
+	unreachable;
 }
 
 const char *GetTypeName(u32 TypeIdx)

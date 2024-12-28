@@ -12,7 +12,10 @@ typedef enum _log_level
 	LOG_DEBUG,
 } log_level;
 
+#define LOG_BUFFER_SIZE KB(64)
+
 void Log(log_level Level, const char *Format, ...);
+void LogCompilerError(const char *Format, ...);
 void SetLogLevel(log_level);
 
 void InitializeLogger();

@@ -4,6 +4,7 @@
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
+int Errors = 0;
 
 void SetBonusMessage(string S)
 {
@@ -82,16 +83,23 @@ string GetErrorSegment(error_info ErrorInfo)
 #endif
 }
 
-void
-RaiseError(error_info ErrorInfo, const char *_ErrorMessage, ...)
+bool
+HasErroredOut()
 {
+	return Errors != 0;
+}
+
+void
+RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
+{
+	++Errors;
 	string ErrorMessage = MakeString(_ErrorMessage);
-	char FinalFormat[4096] = {0};
+	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
 
 	va_list Args;
 	va_start(Args, _ErrorMessage);
 	
-	vsnprintf(FinalFormat, 4096, ErrorMessage.Data, Args);
+	vsnprintf(FinalFormat, LOG_BUFFER_SIZE, ErrorMessage.Data, Args);
 	
 	va_end(Args);
 	
@@ -101,11 +109,18 @@ RaiseError(error_info ErrorInfo, const char *_ErrorMessage, ...)
 	{
 		void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg);
 		WriteStringError(ErrorInfo.FileName, ErrorInfo.Line, FinalFormat);
-		exit(0);
+		VFree(FinalFormat);
+		return;
 	}
 	
-	LFATAL("\n%s%s (%d, %d):\n%s\n\n%s",
+	LogCompilerError("\nError: %s%s (%d, %d):\n%s\n\n%s\n",
 			BonusErrorMessage.Data,
 			ErrorInfo.FileName, ErrorInfo.Line, ErrorInfo.Character, FinalFormat, ErrorSegment.Data);
+
+	VFree(FinalFormat);
+
+	if(Abort || Errors > 5)
+		exit(1);
 }
+
 

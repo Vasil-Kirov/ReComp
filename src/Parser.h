@@ -279,7 +279,6 @@ struct parse_result
 };
 
 node *AllocateNode(const error_info *ErrorInfo, node_type Type);
-parse_result ParseTokens(token *Tokens, string ModuleName);
 node *ParseNode(parser *Parser);
 node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);

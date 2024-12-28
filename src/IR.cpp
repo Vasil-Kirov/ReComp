@@ -198,13 +198,14 @@ u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
 	return Expr;
 }
 
-void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS)
+void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS, b32 IsForeign)
 {
 	const type *ArgType = GetType(ArgTypeIdx);
 	if(ArgType->Kind == TypeKind_Array || IsString(ArgType))
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, true);
-		//Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		if(IsForeign)
+			Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
 		Args.Push(Res);
 		return;
 	}
@@ -217,6 +218,8 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	else if(ArgType->Kind == TypeKind_Slice)
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		if(IsForeign)
+			Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
 		Args.Push(Res);
 		return;
 	}
@@ -227,6 +230,8 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, true);
 		//Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		if(IsForeign)
+			Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
 		Args.Push(Res);
 		return;
 	}
@@ -256,51 +261,6 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 			Args.Push(Mem);
 		}
 
-#if 0 
-		ForArray(Idx, ArgType->Struct.Members)
-		{
-			u32 MemTypeIdx = ArgType->Struct.Members[Idx].Type;
-			if(Idx + 1 != ArgType->Struct.Members.Count)
-			{
-				const type *MemType = GetType(MemTypeIdx);
-				u32 NextMemTypeIdx = ArgType->Struct.Members[Idx+1].Type;
-				if(NextMemTypeIdx != MemTypeIdx || MemType->Basic.Kind == Basic_f64)
-				{
-					Assert(false);
-#if 0
-					u32 Mem1Ptr = PushInstruction(Builder,
-							Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
-					u32 Mem2Ptr = PushInstruction(Builder,
-							Instruction(OP_INDEX, StructPtr, Idx+1, ArgTypeIdx, Builder));
-					u32 Mem1 = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Mem1Ptr, MemTypeIdx, Builder));
-					u32 Mem2 = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, Mem2Ptr, NextMemTypeIdx, Builder));
-					Args.Push(Mem1);
-					Args.Push(Mem2);
-#endif
-				}
-				else
-				{
-					PushInstruction(Builder, InstructionStore(Alloc, StructPtr, FloatVector));
-					u32 Mem1 = PushInstruction(Builder, Instruction(OP_LOAD, 0, Alloc, FloatVector, Builder));
-					Args.Push(Mem1);
-				}
-				Idx++;
-			}
-			else
-			{
-				Assert(false);
-#if 0
-				u32 Mem1Ptr = PushInstruction(Builder,
-						Instruction(OP_INDEX, StructPtr, Idx, ArgTypeIdx, Builder));
-				u32 Mem1 = PushInstruction(Builder,
-						Instruction(OP_LOAD, 0, Mem1Ptr, MemTypeIdx, Builder));
-				Args.Push(Mem1);
-#endif
-			}
-		}
-#endif
 		return;
 	}
 
@@ -334,13 +294,15 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		default:
 		{
 			static bool WarningGiven = false;
-			if(Size > 8 && !WarningGiven)
+			if(IsForeign && Size > 8 && !WarningGiven)
 			{
 				WarningGiven = true;
 				LWARN("Passing structs of size %d to functions is not properly supported, if it's used to interface with other languages, it will result in unspecified behavior", Size);
 			}
 			u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
-			Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+			if(IsForeign)
+				Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
+			Args.Push(Res);
 			return;
 		} break;
 	}
@@ -688,7 +650,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						u32 ArgType = Node->Call.ArgTypes[Idx];
 						if(!IsLoadableType(ArgType))
 						{
-							FixCallWithComplexParameter(Builder, Args, ArgType, Node->Call.Args[Idx], IsLHS);
+							FixCallWithComplexParameter(Builder, Args, ArgType, Node->Call.Args[Idx], IsLHS, Type->Function.Flags & SymbolFlag_Foreign);
 						}
 						else
 						{
@@ -732,7 +694,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					const type *ArgType = GetType(Type->Function.Args[Idx]);
 					if(!IsLoadableType(ArgType))
 					{
-						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS);
+						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS, Type->Function.Flags & SymbolFlag_Foreign);
 					}
 					else
 					{

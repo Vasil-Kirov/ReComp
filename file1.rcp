@@ -13,7 +13,7 @@ v2_add :: fn(a: v2, b: v2) -> v2 {
 
 main :: fn() -> i32 {
 	a := v2 { 5, 3 };
-	b: type_of(a);
+	b := v2 { 1, 1 };
 
 	r := v2_add(v2_add(v2_add(a, b), b), v2_add(a, b));
 	

@@ -119,7 +119,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 
 	VFree(FinalFormat);
 
-	if(Abort || Errors > 5)
+	if(Abort || Errors > 4)
 		exit(1);
 }
 

@@ -204,7 +204,8 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	if(ArgType->Kind == TypeKind_Array || IsString(ArgType))
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, true);
-		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		//Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		Args.Push(Res);
 		return;
 	}
 	else if(ArgType->Kind == TypeKind_Function)
@@ -225,7 +226,8 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	if(Size > MAX_PARAMETER_SIZE)
 	{
 		u32 Res = BuildIRFromExpression(Builder, Expr, true);
-		Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		//Args.Push(AllocateAndCopy(Builder, ArgTypeIdx, Res));
+		Args.Push(Res);
 		return;
 	}
 

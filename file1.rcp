@@ -1,23 +1,34 @@
 main
 
-#import io
-
-struct v2 {
+struct BS {
 	x: i32,
-	y: i32,
+	y: [10]i32
 }
 
-v2_add :: fn(a: v2, b: v2) -> v2 {
-	return v2 { a.x + b.x, a.y + b.y };
+bar :: fn(x: BS) -> i32 {
+	x := x;
+	x.x = 0;
+	x.y[4] = 0;
+	x.y[5] = 0;
+	return x.x + 5;
 }
+
+foo :: fn(x: BS) -> i32 {
+	bar(x);
+	x := x;
+	bar(x);
+	x.y[4] = 0;
+	return x.x + x.y[4] + x.y[5];
+}
+
 
 main :: fn() -> i32 {
-	a := v2 { 5, 3 };
-	b := v2 { 1, 1 };
-
-	r := v2_add(v2_add(v2_add(a, b), b), v2_add(a, b));
-	
-	return @i32 b.y;
+	x := BS {};
+	x.x = 10;
+	x.y[4] = 5;
+	x.y[5] = 5;
+	res := foo(x); // should be 15
+    return res - 10 - x.y[4];
 }
 
 

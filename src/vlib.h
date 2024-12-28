@@ -1,4 +1,5 @@
 #pragma once
+#include <ctime>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,8 +52,8 @@ i64 PerfFrequency;
 #include <time.h>
 
 timespec StartCounter;
-timespec Resolution;
-clockid_t CPUClockID;
+//timespec Resolution;
+//clockid_t CPUClockID;
 
 #define VMAX_PATH PATH_MAX
 
@@ -93,9 +94,9 @@ inline b32 InitVLib()
 	return true;
 #else
 
-	clock_getcpuclockid(0, &CPUClockID);
-	clock_getres(CPUClockID, &Resolution);
-	clock_gettime(CPUClockID, &StartCounter);
+	//clock_getcpuclockid(0, &CPUClockID);
+	//clock_getres(CPUClockID, &Resolution);
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &StartCounter);
 	IsVLibInit = true;
 	return true;
 
@@ -367,7 +368,7 @@ _VLibClock(i64 Factor)
 #else
 
 	timespec Counter;
-	clock_gettime(CPUClockID, &Counter);
+	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &Counter);
 	
     i64 Elapsed = (Counter.tv_sec - StartCounter.tv_sec) * 1000000000LL
                      + (Counter.tv_nsec - StartCounter.tv_nsec);

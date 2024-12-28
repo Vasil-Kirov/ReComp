@@ -9,6 +9,8 @@
 
 string ErrorID = STR_LIT("Error");
 
+node *ParseOperand(parser *Parser);
+
 node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
@@ -506,6 +508,10 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				Result = ID;
 			}
 		} break;
+		case T_TYPEOF:
+		{
+			Result = ParseOperand(Parser);
+		} break;
 		case T_OPENBRACKET:
 		{
 			GetToken(Parser);
@@ -813,8 +819,6 @@ node *ParseList(parser *Parser, node *Operand)
 	EatToken(Parser, T_ENDSCOPE, true);
 	return Result;
 }
-
-node *ParseOperand(parser *Parser);
 
 node *ParseAtom(parser *Parser, node *Operand)
 {

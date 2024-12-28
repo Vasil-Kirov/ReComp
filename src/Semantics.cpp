@@ -310,6 +310,12 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			}
 			return MakeGeneric(Checker->Scope.Peek(), *TypeNode->Generic.Name);
 		} break;
+		case AST_TYPEOF:
+		{
+			u32 T = AnalyzeExpression(Checker, TypeNode->TypeOf.Expression);
+			TypeNode->TypeOf.Type = T;
+			return T;
+		} break;
 		default:
 		{
 			RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");

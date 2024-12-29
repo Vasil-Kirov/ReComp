@@ -769,8 +769,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Registers[Idx] = Register;
 					}
 					u32 ArrayType = GetArrayType(Type->Slice.Type, Node->TypeList.Items.Count);
+					op AllocOp = OP_ALLOC;
+					//if(Builder->IsGlobal)
+					//	AllocOp = OP_ALLOCGLOBAL;
 					u32 ArrayPtr = PushInstruction(Builder,
-							Instruction(OP_ALLOC, -1, ArrayType, Builder));
+							Instruction(AllocOp, -1, ArrayType, Builder));
 
 					Info->Alloc = ArrayPtr;
 					Info->Registers = Registers;
@@ -2465,6 +2468,7 @@ ir BuildIR(file *File, u32 StartRegister)
 		Builder.CurrentBlock = AllocateBlock(&Builder);
 		IRPushGlobalSymbolsForFunction(&Builder, &GlobalInitializers, File->Module, StartRegister);
 
+		Builder.IsGlobal = true;
 		for(int I = 0; I < NodeCount; ++I)
 		{
 			node *Node = File->Nodes[I];
@@ -2480,8 +2484,10 @@ ir BuildIR(file *File, u32 StartRegister)
 						Assert(Sym);
 						PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
 					}
+#if 0
 					else if(*Name == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
 					{
+						Builder.IsGlobal = false;
 						uint TypeCount = GetTypeCount();
 						const ir_symbol *Sym = GetIRLocal(&Builder, Name);
 						Assert(Sym);
@@ -2490,9 +2496,12 @@ ir BuildIR(file *File, u32 StartRegister)
 						u32 Data = PushInstruction(&Builder, 
 								Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
 						u32 Size = PushInt(TypeCount, &Builder);
+
 						BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
 						BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
+						Builder.IsGlobal = true;
 					}
+#endif
 				}
 				else if(Node->Decl.LHS->Type == AST_LIST)
 				{
@@ -2529,6 +2538,7 @@ ir BuildIR(file *File, u32 StartRegister)
 
 		IR.Functions.Push(GlobalInitializers);
 		Builder.Function = NULL;
+		Builder.IsGlobal = false;
 
 	}
 

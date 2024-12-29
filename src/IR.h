@@ -187,6 +187,7 @@ struct block_builder
 	u32 ContinueBlockID;
 	u32 LastRegister;
 	u32 LastBlock;
+	b32 IsGlobal;
 };
 
 struct ir

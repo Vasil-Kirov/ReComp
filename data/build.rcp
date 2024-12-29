@@ -10,35 +10,25 @@ build
 puts :: fn #foreign(str: *u8);
 
 compile :: fn() -> c.CompileInfo {
-    c := 0;
-    if false {
-        c: u32;
-    } else {
-        c = 10;
-    }
     ga := mem.create_generic_allocator();
-    //foo := arr.create(string, &ga);
-    //arr.add(&foo, "asd");
-    //io.println("%", foo[0]);
+
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp" },
         opt = 0,
-        //flags = @u32 (c.CompileFlag.NoLink | c.CompileFlag.CrossAndroid | c.CompileFlag.NoStdLib),
-        //target_triple="arm64v8a-unknown-linux-androideabi30",
-        //arch = c.Arch.Arm64,
+        flags = @u32 c.CompileFlag.SanAddress,
     };
 
-   for f in out.files {
-       io.println("Compiling file: %", f);
-   }
+   //for f in out.files {
+   //    io.println("Compiling file: %", f);
+   //}
 
     return out;
 }
 
 after_link :: fn() {
-    for c in "Done" {
-        io.println("%c", c);
-    }
+    //for c in "Done" {
+    //    io.println("%c", c);
+    //}
     return;
 }
 

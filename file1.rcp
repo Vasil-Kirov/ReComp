@@ -1,34 +1,18 @@
 main
 
-struct BS {
-	x: i32,
-	y: [10]i32
+#import io
+
+struct S {
+	s: string,
+	f: fn() -> i32,
 }
 
-bar :: fn(x: BS) -> i32 {
-	x := x;
-	x.x = 0;
-	x.y[4] = 0;
-	x.y[5] = 0;
-	return x.x + 5;
-}
-
-foo :: fn(x: BS) -> i32 {
-	bar(x);
-	x := x;
-	bar(x);
-	x.y[4] = 0;
-	return x.x + x.y[4] + x.y[5];
-}
-
+foo :: []string {"hello", "foo"};
 
 main :: fn() -> i32 {
-	x := BS {};
-	x.x = 10;
-	x.y[4] = 5;
-	x.y[5] = 5;
-	res := foo(x); // should be 15
-    return res - 10 - x.y[4];
+	x := foo[0];
+	io.println("%", x);
+    return 0;
 }
 
 

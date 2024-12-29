@@ -1,4 +1,5 @@
 #include "LLVMBase.h"
+#include "LLVMTypeInfoGlobal.h"
 #include "Interpreter.h"
 #include "Module.h"
 #include "Parser.h"
@@ -1033,6 +1034,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		AddedFns.Add(LinkName, Fn);
 	}
 
+	b32 IsInitModule = M->Name == STR_LIT("init");
 	ForArray(MIdx, Modules)
 	{
 		// shadow
@@ -1043,11 +1045,23 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			if(s->Flags & SymbolFlag_Generic) {
 				continue;
 			}
-			else if(*s->Name == STR_LIT("global_initializers") && m->Name == M->Name) {
-				LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
-				LLVMSetLinkage(Fn, LLVMExternalLinkage);
-				Gen.map.Add(s->IRRegister, Fn);
-				continue;
+
+			if(IsInitModule)
+			{
+				if(*s->Name == STR_LIT("global_initializers"))
+				{
+					LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
+					LLVMSetLinkage(Fn, LLVMExternalLinkage);
+					Gen.map.Add(s->IRRegister, Fn);
+					continue;
+				}
+				if(*s->Name == STR_LIT("type_table"))
+				{
+					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
+					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);
+					Gen.map.Add(s->IRRegister, TypeTable);
+					continue;
+				}
 			}
 
 			LLVMLinkage Linkage;

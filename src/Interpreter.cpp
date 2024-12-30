@@ -547,6 +547,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
+			case OP_TYPEINFO:
+			{
+				value *TypeTable = VM->Registers.GetValue(I.Left);
+				value *Idx = VM->Registers.GetValue(I.Right);
+				void *Data = *(((void **)TypeTable->ptr) + 1);
+				u8 *Result = ((u8 *)Data) + Idx->i64 * GetTypeSize(I.Type);
+				value V = {};
+				V.Type = GetPointerTo(I.Type);
+				V.ptr = Result;
+				VM->Registers.AddValue(I.Result, V);
+			} break;
 			case OP_SWITCHINT:
 			{
 				ir_switchint *Info = (ir_switchint *)I.BigRegister;
@@ -895,6 +906,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			VM.Registers.AddValue(s->IRRegister, Value);
 		}
 	}
+
+	string TypeTableInitName = STR_LIT("init.__TypeTableInit");
 	ForArray(MIdx, Modules)
 	{
 		module *m = Modules[MIdx];
@@ -909,6 +922,13 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 				{
 					//LDEBUG("Module: %s", m->Name.Data);
 					InterpretFunction(&VM, fn, {});
+				}
+				else
+				{
+					if(*fn.Name == TypeTableInitName)
+					{
+						InterpretFunction(&VM, fn, {});
+					}
 				}
 			}
 		}

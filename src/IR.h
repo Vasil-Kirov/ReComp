@@ -37,6 +37,8 @@ enum op
 	OP_INDEX,
 	OP_ARRAYLIST,
 	OP_MEMSET,
+
+	// BigRegister = size to allocate
 	OP_ALLOCGLOBAL,
 	OP_DEBUGINFO,
 	OP_SWITCHINT,
@@ -51,6 +53,11 @@ enum op
 	// BigRegister = ir_memcmp *
 	// Result = true if success, false otherwise
 	OP_MEMCMP,
+
+	// Left = type_table_reg
+	// Right = idx
+	// Type = TypeInfo
+	OP_TYPEINFO,
 
 	OP_COUNT,
 };

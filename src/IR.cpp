@@ -467,18 +467,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_TYPEINFO:
 		{
+			static string InitModuleName = STR_LIT("init");
 			string TableID = STR_LIT("init.type_table");
+			if(Builder->Module->Name == InitModuleName)
+				TableID = STR_LIT("type_table");
 			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
 			const ir_symbol *s = GetIRLocal(Builder, &TableID);
-			u32 DataPtr = PushInstruction(Builder, 
-					Instruction(OP_INDEX, s->Register, 1, s->Type, Builder));
-			const type *SliceType = GetType(s->Type);
-			u32 PointerType = GetPointerTo(SliceType->Slice.Type);
-			u32 Data = PushInstruction(Builder,
-					Instruction(OP_LOAD, 0, DataPtr, PointerType, Builder));
-			Result = PushInstruction(Builder, 
-					Instruction(OP_INDEX, Data, Idx, PointerType, Builder));
 
+			Result = PushInstruction(Builder, Instruction(OP_TYPEINFO, s->Register, Idx, Node->TypeInfoLookup.Type, Builder));
 		} break;
 		case AST_MATCH:
 		{
@@ -769,11 +765,17 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Registers[Idx] = Register;
 					}
 					u32 ArrayType = GetArrayType(Type->Slice.Type, Node->TypeList.Items.Count);
-					op AllocOp = OP_ALLOC;
-					//if(Builder->IsGlobal)
-					//	AllocOp = OP_ALLOCGLOBAL;
-					u32 ArrayPtr = PushInstruction(Builder,
-							Instruction(AllocOp, -1, ArrayType, Builder));
+					u32 ArrayPtr = -1;
+					if(Builder->IsGlobal)
+					{
+						ArrayPtr = PushInstruction(Builder,
+								Instruction(OP_ALLOCGLOBAL, Node->TypeList.Items.Count, Type->Slice.Type, Builder));
+					}
+					else
+					{
+						ArrayPtr = PushInstruction(Builder,
+								Instruction(OP_ALLOC, -1, ArrayType, Builder));
+					}
 
 					Info->Alloc = ArrayPtr;
 					Info->Registers = Registers;
@@ -2437,30 +2439,75 @@ function GlobalLevelIR(node *Node, slice<import> Imported, module *Module, u32 I
 	return Result;
 }
 
+void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, u32 StartRegister)
+{
+	if(File->Module->Name != STR_LIT("init"))
+		return;
+
+	string Name = STR_LIT("init.__TypeTableInit");
+
+	function TypeTableFn = {};
+	TypeTableFn.Name = DupeType(Name, string);
+	TypeTableFn.Type = VoidFnT;
+	TypeTableFn.LinkName = TypeTableFn.Name;
+	TypeTableFn.NoDebugInfo = true;
+
+	block_builder Builder = {};
+	Builder.Scope.Push({});
+	Builder.Function = &TypeTableFn;
+	Builder.CurrentBlock = AllocateBlock(&Builder);
+	IRPushGlobalSymbolsForFunction(&Builder, &TypeTableFn, File->Module, StartRegister);
+
+	string TypeTableName = STR_LIT("type_table");
+	uint TypeCount = GetTypeCount();
+	const ir_symbol *Sym = GetIRLocal(&Builder, &TypeTableName);
+	Assert(Sym);
+	u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
+	u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
+	u32 Data = PushInstruction(&Builder, 
+			Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
+	u32 Size = PushInt(TypeCount, &Builder);
+
+	BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
+	BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
+
+	PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
+	Terminate(&Builder, {});
+	TypeTableFn.LastRegister = Builder.LastRegister;
+
+	IR->Functions.Push(TypeTableFn);
+}
+
+u32 GenerateVoidFnT()
+{
+	type *NT = AllocType(TypeKind_Function);
+	NT->Function.Args = NULL;
+	NT->Function.ArgCount = 0;
+	NT->Function.Returns = {};
+	NT->Function.Flags = 0;
+	return AddType(NT);
+}
+
 ir BuildIR(file *File, u32 StartRegister)
 {
 	ir IR = {};
 	u32 NodeCount = File->Nodes.Count;
 	int FileIndex = GetFileIndex(File->Module, File);
+	static u32 VoidFnT = GenerateVoidFnT();
+
+	BuildTypeTableFn(&IR, File, VoidFnT, StartRegister);
 
 	{
 		string_builder StrBuilder = MakeBuilder();
 		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
 		string GlobalFnName = MakeString(StrBuilder);
+
+
 		function GlobalInitializers = {};
 		GlobalInitializers.Name = DupeType(GlobalFnName, string);
-		GlobalInitializers.Type = INVALID_TYPE;
+		GlobalInitializers.Type = VoidFnT;
 		GlobalInitializers.LinkName = StructToModuleNamePtr(GlobalFnName, File->Module->Name);
 		GlobalInitializers.NoDebugInfo = true;
-
-		{
-			type *NT = AllocType(TypeKind_Function);
-			NT->Function.Args = NULL;
-			NT->Function.ArgCount = 0;
-			NT->Function.Returns = {};
-			NT->Function.Flags = 0;
-			GlobalInitializers.Type = AddType(NT);
-		}
 
 		block_builder Builder = {};
 		Builder.Scope.Push({});
@@ -2484,24 +2531,6 @@ ir BuildIR(file *File, u32 StartRegister)
 						Assert(Sym);
 						PushInstruction(&Builder, InstructionStore(Sym->Register, Expr, Node->Decl.TypeIndex));
 					}
-#if 0
-					else if(*Name == STR_LIT("type_table") && File->Module->Name == STR_LIT("init"))
-					{
-						Builder.IsGlobal = false;
-						uint TypeCount = GetTypeCount();
-						const ir_symbol *Sym = GetIRLocal(&Builder, Name);
-						Assert(Sym);
-						u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
-						u32 ArrayType = GetArrayType(TypeInfoType, TypeCount);
-						u32 Data = PushInstruction(&Builder, 
-								Instruction(OP_ALLOCGLOBAL, TypeCount, TypeInfoType, &Builder));
-						u32 Size = PushInt(TypeCount, &Builder);
-
-						BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
-						BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
-						Builder.IsGlobal = true;
-					}
-#endif
 				}
 				else if(Node->Decl.LHS->Type == AST_LIST)
 				{
@@ -2591,6 +2620,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			case OP_NOP:
 			{
 				PushBuilder(Builder, "NOP");
+			} break;
+			case OP_TYPEINFO:
+			{
+				PushBuilderFormated(Builder, "%%%d = #info %%%d", Instr.Result, Instr.Right);
 			} break;
 			case OP_RDTSC:
 			{
@@ -2895,6 +2928,7 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_NOP:
 		{
 		} break;
+		case OP_TYPEINFO:
 		case OP_RDTSC: Assert(false);
 		OP_RESULT(OP_CONSTINT);
 		OP_RESULT(OP_CONST);

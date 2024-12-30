@@ -18,17 +18,17 @@ compile :: fn() -> c.CompileInfo {
         flags = @u32 c.CompileFlag.SanAddress,
     };
 
-   //for f in out.files {
-   //    io.println("Compiling file: %", f);
-   //}
+   for f in out.files {
+       io.println("Compiling file: %", f);
+   }
 
     return out;
 }
 
 after_link :: fn() {
-    //for c in "Done" {
-    //    io.println("%c", c);
-    //}
+    for c in "Done" {
+        io.println("%c", c);
+    }
     return;
 }
 

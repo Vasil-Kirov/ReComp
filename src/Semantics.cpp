@@ -398,6 +398,10 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				return IsLHSAssignable(Checker, LHS->Selector.Operand);
 			}
 		} break;
+		case AST_TYPEINFO:
+		{
+			return false;
+		} break;
 		default:
 		{
 			return false;
@@ -657,8 +661,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(false, *Expr->ErrorInfo, "#info expected an expression with a type of `type`, got: %s",
 						GetTypeName(ExprType));
 			}
-			Expr->TypeInfoLookup.Type = ExprTypeIdx;
-			Result = FindStruct(STR_LIT("init.TypeInfo"));
+			u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
+			Expr->TypeInfoLookup.Type = TypeInfoType;
+			Result = GetPointerTo(TypeInfoType);
 		} break;
 		case AST_MATCH:
 		{

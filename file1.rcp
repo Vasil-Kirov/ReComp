@@ -10,9 +10,9 @@ struct S {
 foo :: []string {"hello", "foo"};
 
 main :: fn() -> i32 {
-	x := foo[0];
+	x := foo[1];
 	io.println("%", x);
-    return 0;
+	return 0;
 }
 
 

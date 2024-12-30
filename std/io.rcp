@@ -124,7 +124,7 @@ format_float :: fn(ft: type, b: *[]u32, num_in: ft, round_at: i32) {
     }
 }
 
-print_typetype :: fn(b: *[]u32, info: init.TypeInfo) {
+print_typetype :: fn(b: *[]u32, info: *init.TypeInfo) {
     match info.kind {
         init.TypeKind.Invalid: {
             push_string(b, "invalid");

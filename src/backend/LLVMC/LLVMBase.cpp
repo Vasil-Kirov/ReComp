@@ -170,6 +170,21 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			//		0, "");
 			gen->map.Add(I.Result, Time);
 		} break;
+		case OP_TYPEINFO:
+		{
+			u32 TInfo = I.Type;
+			u32 TInfoPtr = GetPointerTo(I.Type);
+			u32 TInfoSlice = GetSliceType(TInfo);
+			LLVMValueRef TypeTable = gen->map.Get(I.Left);
+			LLVMValueRef Idx = gen->map.Get(I.Right);
+			LLVMTypeRef TypeInfo = ConvertToLLVMType(gen, TInfo);
+			LLVMTypeRef TypeSlice = ConvertToLLVMType(gen, TInfoSlice);
+			LLVMTypeRef TypePtr = ConvertToLLVMType(gen, TInfoPtr);
+			LLVMValueRef DataPtr = LLVMBuildStructGEP2(gen->bld, TypeSlice, TypeTable, 1, "");
+			LLVMValueRef Data = LLVMBuildLoad2(gen->bld, TypePtr, DataPtr, "");
+			LLVMValueRef Result = LLVMBuildGEP2(gen->bld, TypeInfo, Data, &Idx, 1, "");
+			gen->map.Add(I.Result, Result);
+		} break;
 		case OP_ZEROUT:
 		{
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
@@ -1105,6 +1120,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	}
 	Gen.map.LockBottom();
 
+	string TypeTableInitName = STR_LIT("init.__TypeTableInit");
 	ForArray(FIdx, M->Files)
 	{
 		ir *IR = M->Files[FIdx]->IR;
@@ -1113,6 +1129,8 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			if(IR->Functions[Idx].Blocks.Count != 0)
 			{
 				string Name = *IR->Functions[Idx].LinkName;
+				if(Name == TypeTableInitName)
+					continue;
 				ForArray(LLVMFnIdx, Functions)
 				{
 					if(Functions[LLVMFnIdx].Name == Name)

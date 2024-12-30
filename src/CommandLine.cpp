@@ -149,8 +149,8 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		LFATAL("Build file %s passed despite --file flag", Result.BuildFile.Data);
 	}
 
+	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
-	Result.LinkArgs = SliceFromArray(LinkCMDs);
 	Result.IRModules = SliceFromArray(IRModules);
 	return Result;
 }

@@ -19,6 +19,7 @@ struct compile_info
 	u32 Flags;
 	interp_string TargetTriple;
 	u32 Arch;
+	interp_string Link;
 };
 
 enum interpret_result_kind

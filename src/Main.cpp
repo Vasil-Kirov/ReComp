@@ -576,6 +576,12 @@ main(int ArgCount, char *Args[])
 				ConfigIDs.Push(STR_LIT("arm64"));
 			}
 
+			if(Info->Link.Count > 0)
+			{
+				string Args = MakeString(Info->Link.Data, Info->Link.Count);
+				CommandLine.LinkArgs.Push(Args);
+			}
+
 			timers FileTimer = {};
 			dynamic<string> FileNames = {};
 			for(int i = 0; i < Info->FileCount; ++i)

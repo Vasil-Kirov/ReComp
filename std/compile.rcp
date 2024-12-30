@@ -25,6 +25,7 @@ struct CompileInfo {
     flags: u32,
     target_triple: string,
     arch: Arch,
+	link: string,
 }
 
 

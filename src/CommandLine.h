@@ -37,7 +37,7 @@ struct command_line
 	string BuildFile;
 	string SingleFile;
 	slice<string> ImportDLLs;
-	slice<string> LinkArgs;
+	dynamic<string> LinkArgs; // dynamic so that more can be added later by the compile function
 	slice<string> IRModules;
 	uint Flags;
 };

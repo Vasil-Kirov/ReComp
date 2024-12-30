@@ -175,6 +175,8 @@ struct enum_type
 
 struct type
 {
+	uint Size;
+	uint Alignment;
 	type_kind Kind;
 	union
 	{

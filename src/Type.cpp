@@ -9,35 +9,37 @@
 
 platform_target PTarget = platform_target::Windows;
 
+#define NOT_DEFINED ((uint)-1)
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 const type BasicTypes[] = {
-	{TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
-	{TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
 	//{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
-	{TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
-	{TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
-	{TypeKind_Basic, {Basic_u32,  BasicFlag_Integer | BasicFlag_Unsigned,          4, STR_LIT("u32")}},
-	{TypeKind_Basic, {Basic_u64,  BasicFlag_Integer | BasicFlag_Unsigned,          8, STR_LIT("u64")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u32,  BasicFlag_Integer | BasicFlag_Unsigned,          4, STR_LIT("u32")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u64,  BasicFlag_Integer | BasicFlag_Unsigned,          8, STR_LIT("u64")}},
 
-	{TypeKind_Basic, {Basic_i8,   BasicFlag_Integer,                               1, STR_LIT("i8")}},
-	{TypeKind_Basic, {Basic_i16,  BasicFlag_Integer,                               2, STR_LIT("i16")}},
-	{TypeKind_Basic, {Basic_i32,  BasicFlag_Integer,                               4, STR_LIT("i32")}},
-	{TypeKind_Basic, {Basic_i64,  BasicFlag_Integer,                               8, STR_LIT("i64")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i8,   BasicFlag_Integer,                               1, STR_LIT("i8")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i16,  BasicFlag_Integer,                               2, STR_LIT("i16")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i32,  BasicFlag_Integer,                               4, STR_LIT("i32")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i64,  BasicFlag_Integer,                               8, STR_LIT("i64")}},
 
-	{TypeKind_Basic, {Basic_f32,  BasicFlag_Float,                                 4, STR_LIT("f32")}},
-	{TypeKind_Basic, {Basic_f64,  BasicFlag_Float,                                 8, STR_LIT("f64")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_f32,  BasicFlag_Float,                                 4, STR_LIT("f32")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_f64,  BasicFlag_Float,                                 8, STR_LIT("f64")}},
 
-	{TypeKind_Basic, {Basic_UntypedInteger, BasicFlag_Integer | BasicFlag_Untyped, 0, STR_LIT("untyped integer")}},
-	{TypeKind_Basic, {Basic_UntypedFloat,   BasicFlag_Float   | BasicFlag_Untyped, 0, STR_LIT("untyped float")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_UntypedInteger, BasicFlag_Integer | BasicFlag_Untyped, 0, STR_LIT("untyped integer")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_UntypedFloat,   BasicFlag_Float   | BasicFlag_Untyped, 0, STR_LIT("untyped float")}},
 
-	{TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
-	{TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
-	{TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
 
-	{TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
-	{TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
+	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
 };
 
 //#pragma clang diagnostic pop
@@ -242,6 +244,14 @@ u32 AddTypeWithName(type *Type, string Name)
 	Assert(TypeCount < MAX_TYPES);
 	u32 Result = TypeCount - 1;
 
+	Type->Size = -1;
+	Type->Alignment = -1;
+	if(Type->Kind != TypeKind_Generic)
+	{
+		Type->Size = GetTypeSize(Type);
+		Type->Alignment = GetTypeAlignment(Type);
+	}
+
 	TypeMap.Add(Name, Result);
 
 	TypeMutex.unlock();
@@ -258,6 +268,10 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 {
 	TypeMutex.lock();
 	Assert(TypeTable[TypeIdx]->Kind == TypeKind_Struct);
+	T.Size = -1;
+	T.Alignment = -1;
+	T.Size = GetTypeSize(&T);
+	T.Alignment = GetTypeAlignment(&T);
 	*(type *)(TypeTable[TypeIdx]) = T;
 	TypeMutex.unlock();
 }
@@ -368,6 +382,9 @@ int GetStructMemberOffset(u32 TypeIdx, uint Member)
 // In bytes
 int GetTypeSize(const type *Type)
 {
+	if(Type->Size != -1)
+		return Type->Size;
+
 	switch(Type->Kind)
 	{
 		case TypeKind_Basic:
@@ -397,11 +414,15 @@ int GetTypeSize(const type *Type)
 		} break;
 		default: {};
 	}
+	LDEBUG("%d", Type->Kind);
 	unreachable;
 }
 
 int GetTypeAlignment(const type *Type)
 {
+	if(Type->Alignment != -1)
+		return Type->Alignment;
+
 	switch(Type->Kind)
 	{
 		case TypeKind_Basic:
@@ -424,8 +445,14 @@ int GetTypeAlignment(const type *Type)
 		{
 			return GetTypeAlignment(Type->Enum.Type);
 		} break;
+		case TypeKind_Vector:
+		{
+			// @TODO: check this
+			return Type->Vector.ElementCount * 8;
+		} break;
 		default: {};
 	}
+	LDEBUG("%d", Type->Kind);
 	unreachable;
 }
 

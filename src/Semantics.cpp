@@ -2725,6 +2725,19 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	}
 }
 
+void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
+{
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_STRUCTDECL)
+		{
+			node *Node = Nodes[I];
+			u32 TypeIdx = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+			SetStructCache(TypeIdx);
+		}
+	}
+}
+
 string MakeNonGenericName(string GenericName)
 {
 	b32 IsNameGeneric = false;

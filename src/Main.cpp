@@ -109,6 +109,11 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
+		AnalyzeFillStructCaches(File->Checker, SliceFromArray(File->Nodes));
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
 		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
 		//File->Module->Checker = File->Checker;
 	}

@@ -272,13 +272,14 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 	T.Alignment = -1;
 	//T.Size = GetTypeSize(&T);
 	//T.Alignment = GetTypeAlignment(&T);
-	*(type *)(TypeTable[TypeIdx]) = T;
+	*TypeTable[TypeIdx] = T;
 	TypeMutex.unlock();
 }
 
-void SetStructSize(u32 TypeIdx)
+void SetStructCache(u32 TypeIdx)
 {
-
+	TypeTable[TypeIdx]->Size = GetTypeSize(TypeTable[TypeIdx]);
+	TypeTable[TypeIdx]->Alignment = GetTypeAlignment(TypeTable[TypeIdx]);
 }
 
 int GetRegisterTypeSize()

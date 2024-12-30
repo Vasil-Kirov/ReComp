@@ -10,15 +10,6 @@
 #include "Type.h"
 #include "Memory.h"
 #include "VString.h"
-extern const type BasicTypes[];
-extern const int  BasicTypesCount;
-
-extern const type *BasicBool;
-extern const type *UntypedInteger;
-extern const type *UntypedFloat;
-extern const type *BasicUint;
-extern const type *BasicInt;
-extern const type *BasicF32;
 extern u32 TypeCount;
 
 void FillUntypedStack(checker *Checker, u32 Type)

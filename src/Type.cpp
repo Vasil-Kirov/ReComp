@@ -13,7 +13,7 @@ platform_target PTarget = platform_target::Windows;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
-const type BasicTypes[] = {
+type BasicTypes[] = {
 	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
 	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
 	//{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
@@ -46,19 +46,19 @@ const type BasicTypes[] = {
 
 const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 
-const type *BasicBool      = &BasicTypes[Basic_bool];
-const type *UntypedInteger = &BasicTypes[Basic_UntypedInteger];
-const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
-const type *BasicInt       = &BasicTypes[Basic_int];
-const type *BasicUint      = &BasicTypes[Basic_uint];
-const type *BasicF32       = &BasicTypes[Basic_f32];
-const type *BasicU8        = &BasicTypes[Basic_u8];
+//const type *BasicBool      = &BasicTypes[Basic_bool];
+//const type *UntypedInteger = &BasicTypes[Basic_UntypedInteger];
+//const type *UntypedFloat   = &BasicTypes[Basic_UntypedFloat];
+//const type *BasicInt       = &BasicTypes[Basic_int];
+//const type *BasicUint      = &BasicTypes[Basic_uint];
+//const type *BasicF32       = &BasicTypes[Basic_f32];
+//const type *BasicU8        = &BasicTypes[Basic_u8];
 
 uint TypeCount = 0;
-const size_t MAX_TYPES = MB(1);
-const type **InitializeTypeTable()
+const size_t MAX_TYPES = MB(256);
+type **InitializeTypeTable()
 {
-	const type **Types = (const type **)AllocateVirtualMemory(sizeof(type *) * MAX_TYPES);
+	type **Types = (type **)AllocateVirtualMemory(sizeof(type *) * MAX_TYPES);
 	for(int I = 0; I < BasicTypesCount; ++I)
 	{
 		Types[TypeCount++] = &BasicTypes[I];
@@ -66,7 +66,7 @@ const type **InitializeTypeTable()
 	return Types;
 }
 
-const type **TypeTable = InitializeTypeTable();
+type **TypeTable = InitializeTypeTable();
 dict<u32> TypeMap = { .Default = INVALID_TYPE };
 std::mutex TypeMutex;
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
@@ -270,10 +270,15 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 	Assert(TypeTable[TypeIdx]->Kind == TypeKind_Struct);
 	T.Size = -1;
 	T.Alignment = -1;
-	T.Size = GetTypeSize(&T);
-	T.Alignment = GetTypeAlignment(&T);
+	//T.Size = GetTypeSize(&T);
+	//T.Alignment = GetTypeAlignment(&T);
 	*(type *)(TypeTable[TypeIdx]) = T;
 	TypeMutex.unlock();
+}
+
+void SetStructSize(u32 TypeIdx)
+{
+
 }
 
 int GetRegisterTypeSize()

@@ -27,6 +27,9 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...);
 void
 SetBonusMessage(string S);
 
+string
+GetErrorSegment(error_info ErrorInfo);
+
 extern string BonusErrorMessage;
 
 #endif // _ERRORS_H

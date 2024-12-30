@@ -465,6 +465,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					Assert(false);
 				VM->Registers.AddValue(I.Result, VMValue);
 			} break;
+			case OP_UNREACHABLE:
+			{
+				LERROR("REACHED UNREACHABLE STATEMENT IN INTERPRETER!!!");
+				unreachable;
+			} break;
 			case OP_ALLOC:
 			{
 				const type *Type = GetType(I.Type);

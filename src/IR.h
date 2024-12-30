@@ -59,6 +59,8 @@ enum op
 	// Type = TypeInfo
 	OP_TYPEINFO,
 
+	OP_UNREACHABLE,
+
 	OP_COUNT,
 };
 

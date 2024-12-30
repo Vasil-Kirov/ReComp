@@ -2412,6 +2412,10 @@ void AnalyzeNode(checker *Checker, node *Node)
 		{
 			AnalyzeIf(Checker, Node);
 		} break;
+		case AST_ASSERT:
+		{
+			AnalyzeBooleanExpression(Checker, &Node->Assert.Expr);
+		} break;
 		case AST_CONTINUE:
 		{
 			b32 FoundContinueScope = false;

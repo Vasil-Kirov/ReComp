@@ -2,16 +2,13 @@ main
 
 #import io
 
-struct S {
-	s: string,
-	f: fn() -> i32,
+get_ptr :: fn() -> ?* {
+	return null;
 }
 
-foo :: []string {"hello", "foo"};
-
 main :: fn() -> i32 {
-	x := foo[1];
-	io.println("%", x);
+	p := get_ptr();
+	#assert p
 	return 0;
 }
 

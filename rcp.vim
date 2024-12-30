@@ -40,6 +40,7 @@ syn match rcpSCompilerDir /#private/
 syn match rcpSCompilerDir /#public/
 syn match rcpSCompilerDir /#if/
 syn match rcpSCompilerDir /#elif/
+syn match rcpSCompilerDir /#assert/
 
 " Types
 syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void

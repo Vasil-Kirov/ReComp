@@ -62,7 +62,8 @@ enum node_type
 	AST_LIST,
 	AST_VAR,
 
-	AST_EMBED
+	AST_EMBED,
+	AST_ASSERT,
 };
 
 struct node
@@ -74,6 +75,9 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Expr;
+		} Assert;
 		struct {
 			const string *Name;
 			node *TypeNode;

@@ -1,5 +1,6 @@
 #include "IR.h"
 #include "ConstVal.h"
+#include "Errors.h"
 #include "Semantics.h"
 #include "Dynamic.h"
 #include "Memory.h"
@@ -1789,6 +1790,53 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 	Builder->ContinueBlockID = CurrentContinue;
 }
 
+void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
+{
+	string AssertionLine = GetErrorSegment(*ErrorInfo);
+	string_builder b = MakeBuilder();
+	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s", ErrorInfo->FileName, ErrorInfo->Line, AssertionLine.Data);
+
+	string S = MakeString(b);
+	string *Message = DupeType(S, string);
+
+
+	const_value *String = NewType(const_value);
+	String->Type = const_type::String;
+	String->String.Data = Message;
+	u32 MessageRegister = PushInstruction(Builder, 
+			Instruction(OP_CONST, (u64)String, Basic_string, Builder));
+
+	u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 0, Basic_string, Builder));
+	u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 1, Basic_string, Builder));
+	u32 Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
+	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
+
+	string StdoutFnName = STR_LIT("os.stdout");
+	const ir_symbol *stdout = GetIRLocal(Builder, &StdoutFnName);
+	call_info *Call = NewType(call_info);
+	Call = NewType(call_info);
+	Call->Operand = stdout->Register;
+	Call->Args = {};
+	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, stdout->Type, Builder));
+
+	string WriteFnName = STR_LIT("os.write");
+	const ir_symbol *s = GetIRLocal(Builder, &WriteFnName);
+
+	Call = NewType(call_info);
+	Call->Operand = s->Register;
+	Call->Args = SliceFromConst({Handle, Data, Count});
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, s->Type, Builder));
+
+	string AbortFnName = STR_LIT("os.abort");
+	const ir_symbol *abort = GetIRLocal(Builder, &AbortFnName);
+	Call = NewType(call_info);
+	Call->Operand = abort->Register;
+	Call->Args = {};
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, abort->Type, Builder));
+
+	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
+}
+
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
 	if(Node->Type != AST_SCOPE)
@@ -1828,6 +1876,16 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				Builder->Scope.Push({});
 				Builder->Defered.Push({});
 			}
+		} break;
+		case AST_ASSERT:
+		{
+			u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
+			basic_block AssertFailed = AllocateBlock(Builder);
+			basic_block After = AllocateBlock(Builder);
+			PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Cond, Basic_bool));
+			Terminate(Builder, AssertFailed);
+			BuildAssertFailed(Builder, Node->ErrorInfo);
+			Terminate(Builder, After);
 		} break;
 		case AST_DEFER:
 		{
@@ -2712,6 +2770,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 				PushBuilderFormated(Builder, "%%%d = STORE %s %%%d", Instr.Result, GetTypeName(Type),
 						Instr.Right);
 			} break;
+			case OP_UNREACHABLE:
+			{
+				PushBuilderFormated(Builder, "UNREACHABLE");
+			} break;
 			case OP_CAST:
 			{
 				const type *FromType = GetType(Instr.Right);
@@ -2928,6 +2990,7 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_NOP:
 		{
 		} break;
+		case OP_UNREACHABLE:
 		case OP_TYPEINFO:
 		case OP_RDTSC: Assert(false);
 		OP_RESULT(OP_CONSTINT);

@@ -19,6 +19,14 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeAssert(const error_info *ErrorInfo, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_ASSERT);
+	Result->Assert.Expr = Expr;
+
+	return Result;
+}
+
 node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_VAR);
@@ -1241,6 +1249,14 @@ node *ParseNode(parser *Parser)
 			Result = MakeDefer(ErrorInfo, Body);
 			ExpectSemicolon = false;
 		} break;
+		case T_ASSERT:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = ParseExpression(Parser);
+			Result = MakeAssert(ErrorInfo, Expr);
+			ExpectSemicolon = false;
+		} break;
 #if 0
 		case T_SHADOW:
 		{
@@ -1796,6 +1812,11 @@ node *CopyASTNode(node *N)
 		case AST_INVALID: 
 			unreachable; 
 			break;
+
+		case AST_ASSERT:
+		{
+			R->Assert.Expr = CopyASTNode(N->Assert.Expr);
+		} break;
 
 		case AST_VAR:
 		{

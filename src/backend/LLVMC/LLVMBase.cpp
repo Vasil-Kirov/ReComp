@@ -319,6 +319,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			gen->map.Add(I.Result, Value);
 
 		} break;
+		case OP_UNREACHABLE:
+		{
+			LLVMBuildUnreachable(gen->bld);
+		} break;
 		case OP_PTRDIFF:
 		{
 			LLVMValueRef LHS = gen->map.Get(I.Left);

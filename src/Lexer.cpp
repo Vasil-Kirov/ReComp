@@ -483,6 +483,7 @@ void InitializeLexer()
 	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("#elif",    T_PWDELIF);
 	AddKeyword("#info",    T_INFO);
+	AddKeyword("#assert",  T_ASSERT);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);
 	AddKeyword("enum",   T_ENUM);

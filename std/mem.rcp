@@ -28,7 +28,11 @@ destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
 }
 
 generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
-    return os.alloc(size);
+    ptr := os.alloc(size);
+	if ptr != null
+		set(?ptr, 0, size);
+    
+	return ptr;
 }
 
 generic_free :: fn(ptr: *, this: *Allocator) {
@@ -45,6 +49,7 @@ create_generic_allocator :: fn() -> Allocator {
 }
 
 struct ScratchContext {
+	start: *u8,
     current: *u8,
     max: *u8,
 }
@@ -56,6 +61,8 @@ arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 
     res := ctx.current;
     ctx.current = ctx.current + size;
+
+	set(res, 0, size);
     
     return res;
 }
@@ -66,6 +73,7 @@ no_free :: fn(p: *, this: *Allocator) {
 
 create_scratch :: fn(max_size: int) -> Allocator {
     ctx := @*ScratchContext os.alloc(max_size + size_of ScratchContext);
+	ctx.start   = @*u8 (ctx + 1);
     ctx.current = @*u8 (ctx + 1);
     ctx.max = ctx.current + max_size;
 
@@ -78,9 +86,15 @@ create_scratch :: fn(max_size: int) -> Allocator {
     return r;
 }
 
+reset_scratch :: fn(a: *Allocator) {
+    ctx := @*ScratchContext a.data;
+	#assert ctx;
+	ctx.current = ctx.start;
+}
+
 destroy_scratch :: fn(a: *Allocator) {
     ctx := @*ScratchContext a.data;
-    os.assert(ctx != null, "Invalid allocator for destroy_scratch()");
+	#assert ctx;
     os.free(ctx);
 }
 

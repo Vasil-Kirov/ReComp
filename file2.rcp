@@ -1,9 +1,11 @@
 f2
 
-struct m4 {
-	row1: [4]f32,
-	row2: [4]f32,
-	row3: [4]f32,
-	row4: [4]f32,
+#import mat as mt
+#import main as main
+#import io
+
+fnf :: fn(m: $T) {
+	t := type_of m;
+	io.println("% % %", t, mt.m4, t == mt.m4);
 }
 

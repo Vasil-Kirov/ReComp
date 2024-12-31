@@ -13,7 +13,7 @@ compile :: fn() -> c.CompileInfo {
     ga := mem.create_generic_allocator();
 
     out := c.CompileInfo {
-        files = []string { "../file1.rcp", "../file2.rcp" },
+        files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
         opt = 0,
         flags = @u32 c.CompileFlag.SanAddress,
     };

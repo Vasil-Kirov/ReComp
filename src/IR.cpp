@@ -515,12 +515,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_TYPEOF:
 		{
-			const_value *TypeValue = NewType(const_value);
-			TypeValue->Type = const_type::Integer;
-			TypeValue->Int.IsSigned = false;
-			TypeValue->Int.Unsigned = Node->TypeOf.Type;
 			Result = PushInstruction(Builder, 
-					Instruction(OP_CONST, (u64)TypeValue, Basic_u64, Builder));
+					Instruction(OP_CONSTINT, Node->TypeOf.Type, Basic_int, Builder));
 		} break;
 		case AST_SIZE:
 		{
@@ -932,8 +928,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 							{
 								if(Type->Struct.Name == Name)
 								{
+									LDEBUG("%s: %d", Name.Data, I);
 									Result = PushInstruction(Builder, 
-											Instruction(OP_CONSTINT, I, Basic_uint, Builder));
+											Instruction(OP_CONSTINT, I, Basic_int, Builder));
 									goto SEARCH_TYPE_DONE;
 								}
 
@@ -943,7 +940,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 								if(Type->Enum.Name == Name)
 								{
 									Result = PushInstruction(Builder, 
-											Instruction(OP_CONSTINT, I, Basic_uint, Builder));
+											Instruction(OP_CONSTINT, I, Basic_int, Builder));
 
 									goto SEARCH_TYPE_DONE;
 								}

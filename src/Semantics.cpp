@@ -164,7 +164,7 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 				Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
 				return s;
 			}
-			FindType(Checker, Node->Selector.Member, &m->Name);
+			//FindType(Checker, Node->Selector.Member, &m->Name);
 			Node->Selector.Operand->ID.Name = DupeType(m->Name, string);
 			return NULL;
 		} break;

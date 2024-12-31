@@ -2,17 +2,11 @@ main
 
 #import io
 #import f2 as f
-
-fnf :: fn(m: $T) {
-	t := type_of(m);
-	io.println("%", foo);
-	//io.println("% % %", t, f.m4, t == f.m4);
-}
+#import mat as mm
 
 main :: fn() -> i32 {
-	foo := 10;
-	f := f.m4 {};
-	fnf(f);
+	m := mm.m4 {};
+	f.fnf(m);
 
 	return 0;
 }

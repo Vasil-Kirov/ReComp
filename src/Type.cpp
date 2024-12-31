@@ -55,7 +55,7 @@ const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 //const type *BasicU8        = &BasicTypes[Basic_u8];
 
 uint TypeCount = 0;
-const size_t MAX_TYPES = MB(256);
+const size_t MAX_TYPES = MB(16);
 type **InitializeTypeTable()
 {
 	type **Types = (type **)AllocateVirtualMemory(sizeof(type *) * MAX_TYPES);
@@ -251,6 +251,10 @@ u32 AddTypeWithName(type *Type, string Name)
 		Type->Size = GetTypeSize(Type);
 		Type->Alignment = GetTypeAlignment(Type);
 	}
+	//if(Type->Kind == TypeKind_Struct)
+	//{
+	//	LDEBUG("Adding: %s at %d", Type->Struct.Name.Data, Result);
+	//}
 
 	TypeMap.Add(Name, Result);
 

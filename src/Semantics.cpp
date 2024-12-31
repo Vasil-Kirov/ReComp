@@ -3034,9 +3034,23 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
 						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
 				SetBonusMessage(MakeString(Builder));
+
+				stack<scope*> SaveScopes = Checker->Scope;
+				if(FnSym->Checker == Checker)
+				{
+					Checker->Scope = {};
+				}
+
 				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
 						NewFnType, GenericName);
+
+				if(FnSym->Checker == Checker)
+				{
+					Checker->Scope = SaveScopes;
+				}
+
 				SetBonusMessage(STR_LIT(""));
+
 				NewFnNode->Fn.AlreadyAnalyzed = true;
 				bool Success = FnSym->Checker->Module->Globals.Add(*NewFnNode->Fn.Name, CreateFunctionSymbol(FnSym->Checker, NewFnNode));
 				Assert(Success);

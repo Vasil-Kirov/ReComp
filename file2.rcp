@@ -1,19 +1,9 @@
-main
+f2
 
-struct x {
-	y: int,
+struct m4 {
+	row1: [4]f32,
+	row2: [4]f32,
+	row3: [4]f32,
+	row4: [4]f32,
 }
-
-#private
-
-//foo := give_one();
-
-give_one :: fn() -> int {
-	return 1;
-}
-
-give_two :: fn() -> i32 {
-	return 2;
-}
-
 

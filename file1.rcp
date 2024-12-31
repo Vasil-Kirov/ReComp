@@ -1,14 +1,19 @@
 main
 
 #import io
+#import f2 as f
 
-get_ptr :: fn() -> ?* {
-	return null;
+fnf :: fn(m: $T) {
+	t := type_of(m);
+	io.println("%", foo);
+	//io.println("% % %", t, f.m4, t == f.m4);
 }
 
 main :: fn() -> i32 {
-	p := get_ptr();
-	#assert p
+	foo := 10;
+	f := f.m4 {};
+	fnf(f);
+
 	return 0;
 }
 

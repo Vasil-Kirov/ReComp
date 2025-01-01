@@ -2,6 +2,7 @@
 #include "ConstVal.h"
 #include "Dynamic.h"
 #include "Lexer.h"
+#include "Module.h"
 #include "VString.h"
 struct type;
 struct function;

@@ -392,6 +392,9 @@ int GetStructMemberOffset(u32 TypeIdx, uint Member)
 // In bytes
 int GetTypeSize(const type *Type)
 {
+	if(Type->Kind == TypeKind_Enum)
+		return GetTypeSize(Type->Enum.Type);
+
 	if(Type->Size != -1)
 		return Type->Size;
 
@@ -430,6 +433,8 @@ int GetTypeSize(const type *Type)
 
 int GetTypeAlignment(const type *Type)
 {
+	if(Type->Kind == TypeKind_Enum)
+		return GetTypeAlignment(Type->Enum.Type);
 	if(Type->Alignment != -1)
 		return Type->Alignment;
 
@@ -1642,14 +1647,17 @@ b32 IsStructAllFloats(const type *T)
 	return AllFloats;
 }
 
-u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type)
+void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original)
 {
-	type *T = AllocType(TypeKind_Enum);
-	T->Enum.Name = Name;
-	T->Enum.Members = Members;
-	T->Enum.Type = Type;
+	TypeMutex.lock();
+	type T = {};
+	T.Kind = TypeKind_Enum;
+	T.Enum.Name = Name;
+	T.Enum.Members = Members;
+	T.Enum.Type = Type;
 
-	return AddType(T);
+	*TypeTable[Original] = T;
+	TypeMutex.unlock();
 }
 
 b32 IsTypeMatchable(const type *T)

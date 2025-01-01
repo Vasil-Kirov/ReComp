@@ -27,6 +27,8 @@ OPTIONS:
 		Compile single code file instead of build file
 	--dump-info
 		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
+	--no-thread
+		Disables multi threading
 )#";
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
@@ -51,6 +53,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--interp-trace"),
 		STR_LIT("--file"),
 		STR_LIT("--dump-info"),
+		STR_LIT("--no-thread"),
 	};
 
 	dynamic<string> ImportDLLs = {};
@@ -126,7 +129,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[9]))
 		{
-			Result.Flags |= CF_DumpInfo;
+			Result.Flags |= CommandFlag_dumpinfo;
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[10]))
+		{
+			Result.Flags |= CommandFlag_nothread;
 		}
 		else
 		{

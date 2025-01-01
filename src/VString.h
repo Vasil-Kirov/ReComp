@@ -36,9 +36,17 @@ struct string_builder
 	void operator+=(char C);
 };
 
+struct split
+{
+	string first;
+	string second;
+};
+
 #define STR_LIT(LIT) MakeString(LIT, sizeof(LIT) - 1)
 
 string_builder MakeBuilder();
+
+split SplitAt(string S, char c);
 
 string MakeString(string_builder Builder, void *Memory);
 string MakeString(void *Memory, const char *CString, size_t Size);

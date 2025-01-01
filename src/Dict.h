@@ -57,6 +57,7 @@ struct dict {
 	dynamic<key> Keys;
 	dynamic<T> Data;
 	T Default = T{};
+	int Bottom = 0;
 
 	bool Add(string Key, T Item)
 	{
@@ -69,7 +70,6 @@ struct dict {
 		Data.Push(Item);
 		return true;
 	}
-
 	bool Contains(string Key)
 	{
 		u32 Hash = murmur3_32((const u8 *)Key.Data, Key.Size, SEED);
@@ -108,6 +108,11 @@ struct dict {
 	{
 		Keys.Free();
 		Data.Free();
+	}
+	void Clear()
+	{
+		Keys.Count = Bottom;
+		Data.Count = Bottom;
 	}
 };
 

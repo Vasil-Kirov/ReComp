@@ -9,8 +9,15 @@ build
 
 puts :: fn #foreign(str: *u8);
 
+// @BUG
+// my_fff :: fn() -> i32 { return 4; }
+// 
+// enum v {
+// 	A = my_fff(),
+// }
+
 compile :: fn() -> c.CompileInfo {
-    ga := mem.create_generic_allocator();
+    //ga := mem.create_generic_allocator();
 
     out := c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },

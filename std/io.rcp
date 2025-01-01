@@ -423,6 +423,25 @@ println :: fn(str: string, args: ...) {
 
 }
 
+read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
+	f_ := os.open(name);
+	if f_ == null {
+		return "", false;
+	}
+	f := ?f_;
+	defer os.close(f);
+
+	size := os.get_file_size(f);
+	mem_ := alloc.alloc(size, alloc);
+	if mem_ == null {
+		return "", false;
+	}
+
+	mem := ?mem_;
+	read := os.read(f, mem, size);
+	return string { read, mem }, true;
+}
+
 readln :: fn(alloc: *mem.Allocator) -> string {
 	MAX :: 1024;
     mem := alloc.alloc(MAX, alloc);

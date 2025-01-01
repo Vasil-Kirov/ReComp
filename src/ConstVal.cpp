@@ -212,3 +212,22 @@ size_t GetUTF8Count(const string *String)
 	return Count;
 }
 
+const_value FromInterp(value &Value)
+{
+	const type *T = GetType(Value.Type);
+	Assert(HasBasicFlag(T, BasicFlag_Integer));
+	const_value V = {};
+	V.Type = const_type::Integer;
+	if(HasBasicFlag(T, BasicFlag_Unsigned))
+	{
+		V.Int.IsSigned = false;
+		V.Int.Unsigned = Value.u64;
+	}
+	else
+	{
+		V.Int.IsSigned = true;
+		V.Int.Signed = Value.i64;
+	}
+	return V;
+}
+

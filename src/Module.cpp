@@ -93,7 +93,7 @@ u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules)
 		module *m = Modules[ModuleIdx];
 		ForArray(Idx, m->Globals.Data)
 		{
-			m->Globals.Data[Idx]->IRRegister = Count++;
+			m->Globals.Data[Idx]->Register = Count++;
 		}
 	}
 	return Count;

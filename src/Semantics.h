@@ -27,7 +27,7 @@ struct symbol
 	checker *Checker;
 	u32 Type;
 	u32 Flags;
-	u32 IRRegister;
+	u32 Register;
 };
 
 struct scope

@@ -1,6 +1,6 @@
 #pragma once
 #include "Basic.h"
-#include "ConstVal.h"
+#include "IR.h"
 #include "Lexer.h"
 #include "VString.h"
 #include "Dynamic.h"
@@ -163,6 +163,9 @@ struct generic_type
 struct enum_member
 {
 	string Name;
+	node *Expr;
+	slice<instruction> Evaluate;
+	module *Module;
 	const_value Value;
 };
 
@@ -248,8 +251,8 @@ u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 FindEnum(string Name);
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT);
-u32 MakeEnumType(string Name, slice<enum_member> Members, u32 Type);
 u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags);
+void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original);
 b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);

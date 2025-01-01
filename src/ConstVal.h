@@ -1,5 +1,6 @@
 #pragma once
 #include "Basic.h"
+#include "Interpreter.h"
 #include "VString.h"
 
 enum class const_type
@@ -45,4 +46,5 @@ size_t GetUTF8Count(const string *String);
 const_value MakeConstValue(const string *String);
 u32 GetConstantType(const const_value &Value);
 u32 GetConstantTypedType(const const_value *Value);
+const_value FromInterp(value &Value);
 

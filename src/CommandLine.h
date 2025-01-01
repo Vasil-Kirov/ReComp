@@ -8,20 +8,23 @@ enum command_flags
 	CommandFlag_ir   = BIT(1),
 	CommandFlag_link = BIT(2),
 	CommandFlag_llvm = BIT(3),
+	CommandFlag_dumpinfo = BIT(4),
+	CommandFlag_nothread = BIT(5),
 };
 
 enum compile_flags
 {
-    CF_Debug       	= 0b0000000001,
-    CF_SanAdress   	= 0b0000000010,
-    CF_SanMemory   	= 0b0000000100,
-    CF_SanThread   	= 0b0000001000,
-    CF_SanUndefined	= 0b0000010000,
-    CF_NoStdLib		= 0b0000100000,
-    CF_SharedLib	= 0b0001000000,
-	CF_CrossAndroid = 0b0010000000,
-	CF_NoLink	    = 0b0100000000,
-	CF_DumpInfo		= 0b1000000000,
+    CF_Debug       	= 0b00000000001,
+    CF_SanAdress   	= 0b00000000010,
+    CF_SanMemory   	= 0b00000000100,
+    CF_SanThread   	= 0b00000001000,
+    CF_SanUndefined	= 0b00000010000,
+    CF_NoStdLib		= 0b00000100000,
+    CF_SharedLib	= 0b00001000000,
+	CF_CrossAndroid = 0b00010000000,
+	CF_NoLink	    = 0b00100000000,
+	Reserved1		= 0b01000000000,
+	Reserved2		= 0b10000000000,
 };
 
 enum arch

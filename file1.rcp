@@ -4,11 +4,20 @@ main
 #import f2 as f
 #import mat as mm
 
-main :: fn() -> i32 {
-	m := mm.m4 {};
-	f.fnf(m);
+something :: fn() {}
 
-	return 0;
+my_fn :: fn() -> i32 {
+	return 10;
+}
+
+enum Foo {
+	A = my_fn(),
+	B = 1,
+}
+
+main :: fn() -> i32 {
+
+	return @i32 Foo.A;
 }
 
 

@@ -1,4 +1,5 @@
 #include "DynamicLib.h"
+#include "Errors.h"
 #include "IR.h"
 #include "VString.h"
 #include "vlib.h"
@@ -6,6 +7,7 @@
 #include <Interpreter.h>
 #include <Type.h>
 #include <Log.h>
+#include <charconv>
 #include <cstddef>
 #include <x64CodeWriter.h>
 #include <math.h>
@@ -326,12 +328,29 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				Value.u64 = Val;
 				VM->Registers.AddValue(I.Result, Value);
 			} break;
+			case OP_ENUM_ACCESS:
+			const_value V;
+			{
+				const type *T = GetType(I.Type);
+				Assert(T->Kind == TypeKind_Enum);
+				V = T->Enum.Members[I.Right].Value;
+				if(T->Enum.Members[I.Right].Evaluate.IsValid())
+				{
+					return { INTERPRET_RUNTIME_ERROR };
+				}
+				I.Op = OP_CONST;
+				I.BigRegister = (u64)&V;
+			}
+			// fallthrough
 			case OP_CONST:
 			{
 				value VMValue = {};
 				VMValue.Type = I.Type;
 				const_value *Val = (const_value *)I.BigRegister;
 				const type *Type = GetType(I.Type);
+				if(Type->Kind == TypeKind_Enum)
+					Type = GetType(Type->Enum.Type);
+
 				if(Type->Kind == TypeKind_Basic)
 				{
 					if(Type->Basic.Flags & BasicFlag_Float)
@@ -672,8 +691,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					VM->Registers.AddValue(I.Result, Result.Result);
 
 					// @LEAK
-					//Result.ToFreeStackMemory
-					//Result.Registers LEAK
+					VFree(Result.ToFreeStackMemory);
+					// Result.Registers LEAK
 					// @LEAK
 					VM->Stack.Pop();
 
@@ -825,7 +844,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 		}
 	}
-	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastRegister)};
+	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastAdded)};
 }
 
 interpret_result Interpret(code_chunk Chunk)
@@ -908,7 +927,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			{
 				Value.ptr = VAlloc(GetTypeSize(s->Type));
 			}
-			VM.Registers.AddValue(s->IRRegister, Value);
+			VM.Registers.AddValue(s->Register, Value);
 		}
 	}
 
@@ -942,7 +961,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 	return VM;
 }
 
-interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args)
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree)
 {
 	binary_stack Stack = {};
 	Stack.Memory = VAlloc(MB(1));
@@ -978,4 +997,36 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	return Result;
 }
 
+void EvaluateEnums(interpreter *VM)
+{
+	uint TC = GetTypeCount();
+
+	for(int i = 0; i < TC; ++i)
+	{ 
+		const type *T = GetType(i);
+		if(T->Kind == TypeKind_Enum)
+		{
+			For(T->Enum.Members)
+			{
+				code_chunk Chunk = {};
+				Chunk.Code = it->Evaluate;
+				VM->Executing = &Chunk;
+				interpret_result Result = Run(VM, {}, {});
+				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+				{
+					RaiseError(false, *it->Expr->ErrorInfo,
+							"Couldn't evaluate enum expression at compile time.\n"
+							"Make sure that you are not using other enums in the expression");
+				}
+				else
+				{
+					it->Value = FromInterp(Result.Result);
+				}
+
+				// @NOTE: this marks the enum as evaluated
+				it->Evaluate = {};
+			}
+		}
+	}
+}
 

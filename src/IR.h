@@ -59,6 +59,9 @@ enum op
 	// Type = TypeInfo
 	OP_TYPEINFO,
 
+	// Right = Member Idx;
+	OP_ENUM_ACCESS,
+
 	OP_UNREACHABLE,
 
 	OP_COUNT,
@@ -149,21 +152,12 @@ struct basic_block
 	b32 HasTerminator;
 };
 
-struct ir_symbol
-{
-	const string *Name;
-	u32 Register;
-	u32 Type;
-	u32 _Flags;
-};
-
 struct function
 {
 	const string *Name;
 	const string *LinkName;
 	dynamic<basic_block> Blocks;
-	dynamic<ir_symbol> _Locals;
-	slice<ir_symbol> ModuleSymbols;
+	slice<symbol> ModuleSymbols;
 	string ModuleName;
 	u32 LineNo;
 	u32 LastRegister;
@@ -191,7 +185,7 @@ struct block_builder
 	stack<defer_scope> Defered;
 	module *Module;
 	profiling *Profile;
-	stack<dict<ir_symbol>> Scope;
+	stack<dict<symbol>> Scope;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;
 	u32 LastRegister;
@@ -202,7 +196,6 @@ struct block_builder
 struct ir
 {
 	dynamic<function>Functions;
-	slice<ir_symbol> GlobalSymbols;
 	u32 MaxRegisters;
 };
 

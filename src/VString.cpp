@@ -186,3 +186,17 @@ bool StringEndsWith(const string &a, const string b)
 	return memcmp(a.Data + Offset, b.Data, b.Size) == 0;
 }
 
+split SplitAt(string S, char c)
+{
+	for(int i = 0; i < S.Size; ++i)
+	{
+		if(S.Data[i] == c)
+		{
+			string First = SliceString(S, 0, i);
+			string Second = SliceString(S, i+1, 0);
+			return { First, Second };
+		}
+	}
+	return {};
+}
+

@@ -27,14 +27,32 @@ void FillUntypedStack(checker *Checker, u32 Type)
 	}
 }
 
-u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *Name)
+u32 FindEnumTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
 {
+	string Name = *NamePtr;
+	for(int I = 0; I < TypeCount; ++I)
+	{
+		const type *Type = GetType(I);
+		if(Type->Kind == TypeKind_Enum)
+		{
+			if(Name == Type->Enum.Name)
+			{
+				return I;
+			}
+		}
+	}
+	return INVALID_TYPE;
+}
+
+u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
+{
+	string Name = *NamePtr;
 	for(int I = 0; I < TypeCount; ++I)
 	{
 		const type *Type = GetType(I);
 		if(Type->Kind == TypeKind_Struct)
 		{
-			if(*Name == Type->Struct.Name)
+			if(Name == Type->Struct.Name)
 			{
 				return I;
 			}
@@ -2149,6 +2167,8 @@ u32 FixPotentialFunctionPointer(u32 Type)
 
 void AnalyzeEnum(checker *Checker, node *Node)
 {
+	u32 OpaqueType = FindEnumTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+	Assert(OpaqueType != INVALID_TYPE);
 	if(Node->Enum.Items.Count == 0)
 	{
 		RaiseError(false, *Node->ErrorInfo, "Empty enums are not allowed");
@@ -2187,6 +2207,7 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		WITH_EXPR,
 		NO_EXPR,
 	} EnumType = Node->Enum.Items[0]->Item.Expression ? WITH_EXPR : NO_EXPR;
+
 	ForArray(Idx, Node->Enum.Items)
 	{
 		auto Item = Node->Enum.Items[Idx];
@@ -2212,72 +2233,13 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		enum_member Member = {};
 		auto Item = Node->Enum.Items[Idx]->Item;
 		Member.Name = *Item.Name;
+		Member.Module = Checker->Module;
 		if(Item.Expression)
 		{
-			b32 Parsing = true;
-			node *Expr = Item.Expression;
-			while(Parsing)
-			{
-				b32 IsNeg = false;
-				switch(Expr->Type)
-				{
-					case AST_CONSTANT:
-					{
-						Member.Value = Expr->Constant.Value;
-						if(Member.Value.Type != const_type::Integer)
-						{
-							RaiseError(false, *Expr->ErrorInfo, "Enum member value must be an integer");
-						}
-						if(IsNeg)
-						{
-							using ct = const_type;
-							switch(Member.Value.Type)
-							{
-								case ct::Integer:
-								{
-									Member.Value.Int.IsSigned = true;
-									Member.Value.Int.Signed = -Member.Value.Int.Signed;
-								} break;
-								case ct::Float:
-								{
-									Member.Value.Float = -Member.Value.Float;
-								} break;
-								case ct::String:
-								{
-									RaiseError(false, *Expr->ErrorInfo, "Cannot use - operator on a string");
-								} break;
-							}
-						}
-						Parsing = false;
-					} break;
-					case AST_CHARLIT:
-					{
-						const_value Value = {};
-						Value.Type = const_type::Integer;
-						Value.Int.IsSigned = false;
-						Value.Int.Unsigned = Node->CharLiteral.C;
-						Member.Value = Value;
-						if(IsNeg)
-						{
-							RaiseError(false, *Expr->ErrorInfo, "Cannot use - operator on a char literal");
-						}
-						Parsing = false;
-					} break;
-					case AST_UNARY:
-					{
-						if(Expr->Unary.Op != T_MINUS)
-						{
-							RaiseError(false, *Expr->ErrorInfo, "Cannot use this unary operator on an enum literal value");
-						}
-						IsNeg = !IsNeg;
-						Expr = Expr->Unary.Operand;
-					} break;
-					default:
-					{
-						RaiseError(false, *Expr->ErrorInfo, "Enum member value must be a constant integer");
-					} break;
-				}
-			}
+			u32 T = AnalyzeExpression(Checker, Item.Expression);
+			TypeCheckAndPromote(Checker, Item.Expression->ErrorInfo, Type, T, NULL,
+					&Node->Enum.Items.Data[Idx]->Item.Expression, "Enum of type %s cannot contains value of type %s");
+			Member.Expr = Item.Expression;
 		}
 		else
 		{
@@ -2285,16 +2247,18 @@ void AnalyzeEnum(checker *Checker, node *Node)
 			Value.Type = const_type::Integer;
 			Value.Int.IsSigned = false;
 			Value.Int.Unsigned = Idx;
-			Member.Value = Value;
+			Member.Expr = MakeConstant(Node->ErrorInfo, Value);
+			Member.Expr->Constant.Type = Type;
 		}
 		Members.Push(Member);
 	}
 
-	MakeEnumType(*Node->Enum.Name, SliceFromArray(Members), Type);
+	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType);
 }
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
+	LDEBUG("Name: %s", Node->StructDecl.Name->Data);
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
@@ -2544,10 +2508,10 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
 			string Name = *Nodes[I]->StructDecl.Name;
-			type *New = NewType(type);
-			New->Kind = TypeKind_Struct;
+			type *New = AllocType(TypeKind_Struct);
 			New->Struct.Name = Name;
 
+			// @TODO: Cleanup
 			uint Count = GetTypeCount();
 			string SymbolName = StructToModuleName(Name, Module->Name);
 			for(int i = 0; i < Count; ++i)
@@ -2699,6 +2663,43 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 				// @NOTE: I don't think there is any way to get here
 				RaiseError(true, *Node->ErrorInfo, "Invalid left-hand side of declaration");
 			}
+		}
+	}
+}
+
+void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module)
+{
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_ENUM)
+		{
+			string Name = *Nodes[I]->Enum.Name;
+			type *New = AllocType(TypeKind_Enum);
+			New->Enum.Name = Name;
+
+			// @TODO: Cleanup
+			uint Count = GetTypeCount();
+			string SymbolName = StructToModuleName(Name, Module->Name);
+			for(int i = 0; i < Count; ++i)
+			{
+				const type *T = GetType(i);
+				if(T->Kind == TypeKind_Struct)
+				{
+					if(T->Struct.Name == SymbolName)
+					{
+						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+					}
+				}
+				else if(T->Kind == TypeKind_Enum)
+				{
+					if(T->Enum.Name == SymbolName)
+					{
+						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+					}
+				}
+			}
+
+			AddType(New);
 		}
 	}
 }

@@ -58,9 +58,11 @@ struct interpreter_scope
 {
 	u32 LastRegister;
 	u32 MaxRegisters;
+	u32 LastAdded;
 	value *Registers;
 	void AddValue(uint Register, value Value)
 	{
+		LastAdded = Register;
 		LastRegister = mmax(LastRegister, Register);
 		Registers[Register] = Value;
 	}
@@ -103,7 +105,7 @@ struct interpreter
 	b32 IsCurrentFnRetInPtr;
 };
 
-interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree=false);
 interpret_result Interpret(code_chunk Chunk);
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 

@@ -99,7 +99,8 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
+		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
+		AnalyzeEnumDefinitions(NodeSlice, File->Module);
 	}
 	ForArray(Idx, Files)
 	{
@@ -116,6 +117,11 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 		file *File = Files[Idx];
 		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
 		//File->Module->Checker = File->Checker;
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
+		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 
 	if(ExpectingMain)
@@ -221,6 +227,10 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		Assert(Idx == FileDyn.Count);
 		FileDyn.Push(File);
 	}
+
+	if(HasErroredOut())
+		exit(1);
+
 	slice<file*> Files = SliceFromArray(FileDyn);
 	ForArray(Idx, Files)
 	{
@@ -270,6 +280,8 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 			file *File = Files[Idx];
 			BuildIRFile(File, CommandLine, MaxCount);
 		}
+		BuildEnumIR(SliceFromArray(Modules), MaxCount);
+
 		VLibStopTimer(&Timers->IR);
 	}
 
@@ -451,7 +463,7 @@ main(int ArgCount, char *Args[])
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
 
-	DumpingInfo = (CommandLine.Flags & CF_DumpInfo) != 0;
+	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 
 	DLIB DLLs[256] = {};
 	int DLLCount = 0;
@@ -487,6 +499,7 @@ main(int ArgCount, char *Args[])
 	slice<function> BuildFileFunctions = {};
 	interpreter VM = {};
 	timer_group VMBuildTimer = {};
+	timer_group VMBuildTimer2 = {};
 	if(CommandLine.SingleFile.Data == NULL)
 	{
 		timers BuildTimers = {};
@@ -497,7 +510,6 @@ main(int ArgCount, char *Args[])
 		// @TODO: maybe actually check the host machine?
 		ConfigIDs.Push(STR_LIT("x86"));
 		ConfigIDs.Push(STR_LIT("x64"));
-		//u32 BeforeTypeCount = GetTypeCount();
 		CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
 
 		BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
@@ -534,13 +546,23 @@ main(int ArgCount, char *Args[])
 #endif
 
 		VMBuildTimer = VLibStartTimer("VM");
+
 		VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
+		EvaluateEnums(&VM);
+		if(HasErroredOut())
+			exit(1);
+
 		{
 
 
 			if(InterpreterTrace)
 				LINFO("Interpreting compile function");
-			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
+			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1}, true);
+			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+			{
+				LogCompilerError("Error: Failed to evaluate build.compile");
+				return 1;
+			}
 
 			VLibStopTimer(&VMBuildTimer);
 
@@ -597,9 +619,19 @@ main(int ArgCount, char *Args[])
 
 			slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 
+			// Remake vm to evaluate enums with new info
+
+			VMBuildTimer2 = VLibStartTimer("VM");
+			interpreter EnumVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
+			EvaluateEnums(&EnumVM);
+			if(HasErroredOut())
+				exit(1);
+			VLibStopTimer(&VMBuildTimer2);
+
+
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags & CommandFlag_llvm, Info);
+			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -625,13 +657,19 @@ main(int ArgCount, char *Args[])
 	else
 	{
 		timers FileTimer = {};
+
 		dynamic<string> FileNames = {};
 		FileNames.Push(CommandLine.SingleFile);
 		AddStdFiles(FileNames, false);
 		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
+		
+		VM = MakeInterpreter(ModuleArray, 100, DLLs, DLLCount);
+		EvaluateEnums(&VM);
+		if(HasErroredOut())
+			exit(1);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags & CommandFlag_llvm, Info);
+		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
 		VLibStopTimer(&FileTimer.LLVM);
 	}
 
@@ -684,6 +722,7 @@ main(int ArgCount, char *Args[])
 		LWARN("Type Checking:             %lldms", TypeCheckTime            / 1000);
 		LWARN("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
 		LWARN("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
+		LWARN("Enum Evaluation:           %lldms", TimeTaken(&VMBuildTimer2)/ 1000);
 		LWARN("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
 		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}

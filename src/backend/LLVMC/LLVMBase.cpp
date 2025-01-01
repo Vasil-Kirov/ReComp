@@ -1,4 +1,5 @@
 #include "LLVMBase.h"
+#include "CommandLine.h"
 #include "LLVMTypeInfoGlobal.h"
 #include "Interpreter.h"
 #include "Module.h"
@@ -228,10 +229,23 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				gen->map.Add(I.Result, Value);
 			}
 		} break;
+		case OP_ENUM_ACCESS:
+		const_value V;
+		{
+			const type *T = GetType(I.Type);
+			Assert(T->Kind == TypeKind_Enum);
+			V = T->Enum.Members[I.Right].Value;
+			I.Op = OP_CONST;
+			I.BigRegister = (u64)&V;
+		}
+		// fallthrough
 		case OP_CONST:
 		{
 			const_value *Val = (const_value *)I.BigRegister;
 			const type *Type = GetType(I.Type);
+			if(Type->Kind == TypeKind_Enum)
+				Type = GetType(Type->Enum.Type);
+
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 
 			LLVMValueRef Value;
@@ -1071,14 +1085,14 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 				{
 					LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
 					LLVMSetLinkage(Fn, LLVMExternalLinkage);
-					Gen.map.Add(s->IRRegister, Fn);
+					Gen.map.Add(s->Register, Fn);
 					continue;
 				}
 				if(*s->Name == STR_LIT("type_table"))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
 					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);
-					Gen.map.Add(s->IRRegister, TypeTable);
+					Gen.map.Add(s->Register, TypeTable);
 					continue;
 				}
 			}
@@ -1093,7 +1107,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			LLVMValueRef AlreadyIn = AddedFns[*s->LinkName];
 			if(AlreadyIn)
 			{
-				Gen.map.Add(s->IRRegister, AlreadyIn);
+				Gen.map.Add(s->Register, AlreadyIn);
 			}
 
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
@@ -1106,7 +1120,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
-				Gen.map.Add(s->IRRegister, Fn);
+				Gen.map.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);
 			}
 			else
@@ -1117,7 +1131,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 				LLVMSetLinkage(Global, Linkage);
 				if(m->Name == M->Name)
 					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
-				Gen.map.Add(s->IRRegister, Global);
+				Gen.map.Add(s->Register, Global);
 				AddedFns.Add(LinkName, Global);
 			}
 		}
@@ -1327,17 +1341,20 @@ void GenWorkerFn(void *Data)
 	LDEBUG("Done with module: %s", Info->M->Name.Data);
 }
 
-void RCGenerateCode(slice<module*> Modules, slice<file*> Files, b32 OutputBC, compile_info *Info)
+void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags, compile_info *Info)
 {
 	work_queue *Queue = CreateWorkQueue();
-	InitWorkQueue(Queue);
-	Assert(LLVMIsMultithreaded());
+	if((CommandFlags & CommandFlag_nothread) == 0)
+	{
+		InitWorkQueue(Queue);
+		Assert(LLVMIsMultithreaded());
+	}
 
 	ForArray(Idx, Modules)
 	{
 		file_generate_info *FInfo = NewType(file_generate_info);
 		FInfo->M = Modules[Idx];
-		FInfo->OutputBC = OutputBC;
+		FInfo->OutputBC = CommandFlags & CommandFlag_llvm;
 		FInfo->Modules = Modules;
 		FInfo->Files = Files;
 		FInfo->Info = Info;

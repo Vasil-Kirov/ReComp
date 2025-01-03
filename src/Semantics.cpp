@@ -1847,6 +1847,9 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			Expr->Binary.ExpressionType = Promoted;
 		}
 
+		if(IsUntyped(Expr->Binary.ExpressionType))
+			Checker->UntypedStack.Push(&Expr->Binary.ExpressionType);
+
 		return Result;
 	}
 	else

@@ -243,12 +243,6 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 	{
 		file *F = Files[Idx];
 		ParseFile(F, Modules);
-		if(F->Module->Name == STR_LIT("main"))
-		{
-			Linearizer lin (SliceFromArray(F->Nodes));
-			lin.Linearize();
-			lin.Print();
-		}
 	}
 	VLibStopTimer(&Timers->Parse);
 

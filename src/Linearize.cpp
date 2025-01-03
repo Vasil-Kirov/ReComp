@@ -193,17 +193,6 @@ void Linearizer::PrintBody(LNode Body)
 {
 	LDEBUG(" { ");
 
-	For(Body.Body)
-	{
-		if(it->Node == NULL)
-		{
-			LDEBUG("NOP");
-			continue;
-		}
-		const char *Name = GetASTName(it->Node->Type);
-		LDEBUG("Node: %s", Name);
-	}
-
 	LDEBUG(" } ");
 }
 
@@ -213,14 +202,7 @@ void Linearizer::Print()
 	{
 		if(it->Node == NULL)
 		{
-			if(it->Body.IsValid())
-			{
-				PrintBody(*it);
-			}
-			else
-			{
-				LDEBUG("NOP");
-			}
+			LDEBUG("NOP");
 			continue;
 		}
 		const char *Name = GetASTName(it->Node->Type);
@@ -233,7 +215,7 @@ void Linearizer::Linearize()
 	Array = {};
 	For(Nodes)
 	{
-		Append(LinearizeNode(*it));
+		LinearizeNode(*it);
 	}
 }
 

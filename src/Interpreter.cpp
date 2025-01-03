@@ -903,7 +903,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 					continue;
 			}
 
-			if(s->Flags & SymbolFlag_Function)
+			const type *T = GetType(s->Type);
+			if(T->Kind == TypeKind_Function)
 			{
 				if(s->Flags & SymbolFlag_Extern)
 				{
@@ -930,7 +931,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			}
 			else
 			{
-				Value.ptr = VAlloc(GetTypeSize(s->Type));
+				Value.ptr = VAlloc(GetTypeSize(T));
 			}
 			VM.Registers.AddValue(s->Register, Value);
 		}
@@ -976,7 +977,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	if(InterpreterTrace && Function.Name)
 	{
 		VM->CurrentFnName = *Function.Name;
-		LINFO("Interp calling function %s with args:", Function.Name->Data);
+		LINFO("Interp calling function %s with args:", Function.LinkName->Data);
 		ForArray(Idx, Args)
 		{
 			LINFO("\t[%d]%s", Idx, GetTypeName(Args[Idx].Type));

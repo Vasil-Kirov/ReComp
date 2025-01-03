@@ -1845,227 +1845,225 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	u32 Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
 	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
 
-	string StdoutFnName = STR_LIT("os.stdout");
-	const symbol *stdout = GetIRLocal(Builder, &StdoutFnName);
+	string OS = STR_LIT("os");
+	const symbol *stdout = GetBuiltInFunction(Builder, OS, STR_LIT("stdout"));
 	call_info *Call = NewType(call_info);
 	Call = NewType(call_info);
 	Call->Operand = stdout->Register;
 	Call->Args = {};
 	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, stdout->Type, Builder));
 
-	string WriteFnName = STR_LIT("os.write");
-	const symbol *s = GetIRLocal(Builder, &WriteFnName);
+	const symbol *s = GetBuiltInFunction(Builder, OS, STR_LIT("write"));
 
 	Call = NewType(call_info);
 	Call->Operand = s->Register;
 	Call->Args = SliceFromConst({Handle, Data, Count});
 	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, s->Type, Builder));
 
-	string AbortFnName = STR_LIT("os.abort");
-		const symbol *abort = GetIRLocal(Builder, &AbortFnName);
-		Call = NewType(call_info);
-		Call->Operand = abort->Register;
-		Call->Args = {};
-		PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, abort->Type, Builder));
+	const symbol *abort = GetBuiltInFunction(Builder, OS, STR_LIT("abort"));
+	Call = NewType(call_info);
+	Call->Operand = abort->Register;
+	Call->Args = {};
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, abort->Type, Builder));
 
-		PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
-	}
+	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
+}
 
-	void BuildIRFunctionLevel(block_builder *Builder, node *Node)
+void BuildIRFunctionLevel(block_builder *Builder, node *Node)
+{
+	if(Node->Type != AST_SCOPE)
+		IRPushDebugLocation(Builder, Node->ErrorInfo);
+
+	switch(Node->Type)
 	{
-		if(Node->Type != AST_SCOPE)
-			IRPushDebugLocation(Builder, Node->ErrorInfo);
-
-		switch(Node->Type)
+		case AST_NOP: {};
+		case AST_SCOPE:
 		{
-			case AST_NOP: {};
-			case AST_SCOPE:
-			{
-				if(!Node->ScopeDelimiter.IsUp)
-				{
-					auto s = Builder->Defered.Pop();
-					
-					if(!Builder->CurrentBlock.HasTerminator)
-					{
-						ForArray(Idx, s.Expressions)
-						{
-							int ActualIdx = s.Expressions.Count - 1 - Idx;
-							auto ExprBody = s.Expressions[ActualIdx];
-							For(ExprBody)
-							{
-								BuildIRFunctionLevel(Builder, (*it));
-							}
-						}
-					}
-					
-					ForArray(Idx, s.Expressions)
-					{
-						s.Expressions[Idx].Free();
-					}
-					s.Expressions.Free();
-					Builder->Scope.Pop().Free();
-				}
-				else
-				{
-					Builder->Scope.Push({});
-					Builder->Defered.Push({});
-				}
-			} break;
-			case AST_ASSERT:
-			{
-				u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
-				basic_block AssertFailed = AllocateBlock(Builder);
-				basic_block After = AllocateBlock(Builder);
-				PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Cond, Basic_bool));
-				Terminate(Builder, AssertFailed);
-				BuildAssertFailed(Builder, Node->ErrorInfo);
-				Terminate(Builder, After);
-			} break;
-			case AST_DEFER:
-			{
-				dynamic<node *> Defer = {};
-				ForArray(Idx, Node->Defer.Body)
-				{
-					Defer.Push(Node->Defer.Body[Idx]);
-				}
-				Builder->Defered.Peek().Expressions.Push(Defer);
-			} break;
-			case AST_DECL:
-			{
-				BuildIRFromDecleration(Builder, Node);
-			} break;
-			case AST_RETURN:
-			{
-				u32 Expression = -1;
-				u32 Type = Node->Return.TypeIdx;
-					
-				ForArray(Idx, Builder->Defered.Data)
-				{
-					int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
-					auto s = Builder->Defered.Data[ActualIdx];
+		    if(!Node->ScopeDelimiter.IsUp)
+		    {
+		  	  auto s = Builder->Defered.Pop();
 
-					ForArray(SIdx, s.Expressions)
-					{
-						int ActualSIdx = s.Expressions.Count - 1 - SIdx;
-						auto ExprBody = s.Expressions[ActualSIdx];
-						For(ExprBody)
-						{
-							BuildIRFunctionLevel(Builder, (*it));
-						}
-					}
-				}
+		  	  if(!Builder->CurrentBlock.HasTerminator)
+		  	  {
+		  		  ForArray(Idx, s.Expressions)
+		  		  {
+		  			  int ActualIdx = s.Expressions.Count - 1 - Idx;
+		  			  auto ExprBody = s.Expressions[ActualIdx];
+		  			  For(ExprBody)
+		  			  {
+		  				  BuildIRFunctionLevel(Builder, (*it));
+		  			  }
+		  		  }
+		  	  }
 
-				if(Type != INVALID_TYPE)
-				{
-					const type *RT = GetType(Type);
-					if(Node->Return.Expression)
-						Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
-					if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
-					{
-						if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
-						{
-							Type = AllFloatsStructToReturnType(RT);
-							Expression = PushInstruction(Builder,
-									Instruction(OP_LOAD, 0, Expression, Type, Builder));
-						}
-						else
-						{
-							Type = ComplexTypeToSizeType(RT);
-							Expression = PushInstruction(Builder,
-									Instruction(OP_LOAD, 0, Expression, Type, Builder));
-						}
-					}
-				}
+		  	  ForArray(Idx, s.Expressions)
+		  	  {
+		  		  s.Expressions[Idx].Free();
+		  	  }
+		  	  s.Expressions.Free();
+		  	  Builder->Scope.Pop().Free();
+		    }
+		    else
+		    {
+		  	  Builder->Scope.Push({});
+		  	  Builder->Defered.Push({});
+		    }
+		} break;
+		case AST_ASSERT:
+		{
+		    u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
+		    basic_block AssertFailed = AllocateBlock(Builder);
+		    basic_block After = AllocateBlock(Builder);
+		    PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Cond, Basic_bool));
+		    Terminate(Builder, AssertFailed);
+		    BuildAssertFailed(Builder, Node->ErrorInfo);
+		    Terminate(Builder, After);
+		} break;
+		case AST_DEFER:
+		{
+		    dynamic<node *> Defer = {};
+		    ForArray(Idx, Node->Defer.Body)
+		    {
+		  	  Defer.Push(Node->Defer.Body[Idx]);
+		    }
+		    Builder->Defered.Peek().Expressions.Push(Defer);
+		} break;
+		case AST_DECL:
+		{
+		    BuildIRFromDecleration(Builder, Node);
+		} break;
+		case AST_RETURN:
+		{
+		    u32 Expression = -1;
+		    u32 Type = Node->Return.TypeIdx;
 
-				if(Builder->Profile)
-				{
-					u32 Callback = BuildIRFromExpression(Builder, Builder->Profile->Callback);
-					u32 EndTime = PushInstruction(Builder, 
-							Instruction(OP_RDTSC, 0, Basic_int, Builder));
+		    ForArray(Idx, Builder->Defered.Data)
+		    {
+		  	  int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
+		  	  auto s = Builder->Defered.Data[ActualIdx];
 
-					u32 Taken = PushInstruction(Builder, 
-							Instruction(OP_SUB, EndTime, Builder->Profile->StartTime, Basic_int, Builder));
-					u32 FnName = MakeIRString(Builder, *Builder->Function->Name);
+		  	  ForArray(SIdx, s.Expressions)
+		  	  {
+		  		  int ActualSIdx = s.Expressions.Count - 1 - SIdx;
+		  		  auto ExprBody = s.Expressions[ActualSIdx];
+		  		  For(ExprBody)
+		  		  {
+		  			  BuildIRFunctionLevel(Builder, (*it));
+		  		  }
+		  	  }
+		    }
 
-					call_info *Call = NewType(call_info);
-					Call->Operand = Callback;
-					Call->Args = SliceFromConst({FnName, Taken});
-					
-					PushInstruction(Builder,
-							Instruction(OP_CALL, (u64)Call, Builder->Profile->CallbackType, Builder));
-				}
+		    if(Type != INVALID_TYPE)
+		    {
+		  	  const type *RT = GetType(Type);
+		  	  if(Node->Return.Expression)
+		  		  Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
+		  	  if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
+		  	  {
+		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+		  		  {
+		  			  Type = AllFloatsStructToReturnType(RT);
+		  			  Expression = PushInstruction(Builder,
+		  					  Instruction(OP_LOAD, 0, Expression, Type, Builder));
+		  		  }
+		  		  else
+		  		  {
+		  			  Type = ComplexTypeToSizeType(RT);
+		  			  Expression = PushInstruction(Builder,
+		  					  Instruction(OP_LOAD, 0, Expression, Type, Builder));
+		  		  }
+		  	  }
+		    }
 
-				PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
-				Builder->CurrentBlock.HasTerminator = true;
-			} break;
-			case AST_IF:
-			{
-				Builder->Scope.Push({});
-				u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
-				basic_block ThenBlock = AllocateBlock(Builder);
-				basic_block ElseBlock = AllocateBlock(Builder);
-				basic_block EndBlock  = AllocateBlock(Builder);
-				PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, IfExpression, Basic_bool));
-				Terminate(Builder, ThenBlock);
-				BuildIRBody(Node->If.Body, Builder, EndBlock);
+		    if(Builder->Profile)
+		    {
+		  	  u32 Callback = BuildIRFromExpression(Builder, Builder->Profile->Callback);
+		  	  u32 EndTime = PushInstruction(Builder, 
+		  			  Instruction(OP_RDTSC, 0, Basic_int, Builder));
 
-				Builder->CurrentBlock = ElseBlock;
-				if(Node->If.Else.IsValid())
-				{
-					BuildIRBody(Node->If.Else, Builder, EndBlock);
-				}
-				else
-				{
-					PushInstruction(Builder, Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
-					Terminate(Builder, EndBlock);
-				}
-				Builder->Scope.Pop();
-			} break;
-			case AST_BREAK:
-			{
-				PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
-				Builder->CurrentBlock.HasTerminator = true;
-			} break;
-			case AST_CONTINUE:
-			{
-				PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
-				Builder->CurrentBlock.HasTerminator = true;
-			} break;
-			case AST_FOR:
-			{
-				Builder->Scope.Push({});
-				using ft = for_type;
-				switch(Node->For.Kind)
-				{
-					case ft::C:
-					{
-						BuildIRForLoopCStyle(Builder, Node);
-					} break;
-					case ft::While:
-					{
-						BuildIRForLoopWhile(Builder, Node, true);
-					} break;
-					case ft::Infinite:
-					{
-						BuildIRForLoopWhile(Builder, Node, false);
-					} break;
-					case ft::It:
-					{
-						BuildIRForIt(Builder, Node);
-					} break;
-				}
-				Builder->Scope.Pop();
-			} break;
-			default:
-			{
-				BuildIRFromExpression(Builder, Node, false, false);
-			} break;
-		}
+		  	  u32 Taken = PushInstruction(Builder, 
+		  			  Instruction(OP_SUB, EndTime, Builder->Profile->StartTime, Basic_int, Builder));
+		  	  u32 FnName = MakeIRString(Builder, *Builder->Function->Name);
+
+		  	  call_info *Call = NewType(call_info);
+		  	  Call->Operand = Callback;
+		  	  Call->Args = SliceFromConst({FnName, Taken});
+
+		  	  PushInstruction(Builder,
+		  			  Instruction(OP_CALL, (u64)Call, Builder->Profile->CallbackType, Builder));
+		    }
+
+		    PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
+		    Builder->CurrentBlock.HasTerminator = true;
+		} break;
+		case AST_IF:
+		{
+		    Builder->Scope.Push({});
+		    u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
+		    basic_block ThenBlock = AllocateBlock(Builder);
+		    basic_block ElseBlock = AllocateBlock(Builder);
+		    basic_block EndBlock  = AllocateBlock(Builder);
+		    PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, IfExpression, Basic_bool));
+		    Terminate(Builder, ThenBlock);
+		    BuildIRBody(Node->If.Body, Builder, EndBlock);
+
+		    Builder->CurrentBlock = ElseBlock;
+		    if(Node->If.Else.IsValid())
+		    {
+		  	  BuildIRBody(Node->If.Else, Builder, EndBlock);
+		    }
+		    else
+		    {
+		  	  PushInstruction(Builder, Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
+		  	  Terminate(Builder, EndBlock);
+		    }
+		    Builder->Scope.Pop();
+		} break;
+		case AST_BREAK:
+		{
+		    PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
+		    Builder->CurrentBlock.HasTerminator = true;
+		} break;
+		case AST_CONTINUE:
+		{
+		    PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
+		    Builder->CurrentBlock.HasTerminator = true;
+		} break;
+		case AST_FOR:
+		{
+		    Builder->Scope.Push({});
+		    using ft = for_type;
+		    switch(Node->For.Kind)
+		    {
+		  	  case ft::C:
+		  	  {
+		  		  BuildIRForLoopCStyle(Builder, Node);
+		  	  } break;
+		  	  case ft::While:
+		  	  {
+		  		  BuildIRForLoopWhile(Builder, Node, true);
+		  	  } break;
+		  	  case ft::Infinite:
+		  	  {
+		  		  BuildIRForLoopWhile(Builder, Node, false);
+		  	  } break;
+		  	  case ft::It:
+		  	  {
+		  		  BuildIRForIt(Builder, Node);
+		  	  } break;
+		    }
+		    Builder->Scope.Pop();
+		} break;
+		default:
+		{
+		    BuildIRFromExpression(Builder, Node, false, false);
+		} break;
 	}
+}
 
-	void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then)
-	{
-		for(int Idx = 0; Idx < Body.Count; ++Idx)
+void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then)
+{
+	for(int Idx = 0; Idx < Body.Count; ++Idx)
 	{
 		BuildIRFunctionLevel(Builder, Body[Idx]);
 	}

@@ -1,23 +1,24 @@
 main
 
-#import io
-#import f2 as f
-#import mat as mm
+//#import io
+//#import f2 as f
+//#import mat as mm
+//
+//something :: fn() {}
 
-something :: fn() {}
+//my_fn :: fn() -> i32 {
+//	return 10;
+//}
 
-my_fn :: fn() -> i32 {
-	return 10;
-}
-
-enum Foo {
-	A = my_fn(),
-	B = 1,
-}
+//enum Foo {
+//	A = my_fn(),
+//	B = 1,
+//}
 
 main :: fn() -> i32 {
+	x := @i32 10;
 
-	return @i32 Foo.A;
+	return 5 + x;
 }
 
 

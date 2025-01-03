@@ -167,7 +167,6 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 	split Split = SplitAt(Name, '.');
 	if(Split.first.Data != NULL)
 	{
-		LDEBUG("%.*s | %s", Split.first.Size, Split.first.Data, Split.second.Data);
 		For(Builder->Imported)
 		{
 			if(it->M->Name == Split.first)

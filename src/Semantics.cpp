@@ -2258,7 +2258,6 @@ void AnalyzeEnum(checker *Checker, node *Node)
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
-	LDEBUG("Name: %s", Node->StructDecl.Name->Data);
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());

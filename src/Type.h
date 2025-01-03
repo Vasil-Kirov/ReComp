@@ -223,6 +223,7 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op);
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);
 b32 TypesMustMatch(const type *Left, const type *Right);
 b32 IsUntyped(const type *Type);
+b32 IsUntyped(u32 T);
 b32 IsCastValid(const type *From, const type *To);
 b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);

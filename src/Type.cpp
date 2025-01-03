@@ -85,6 +85,11 @@ b32 IsUntyped(const type *Type)
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & BasicFlag_Untyped);
 }
 
+b32 IsUntyped(u32 T)
+{
+	return IsUntyped(GetType(T));
+}
+
 struct generic_replacement
 {
 	u32 TypeID;

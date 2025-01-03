@@ -305,6 +305,8 @@ node *ParseType(parser *Parser, b32 ShouldError = true);
 node *CopyASTNode(node *N);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
+bool IsOpAssignment(token_type Op);
+const char *GetASTName(node_type T);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

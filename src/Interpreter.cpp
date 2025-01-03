@@ -656,6 +656,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			{
 				call_info *CallInfo = (call_info *)I.BigRegister;
 				value *Operand = VM->Registers.GetValue(CallInfo->Operand);
+				if(Operand->ptr == NULL)
+					return { INTERPRET_RUNTIME_ERROR };
+
 				if(Operand->Type & (1 << 31))
 				{
 					u64 Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
@@ -698,6 +701,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 					Args.Free();
 					NewScope.Free();
+					if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+						return Result;
 				}
 			} break;
 			case OP_ALLOCGLOBAL:
@@ -915,7 +920,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 
 					if(Value.ptr == NULL)
 					{
-						LERROR("Couldn't find external function %s in compiler linked DLLs.\n\t Referenced in module %s", s->LinkName->Data, m->Name.Data);
+						//LERROR("Couldn't find external function %s in compiler linked DLLs.\n\t Referenced in module %s", s->LinkName->Data, m->Name.Data);
 					}
 				}
 				else

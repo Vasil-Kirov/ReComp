@@ -21,6 +21,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "x64CodeWriter.h"
 #include "CommandLine.h"
 #include "Dict.h"
+#include "Linearize.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -55,6 +56,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "x64CodeWriter.cpp"
 #include "CommandLine.cpp"
 #include "DumpInfo.cpp"
+#include "Linearize.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -241,6 +243,12 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 	{
 		file *F = Files[Idx];
 		ParseFile(F, Modules);
+		if(F->Module->Name == STR_LIT("main"))
+		{
+			Linearizer lin (SliceFromArray(F->Nodes));
+			lin.Linearize();
+			lin.Print();
+		}
 	}
 	VLibStopTimer(&Timers->Parse);
 

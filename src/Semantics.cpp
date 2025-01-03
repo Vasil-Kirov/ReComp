@@ -1869,9 +1869,9 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 			if(s)
 			{
 				RaiseError(true, *ErrorInfo,
-						"Redeclaration of variable %s.\n"
-						"If this is intentional mark it as a shadow like this:\n\t#shadow %s := 0;",
-						ID->Data, ID->Data);
+						"Redeclaration of variable %s.\n",
+						//"If this is intentional mark it as a shadow like this:\n\t#shadow %s := 0;",
+						ID->Data);
 			}
 		}
 	}
@@ -2360,8 +2360,15 @@ void AnalyzeUsing(checker *Checker, node *Node)
 	const type *T = GetType(TIdx);
 	if(T->Kind != TypeKind_Struct/* && !HasBasicFlag(T, BasicFlag_TypeID)*/)
 	{
-		RaiseError(false, *Expr->ErrorInfo, "Invalid type on using expression, need a struct");
-		return;
+		if(T->Kind == TypeKind_Pointer && T->Pointer.Pointed != INVALID_TYPE && GetType(T->Pointer.Pointed)->Kind == TypeKind_Struct)
+		{
+			T = GetType(T->Pointer.Pointed);
+		}
+		else
+		{
+			RaiseError(false, *Expr->ErrorInfo, "Invalid type on using expression, need a struct");
+			return;
+		}
 	}
 	Node->Using.Type = TIdx;
 

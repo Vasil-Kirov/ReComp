@@ -11,12 +11,11 @@ struct Eh {
 
 main :: fn() -> i32 {
 	x := Eh {};
-	x.foo = 0;
+	y := &x;
+	using y;
+	using x;
 
-	{
-		using 10;
-		foo = 10;
-	}
+	foo = 10;
 
 	return @i32 x.foo;
 }

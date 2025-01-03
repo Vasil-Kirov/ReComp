@@ -452,6 +452,18 @@ u32 BuildIRMatch(block_builder *Builder, node *Node)
 	return Result;
 }
 
+u32 StructPointerToStruct(block_builder *Builder, u32 Ptr, const type *T)
+{
+	// @NOTE: Pointers to structs (and slices) are a bit weird here
+	const type *Pointed = GetType(T->Pointer.Pointed);
+	u32 LoadType = T->Pointer.Pointed;
+	if(Pointed->Kind == TypeKind_Struct || Pointed->Kind == TypeKind_Slice)
+		LoadType = GetPointerTo(T->Pointer.Pointed);
+
+	return PushInstruction(Builder, 
+			Instruction(OP_LOAD, 0, Ptr, LoadType, Builder));
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -1049,19 +1061,11 @@ BUILD_SLICE_SELECTOR:
 					{
 						if(Type->Kind == TypeKind_Pointer)
 						{
-							// @NOTE: Pointers to structs (and slices) are a bit weird here
-							const type *Pointed = GetType(Type->Pointer.Pointed);
-#if 1
-							u32 LoadType = Type->Pointer.Pointed;
-							if(Pointed->Kind == TypeKind_Struct || Pointed->Kind == TypeKind_Slice)
-								LoadType = GetPointerTo(Type->Pointer.Pointed);
+							Operand = StructPointerToStruct(Builder, Operand, Type);
 
-							Operand = PushInstruction(Builder, 
-									Instruction(OP_LOAD, 0, Operand, LoadType, Builder));
-#endif
 							TypeIdx = Type->Pointer.Pointed;
 							Type = GetType(Type->Pointer.Pointed);
-							if(Pointed->Kind == TypeKind_Slice)
+							if(Type->Kind == TypeKind_Slice)
 								goto BUILD_SLICE_SELECTOR;
 						}
 
@@ -1912,12 +1916,19 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_USING:
 		{
 			const type *T = GetType(Node->Using.Type);
-			Assert(T->Kind == TypeKind_Struct);
-			u32 Base = BuildIRFromExpression(Builder, Node->Using.Expr);
+			Assert(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Pointer);
+			u32 Base = BuildIRFromExpression(Builder, Node->Using.Expr, true);
+			u32 StructTy = Node->Using.Type;
+			if(T->Kind == TypeKind_Pointer)
+			{
+				Base = StructPointerToStruct(Builder, Base, T);
+				StructTy = T->Pointer.Pointed;
+				T = GetType(T->Pointer.Pointed);
+			}
 			ForArray(Idx, T->Struct.Members)
 			{
 				auto it = T->Struct.Members[Idx];
-				auto I = Instruction(OP_INDEX, Base, Idx, Node->Using.Type, Builder);
+				auto I = Instruction(OP_INDEX, Base, Idx, StructTy, Builder);
 				u32 MemberPtr = PushInstruction(Builder, I);
 				IRPushDebugVariableInfo(Builder, Node->ErrorInfo, it.ID, it.Type, MemberPtr);
 				PushIRLocal(Builder, DupeType(it.ID, string), MemberPtr, it.Type);

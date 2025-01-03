@@ -16,7 +16,7 @@ static ap_memory MemoryAllocators[2];
 #define STR_CHUNK  KB(4) * 256
 
 void
-InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
+InitArenaMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
 {
 	Memory->Start = PlatformReserveMemory(Size);
 	if(Memory->Start == NULL)
@@ -40,8 +40,10 @@ InitAPMem(ap_memory *Memory, u64 Size, u64 ChunkSize)
 b32
 InitializeMemory()
 {
-	InitAPMem(&MemoryAllocators[PERM_INDEX], PERM_SIZE, PERM_CHUNK);
-	InitAPMem(&MemoryAllocators[STR_INDEX],  STR_SIZE,  STR_CHUNK);
+	InitArenaMem(&MemoryAllocators[PERM_INDEX], PERM_SIZE, PERM_CHUNK);
+	InitArenaMem(&MemoryAllocators[STR_INDEX],  STR_SIZE,  STR_CHUNK);
+	MemoryAllocators[PERM_INDEX].Name = "permanent";
+	MemoryAllocators[STR_INDEX].Name = "string";
 	return true;
 }
 
@@ -53,7 +55,7 @@ void *ToArena(void *Data, u64 Size, i8 Index)
 }
 
 void *
-InternalAllocateMemory(ap_memory *Arena, u64 Size, const char *NAME)
+ArenaAllocate(ap_memory *Arena, u64 Size)
 {
 	void *Result = Arena->Current;
 	Arena->Current = (char *)Arena->Current + Size;
@@ -62,7 +64,7 @@ InternalAllocateMemory(ap_memory *Arena, u64 Size, const char *NAME)
 		if(Arena->ChunkIndex * Arena->ChunkSize > Arena->MaxSize)
 		{
 			// @NOTE: use fprintf because my logger needs to allocate memoroy
-			fprintf(stderr, "MEMORY OVERFLOW WHEN ALLOCATING %s MEMORY\n", NAME);
+			fprintf(stderr, "MEMORY OVERFLOW WHEN ALLOCATING %s MEMORY\n", Arena->Name);
 			PrintStacktrace();
 			exit(1);
 		}
@@ -80,8 +82,7 @@ AllocateMemory(u64 Size, i8 Index)
 {
 	MemMutex.lock();
 
-	const char *NAME[2] = { "permanent", "string" };
-	void *Result = InternalAllocateMemory(&MemoryAllocators[Index], Size, NAME[Index]);
+	void *Result = ArenaAllocate(&MemoryAllocators[Index], Size);
 
 	MemMutex.unlock();
 	return Result;
@@ -89,7 +90,8 @@ AllocateMemory(u64 Size, i8 Index)
 
 scratch_arena::scratch_arena()
 {
-	InitAPMem(&Arena, MB(1), KB(1));
+	InitArenaMem(&Arena, MB(1), KB(1));
+	Arena.Name = "scratch";
 }
 
 scratch_arena::~scratch_arena()
@@ -100,7 +102,7 @@ scratch_arena::~scratch_arena()
 
 void *scratch_arena::Allocate(u64 Size)
 {
-	return InternalAllocateMemory(&Arena, Size, "SCRATCH");
+	return ArenaAllocate(&Arena, Size);
 }
 
 void FreeAllArenas()

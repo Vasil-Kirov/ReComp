@@ -2,6 +2,7 @@
 #include <IR.h>
 #include <Stack.h>
 #include "DynamicLib.h"
+#include "Memory.h"
 
 #define mmax(a, b) (a > b) ? a : b
 
@@ -99,6 +100,7 @@ struct interpreter
 {
 	code_chunk *Executing;
 	interpreter_scope Registers;
+	ap_memory Arena;
 	stack<binary_stack> Stack;
 	slice<function> Imported;
 	string CurrentFnName;
@@ -106,7 +108,6 @@ struct interpreter
 };
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree=false);
-interpret_result Interpret(code_chunk Chunk);
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 
 #define BIN_OP(OP, o) case OP_##OP: \

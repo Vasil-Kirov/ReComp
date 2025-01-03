@@ -18,6 +18,7 @@ typedef struct _ap_memory
 	void *Current;
 	u64 ChunkSize;
 	u64 MaxSize;
+	const char *Name;
 } ap_memory;
 
 struct scratch_arena
@@ -30,6 +31,12 @@ struct scratch_arena
 
 b32
 InitializeMemory();
+
+void
+InitArenaMem(ap_memory *Memory, u64 Size, u64 ChunkSize);
+
+void *
+ArenaAllocate(ap_memory *Arena, u64 Size);
 
 void *
 AllocateMemory(u64 Size, i8 Index);

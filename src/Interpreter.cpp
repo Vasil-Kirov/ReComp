@@ -1,13 +1,13 @@
 #include "DynamicLib.h"
 #include "Errors.h"
 #include "IR.h"
+#include "Memory.h"
 #include "VString.h"
 #include "vlib.h"
 #include "Semantics.h"
 #include <Interpreter.h>
 #include <Type.h>
 #include <Log.h>
-#include <charconv>
 #include <cstddef>
 #include <x64CodeWriter.h>
 #include <math.h>
@@ -16,7 +16,7 @@ bool InterpreterTrace = false;
 
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
-	void *Memory = VM->Stack.Peek().Allocate(String->Size + 1);
+	void *Memory = ArenaAllocate(&VM->Arena, String->Size + 1);
 	memcpy(Memory, String->Data, String->Size);
 	return Memory;
 }
@@ -852,22 +852,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastAdded)};
 }
 
-interpret_result Interpret(code_chunk Chunk)
-{
-	binary_stack Stack = {};
-	Stack.Memory = AllocateVirtualMemory(MB(1));
-
-	interpreter VM = {};
-	VM.Executing = &Chunk;
-	VM.Stack.Push(Stack);
-
-	interpret_result Result = Run(&VM, {}, {});
-	Result.ToFreeStackMemory = Stack.Memory;
-
-
-	return Result;
-}
-
 interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
 	ForArray(MIdx, Modules)
@@ -885,6 +869,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 
 	interpreter VM = {};
 	VM.Registers.Init(MaxRegisters);
+	InitArenaMem(&VM.Arena, GB(64), MB(1));
 
 	ForArray(MIdx, Modules)
 	{
@@ -931,7 +916,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			}
 			else
 			{
-				Value.ptr = VAlloc(GetTypeSize(T));
+				Value.ptr = ArenaAllocate(&VM.Arena, GetTypeSize(T));
 			}
 			VM.Registers.AddValue(s->Register, Value);
 		}
@@ -995,7 +980,14 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	VM->Executing = &Chunk;
 	Result = Run(VM, SliceFromArray(Function.Blocks), Args);
 
-	Result.ToFreeStackMemory = Stack.Memory;
+	if(NoFree)
+	{
+		Result.ToFreeStackMemory = Stack.Memory;
+	}
+	else
+	{
+		VFree(Stack.Memory);
+	}
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 
@@ -1006,6 +998,11 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 void EvaluateEnums(interpreter *VM)
 {
 	uint TC = GetTypeCount();
+
+	binary_stack Stack = {};
+	Stack.Memory = ArenaAllocate(&VM->Arena, MB(1));
+
+	VM->Stack.Push(Stack);
 
 	for(int i = 0; i < TC; ++i)
 	{ 
@@ -1034,5 +1031,7 @@ void EvaluateEnums(interpreter *VM)
 			}
 		}
 	}
+
+	VM->Stack.Pop();
 }
 

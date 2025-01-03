@@ -35,6 +35,10 @@ int Linearizer::LinearizeNode(node *Node)
 	LNode Result = LNode(Node);
 	switch(Node->Type)
 	{
+		case AST_USING:
+		{
+			Result.Left = LinearizeNode(Node->Using.Expr);
+		} break;
 		case AST_ASSERT:
 		{
 			Result.Left = LinearizeNode(Node->Assert.Expr);
@@ -198,16 +202,16 @@ void Linearizer::PrintBody(LNode Body)
 
 void Linearizer::Print()
 {
-	For(Array)
-	{
-		if(it->Node == NULL)
-		{
-			LDEBUG("NOP");
-			continue;
-		}
-		const char *Name = GetASTName(it->Node->Type);
-		LDEBUG("Node: %s", Name);
-	}
+//	For(Array)
+//	{
+//		if(it->Node == NULL)
+//		{
+//			LDEBUG("NOP");
+//			continue;
+//		}
+//		const char *Name = GetASTName(it->Node->Type);
+//		LDEBUG("Node: %s", Name);
+//	}
 }
 
 void Linearizer::Linearize()

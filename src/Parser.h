@@ -65,6 +65,7 @@ enum node_type
 
 	AST_EMBED,
 	AST_ASSERT,
+	AST_USING,
 };
 
 struct node
@@ -76,6 +77,10 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Expr;
+			u32 Type; // Set by semantic analyzer
+		} Using;
 		struct {
 			node *Expr;
 		} Assert;
@@ -306,7 +311,6 @@ node *CopyASTNode(node *N);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
 bool IsOpAssignment(token_type Op);
-const char *GetASTName(node_type T);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

@@ -2352,6 +2352,36 @@ void CheckBodyForUnreachableCode(slice<node *> Body)
 	}
 }
 
+void AnalyzeUsing(checker *Checker, node *Node)
+{
+	Assert(Node->Type == AST_USING);
+	node *Expr = Node->Using.Expr;
+	u32 TIdx = AnalyzeExpression(Checker, Expr);
+	const type *T = GetType(TIdx);
+	if(T->Kind != TypeKind_Struct/* && !HasBasicFlag(T, BasicFlag_TypeID)*/)
+	{
+		RaiseError(false, *Expr->ErrorInfo, "Invalid type on using expression, need a struct");
+		return;
+	}
+	Node->Using.Type = TIdx;
+
+	switch(Expr->Type)
+	{
+		case AST_ID:
+		{
+			For(T->Struct.Members)
+			{
+				AddVariable(Checker, Node->ErrorInfo, it->Type, DupeType(it->ID, string), Node, 0);
+				// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+			}
+		} break;
+		default:
+		{
+			RaiseError(false, *Expr->ErrorInfo, "Invalid expression for using");
+		} break;
+	}
+}
+
 void AnalyzeNode(checker *Checker, node *Node)
 {
 	switch(Node->Type)
@@ -2372,6 +2402,10 @@ void AnalyzeNode(checker *Checker, node *Node)
 		case AST_ASSERT:
 		{
 			AnalyzeBooleanExpression(Checker, &Node->Assert.Expr);
+		} break;
+		case AST_USING:
+		{
+			AnalyzeUsing(Checker, Node);
 		} break;
 		case AST_CONTINUE:
 		{

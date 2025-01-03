@@ -1909,6 +1909,21 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  Builder->Defered.Push({});
 		    }
 		} break;
+		case AST_USING:
+		{
+			const type *T = GetType(Node->Using.Type);
+			Assert(T->Kind == TypeKind_Struct);
+			u32 Base = BuildIRFromExpression(Builder, Node->Using.Expr);
+			ForArray(Idx, T->Struct.Members)
+			{
+				auto it = T->Struct.Members[Idx];
+				auto I = Instruction(OP_INDEX, Base, Idx, Node->Using.Type, Builder);
+				u32 MemberPtr = PushInstruction(Builder, I);
+				IRPushDebugVariableInfo(Builder, Node->ErrorInfo, it.ID, it.Type, MemberPtr);
+				PushIRLocal(Builder, DupeType(it.ID, string), MemberPtr, it.Type);
+				// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+			}
+		} break;
 		case AST_ASSERT:
 		{
 		    u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);

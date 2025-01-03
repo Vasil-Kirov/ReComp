@@ -1,11 +1,24 @@
 main
 
-foo :: (10<<3);
+struct N {
+	c: int,
+}
+
+struct Eh {
+	foo: int,
+	bar: N,
+}
 
 main :: fn() -> i32 {
-	x := foo;
+	x := Eh {};
+	x.foo = 0;
 
-	return @i32 x;
+	{
+		using 10;
+		foo = 10;
+	}
+
+	return @i32 x.foo;
 }
 
 

@@ -19,6 +19,14 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeUsing(const error_info *ErrorInfo, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_USING);
+	Result->Using.Expr = Expr;
+
+	return Result;
+}
+
 node *MakeAssert(const error_info *ErrorInfo, node *Expr)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_ASSERT);
@@ -1257,6 +1265,13 @@ node *ParseNode(parser *Parser)
 			Result = MakeAssert(ErrorInfo, Expr);
 			ExpectSemicolon = false;
 		} break;
+		case T_USING:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = ParseUnary(Parser);
+			Result = MakeUsing(ErrorInfo, Expr);
+		} break;
 #if 0
 		case T_SHADOW:
 		{
@@ -1813,6 +1828,12 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_USING:
+		{
+			R->Using.Expr = CopyASTNode(N->Using.Expr);
+			R->Using.Type = N->Using.Type;
+		} break;
+
 		case AST_ASSERT:
 		{
 			R->Assert.Expr = CopyASTNode(N->Assert.Expr);
@@ -2080,53 +2101,5 @@ bool IsOpAssignment(token_type Op)
 			return false;
 	}
 
-}
-
-const char *GetASTName(node_type T)
-{
-	switch(T)
-	{
-		case AST_INVALID: return "AST_INVALID";
-		case AST_NOP: return "AST_NOP";
-		case AST_CHARLIT: return "AST_CHARLIT";
-		case AST_CONSTANT: return "AST_CONSTANT";
-		case AST_BINARY: return "AST_BINARY";
-		case AST_UNARY: return "AST_UNARY";
-		case AST_IF: return "AST_IF";
-		case AST_FOR: return "AST_FOR";
-		case AST_ID: return "AST_ID";
-		case AST_DECL: return "AST_DECL";
-
-		case AST_PTRTYPE: return "AST_PTRTYPE";
-		case AST_ARRAYTYPE: return "AST_ARRAYTYPE";
-		case AST_FN: return "AST_FN";
-		case AST_GENERIC: return "AST_GENERIC";
-		case AST_TYPEINFO: return "AST_TYPEINFO";
-
-		case AST_CALL: return "AST_CALL";
-		case AST_RETURN: return "AST_RETURN";
-		case AST_CAST: return "AST_CAST";
-		case AST_TYPELIST: return "AST_TYPELIST";
-		case AST_INDEX: return "AST_INDEX";
-		case AST_STRUCTDECL: return "AST_STRUCTDECL";
-		case AST_ENUM: return "AST_ENUM";
-		case AST_SELECTOR: return "AST_SELECTOR";
-		case AST_SIZE: return "AST_SIZE";
-		case AST_TYPEOF: return "AST_TYPEOF";
-		case AST_RESERVED: return "AST_RESERVED";
-		case AST_BREAK: return "AST_BREAK";
-		case AST_LISTITEM: return "AST_LISTITEM";
-		case AST_MATCH: return "AST_MATCH";
-		case AST_CASE: return "AST_CASE";
-		case AST_DEFER: return "AST_DEFER";
-		case AST_SCOPE: return "AST_SCOPE";
-		case AST_CONTINUE: return "AST_CONTINUE";
-		case AST_PTRDIFF: return "AST_PTRDIFF";
-		case AST_LIST: return "AST_LIST";
-		case AST_VAR: return "AST_VAR";
-
-		case AST_EMBED: return "AST_EMBED";
-		case AST_ASSERT: return "AST_ASSERT";
-	}
 }
 

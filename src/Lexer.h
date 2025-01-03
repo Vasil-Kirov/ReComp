@@ -88,7 +88,8 @@ enum token_type
 	T_CONTINUE = -68,
 	T_PWDELIF=-69,
 	T_PROFILE=-70,
-	T_ASSERT=-71
+	T_ASSERT=-71,
+	T_USING =-72,
 };
 
 struct token

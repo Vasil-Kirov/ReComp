@@ -180,6 +180,7 @@ cgscc(
 								),
 						verify
 							)");
+			} break;
 			// Max optimizations
 			case 2:
 			case 3:
@@ -313,7 +314,6 @@ cgscc(
 							verify
 								)");
 			} break;
-		} break;
 	}
 
 	if(Flags & CF_SanAdress)

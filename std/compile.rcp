@@ -10,6 +10,7 @@ enum CompileFlag: u32 {
     SharedLib   = 0b00001000000,
     CrossAndroid= 0b00010000000,
     NoLink      = 0b00100000000,
+    NoTypeTable = 0b01000000000,
 }
 
 enum Arch: u32 {

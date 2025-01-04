@@ -1088,7 +1088,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 					Gen.map.Add(s->Register, Fn);
 					continue;
 				}
-				if(*s->Name == STR_LIT("type_table"))
+				if(*s->Name == STR_LIT("type_table") && ((Info->Flags & CF_NoTypeTable) == 0))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
 					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);

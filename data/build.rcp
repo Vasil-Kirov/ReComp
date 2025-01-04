@@ -23,8 +23,8 @@ compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         //files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
         files = []string { "../file1.rcp" },
-        opt = 0,
-        flags = @u32 c.CompileFlag.SanAddress,
+        opt = 1,
+        flags = @u32 (c.CompileFlag.NoTypeTable | c.CompileFlag.NoStdLib),
     };
 
    for f in out.files {

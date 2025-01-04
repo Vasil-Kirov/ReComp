@@ -400,7 +400,7 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	{
 		return TokinizeIdentifier(String, ErrorInfo);
 	}
-	if(isdigit(FirstChar))
+	if( isdigit(FirstChar) || (FirstChar == '.' && isdigit(PeekCAhead(String, 1))) )
 	{
 		return TokinizeNumber(String, ErrorInfo);
 	}

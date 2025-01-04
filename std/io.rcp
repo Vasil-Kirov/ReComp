@@ -432,13 +432,14 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
 	defer os.close(f);
 
 	size := os.get_file_size(f);
-	mem_ := alloc.alloc(size, alloc);
+	mem_ := alloc.alloc(size+1, alloc);
 	if mem_ == null {
 		return "", false;
 	}
 
-	mem := ?mem_;
+	mem := @*u8 ?mem_;
 	read := os.read(f, mem, size);
+    mem[read] = 0;
 	return string { read, mem }, true;
 }
 

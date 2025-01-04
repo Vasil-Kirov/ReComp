@@ -1,22 +1,18 @@
 main
 
-struct N {
-	c: int,
+struct v4 {
+    x: f32,
+    y: f32,
+    z: f32,
+    w: f32,
 }
 
-struct Eh {
-	foo: int,
-	bar: N,
-}
+foo :: fn(a: v4) {}
 
 main :: fn() -> i32 {
-	x := Eh {};
-	y := &x;
-	using y;
+    foo(v4{});
 
-	foo = 10;
-
-	return @i32 x.foo;
+	return 0;
 }
 
 

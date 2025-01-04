@@ -605,7 +605,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				Idx++;
 			LLVMValueRef Arg = LLVMGetParam(gen->fn, Idx);
 			const type *Type = GetType(I.Type);
-			if(Type->Kind == TypeKind_Struct && IsStructAllFloats(Type))
+			if(PTarget != platform_target::Windows &&
+					Type->Kind == TypeKind_Struct && IsStructAllFloats(Type))
 			{
 				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "vec");

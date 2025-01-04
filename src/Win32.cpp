@@ -96,6 +96,13 @@ void PlatformAllocateReserved(void *Memory, size_t Size)
 
 void PlatformOutputString(string String, log_level Level)
 {
+	if((int)Level == -1)
+	{
+		HANDLE STDOUT = GetStdHandle(STD_OUTPUT_HANDLE);
+		WriteFile(STDOUT, String.Data, String.Size, NULL, 0);
+		return;
+	}
+
 	SetConsoleOutputCP(CP_UTF8);
 	//		MAGIC NUMBERS! (ored rgb)
 	//		13 = r | b | intense

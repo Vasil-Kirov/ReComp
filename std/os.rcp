@@ -38,6 +38,18 @@ assert :: fn(cond: bool, reason: string) {
     PAGE_NOCACHE           :: @u32 0x200;
     PAGE_WRITECOMBINE      :: @u32 0x400;
 
+    struct LARGE_INTEGER_STRUCT {
+        LowPart: u32,
+        HighPart: i32,
+    }
+
+    union LARGE_INTEGER {
+        u: LARGE_INTEGER_STRUCT,
+        QuadPart: i64,
+    }
+
+    CreateFileA :: fn #foreign(name: *u8, access: u32, shared: u32, security_attributes: ?*,
+        creation_disposition: u32, flags_and_attribs: u32, template: ?*) -> ?*;
     WriteFile :: fn #foreign(hFile: *, lpBuff: *, nBytesToWrite: u32, lpBytesWritten: *u32, lpOverlapped: ?*) -> bool;
     GetStdHandle :: fn #foreign(Handle: u32) -> ?*;
     ExitProcess :: fn #foreign(ExitCode: u32);
@@ -45,6 +57,9 @@ assert :: fn(cond: bool, reason: string) {
     VirtualAlloc :: fn #foreign(addr: ?*, size: uint, type: u32, protect: u32) -> ?*;
     VirtualFree :: fn #foreign(addr: ?*, size: uint, type: u32) -> bool;
     ReadConsoleA :: fn #foreign(hConsoleInput: *, lpBuffer: *, nNumberOfCharsToRead: u32, lpNumberOfCharsRead: *u32, pInputControl: ?*) -> bool;
+    GetFileSizeEx :: fn #foreign(file: *, out: *LARGE_INTEGER) -> bool;
+    ReadFile :: fn #foreign(file: *, buf: *, bytes_to_read: u32, bytes_read: ?*u32, overlapped: ?*) -> bool;
+    CloseHandle :: fn #foreign(handle: *) -> bool;
 
     abort :: fn() {
         ExitProcess(1);
@@ -67,6 +82,80 @@ assert :: fn(cond: bool, reason: string) {
 	free :: fn(ptr: *) {
         VirtualFree(ptr, 0, MEM_RELEASE);
     }
+
+    GENERIC_READ   :: @u32 0x80000000;
+    GENERIC_WRITE  :: @u32 0x40000000;
+    CREATE_NEW          :: @u32 1;
+    CREATE_ALWAYS       :: @u32 2;
+    OPEN_EXISTING       :: @u32 3;
+    OPEN_ALWAYS         :: @u32 4;
+    TRUNCATE_EXISTING   :: @u32 5;
+    FILE_ATTRIBUTE_READONLY             :: @u32 0x00000001;
+    FILE_ATTRIBUTE_HIDDEN               :: @u32 0x00000002;
+    FILE_ATTRIBUTE_SYSTEM               :: @u32 0x00000004;
+    FILE_ATTRIBUTE_DIRECTORY            :: @u32 0x00000010;
+    FILE_ATTRIBUTE_ARCHIVE              :: @u32 0x00000020;
+    FILE_ATTRIBUTE_DEVICE               :: @u32 0x00000040;
+    FILE_ATTRIBUTE_NORMAL               :: @u32 0x00000080;
+    FILE_ATTRIBUTE_TEMPORARY            :: @u32 0x00000100;
+    FILE_ATTRIBUTE_SPARSE_FILE          :: @u32 0x00000200;
+    FILE_ATTRIBUTE_REPARSE_POINT        :: @u32 0x00000400;
+    FILE_ATTRIBUTE_COMPRESSED           :: @u32 0x00000800;
+    FILE_ATTRIBUTE_OFFLINE              :: @u32 0x00001000;
+    FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  :: @u32 0x00002000;
+    FILE_ATTRIBUTE_ENCRYPTED            :: @u32 0x00004000;
+    FILE_ATTRIBUTE_INTEGRITY_STREAM     :: @u32 0x00008000;
+    FILE_ATTRIBUTE_VIRTUAL              :: @u32 0x00010000;
+    FILE_ATTRIBUTE_NO_SCRUB_DATA        :: @u32 0x00020000;
+    FILE_ATTRIBUTE_EA                   :: @u32 0x00040000;
+    FILE_ATTRIBUTE_PINNED               :: @u32 0x00080000;
+    FILE_ATTRIBUTE_UNPINNED             :: @u32 0x00100000;
+    FILE_ATTRIBUTE_RECALL_ON_OPEN       :: @u32 0x00040000;
+    FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS :: @u32 0x00400000;
+
+	stdin :: fn() -> * {
+        h := GetStdHandle(STD_INPUT_HANDLE);
+        #assert h;
+        return ?h;
+	}
+
+	stdout :: fn() -> * {
+        h := GetStdHandle(STD_OUTPUT_HANDLE);
+        #assert h;
+        return ?h;
+	}
+
+	open :: fn(name: string) -> ?* {
+        h := CreateFileA(name.data, GENERIC_READ | GENERIC_WRITE, 0, null, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, null);
+
+        if h == null || h == INVALID_HANDLE_VALUE return null;
+        return h;
+    }
+
+	write :: fn(file: *, buf: *u8, count: int) -> int {
+        // @TODO: 64 bit file writes
+        written: u32;
+        if !WriteFile(file, buf, @u32 count, &written, null) return 0;
+        return @int written;
+	}
+    
+	read :: fn(file: *, buf: *, size: int) -> int {
+        read: u32;
+        // @TODO: 64 bit file reads
+        if !ReadFile(file, buf, @u32 size, &read, null) return 0;
+        return @int read;
+        
+    }
+
+    close :: fn(handle: *) {
+        CloseHandle(handle);
+    }
+
+	get_file_size :: fn(handle: *) -> int {
+        out: LARGE_INTEGER;
+        if GetFileSizeEx(handle, &out) == false return 0;
+		return @int out.QuadPart;
+	}
 
     struct CONSOLE_READCONSOLE_CONTROL {
         nLength: u32,
@@ -228,8 +317,10 @@ assert :: fn(cond: bool, reason: string) {
 		return @*void fd;
 	}
 
-	write :: fn(fd: *, buf: *u8, count: int) {
-		syscall(SYS_write, fd, buf, count);
+	write :: fn(fd: *, buf: *u8, count: int) -> int {
+        written := syscall(SYS_write, fd, buf, count);
+        if written == -1 return 0;
+        return written;
 	}
 
 	close :: fn(fd: *) {

@@ -13,7 +13,6 @@ main :: fn() -> i32 {
 	x := Eh {};
 	y := &x;
 	using y;
-	using x;
 
 	foo = 10;
 

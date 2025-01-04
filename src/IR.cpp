@@ -1850,12 +1850,12 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
 
 	string OS = STR_LIT("os");
-	const symbol *stdout = GetBuiltInFunction(Builder, OS, STR_LIT("stdout"));
+	const symbol *StdOut = GetBuiltInFunction(Builder, OS, STR_LIT("stdout"));
 	call_info *Call = NewType(call_info);
 	Call = NewType(call_info);
-	Call->Operand = stdout->Register;
+	Call->Operand = StdOut->Register;
 	Call->Args = {};
-	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, stdout->Type, Builder));
+	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, StdOut->Type, Builder));
 
 	const symbol *s = GetBuiltInFunction(Builder, OS, STR_LIT("write"));
 

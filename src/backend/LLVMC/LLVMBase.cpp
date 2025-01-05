@@ -1102,8 +1102,10 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			if(s->Flags & SymbolFlag_Public)
 				Linkage = LLVMExternalLinkage;
 			else
-				Linkage = /*LLVMPrivateLinkage*/ LLVMExternalLinkage;
-			// @NOTE: Currently there are some probems with gneerating generic functions so all symbols will be public
+				Linkage = LLVMPrivateLinkage;
+
+			if(Linkage == LLVMPrivateLinkage && s->Checker->Module->Name != M->Name)
+				continue;
 
 			LLVMValueRef AlreadyIn = AddedFns[*s->LinkName];
 			if(AlreadyIn)

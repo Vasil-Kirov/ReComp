@@ -286,6 +286,5 @@ entry :: fn #link="main"() -> i32 {
     return res;
 }
 
-#private
 type_table: []TypeInfo;
 

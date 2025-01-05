@@ -1,6 +1,4 @@
 os
-#import io
-
 
 assert :: fn(cond: bool, reason: string) {
 	if !cond {

@@ -6,124 +6,6 @@ io
 #import init
 #import str
 
-push_string :: fn(b: *[]u32, to_push: string) {
-    for c in to_push {
-        array.add(b, c);
-    }
-}
-
-format_uint :: fn(b: *[]u32, num_in: uint) {
-    temp := [256]u32{};
-    num := num_in;
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    count := 0;
-    for num > 0 {
-        digit := num % 10;
-        num /= 10;
-        c := '0' + digit;
-        temp[count] = @u32 c;
-        count += 1;
-    }
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
-    }
-}
-
-format_int :: fn(b: *[]u32, num_in: int) {
-    temp := [256]u32{};
-    num := num_in;
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    is_neg := false;
-    if num < 0 {
-        num = 0 - num;
-        is_neg = true;
-    }
-
-    count := 0;
-    for num > 0 {
-        digit := num % 10;
-        num /= 10;
-        c := '0' + @u8 digit;
-        temp[count] = c;
-        count += 1;
-    }
-    
-    if is_neg array.add(b, '-');
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
-    }
-}
-
-format_float :: fn(ft: type, b: *[]u32, num_in: ft, round_at: i32) {
-    temp := [256]u32{};
-    count := 0;
-    num := num_in;
-
-    if ft != f32 && ft != f64 {
-        return;
-    }
-
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    is_neg := false;
-    if num < 0 {
-        num = 0 - num;
-        is_neg = true;
-    }
-
-    num += 0.005;
-    int_val := @i32 num;
-    dec := @i32 (num * round_at) % round_at;
-
-    if dec == 0 {
-        temp[count] = '0';
-        count += 1;
-    }
-    else {
-        for dec > 0 {
-            temp[count] = '0' + @u8(dec % 10);
-            count += 1;
-            dec /= 10;
-        }
-    }
-
-    temp[count] = '.';
-    count += 1;
-
-    if int_val == 0 {
-        temp[count] = '0';
-        count += 1;
-    } else {
-        for int_val > 0 {
-            temp[count] = '0' + @u32 (int_val % 10);
-            count += 1;
-            int_val /= 10;
-        }
-    }
-
-
-    if is_neg {
-        array.add(b, '-');
-    }
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
-    }
-}
-
 print_typetype :: fn(b: *[]u32, info: *init.TypeInfo) {
     match info.kind {
         init.TypeKind.Invalid: {
@@ -315,27 +197,6 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
     };
 }
 
-builder_to_string :: fn(b_in: *[]u32) -> []u8 {
-    b := b_in;
-    alloc := mem.create_generic_allocator();
-    res := array.create(u8, &alloc);
-
-    for i in b.count {
-        ptr := @*u8 (&b.data[i]);
-        ptr = ptr + 3;
-        for *ptr == 0 {
-            ptr = ptr - 1;
-        }
-
-        size := str.get_codepoint_size(ptr);
-        for j in size {
-            array.add(&res, ptr[-j]);
-        }
-    }
-
-    return res;
-}
-
 print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
     t := #info arg.t;
     if c == 's' && t.kind == init.TypeKind.Pointer && t.t.pointer.pointee == u8 {
@@ -359,54 +220,22 @@ print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
     }
 }
 
-#private
-__internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
-    alloc := mem.create_generic_allocator();
-    builder := array.create(u32, &alloc);
-    arg_count := 0;
-    need_to_print_arg := false;
-    for c in fmt {
-        if c == '%' && args.count > arg_count {
-            need_to_print_arg = true;
-        } else {
-            if need_to_print_arg {
-                arg := args[arg_count];
-                arg_count += 1;
-                print_type_with_formatter(&builder, c, arg);
-                need_to_print_arg = false;
-            } else {
-                array.add(&builder, c);
-            }
-        }
-    }
-
-    if need_to_print_arg {
-        arg := args[arg_count];
-        arg_count += 1;
-        print_type_with_formatter(&builder, '\0', arg);
-        need_to_print_arg = false;
-    }
-
-    return builder;
-}
-#public
-
 vsprint :: fn(str: string, args: []init.Arg) -> string {
-    builder := __internal_print(str, args);
+    builder := internal_print(str, args);
     res := builder_to_string(&builder);
     array.free(&builder);
     return string { data = &res[0], count = res.count };
 }
 
 sprint :: fn(str: string, args: ...) -> string {
-    builder := __internal_print(str, args);
+    builder := internal_print(str, args);
     res := builder_to_string(&builder);
     array.free(&builder);
     return string { data = &res[0], count = res.count };
 }
 
 print :: fn(str: string, args: ...) {
-    builder := __internal_print(str, args);
+    builder := internal_print(str, args);
     res := builder_to_string(&builder);
     os.print(&res[0], @u32 res.count);
     array.free(&builder);
@@ -414,7 +243,7 @@ print :: fn(str: string, args: ...) {
 }
 
 println :: fn(str: string, args: ...) {
-    builder := __internal_print(str, args);
+    builder := internal_print(str, args);
     array.add(&builder, '\n');
     res := builder_to_string(&builder);
     os.print(&res[0], @u32 res.count);
@@ -476,17 +305,176 @@ read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 	return string { read, buf };
 }
 
-get_next :: fn(curr: *u8) -> u32 {
-    scan := curr;
-    codepoint := @u32 *scan;
-    for {
-        if (*scan & 0b1000_0000) != 0 {
-            scan = scan + 1;
-            codepoint = ((codepoint << 8) | @u32 *scan);
+// PRIVATE SECTION
+#private
+
+internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
+    alloc := mem.create_generic_allocator();
+    builder := array.create(u32, &alloc);
+    arg_count := 0;
+    need_to_print_arg := false;
+    for c in fmt {
+        if c == '%' && args.count > arg_count {
+            need_to_print_arg = true;
         } else {
-            return codepoint;
+            if need_to_print_arg {
+                arg := args[arg_count];
+                arg_count += 1;
+                print_type_with_formatter(&builder, c, arg);
+                need_to_print_arg = false;
+            } else {
+                array.add(&builder, c);
+            }
         }
     }
-    return codepoint;
+
+    if need_to_print_arg {
+        arg := args[arg_count];
+        arg_count += 1;
+        print_type_with_formatter(&builder, '\0', arg);
+        need_to_print_arg = false;
+    }
+
+    return builder;
 }
+
+push_string :: fn(b: *[]u32, to_push: string) {
+    for c in to_push {
+        array.add(b, c);
+    }
+}
+
+format_uint :: fn(b: *[]u32, num_in: uint) {
+    temp := [256]u32{};
+    num := num_in;
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + digit;
+        temp[count] = @u32 c;
+        count += 1;
+    }
+
+    for i in count {
+        array.add(b, temp[count - i - 1]);
+    }
+}
+
+format_int :: fn(b: *[]u32, num_in: int) {
+    temp := [256]u32{};
+    num := num_in;
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + @u8 digit;
+        temp[count] = c;
+        count += 1;
+    }
+    
+    if is_neg array.add(b, '-');
+
+    for i in count {
+        array.add(b, temp[count - i - 1]);
+    }
+}
+
+format_float :: fn(ft: type, b: *[]u32, num_in: ft, round_at: i32) {
+    temp := [256]u32{};
+    count := 0;
+    num := num_in;
+
+    if ft != f32 && ft != f64 {
+        return;
+    }
+
+    if num == 0 {
+        array.add(b, '0');
+        return;
+    }
+
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    num += 0.005;
+    int_val := @i32 num;
+    dec := @i32 (num * round_at) % round_at;
+
+    if dec == 0 {
+        temp[count] = '0';
+        count += 1;
+    }
+    else {
+        for dec > 0 {
+            temp[count] = '0' + @u8(dec % 10);
+            count += 1;
+            dec /= 10;
+        }
+    }
+
+    temp[count] = '.';
+    count += 1;
+
+    if int_val == 0 {
+        temp[count] = '0';
+        count += 1;
+    } else {
+        for int_val > 0 {
+            temp[count] = '0' + @u32 (int_val % 10);
+            count += 1;
+            int_val /= 10;
+        }
+    }
+
+
+    if is_neg {
+        array.add(b, '-');
+    }
+
+    for i in count {
+        array.add(b, temp[count - i - 1]);
+    }
+}
+
+builder_to_string :: fn(b_in: *[]u32) -> []u8 {
+    b := b_in;
+    alloc := mem.create_generic_allocator();
+    res := array.create(u8, &alloc);
+
+    for i in b.count {
+        ptr := @*u8 (&b.data[i]);
+        ptr = ptr + 3;
+        for *ptr == 0 {
+            ptr = ptr - 1;
+        }
+
+        size := str.get_codepoint_size(ptr);
+        for j in size {
+            array.add(&res, ptr[-j]);
+        }
+    }
+
+    return res;
+}
+
 

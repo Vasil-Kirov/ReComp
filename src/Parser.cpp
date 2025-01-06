@@ -1126,23 +1126,24 @@ precedence GetPrecedence(token_type Op)
 		case T_SRIGHT:
 			return MakePrecedence(60, 61);
 
+		case '&':
+			return MakePrecedence(50, 51);
+
+		case '^':
+			return MakePrecedence(40, 41);
+
+		case '|':
+			return MakePrecedence(30, 31);
+
+
 		case '<':
 		case '>':
 		case T_GEQ:
 		case T_LEQ:
-			return MakePrecedence(50, 51);
+			return MakePrecedence(20, 21);
 
 		case T_EQEQ:
 		case T_NEQ:
-			return MakePrecedence(40, 41);
-
-		case '&':
-			return MakePrecedence(30, 31);
-
-		case '^':
-			return MakePrecedence(20, 21);
-
-		case '|':
 			return MakePrecedence(10, 11);
 
 		case T_LAND:

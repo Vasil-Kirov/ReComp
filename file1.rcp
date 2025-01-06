@@ -10,9 +10,10 @@ struct v4 {
 foo :: fn(a: v4) {}
 
 main :: fn() -> i32 {
-    foo(v4{});
+    x := 0b01;
+    y := x & 0b10 == 0;
 
-	return 0;
+	return @i32 y;
 }
 
 

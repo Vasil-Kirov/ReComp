@@ -1099,7 +1099,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			}
 
 			LLVMLinkage Linkage;
-			if(s->Flags & SymbolFlag_Public)
+			if(s->Flags & SymbolFlag_Public || s->Flags & SymbolFlag_Extern)
 				Linkage = LLVMExternalLinkage;
 			else
 				Linkage = LLVMPrivateLinkage;

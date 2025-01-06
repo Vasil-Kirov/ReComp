@@ -21,7 +21,7 @@ compile :: fn() -> c.CompileInfo {
     ga := mem.create_generic_allocator();
 
     test := arr.create(string, &ga);
-    for i in 6_000_0 {
+    for i in 3_000_000 {
         arr.add(&test, "foo");
     }
 

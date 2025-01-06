@@ -307,6 +307,109 @@ basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
 	unreachable;
 }
 
+void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instructions)
+{
+	For(Instructions)
+	{
+		switch(it->Op)
+		{
+			case OP_ALLOC:
+			{
+				const type *Type = GetType(it->Type);
+				uint Size = GetTypeSize(Type);
+				value Value;
+				Value.Type = GetPointerTo(it->Type);
+				Value.ptr = VM->Stack.Peek().Allocate(Size);
+				VM->Registers.AddValue(it->Result, Value);
+			} break;
+			case OP_LOAD:
+			{
+				const type *T = GetType(it->Type);
+				switch(T->Kind)
+				{
+					case TypeKind_Basic:
+					{
+						if(T->Basic.Kind != Basic_string)
+							break;
+
+						uint Size = sizeof(size_t) * 2;
+						value Value;
+						Value.Type = Basic_string;
+						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						VM->Registers.AddValue(it->Result, Value);
+					} break;
+					case TypeKind_Struct:
+					case TypeKind_Array:
+					{
+						uint Size = GetTypeSize(it->Type);
+						value Value;
+						Value.Type = it->Type;
+						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						VM->Registers.AddValue(it->Result, Value);
+					} break;
+					case TypeKind_Slice:
+					{
+						uint Size = sizeof(size_t) * 2;
+						value Value;
+						Value.Type = it->Type;
+						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						VM->Registers.AddValue(it->Result, Value);
+					} break;
+					default: break;
+				}
+			} break;
+			case OP_ALLOCGLOBAL:
+			{
+				int Size = GetTypeSize(it->Type);
+				value Result;
+				Result.ptr = ArenaAllocate(&VM->Arena, Size * it->BigRegister);
+				Result.Type = GetArrayType(it->Type, it->BigRegister);
+				VM->Registers.AddValue(it->Result, Result);
+			} break;
+			case OP_CONST:
+			{
+				const type *Type = GetType(it->Type);
+				if(IsString(Type))
+				{
+					const_value *Val = (const_value *)it->BigRegister;
+					void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
+
+					*(size_t *)Memory = GetUTF8Count(Val->String.Data);
+
+					void *StringData = InterpreterAllocateString(VM, Val->String.Data);
+					void **MemoryLocation = (void **)Memory + 1;
+					*MemoryLocation = StringData;
+
+					value Value;
+					Value.Type = it->Type;
+					Value.ptr  = Memory;
+					VM->Registers.AddValue(it->Result, Value);
+				}
+				else if(IsCString(Type))
+				{
+					const_value *Val = (const_value *)it->BigRegister;
+
+					value Value;
+					Value.Type = it->Type;
+					Value.ptr  = InterpreterAllocateString(VM, Val->String.Data);;
+
+					VM->Registers.AddValue(it->Result, Value);
+				}
+			} break;
+			default: break;
+		}
+	}
+}
+
+void DoAllocationForBlocks(interpreter *VM, slice<basic_block> Blocks)
+{
+	ForArray(Idx, Blocks)
+	{
+		basic_block& Block = Blocks.Data[Idx];
+		DoAllocationForInstructions(VM, SliceFromArray(Block.Code));
+	}
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
@@ -346,6 +449,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			// fallthrough
 			case OP_CONST:
 			{
+				b32 NoAdd = false;
 				value VMValue = {};
 				VMValue.Type = I.Type;
 				const_value *Val = (const_value *)I.BigRegister;
@@ -415,15 +519,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					}
 					else if(Type->Basic.Flags & BasicFlag_String)
 					{
-						void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
+						NoAdd = true;
+						//@Note: Should be done before running the function
+						//void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
 
-						*(size_t *)Memory = GetUTF8Count(Val->String.Data);
+						//*(size_t *)Memory = GetUTF8Count(Val->String.Data);
 
-						void *StringData = InterpreterAllocateString(VM, Val->String.Data);
-						void **MemoryLocation = (void **)Memory + 1;
-						*MemoryLocation = StringData;
+						//void *StringData = InterpreterAllocateString(VM, Val->String.Data);
+						//void **MemoryLocation = (void **)Memory + 1;
+						//*MemoryLocation = StringData;
 
-						VMValue.ptr = Memory;
+						//VMValue.ptr = Memory;
 					}
 					else if(Type->Basic.Flags & BasicFlag_Boolean)
 					{
@@ -475,7 +581,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							} break;
 							case const_type::String:
 							{
-								VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
+								NoAdd = true;
+								// @Note: Done before execution
+								// VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
 							} break;
 						}
 					}
@@ -484,7 +592,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else
 					Assert(false);
-				VM->Registers.AddValue(I.Result, VMValue);
+
+				if(!NoAdd)
+					VM->Registers.AddValue(I.Result, VMValue);
 			} break;
 			case OP_UNREACHABLE:
 			{
@@ -493,12 +603,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_ALLOC:
 			{
-				const type *Type = GetType(I.Type);
-				uint Size = GetTypeSize(Type);
-				value Value = {};
-				Value.Type = GetPointerTo(I.Type);
-				Value.ptr = VM->Stack.Peek().Allocate(Size);
-				VM->Registers.AddValue(I.Result, Value);
+				// @Note: Done before execution
+				//const type *Type = GetType(I.Type);
+				//uint Size = GetTypeSize(Type);
+				//value Value = {};
+				//Value.Type = GetPointerTo(I.Type);
+				//Value.ptr = VM->Stack.Peek().Allocate(Size);
+				//VM->Registers.AddValue(I.Result, Value);
 			} break;
 			case OP_LOAD:
 			{
@@ -507,6 +618,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							Result.u64 = *(u##size *)Value->ptr; \
 						} break
 
+				b32 NoResult = false;
 				value *Value = VM->Registers.GetValue(I.Right);
 				//Value->Type = I.Type;
 				value Result = {};
@@ -545,9 +657,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 							case Basic_string:
 							{
+								NoResult = true;
+								// @Note: Done before execution
+								//Result.ptr = VM->Stack.Peek().Allocate(Size);
 								uint Size = sizeof(size_t) * 2;
-								Result.ptr = VM->Stack.Peek().Allocate(Size);
-								memcpy(Result.ptr, Value->ptr, Size);
+								value *Result = VM->Registers.GetValue(I.Result);
+								memcpy(Result->ptr, Value->ptr, Size);
 							} break;
 							default: unreachable;
 						}
@@ -559,19 +674,24 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					case TypeKind_Struct:
 					case TypeKind_Array:
 					{
+						NoResult = true;
+						// @Note: Done before execution
 						uint Size = GetTypeSize(Type);
-						Result.ptr = VM->Stack.Peek().Allocate(Size);
-						memcpy(Result.ptr, Value->ptr, Size);
+						value *Result = VM->Registers.GetValue(I.Result);
+						memcpy(Result->ptr, Value->ptr, Size);
 					} break;
 					case TypeKind_Slice:
 					{
+						NoResult = true;
+						// @Note: Done before execution
 						uint Size = sizeof(size_t) * 2;
-						Result.ptr = VM->Stack.Peek().Allocate(Size);
-						memcpy(Result.ptr, Value->ptr, Size);
+						value *Result = VM->Registers.GetValue(I.Result);
+						memcpy(Result->ptr, Value->ptr, Size);
 					} break;
 					default: unreachable;
 				}
-				VM->Registers.AddValue(I.Result, Result);
+				if(!NoResult)
+					VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_TYPEINFO:
 			{
@@ -707,11 +827,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_ALLOCGLOBAL:
 			{
-				int Size = GetTypeSize(I.Type);
-				value Result = {};
-				Result.ptr = ArenaAllocate(&VM->Arena, Size * I.BigRegister);
-				Result.Type = GetArrayType(I.Type, I.BigRegister);
-				VM->Registers.AddValue(I.Result, Result);
+				// @Note: Done before execution
+				//int Size = GetTypeSize(I.Type);
+				//value Result = {};
+				//Result.ptr = ArenaAllocate(&VM->Arena, Size * I.BigRegister);
+				//Result.Type = GetArrayType(I.Type, I.BigRegister);
+				//VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_ARG:
 			{
@@ -822,6 +943,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				Result.Type = Basic_bool;
 				Result.u64 = memcmp(p1->ptr, p2->ptr, count->i64) == 0;
 				VM->Registers.AddValue(I.Result, Result);
+			} break;
+			case OP_MEMSET:
+			{
+				value *p = VM->Registers.GetValue(I.Right);
+				memset(p->ptr, 0, GetTypeSize(I.Type));
 			} break;
 			BIN_BIN_OP(AND, &);
 			BIN_BIN_OP(OR, |);
@@ -978,6 +1104,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	code_chunk Chunk;
 	Chunk.Code = SliceFromArray(Function.Blocks[0].Code);
 	VM->Executing = &Chunk;
+	DoAllocationForBlocks(VM, SliceFromArray(Function.Blocks));
 	Result = Run(VM, SliceFromArray(Function.Blocks), Args);
 
 	if(!NoFree)
@@ -1011,6 +1138,7 @@ void EvaluateEnums(interpreter *VM)
 				code_chunk Chunk = {};
 				Chunk.Code = it->Evaluate;
 				VM->Executing = &Chunk;
+				DoAllocationForInstructions(VM, it->Evaluate);
 				interpret_result Result = Run(VM, {}, {});
 				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 				{

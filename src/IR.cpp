@@ -778,6 +778,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		case AST_TYPELIST:
 		{
 			u32 Alloc = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->TypeList.Type, Builder));
+			PushInstruction(Builder, InstructionMemset(Alloc, Node->TypeList.Type));
 			Result = Alloc;
 			if(Node->TypeList.Items.Count == 0)
 			{

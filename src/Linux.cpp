@@ -112,7 +112,7 @@ void PlatformOutputString(string String, log_level Level)
 	write(out_fd, CLEAR, sizeof(CLEAR)-1);
 }
 
-void PlatformFreeMemory(void *Mem, uint Size)
+void PlatformFreeMemory(void *Mem, size_t Size)
 {
 	munmap(Mem, Size);
 }

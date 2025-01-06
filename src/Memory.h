@@ -36,7 +36,7 @@ void
 InitArenaMem(ap_memory *Memory, u64 Size, u64 ChunkSize);
 
 void *
-ArenaAllocate(ap_memory *Arena, u64 Size);
+ArenaAllocate(ap_memory *Arena, u64 Size, b32 NoZeroOut=false);
 
 void *
 AllocateMemory(u64 Size, i8 Index);
@@ -44,6 +44,8 @@ AllocateMemory(u64 Size, i8 Index);
 void *ToArena(void *, u64 Size, i8 Index);
 
 void FreeAllArenas();
+
+void FreeArena(ap_memory *Arena);
 
 #define AllocatePermanent(SIZE)  AllocateMemory((SIZE), PERM_INDEX)
 #define AllocateString(SIZE) (char *)AllocateMemory((SIZE), STR_INDEX)

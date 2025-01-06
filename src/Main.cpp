@@ -22,6 +22,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "CommandLine.h"
 #include "Dict.h"
 #include "Linearize.h"
+#include "StackAllocator.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -57,6 +58,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "CommandLine.cpp"
 #include "DumpInfo.cpp"
 #include "Linearize.cpp"
+#include "StackAllocator.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -623,12 +625,15 @@ main(int ArgCount, char *Args[])
 
 			// Remake vm to evaluate enums with new info
 
-			VMBuildTimer2 = VLibStartTimer("VM");
-			interpreter EnumVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
-			EvaluateEnums(&EnumVM);
-			if(HasErroredOut())
-				exit(1);
-			VLibStopTimer(&VMBuildTimer2);
+			{
+				VMBuildTimer2 = VLibStartTimer("VM");
+				interpreter EnumVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
+				EvaluateEnums(&EnumVM);
+				if(HasErroredOut())
+					exit(1);
+				EnumVM.StackAllocator.Free();
+				VLibStopTimer(&VMBuildTimer2);
+			}
 
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
@@ -650,10 +655,11 @@ main(int ArgCount, char *Args[])
 #endif
 			VLibStopTimer(&FileTimer.LLVM);
 
+			// @NOTE:
+			// free now because the interpreter doesn't properly handle struct return values
+			// @TODO: fix
+			VM.StackAllocator.Pop();
 			Timers.Push(FileTimer);
-
-			if(Result.ToFreeStackMemory)
-				VFree(Result.ToFreeStackMemory);
 		}
 	}
 	else

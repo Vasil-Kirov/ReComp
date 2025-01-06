@@ -14,32 +14,32 @@ platform_target PTarget = platform_target::Windows;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-braces"
 type BasicTypes[] = {
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
-	//{TypeKind_Basic, {Basic_cstring,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
+	//{TypeKind_Basic, {Basic_cINVALID_TYPE, string,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u32,  BasicFlag_Integer | BasicFlag_Unsigned,          4, STR_LIT("u32")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_u64,  BasicFlag_Integer | BasicFlag_Unsigned,          8, STR_LIT("u64")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_u16,  BasicFlag_Integer | BasicFlag_Unsigned,          2, STR_LIT("u16")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_u32,  BasicFlag_Integer | BasicFlag_Unsigned,          4, STR_LIT("u32")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_u64,  BasicFlag_Integer | BasicFlag_Unsigned,          8, STR_LIT("u64")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i8,   BasicFlag_Integer,                               1, STR_LIT("i8")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i16,  BasicFlag_Integer,                               2, STR_LIT("i16")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i32,  BasicFlag_Integer,                               4, STR_LIT("i32")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_i64,  BasicFlag_Integer,                               8, STR_LIT("i64")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_i8,   BasicFlag_Integer,                               1, STR_LIT("i8")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_i16,  BasicFlag_Integer,                               2, STR_LIT("i16")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_i32,  BasicFlag_Integer,                               4, STR_LIT("i32")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_i64,  BasicFlag_Integer,                               8, STR_LIT("i64")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_f32,  BasicFlag_Float,                                 4, STR_LIT("f32")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_f64,  BasicFlag_Float,                                 8, STR_LIT("f64")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_f32,  BasicFlag_Float,                                 4, STR_LIT("f32")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_f64,  BasicFlag_Float,                                 8, STR_LIT("f64")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_UntypedInteger, BasicFlag_Integer | BasicFlag_Untyped, 0, STR_LIT("untyped integer")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_UntypedFloat,   BasicFlag_Float   | BasicFlag_Untyped, 0, STR_LIT("untyped float")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_UntypedInteger, BasicFlag_Integer | BasicFlag_Untyped, 0, STR_LIT("untyped integer")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_UntypedFloat,   BasicFlag_Float   | BasicFlag_Untyped, 0, STR_LIT("untyped float")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_int,   BasicFlag_Integer,                             -1, STR_LIT("int")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_uint,  BasicFlag_Integer | BasicFlag_Unsigned,        -1, STR_LIT("uint")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_type,  BasicFlag_TypeID,                              -1, STR_LIT("type")}},
 
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
-	{NOT_DEFINED, NOT_DEFINED, TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
 };
 
 //#pragma clang diagnostic pop
@@ -249,12 +249,13 @@ u32 AddTypeWithName(type *Type, string Name)
 	Assert(TypeCount < MAX_TYPES);
 	u32 Result = TypeCount - 1;
 
-	Type->Size = -1;
-	Type->Alignment = -1;
+	Type->CachedSize = -1;
+	Type->CachedAlignment = -1;
+	Type->CachedAsPointer = INVALID_TYPE;
 	if(Type->Kind != TypeKind_Generic)
 	{
-		Type->Size = GetTypeSize(Type);
-		Type->Alignment = GetTypeAlignment(Type);
+		Type->CachedSize = GetTypeSize(Type);
+		Type->CachedAlignment = GetTypeAlignment(Type);
 	}
 	//if(Type->Kind == TypeKind_Struct)
 	//{
@@ -277,8 +278,9 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 {
 	TypeMutex.lock();
 	Assert(TypeTable[TypeIdx]->Kind == TypeKind_Struct);
-	T.Size = -1;
-	T.Alignment = -1;
+	T.CachedSize = -1;
+	T.CachedAlignment = -1;
+	T.CachedAsPointer = INVALID_TYPE;
 	//T.Size = GetTypeSize(&T);
 	//T.Alignment = GetTypeAlignment(&T);
 	*TypeTable[TypeIdx] = T;
@@ -287,8 +289,8 @@ void FillOpaqueStruct(u32 TypeIdx, type T)
 
 void SetStructCache(u32 TypeIdx)
 {
-	TypeTable[TypeIdx]->Size = GetTypeSize(TypeTable[TypeIdx]);
-	TypeTable[TypeIdx]->Alignment = GetTypeAlignment(TypeTable[TypeIdx]);
+	TypeTable[TypeIdx]->CachedSize = GetTypeSize(TypeTable[TypeIdx]);
+	TypeTable[TypeIdx]->CachedAlignment = GetTypeAlignment(TypeTable[TypeIdx]);
 }
 
 int GetRegisterTypeSize()
@@ -397,11 +399,11 @@ int GetStructMemberOffset(u32 TypeIdx, uint Member)
 // In bytes
 int GetTypeSize(const type *Type)
 {
+	if(Type->CachedSize != -1)
+		return Type->CachedSize;
+
 	if(Type->Kind == TypeKind_Enum)
 		return GetTypeSize(Type->Enum.Type);
-
-	if(Type->Size != -1)
-		return Type->Size;
 
 	switch(Type->Kind)
 	{
@@ -440,8 +442,8 @@ int GetTypeAlignment(const type *Type)
 {
 	if(Type->Kind == TypeKind_Enum)
 		return GetTypeAlignment(Type->Enum.Type);
-	if(Type->Alignment != -1)
-		return Type->Alignment;
+	if(Type->CachedAlignment != -1)
+		return Type->CachedAlignment;
 
 	switch(Type->Kind)
 	{
@@ -1112,10 +1114,17 @@ const char *GetTypeName(const type *Type)
 
 u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 {
-	scratch_arena Scratch = {};
-
 	if(TypeIdx != INVALID_TYPE)
 	{
+		if(Flags == 0)
+		{
+			const type *T = GetType(TypeIdx);
+			if(T->CachedAsPointer != INVALID_TYPE)
+				return T->CachedAsPointer;
+		}
+
+		scratch_arena Scratch = {};
+
 		string_builder Builder = MakeBuilder();
 		string BaseType = GetTypeNameAsString(TypeIdx);
 		if(Flags & PointerFlag_Optional)
@@ -1125,10 +1134,18 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 		string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 
 		TypeMutex.lock();
-		u32 T = TypeMap[Lookup];
+		u32 TLookUp = TypeMap[Lookup];
+		if(TLookUp != INVALID_TYPE)
+		{
+			if(Flags == 0)
+			{
+				type *T = TypeTable[TypeIdx];
+				T->CachedAsPointer = TLookUp;
+			}
+			TypeMutex.unlock();
+			return TLookUp;
+		}
 		TypeMutex.unlock();
-		if(T != INVALID_TYPE)
-			return T;
 	}
 	else
 	{
@@ -1147,7 +1164,19 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 	type *New = AllocType(TypeKind_Pointer);
 	New->Pointer.Pointed = TypeIdx;
 	New->Pointer.Flags = Flags;
-	return AddType(New);
+	u32 Result = AddType(New);
+
+	if(TypeIdx != INVALID_TYPE && Flags == 0)
+	{
+		TypeMutex.lock();
+
+		type *T = TypeTable[TypeIdx];
+		T->CachedAsPointer = Result;
+
+		TypeMutex.unlock();
+	}
+
+	return Result;
 }
 
 u32 GetSliceType(u32 Type)
@@ -1660,6 +1689,9 @@ void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Origi
 	T.Enum.Name = Name;
 	T.Enum.Members = Members;
 	T.Enum.Type = Type;
+	T.CachedAsPointer	= INVALID_TYPE;
+	T.CachedAlignment	= -1;
+	T.CachedSize		= -1;
 
 	*TypeTable[Original] = T;
 	TypeMutex.unlock();

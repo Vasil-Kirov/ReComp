@@ -55,7 +55,7 @@ void *ToArena(void *Data, u64 Size, i8 Index)
 }
 
 void *
-ArenaAllocate(ap_memory *Arena, u64 Size)
+ArenaAllocate(ap_memory *Arena, u64 Size, b32 NoZeroOut)
 {
 	void *Result = Arena->Current;
 	Arena->Current = (char *)Arena->Current + Size;
@@ -73,7 +73,8 @@ ArenaAllocate(ap_memory *Arena, u64 Size)
 		Arena->End = (u8 *)Arena->End + Arena->ChunkSize;
 	}
 
-	memset(Result, 0, Size);
+	if(!NoZeroOut)
+		memset(Result, 0, Size);
 	return Result;
 }
 
@@ -105,12 +106,22 @@ void *scratch_arena::Allocate(u64 Size)
 	return ArenaAllocate(&Arena, Size);
 }
 
+void FreeArena(ap_memory *Arena)
+{
+	size_t Size = (u8 *)Arena->End - (u8 *)Arena->Start;
+	PlatformFreeMemory(Arena->Start, Size);
+	Arena->Start = NULL;
+	Arena->End = NULL;
+	Arena->Current = NULL;
+	Arena->MaxSize = 0;
+	Arena->Name = NULL;
+}
+
 void FreeAllArenas()
 {
 	for(int i = 0; i < ARR_LEN(MemoryAllocators); ++i)
 	{
-		size_t Size = (u8 *)MemoryAllocators[i].End - (u8 *)MemoryAllocators[i].Start;
-		PlatformFreeMemory(MemoryAllocators[i].Start, Size);
+		FreeArena(&MemoryAllocators[i]);
 	}
 }
 

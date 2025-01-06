@@ -178,8 +178,9 @@ struct enum_type
 
 struct type
 {
-	uint Size;
-	uint Alignment;
+	uint CachedSize;
+	uint CachedAlignment;
+	u32 CachedAsPointer;
 	type_kind Kind;
 	union
 	{

@@ -16,15 +16,17 @@ bool InterpreterTrace = false;
 
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
-	void *Memory = ArenaAllocate(&VM->Arena, String->Size + 1);
+	void *Memory = ArenaAllocate(&VM->Arena, String->Size + 1, true);
 	memcpy(Memory, String->Data, String->Size);
+	((u8 *)Memory)[String->Size] = 0;
 	return Memory;
 }
 
 void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 {
-	for(int i = 0; i < VM->Registers.LastRegister; ++i)
-		NewScope.AddValue(i, VM->Registers.Registers[i]);
+	memcpy(NewScope.Registers, VM->Registers.Registers, VM->Registers.LastRegister * sizeof(value));
+	NewScope.LastAdded = VM->Registers.LastAdded;
+	NewScope.LastRegister = VM->Registers.LastRegister;
 }
 
 u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
@@ -682,8 +684,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					code_chunk *Executing = VM->Executing;
 					interpreter_scope CurrentScope = VM->Registers;
 					interpreter_scope NewScope = {};
-					NewScope.Init(mmax(CurrentScope.MaxRegisters, F->LastRegister));
+
+					uint Max = mmax(CurrentScope.MaxRegisters, F->LastRegister);
+					NewScope.Init(Max, VM->StackAllocator.Push(Max * sizeof(value)));
 					CopyRegisters(VM, NewScope);
+
 					VM->Registers = NewScope;
 
 					interpret_result Result = InterpretFunction(VM, *F, SliceFromArray(Args));
@@ -693,14 +698,9 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 					VM->Registers.AddValue(I.Result, Result.Result);
 
-					// @LEAK
-					VFree(Result.ToFreeStackMemory);
-					// Result.Registers LEAK
-					// @LEAK
-					VM->Stack.Pop();
-
 					Args.Free();
-					NewScope.Free();
+					VM->StackAllocator.Pop();
+					//NewScope.Free();
 					if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 						return Result;
 				}
@@ -709,7 +709,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			{
 				int Size = GetTypeSize(I.Type);
 				value Result = {};
-				Result.ptr = VAlloc(Size * I.BigRegister);
+				Result.ptr = ArenaAllocate(&VM->Arena, Size * I.BigRegister);
 				Result.Type = GetArrayType(I.Type, I.BigRegister);
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
@@ -868,8 +868,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 	}
 
 	interpreter VM = {};
-	VM.Registers.Init(MaxRegisters);
 	InitArenaMem(&VM.Arena, GB(64), MB(1));
+	VM.Registers.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
 
 	ForArray(MIdx, Modules)
 	{
@@ -955,7 +955,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree)
 {
 	binary_stack Stack = {};
-	Stack.Memory = VAlloc(MB(1));
+	Stack.Memory = VM->StackAllocator.Push(MB(1));
 
 	string SaveCurrentFn = VM->CurrentFnName;
 
@@ -980,13 +980,10 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	VM->Executing = &Chunk;
 	Result = Run(VM, SliceFromArray(Function.Blocks), Args);
 
-	if(NoFree)
+	if(!NoFree)
 	{
-		Result.ToFreeStackMemory = Stack.Memory;
-	}
-	else
-	{
-		VFree(Stack.Memory);
+		VM->StackAllocator.Pop();
+		VM->Stack.Pop();
 	}
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
@@ -1000,7 +997,7 @@ void EvaluateEnums(interpreter *VM)
 	uint TC = GetTypeCount();
 
 	binary_stack Stack = {};
-	Stack.Memory = ArenaAllocate(&VM->Arena, MB(1));
+	Stack.Memory = VM->StackAllocator.Push(MB(1));
 
 	VM->Stack.Push(Stack);
 
@@ -1032,6 +1029,7 @@ void EvaluateEnums(interpreter *VM)
 		}
 	}
 
+	VM->StackAllocator.Pop();
 	VM->Stack.Pop();
 }
 

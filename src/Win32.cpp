@@ -135,7 +135,7 @@ void PlatformOutputString(string String, log_level Level)
 	SetConsoleTextAttribute(STDOUT, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 }
 
-void PlatformFreeMemory(void *Mem, uint)
+void PlatformFreeMemory(void *Mem, size_t)
 {
 	VirtualFree(Mem, 0, MEM_RELEASE);
 }

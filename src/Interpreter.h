@@ -3,6 +3,7 @@
 #include <Stack.h>
 #include "DynamicLib.h"
 #include "Memory.h"
+#include "StackAllocator.h"
 
 #define mmax(a, b) (a > b) ? a : b
 
@@ -47,7 +48,6 @@ struct interpret_result
 {
 	interpret_result_kind Kind;
 	value Result;
-	void *ToFreeStackMemory; // This needs to be freed by the caller after they're done using everything
 };
 
 struct code_chunk
@@ -71,27 +71,34 @@ struct interpreter_scope
 	{
 		return &Registers[Register];
 	}
-	void Init(uint MaxRegisterCount)
+	void Init(uint MaxRegisterCount, void *Mem)
 	{
 		MaxRegisters = MaxRegisterCount;
 		LastRegister = 0;
-		Registers = (value *)VAlloc(MaxRegisterCount * sizeof(value));
+		Registers = (value *)Mem;//(value *)VAlloc(MaxRegisterCount * sizeof(value));
 	}
-	void Free()
-	{
-		LastRegister = 0;
-		VFree(Registers);
-	}
+	//void Free()
+	//{
+	//	LastRegister = 0;
+	//	VFree(Registers);
+	//}
 };
 
 struct binary_stack
 {
 	void *Memory;
 	uint Used;
+
 	void *Allocate(uint Size)
 	{
 		void *Result = ((u8 *)Memory)+Used;
 		Used += Size;
+		if(Used >= MB(1))
+		{
+			LogCompilerError("Error: Interpreter stack ran out of memory");
+			abort();
+		}
+
 		return Result;
 	}
 };
@@ -101,6 +108,7 @@ struct interpreter
 	code_chunk *Executing;
 	interpreter_scope Registers;
 	ap_memory Arena;
+	stack_alloc StackAllocator;
 	stack<binary_stack> Stack;
 	slice<function> Imported;
 	string CurrentFnName;

@@ -399,13 +399,14 @@ LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
 				M.Name.Data, M.Name.Size, M.Value.Int.Signed, !M.Value.Int.IsSigned);
 	}
 
+
 	LLVMMetadataRef Made = LLVMDIBuilderCreateEnumerationType(
 			gen->dbg, gen->f_dbg,
 			T->Enum.Name.Data, T->Enum.Name.Size,
 			gen->f_dbg, 0,
 			Size, Align,
 			Elements, T->Enum.Members.Count,
-			NULL);
+			ToDebugTypeLLVM(gen, T->Enum.Type));
 	LLVMDebugMapType(gen, TypeID, Made);
 	return Made;
 }

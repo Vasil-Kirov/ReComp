@@ -1,24 +1,17 @@
 main
 
-struct Foo {
-    t: type,
-    y: t,
-}
-
 struct Bar {
-    foo: Foo,
-}
-
-x :: fn(v: Foo) -> i32 {
-    return v.y;
+    foo: struct {
+        x: i32,
+        y: f64,
+    },
 }
 
 main :: fn() -> i32 {
-
-    // @TODO: fix
-    foo := Bar { foo = Foo { i32, 4 } };
-
-	return x(foo.foo);
+    x := Bar {};
+    x.foo.x = 10;
+    x.foo.y = 13.54;
+	return x.foo.x + @i32 x.foo.y;
 }
 
 

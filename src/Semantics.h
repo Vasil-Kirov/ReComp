@@ -73,5 +73,6 @@ b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
 string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
+void AnalyzeStructDeclaration(checker *Checker, node *Node);
 
 

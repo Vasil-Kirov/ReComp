@@ -492,11 +492,137 @@ node *ParseArrayType(parser *Parser)
 	return MakeArrayType(ID->ErrorInfo, ID, Expression);
 }
 
+slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
+{
+	b32 SaveILists = Parser->NoItemLists;
+	Parser->NoItemLists = true;
+
+	dynamic<node *>Nodes{};
+	while(true)
+	{
+		node *Node = Fn(Parser);
+		if(Node)
+			Nodes.Push(Node);
+		if(Deliminator == 0)
+		{
+			if(Node == NULL)
+				break;
+		}
+		else
+		{
+			if(PeekToken(Parser).Type != Deliminator)
+				break;
+			GetToken(Parser);
+		}
+	}
+	Parser->NoItemLists = SaveILists;
+	return SliceFromArray(Nodes);
+}
+
+slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
+{
+	return Delimited(Parser, (token_type)Deliminator, Fn);
+}
+
+
 string MakeLambdaName(error_info *Info)
 {
 	string_builder Builder = MakeBuilder();
 	PushBuilderFormated(&Builder, "__lambda_%s%d", Info->FileName, Info->Line);
 	return MakeString(Builder);
+}
+
+node *ParseEnum(parser *Parser)
+{
+	ERROR_INFO;
+	GetToken(Parser);
+	token NameT = GetToken(Parser);
+	string *EnumName = NameT.ID;
+	if(NameT.Type != T_ID)
+	{
+		RaiseError(false, *ErrorInfo, "Expected enum name after `enum` keyword");
+		EnumName = &ErrorID;
+	}
+	node *TypeNode = NULL;
+	if(Parser->Current->Type == T_DECL)
+	{
+		EatToken(Parser, T_DECL, true);
+		TypeNode = ParseType(Parser);
+	}
+
+	EatToken(Parser, T_STARTSCOPE, true);
+	auto ParseEnumMembers = [](parser *Parser) -> node* {
+		if(Parser->Current->Type == T_ENDSCOPE)
+			return NULL;
+
+		ERROR_INFO;
+		token Name = EatToken(Parser, T_ID, true);
+		node *Expression = NULL;
+		if(Parser->Current->Type == T_EQ)
+		{
+			EatToken(Parser, T_EQ, true);
+			Expression = ParseExpression(Parser);
+		}
+		return MakeListItem(ErrorInfo, Name.ID, Expression);
+	};
+
+	slice<node *> Items = Delimited(Parser, ',', ParseEnumMembers);
+	EatToken(Parser, T_ENDSCOPE, true);
+
+	string *Name = StructToModuleNamePtr(*EnumName, Parser->ModuleName);
+
+	return MakeEnum(ErrorInfo, Name, Items, TypeNode);
+}
+
+string *MakeAnonStructName(const error_info *e)
+{
+	string_builder b = MakeBuilder();
+	PushBuilderFormated(&b, "__annon.%s.%d.%d", e->FileName, e->Line, e->Character);
+	string Result = MakeString(b);
+	return DupeType(Result, string);
+}
+
+node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
+{
+	ERROR_INFO;
+	GetToken(Parser);
+	string *StructName = NULL;
+	if(!IsAnon)
+	{
+		token NameT = GetToken(Parser);
+		StructName = NameT.ID;
+		if(NameT.Type != T_ID)
+		{
+			RaiseError(false, *ErrorInfo, "Expected struct name after `%s` keyword", IsUnion ? "union" : "struct");
+			StructName = &ErrorID;
+		}
+	}
+	else
+	{
+		StructName = MakeAnonStructName(ErrorInfo);
+	}
+
+	EatToken(Parser, T_STARTSCOPE, true);
+
+	auto ParseFn = [](parser *P) -> node* {
+		if(P->Current->Type == T_ENDSCOPE)
+			return NULL;
+		error_info *ErrorInfo = &P->Tokens[P->TokenIndex].ErrorInfo;
+
+		token ID = EatToken(P, T_ID, false);
+		string *MemberName = ID.ID;
+		if(ID.Type != T_ID)
+			MemberName = &ErrorID;
+		EatToken(P, T_DECL, false);
+		node *Type = ParseType(P);
+
+		return MakeVar(ErrorInfo, MemberName, Type);
+	};
+	auto Name = StructToModuleNamePtr(*StructName, Parser->ModuleName);
+
+	slice<node *> Members = Delimited(Parser, ',', ParseFn);
+	EatToken(Parser, T_ENDSCOPE, true);
+	return MakeStructDecl(ErrorInfo, Name, Members, IsUnion);
 }
 
 node *ParseType(parser *Parser, b32 ShouldError)
@@ -572,6 +698,14 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				Name = &ErrorID;
 			Result = MakeGeneric(ErrorInfo, ID.ID);
 		} break;
+		case T_UNION:
+		{
+			Result = ParseStruct(Parser, true, true);
+		} break;
+		case T_STRUCT:
+		{
+			Result = ParseStruct(Parser, false, true);
+		} break;
 		case T_VOID:
 		{
 			GetToken(Parser);
@@ -601,38 +735,6 @@ node *ParseFunctionArgument(parser *Parser)
 	else
 		Type   = ParseType(Parser);
 	return MakeVar(ErrorInfo, ID.ID, Type);
-}
-
-slice<node *> Delimited(parser *Parser, token_type Deliminator, node *(*Fn)(parser *))
-{
-	b32 SaveILists = Parser->NoItemLists;
-	Parser->NoItemLists = true;
-
-	dynamic<node *>Nodes{};
-	while(true)
-	{
-		node *Node = Fn(Parser);
-		if(Node)
-			Nodes.Push(Node);
-		if(Deliminator == 0)
-		{
-			if(Node == NULL)
-				break;
-		}
-		else
-		{
-			if(PeekToken(Parser).Type != Deliminator)
-				break;
-			GetToken(Parser);
-		}
-	}
-	Parser->NoItemLists = SaveILists;
-	return SliceFromArray(Nodes);
-}
-
-slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
-{
-	return Delimited(Parser, (token_type)Deliminator, Fn);
 }
 
 node *ParseFunctionType(parser *Parser)
@@ -1608,77 +1710,13 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_ENUM:
 		{
-			ERROR_INFO;
-			GetToken(Parser);
-			token NameT = GetToken(Parser);
-			string *EnumName = NameT.ID;
-			if(NameT.Type != T_ID)
-			{
-				RaiseError(false, *ErrorInfo, "Expected enum name after `enum` keyword");
-				EnumName = &ErrorID;
-			}
-			node *TypeNode = NULL;
-			if(Parser->Current->Type == T_DECL)
-			{
-				EatToken(Parser, T_DECL, true);
-				TypeNode = ParseType(Parser);
-			}
-
-			EatToken(Parser, T_STARTSCOPE, true);
-			auto ParseEnumMembers = [](parser *Parser) -> node* {
-				if(Parser->Current->Type == T_ENDSCOPE)
-					return NULL;
-
-				ERROR_INFO;
-				token Name = EatToken(Parser, T_ID, true);
-				node *Expression = NULL;
-				if(Parser->Current->Type == T_EQ)
-				{
-					EatToken(Parser, T_EQ, true);
-					Expression = ParseExpression(Parser);
-				}
-				return MakeListItem(ErrorInfo, Name.ID, Expression);
-			};
-			
-			slice<node *> Items = Delimited(Parser, ',', ParseEnumMembers);
-			EatToken(Parser, T_ENDSCOPE, true);
-
-			string *Name = StructToModuleNamePtr(*EnumName, Parser->ModuleName);
-
-			Result = MakeEnum(ErrorInfo, Name, Items, TypeNode);
+			Result = ParseEnum(Parser);
 		} break;
 		case T_UNION:
 		IsStructUnion = true;
 		case T_STRUCT:
 		{
-			ERROR_INFO;
-			GetToken(Parser);
-			token NameT = GetToken(Parser);
-			string *StructName = NameT.ID;
-			if(NameT.Type != T_ID)
-			{
-				RaiseError(false, *ErrorInfo, "Expected struct name after `%s` keyword", IsStructUnion ? "union" : "struct");
-				StructName = &ErrorID;
-			}
-			EatToken(Parser, T_STARTSCOPE, true);
-
-			auto ParseFn = [](parser *P) -> node* {
-				if(P->Current->Type == T_ENDSCOPE)
-					return NULL;
-				error_info *ErrorInfo = &P->Tokens[P->TokenIndex].ErrorInfo;
-
-				token ID = EatToken(P, T_ID, false);
-				string *MemberName = ID.ID;
-				if(ID.Type != T_ID)
-					MemberName = &ErrorID;
-				EatToken(P, T_DECL, false);
-				node *Type = ParseType(P);
-				
-				return MakeVar(ErrorInfo, MemberName, Type);
-			};
-			auto Name = StructToModuleNamePtr(*StructName, Parser->ModuleName);
-			Result = MakeStructDecl(ErrorInfo, Name, Delimited(Parser, ',', ParseFn), IsStructUnion);
-			EatToken(Parser, T_ENDSCOPE, true);
+			Result = ParseStruct(Parser, IsStructUnion, false);
 		} break;
 		case T_CLOSEPAREN:
 		{

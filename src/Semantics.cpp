@@ -325,6 +325,15 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			TypeNode->TypeOf.Type = T;
 			return T;
 		} break;
+		case AST_STRUCTDECL:
+		{
+			// @TODO: Cleanup
+			type *New = AllocType(TypeKind_Struct);
+			New->Struct.Name = *TypeNode->StructDecl.Name;
+			u32 Result = AddType(New);
+			AnalyzeStructDeclaration(Checker, TypeNode);
+			return Result;
+		} break;
 		default:
 		{
 			RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");

@@ -1,19 +1,22 @@
 main
 
 struct v4 {
+    t: type,
     x: f32,
-    y: f32,
+    y: t,
     z: f32,
     w: f32,
 }
 
-foo :: fn(a: v4) {}
+x :: fn(v: v4) -> i32 {
+    return v.y;
+}
 
 main :: fn() -> i32 {
-    x := 0b01;
-    y := x & 0b10 == 0;
 
-	return @i32 y;
+    foo := v4 { t = i32, y = 10 };
+
+	return x(foo);
 }
 
 

@@ -149,7 +149,8 @@ inline const type *GetType(u32 TypeIdx)
 	}
 
 	const type *Type = TypeTable[TypeIdx];
-	if(Type->Kind == TypeKind_Generic)
+	if(Type->Kind == TypeKind_Generic ||
+			(Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic))
 	{
 		if(GenericReplacement.TypeID != INVALID_TYPE)
 		{
@@ -811,7 +812,34 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 			if(!IsAssignment)
 				return false;
 
-			return Left->Struct.Name == Right->Struct.Name;
+			string LeftName = Left->Struct.Name;
+			string RightName = Right->Struct.Name;
+			if(Left->Struct.Flags & StructFlag_Generic)
+			{
+				if(Right->Struct.Flags & StructFlag_Generic)
+				{}
+				else
+				{
+					split Split = SplitAt(RightName, '<');
+					if(Split.first.Data == NULL)
+						return false;
+					RightName = Split.first;
+				}
+			}
+			if(Right->Struct.Flags & StructFlag_Generic)
+			{
+				if(Left->Struct.Flags & StructFlag_Generic)
+				{}
+				else
+				{
+					split Split = SplitAt(LeftName, '<');
+					if(Split.first.Data == NULL)
+						return false;
+					LeftName = Split.first;
+				}
+			}
+
+			return LeftName == RightName;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1380,7 +1408,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 		} break;
 		case TypeKind_Struct:
 		{
-			Result = ArgResolve;
+			Result = Resolve;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1742,12 +1770,36 @@ b32 IsForeign(const type *T)
 	return (T->Function.Flags & SymbolFlag_Foreign) != 0;
 }
 
+string GetGenericResolvedStructName(const type *T)
+{
+	Assert(T->Kind == TypeKind_Struct);
+	string_builder b = MakeBuilder();
+	b += T->Struct.Name;
+	b += '<';
+
+	bool First = true;
+	For(T->Struct.Members)
+	{
+		if(First)
+			First = false;
+		else
+			b += '.';
+		b += GetTypeNameAsString(it->Type);
+	}
+
+	b += '>';
+
+	return MakeString(b);
+}
+
 u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags)
 {
 	type *T = AllocType(TypeKind_Struct);
 	T->Struct.Members = Members;
 	T->Struct.Name    = Name;
 	T->Struct.Flags   = Flags;
+
+	T->Struct.Name = GetGenericResolvedStructName(T);
 
 	return AddType(T);
 }

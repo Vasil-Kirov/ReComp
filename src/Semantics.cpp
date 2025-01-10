@@ -2287,6 +2287,7 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 			{
 				RaiseError(true, *Node->ErrorInfo, "Structs cannot have more than 1 generic type");
 			}
+			New.Struct.Flags |= StructFlag_Generic;
 		}
 
 		Node->StructDecl.Members[Idx]->Var.Type = Type;
@@ -2777,7 +2778,10 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 		{
 			node *Node = Nodes[I];
 			u32 TypeIdx = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
-			SetStructCache(TypeIdx);
+			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
+			{
+				SetStructCache(TypeIdx);
+			}
 		}
 	}
 }
@@ -2981,7 +2985,11 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 					}
 					else
 					{
-						ResolvedName = G->Generic.Name;
+						if(G->Kind == TypeKind_Generic)
+							ResolvedName = G->Generic.Name;
+						else
+							ResolvedName = GetTypeNameAsString(G);
+
 						ResolvedType = Expr->Call.ArgTypes[i];
 						const type *CallArgT = GetType(Expr->Call.ArgTypes[i]);
 						if(IsUntyped(CallArgT))

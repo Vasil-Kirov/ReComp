@@ -1188,7 +1188,7 @@ node *ParseUnary(parser *Parser)
 	Parser->NoItemLists = SaveILists;
 	if(!Operand)
 	{
-		RaiseError(true, Token.ErrorInfo, "Expected operand in expression");
+		RaiseError(true, Token.ErrorInfo, "Expected operand in expression, got %s", GetTokenName(Parser->Current->Type));
 	}
 	node *Atom = ParseAtom(Parser, Operand);
 	return Atom;

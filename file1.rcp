@@ -13,16 +13,6 @@ union Foo {
     z: i8,
 }
 
-struct Bar {
-    f: custom_t,
-    foo: union {
-        x: i32,
-        y: f64,
-        arr: []i32,
-    },
-    x: i32,
-}
-
 custom_t :: [4]u8;
 
 main :: fn() -> i32 {

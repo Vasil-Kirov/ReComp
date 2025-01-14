@@ -1709,6 +1709,37 @@ b32 IsStructAllFloats(const type *T)
 	return AllFloats;
 }
 
+b32 VerifyStructMemberNoRecursion(u32 OgType, const type *T, int *FailedIdx)
+{
+	Assert(T->Kind == TypeKind_Struct);
+	ForArray(Idx, T->Struct.Members)
+	{
+		auto it = T->Struct.Members[Idx];
+		if(it.Type == OgType)
+		{
+			*FailedIdx = Idx;
+			return false;
+		}
+
+		const type *MemT = GetType(it.Type);
+		if(MemT->Kind == TypeKind_Struct)
+			if (!VerifyStructMemberNoRecursion(OgType, MemT, FailedIdx))
+			{
+				*FailedIdx = Idx;
+				return false;
+			}
+	}
+	return true;
+}
+
+b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx)
+{
+	const type *T = GetType(TIdx);
+	Assert(T->Kind == TypeKind_Struct);
+
+	return VerifyStructMemberNoRecursion(TIdx, T, FailedIdx);
+}
+
 void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original)
 {
 	TypeMutex.lock();

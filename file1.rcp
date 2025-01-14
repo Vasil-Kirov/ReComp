@@ -3,6 +3,15 @@ main
 #import array as arr
 #import mem
 
+struct A {
+    c: int,
+    f: B,
+}
+
+struct B {
+    f: A,
+}
+
 union Foo {
     x: int,
     y: f32,

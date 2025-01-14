@@ -267,6 +267,7 @@ u32 UntypedGetType(const type *T);
 u32 ReturnsToType(slice<u32> Returns);
 void SetStructCache(u32 TypeIdx);
 void WriteFunctionReturnType(string_builder *b, slice<u32> Returns);
+b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx);
 
 uint GetPaddingForAlignment(uint Size, uint Align);
 

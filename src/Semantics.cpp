@@ -2793,6 +2793,31 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 			}
 		}
 	}
+
+}
+
+void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes)
+{
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_STRUCTDECL)
+		{
+			node *Node = Nodes[I];
+			u32 TypeIdx = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
+			{
+				int Failed = -1;
+				if(!VerifyNoStructRecursion(TypeIdx, &Failed))
+				{
+					node *Member = Node->StructDecl.Members[Failed];
+					string Name = GetTypeNameAsString(TypeIdx);
+					RaiseError(false, *Member->ErrorInfo, "Member %s of struct %s recursively uses the struct's type, you can try to replace it with a pointer %s: *%s",
+							Member->Var.Name->Data, Name.Data, Member->Var.Name->Data, GetTypeName(Member->Var.Type));
+				}
+			}
+		}
+	}
+
 }
 
 string MakeNonGenericName(string GenericName)

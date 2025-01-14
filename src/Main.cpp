@@ -114,6 +114,15 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
+		CheckForRecursiveStructs(File->Checker, SliceFromArray(File->Nodes));
+	}
+
+	if(HasErroredOut())
+		exit(1);
+
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
 		AnalyzeFillStructCaches(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)

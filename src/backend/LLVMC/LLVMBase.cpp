@@ -103,7 +103,7 @@ dynamic<t> RCCopyTypeMap(dynamic<t> Map)
 {
 	dynamic<t> Result = {};
 	For(Map) {
-		t Add = t { it->TypeID, it->Ref };
+		t Add = *it;//t { it->TypeID, it->Ref };
 		Result.Push(Add);
 	}
 	return Result;
@@ -930,14 +930,41 @@ void RCGenerateComplexTypes(generator *gen)
 			LLVMDebugDefineEnum(gen, T, Index);
 		}
 	}
+
+	dynamic<u32> ResolveFailed = {};
 	for(uint Index = 0; Index < TypeCount; ++Index)
 	{
 		const type *T = GetType(Index);
 		if(T->Kind == TypeKind_Struct && (T->Struct.Flags & StructFlag_Generic) == 0)
 		{
 			LLVMDefineStructType(gen, Index);
-			LLMVDebugDefineStruct(gen, Index);
+			LLVMMetadataRef Got = LLMVDebugDefineStruct(gen, Index);
+			if(Got == NULL)
+				ResolveFailed.Push(Index);
 		}
+	}
+
+	u32 NeedToResolve = ResolveFailed.Count;
+	while(ResolveFailed.Count != 0)
+	{
+		dynamic<u32> ToResolve = ResolveFailed;
+		ResolveFailed.Count = 0;
+		ResolveFailed.Data = NULL;
+
+		For(ToResolve)
+		{
+			LLVMMetadataRef Got = LLMVDebugDefineStruct(gen, *it);
+			if(Got == NULL)
+				ResolveFailed.Push(*it);
+		}
+
+		ToResolve.Free();
+		if(ResolveFailed.Count == NeedToResolve)
+		{
+			LERROR("--- INTERNAL COMPILER ERROR ---\nSpin lock on generating struct types, recursive struct definition");
+			abort();
+		}
+		NeedToResolve = ResolveFailed.Count;
 	}
 }
 

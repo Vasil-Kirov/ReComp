@@ -1,17 +1,32 @@
 main
 
+#import array as arr
+#import mem
+
+union Foo {
+    x: int,
+    y: f32,
+    z: i8,
+}
+
 struct Bar {
-    foo: struct {
+    f: int,
+    foo: union {
         x: i32,
         y: f64,
+        arr: []i32,
     },
+    x: i32,
 }
 
 main :: fn() -> i32 {
+    y := Foo {};
+    y.y = 10.4;
     x := Bar {};
-    x.foo.x = 10;
-    x.foo.y = 13.54;
-	return x.foo.x + @i32 x.foo.y;
+    alloc := mem.create_generic_allocator();
+    x.foo.arr = arr.create(i32, &alloc);
+    arr.add(&x.foo.arr, 13);
+	return x.foo.arr[0] + x.x;
 }
 
 

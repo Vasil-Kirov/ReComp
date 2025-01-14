@@ -10,6 +10,7 @@ struct LLVMTypeEntry
 
 struct LLVMDebugMetadataEntry
 {
+	b32 IsForwardDecl;
 	u32 TypeID;
 	LLVMMetadataRef Ref;
 };
@@ -29,7 +30,7 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID);
 LLVMOpcode RCCast(const type *From, const type *To);
 void LLVMClearTypeMap(generator *g);
 void LLVMMapType(generator *g, u32 TypeID, LLVMTypeRef LLVMType);
-void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType);
+void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType, b32 AsForwardDecl=false);
 
 enum {
 	DW_ATE_address       = 1,

@@ -35,7 +35,7 @@ typedef unsigned int uint;
 #endif
 
 #if defined(DEBUG)
-#define Assert(expression) if(!(expression)) { LERROR("--- COMPILER BUG ---\nFile: %s\nFunction %s\nLine: %d",\
+#define Assert(expression) if(!(expression)) { LERROR("--- INTERNAL COMPILER ERROR ---\nFile: %s\nFunction %s\nLine: %d",\
 		__FILE__, __FUNCTION__, __LINE__); PrintStacktrace(); BREAK; __builtin_trap(); }
 #else 
 #define Assert(expression) {}

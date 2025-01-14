@@ -32,23 +32,26 @@ void LLVMClearTypeMap(generator *g)
 	g->LLVMTypeMap.Count = 0;
 }
 
-LLVMMetadataRef LLVMDebugFindMapType(generator *g, u32 ToFind)
+LLVMMetadataRef LLVMDebugFindMapType(generator *g, u32 ToFind, b32 *OutIsForwardDecl=NULL)
 {
 	ForArray(Idx, g->LLVMDebugTypeMap)
 	{
 		if(g->LLVMDebugTypeMap[Idx].TypeID == ToFind)
 		{
+			if(OutIsForwardDecl)
+				*OutIsForwardDecl = g->LLVMDebugTypeMap[Idx].IsForwardDecl;
 			return g->LLVMDebugTypeMap[Idx].Ref;
 		}
 	}
 	return NULL;
 }
 
-void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType)
+void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType, b32 AsForwardDecl)
 {
 	LLVMDebugMetadataEntry Entry;
 	Entry.TypeID = TypeID;
 	Entry.Ref = LLVMType;
+	Entry.IsForwardDecl = AsForwardDecl;
 	g->LLVMDebugTypeMap.Push(Entry);
 }
 
@@ -59,6 +62,7 @@ void LLVMDebugReMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType)
 		if(g->LLVMDebugTypeMap[Idx].TypeID == TypeID)
 		{
 			g->LLVMDebugTypeMap.Data[Idx].Ref = LLVMType;
+			g->LLVMDebugTypeMap.Data[Idx].IsForwardDecl = false;
 			return;
 		}
 	}
@@ -379,7 +383,7 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 	   0);
 	   */
 
-	LLVMDebugMapType(gen, TypeID, Made);
+	LLVMDebugMapType(gen, TypeID, Made, true);
 }
 
 LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
@@ -414,14 +418,29 @@ LLVMMetadataRef LLVMDebugDefineEnum(generator *gen, const type *T, u32 TypeID)
 LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 {
 	const type *CustomType = GetType(TypeID);
-	LLVMMetadataRef *Members = (LLVMMetadataRef *)VAlloc(sizeof(LLVMMetadataRef) * CustomType->Struct.Members.Count);
+	LLVMMetadataRef *Members = (LLVMMetadataRef *)AllocatePermanent(sizeof(LLVMMetadataRef) * CustomType->Struct.Members.Count);
 	ForArray(Idx, CustomType->Struct.Members)
 	{
 		auto Member = CustomType->Struct.Members[Idx];
 		int Size = GetTypeSize(Member.Type) * 8;
 		int Alignment = GetTypeAlignment(Member.Type) * 8;
 		int Offset = GetStructMemberOffset(CustomType, Idx) * 8;
-		Members[Idx] = LLVMDIBuilderCreateMemberType(gen->dbg, gen->f_dbg, Member.ID.Data, Member.ID.Size, gen->f_dbg, 0, Size, Alignment, Offset, LLVMDIFlagZero, ToDebugTypeLLVM(gen, Member.Type));
+		
+		b32 IsForwardDecl = false;
+		LLVMMetadataRef DebugT = NULL;
+		if(GetType(Member.Type)->Kind == TypeKind_Struct)
+		{
+			DebugT = LLVMDebugFindMapType(gen, Member.Type, &IsForwardDecl);
+			if(IsForwardDecl)
+			{
+				return NULL;
+			}
+		}
+
+		if(DebugT == NULL)
+			DebugT = ToDebugTypeLLVM(gen, Member.Type);
+
+		Members[Idx] = LLVMDIBuilderCreateMemberType(gen->dbg, gen->f_dbg, Member.ID.Data, Member.ID.Size, gen->f_dbg, 0, Size, Alignment, Offset, LLVMDIFlagZero, DebugT);
 	}
 	string Name = GetTypeNameAsString(CustomType);
 	int Size = GetTypeSize(CustomType) * 8;

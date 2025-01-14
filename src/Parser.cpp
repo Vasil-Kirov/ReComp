@@ -577,7 +577,7 @@ node *ParseEnum(parser *Parser)
 string *MakeAnonStructName(const error_info *e)
 {
 	string_builder b = MakeBuilder();
-	PushBuilderFormated(&b, "__annon.%s.%d.%d", e->FileName, e->Line, e->Character);
+	PushBuilderFormated(&b, "anon<%s|%d|%d>", e->FileName, e->Line, e->Character);
 	string Result = MakeString(b);
 	return DupeType(Result, string);
 }

@@ -5,11 +5,6 @@ main
 
 struct A {
     c: int,
-    f: B,
-}
-
-struct B {
-    f: A,
 }
 
 union Foo {
@@ -19,7 +14,7 @@ union Foo {
 }
 
 struct Bar {
-    f: int,
+    f: custom_t,
     foo: union {
         x: i32,
         y: f64,
@@ -28,14 +23,11 @@ struct Bar {
     x: i32,
 }
 
+custom_t :: [4]u8;
+
 main :: fn() -> i32 {
-    y := Foo {};
-    y.y = 10.4;
-    x := Bar {};
-    alloc := mem.create_generic_allocator();
-    x.foo.arr = arr.create(i32, &alloc);
-    arr.add(&x.foo.arr, 13);
-	return x.foo.arr[0] + x.x;
+    a := custom_t {10};
+    return @i32 a[0];
 }
 
 

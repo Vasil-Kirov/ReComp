@@ -74,5 +74,6 @@ string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
 void AnalyzeStructDeclaration(checker *Checker, node *Node);
+void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 
 

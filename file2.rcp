@@ -3,6 +3,11 @@ f2
 #import mat as mt
 #import main as main
 #import io
+#import main
+
+struct something {
+    x: main.custom_t
+}
 
 fnf :: fn(m: $T) {
 	t := type_of m;

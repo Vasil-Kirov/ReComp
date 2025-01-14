@@ -63,8 +63,22 @@ u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
 
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
 {
-	string AsModule = {};
 	string N = *Name;
+	string ModuleName;
+	if(ModuleNameOptional == NULL)
+	{
+		ModuleName = Checker->Module->Name;
+	}
+	else
+	{
+		ModuleName = *ModuleNameOptional;
+	}
+
+	string AsModule = StructToModuleName(N, ModuleName);
+	u32 FoundOnMap = LookupNameOnTypeMap(&AsModule);
+	if(FoundOnMap != INVALID_TYPE)
+		return FoundOnMap;
+
 	for(int I = 0; I < TypeCount; ++I)
 	{
 		const type *Type = GetTypeRaw(I);
@@ -190,7 +204,7 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 	}
 }
 
-u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
+u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 {
 	if(TypeNode == NULL)
 		return INVALID_TYPE;
@@ -203,6 +217,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			u32 Type = FindType(Checker, Name);
 			if(Type == INVALID_TYPE)
 			{
+				if(!Error)
+					return INVALID_TYPE;
 				// @NOTE: is this a good idea?
 				RaiseError(false, *TypeNode->ErrorInfo, "Type \"%s\" is not defined", Name->Data);
 				return Basic_int;
@@ -211,13 +227,17 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		} break;
 		case AST_PTRTYPE:
 		{
-			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed);
+			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error);
+			if(TypeNode->PointerType.Pointed != NULL && Pointed == INVALID_TYPE && !Error)
+				return INVALID_TYPE;
 			return GetPointerTo(Pointed, TypeNode->PointerType.Flags);
 		} break;
 		case AST_ARRAYTYPE:
 		{
 			uint Size = 0;
-			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type);
+			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type, Error);
+			if(MemberType == INVALID_TYPE)
+				return INVALID_TYPE;
 			if(TypeNode->ArrayType.Expression)
 			{
 				node *Expr = TypeNode->ArrayType.Expression;
@@ -256,7 +276,9 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 				array<u32> Returns = array<u32>(TypeNode->Fn.ReturnTypes.Count);
 				ForArray(Idx, TypeNode->Fn.ReturnTypes)
 				{
-					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx]);
+					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx], Error);
+					if(Returns[Idx] == INVALID_TYPE)
+						return INVALID_TYPE;
 				}
 
 				FnType->Function.Returns = SliceFromArray(Returns);
@@ -270,7 +292,9 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
-				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode);
+				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode, Error);
+				if(FnType->Function.Args[Idx] == INVALID_TYPE)
+					return INVALID_TYPE;
 			}
 			
 			return AddType(FnType);
@@ -280,14 +304,20 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 			node *Operand = TypeNode->Selector.Operand;
 			if(Operand->Type != AST_ID)
 			{
-				u32 Type = GetTypeFromTypeNode(Checker, Operand);
+				u32 Type = GetTypeFromTypeNode(Checker, Operand, Error);
 				if(Type != INVALID_TYPE)
 				{
 					if(GetType(Type)->Kind != TypeKind_Enum)
+					{
+						if(!Error)
+							return INVALID_TYPE;
 						RaiseError(false, *TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
+					}
 
 					return Type;
 				}
+				else if(!Error)
+					return INVALID_TYPE;
 				RaiseError(true, *Operand->ErrorInfo, "Expected module name in selector");
 			}
 			import Import;
@@ -298,15 +328,23 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 				if(Type != INVALID_TYPE)
 				{
 					if(GetType(Type)->Kind != TypeKind_Enum)
+					{
+						if(!Error)
+							return INVALID_TYPE;
 						RaiseError(false, *TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
+					}
 
 					return Type;
 				}
+				else if(!Error)
+					return INVALID_TYPE;
 				RaiseError(true, *Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
 			}
 			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Import.M->Name);
 			if(Type == INVALID_TYPE)
 			{
+				if(!Error)
+					return INVALID_TYPE;
 				RaiseError(true, *TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member->Data, TypeNode->Selector.Operand->ID.Name->Data);
 			}
 			return Type;
@@ -315,6 +353,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		{
 			if(!Checker->Scope.TryPeek() || (Checker->Scope.Peek()->ScopeNode->Type != AST_FN))
 			{
+				if(!Error)
+					return INVALID_TYPE;
 				RaiseError(false, *TypeNode->ErrorInfo, "Declaring generic type outside of function arguments is not allowed");
 			}
 			return MakeGeneric(Checker->Scope.Peek(), *TypeNode->Generic.Name);
@@ -336,7 +376,10 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode)
 		} break;
 		default:
 		{
-			RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
+			if(Error)
+			{
+				RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
+			}
 			return INVALID_TYPE;
 		} break;
 	}
@@ -2187,12 +2230,13 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		return;
 	}
 
-	u32 AlreadyDefined = FindType(Checker, Node->Enum.Name);
-	if(AlreadyDefined != INVALID_TYPE)
-	{
-		RaiseError(true, *Node->ErrorInfo, "Enum %s is a redefinition, original type is %s",
-				Node->Enum.Name->Data, GetTypeName(AlreadyDefined));
-	}
+	// @NOTE: Probably not needed?
+	//u32 AlreadyDefined = FindType(Checker, Node->Enum.Name);
+	//if(AlreadyDefined != INVALID_TYPE)
+	//{
+	//	RaiseError(true, *Node->ErrorInfo, "Enum %s is a redefinition, original type is %s",
+	//			Node->Enum.Name->Data, GetTypeName(AlreadyDefined));
+	//}
 
 
 	u32 Type = INVALID_TYPE;
@@ -2753,6 +2797,33 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module)
 			}
 
 			AddType(New);
+		}
+	}
+}
+
+void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
+{
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_DECL)
+		{
+			node *Node = Nodes[I];
+			if(Node->Decl.Type)
+			{
+				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type);
+				if(T != Basic_type)
+					continue;
+			}
+			if(Node->Decl.LHS->Type != AST_ID)
+				continue;
+			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, false);
+			if(T == INVALID_TYPE)
+				continue;
+
+			string Name = *Node->Decl.LHS->ID.Name;
+			string *TypeName = StructToModuleNamePtr(Name, Checker->Module->Name);
+
+			AddNameToTypeMap(TypeName, T);
 		}
 	}
 }

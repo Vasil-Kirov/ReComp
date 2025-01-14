@@ -71,6 +71,16 @@ dict<u32> TypeMap = { .Default = INVALID_TYPE };
 std::mutex TypeMutex;
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
+void AddNameToTypeMap(const string *Name, u32 T)
+{
+	TypeMap.Add(*Name, T);
+}
+
+u32 LookupNameOnTypeMap(const string *Name)
+{
+	return TypeMap[*Name];
+}
+
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT)
 {
 	type *T = AllocType(TypeKind_Array);

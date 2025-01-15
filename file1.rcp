@@ -1,8 +1,5 @@
 main
 
-#import array as arr
-#import mem
-
 struct A {
     c: int,
 }
@@ -15,12 +12,23 @@ union Foo {
 
 custom_t :: [4]u8;
 
-main :: fn() -> i32 {
-    my_fn :: fn(arg: $t) -> t {
-        return arg * 2;
-    };
+get_array_size :: fn(arr: $t) -> int {
+    return size_of arr / size_of arr[0];
+}
 
-    return my_fn(@i32 10);
+start :: fn #foreign() {
+
+}
+
+main :: fn() -> i32 {
+    //my_arr: [16]custom_t;
+    //io.println("% %", type_of my_arr, get_array_size(my_arr));
+    //io.println("Hello: %", 0);
+
+    //io.println("Hello %", "name");
+
+
+    return 0;
 }
 
 

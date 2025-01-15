@@ -519,11 +519,18 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		case AST_TYPEINFO:
 		{
 			static string InitModuleName = STR_LIT("init");
-			string TableID = STR_LIT("init.type_table");
-			if(Builder->Module->Name == InitModuleName)
-				TableID = STR_LIT("type_table");
+			string TableID = STR_LIT("type_table");
+			const symbol *s = NULL;
+			For(CurrentModules)
+			{
+				if((*it)->Name == InitModuleName)
+				{
+					s = (*it)->Globals[TableID];
+					Assert(s);
+				}
+			}
+
 			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
-			const symbol *s = GetIRLocal(Builder, &TableID);
 
 			Result = PushInstruction(Builder, Instruction(OP_TYPEINFO, s->Register, Idx, Node->TypeInfoLookup.Type, Builder));
 		} break;

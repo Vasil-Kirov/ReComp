@@ -1,7 +1,9 @@
 #include "Semantics.h"
+#include "CommandLine.h"
 #include "ConstVal.h"
 #include "Dynamic.h"
 #include "Errors.h"
+#include "Globals.h"
 #include "Lexer.h"
 #include "Log.h"
 #include "Module.h"
@@ -715,6 +717,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_TYPEINFO:
 		{
+			if(CompileFlags & CF_Standalone)
+			{
+				RaiseError(true, *Expr->ErrorInfo, "Cannot use #info in a standalone build");
+			}
+
 			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->TypeInfoLookup.Expression);
 			const type *ExprType = GetType(ExprTypeIdx);
 			if(!HasBasicFlag(ExprType, BasicFlag_TypeID))
@@ -2147,7 +2154,13 @@ void AnalyzeFor(checker *Checker, node *Node)
 			else if(T->Kind == TypeKind_Slice)
 				ItType = T->Slice.Type;
 			else if(HasBasicFlag(T, BasicFlag_String))
+			{
+				if(CompileFlags & CF_Standalone)
+				{
+					RaiseError(true, *Node->ErrorInfo, "Cannot perform utf-8 string iteration in a standalone build");
+				}
 				ItType = Basic_u32;
+			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))
 				ItType = TypeIdx;
 			else
@@ -2464,6 +2477,11 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
+			if(CompileFlags & CF_Standalone)
+			{
+				// @TODO: Have a way to specify assert needed functionality to enable it
+				RaiseError(true, *Node->ErrorInfo, "Cannot use #assert in a standalone build");
+			}
 			AnalyzeBooleanExpression(Checker, &Node->Assert.Expr);
 		} break;
 		case AST_USING:

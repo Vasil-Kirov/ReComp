@@ -23,6 +23,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Dict.h"
 #include "Linearize.h"
 #include "StackAllocator.h"
+#include "Globals.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -347,7 +348,16 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 	}
 	if(CompileFlags & CF_NoStdLib)
 	{
-		Builder += "/NODEFAULTLIB /ENTRY:main ";
+		NoSetDefaultLib = true;
+		Builder += "/NODEFAULTLIB ";
+		if(CompileFlags & CF_Standalone)
+		{
+			Builder += "/ENTRY:start ";
+		}
+		else
+		{
+			Builder += "/ENTRY:main ";
+		}
 	}
 	else
 	{
@@ -408,7 +418,7 @@ function *FindFunction(slice<function> Functions, string Name)
 	return NULL;
 }
 
-void AddStdFiles(dynamic<string> &Files, b32 NoStdLib)
+void AddStdFiles(dynamic<string> &Files, u32 Flags)
 {
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
@@ -424,13 +434,16 @@ void AddStdFiles(dynamic<string> &Files, b32 NoStdLib)
 		GetFilePath(Dir, "math.rcp"),
 	};
 
-	uint Count = ARR_LEN(StdFiles);
-	for(int i = 0; i < Count; ++i)
+	if((Flags & CF_Standalone) == 0)
 	{
-		Files.Push(StdFiles[i]);
+		uint Count = ARR_LEN(StdFiles);
+		for(int i = 0; i < Count; ++i)
+		{
+			Files.Push(StdFiles[i]);
+		}
 	}
 
-	if(NoStdLib)
+	if(Flags & CF_NoStdLib)
 	{
 		Files.Push(GetFilePath(Dir, "req.rcp"));
 	}
@@ -584,6 +597,12 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer);
 
+			if(Info->Flags & CF_Standalone)
+			{
+				Info->Flags |= CF_NoStdLib;
+			}
+
+			CompileFlags = Info->Flags;
 			if(Info->Flags & CF_CrossAndroid)
 			{
 				PTarget = platform_target::UnixBased;
@@ -628,7 +647,7 @@ main(int ArgCount, char *Args[])
 			{
 				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
 			}
-			AddStdFiles(FileNames, Info->Flags & CF_NoStdLib);
+			AddStdFiles(FileNames, Info->Flags);
 
 			For(ConfigIDs)
 			{

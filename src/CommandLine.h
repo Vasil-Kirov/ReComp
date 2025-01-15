@@ -23,8 +23,8 @@ enum compile_flags
     CF_SharedLib	= 0b00001000000,
 	CF_CrossAndroid = 0b00010000000,
 	CF_NoLink	    = 0b00100000000,
-	CF_NoTypeTable	= 0b01000000000,
-	Reserved2		= 0b10000000000,
+	CF_Standalone	= 0b01000000000,
+	CF_DebugInfo	= 0b10000000000,
 };
 
 enum arch

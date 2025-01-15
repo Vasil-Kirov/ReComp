@@ -1,5 +1,6 @@
 #include "LLVMBase.h"
 #include "CommandLine.h"
+#include "Globals.h"
 #include "LLVMTypeInfoGlobal.h"
 #include "Interpreter.h"
 #include "Module.h"
@@ -60,6 +61,8 @@ void RCGenerateIntrins(generator *gen)
 
 void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 {
+	if((CompileFlags & CF_DebugInfo) == 0)
+		return;
 	switch(Info->type)
 	{
 		case IR_DBG_VAR:
@@ -888,8 +891,11 @@ void RCGenerateFunction(generator *gen, function fn)
 	{
 		u32 Returns = ReturnsToType(GetType(fn.Type)->Function.Returns);
 		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(Returns);
-		gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
-		LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+		if(CompileFlags & CF_DebugInfo)
+		{
+			gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
+			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+		}
 	}
 
 	ForArray(Idx, fn.Blocks)
@@ -923,11 +929,11 @@ void RCGenerateComplexTypes(generator *gen)
 				continue;
 			}
 			LLVMCreateOpaqueStructType(gen, Index);
-			LLMVDebugOpaqueStruct(gen, Index);
+			DEBUG_RUN(LLMVDebugOpaqueStruct(gen, Index);)
 		}
 		else if(T->Kind == TypeKind_Enum)
 		{
-			LLVMDebugDefineEnum(gen, T, Index);
+			DEBUG_RUN(LLVMDebugDefineEnum(gen, T, Index);)
 		}
 	}
 
@@ -938,12 +944,15 @@ void RCGenerateComplexTypes(generator *gen)
 		if(T->Kind == TypeKind_Struct && (T->Struct.Flags & StructFlag_Generic) == 0)
 		{
 			LLVMDefineStructType(gen, Index);
+			DEBUG_RUN(
 			LLVMMetadataRef Got = LLMVDebugDefineStruct(gen, Index);
 			if(Got == NULL)
 				ResolveFailed.Push(Index);
+			)
 		}
 	}
 
+	DEBUG_RUN (
 	u32 NeedToResolve = ResolveFailed.Count;
 	while(ResolveFailed.Count != 0)
 	{
@@ -966,6 +975,7 @@ void RCGenerateComplexTypes(generator *gen)
 		}
 		NeedToResolve = ResolveFailed.Count;
 	}
+	)
 }
 
 void RCGenerateCompilerTypes(generator *gen)
@@ -982,11 +992,14 @@ void RCGenerateCompilerTypes(generator *gen)
 	};
 	u32 String = AddType(StringType);
 	LLVMCreateOpaqueStructType(gen, String);
-	LLMVDebugOpaqueStruct(gen, String);
 	auto LLVMType = LLVMDefineStructType(gen, String);
-	auto DebugType = LLMVDebugDefineStruct(gen, String);
 	LLVMMapType(gen, Basic_string, LLVMType);
-	LLVMDebugMapType(gen, Basic_string, DebugType);
+
+	DEBUG_RUN(
+			LLMVDebugOpaqueStruct(gen, String);
+			auto DebugType = LLMVDebugDefineStruct(gen, String);
+			LLVMDebugMapType(gen, Basic_string, DebugType);
+	)
 }
 
 void GetNameAndDirectory(char **OutName, char **OutDirectory, string Relative)
@@ -1033,10 +1046,12 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	LLVMSetTarget(Gen.mod, Info->TargetTriple.Data);
 	Gen.map = {};
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
-	Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
-	Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
-			FileName, VStrLen(FileName),
-			FileDirectory, VStrLen(FileDirectory));
+	DEBUG_RUN (
+		Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
+		Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
+				FileName, VStrLen(FileName),
+				FileDirectory, VStrLen(FileDirectory));
+	)
 	Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
 	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 
@@ -1044,14 +1059,17 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 	RCGenerateIntrins(&Gen);
 
-	LLVMDIBuilderCreateCompileUnit(
-			Gen.dbg,
-			LLVMDWARFSourceLanguageC99,
-			Gen.f_dbg,
-			CompilerName.Data, CompilerName.Size,
-			false,
-			NULL, 0, 0, "", 0, LLVMDWARFEmissionFull, 0, false, false, "", 0, "", 0);
+	DEBUG_RUN (
+		LLVMDIBuilderCreateCompileUnit(
+				Gen.dbg,
+				LLVMDWARFSourceLanguageC99,
+				Gen.f_dbg,
+				CompilerName.Data, CompilerName.Size,
+				false,
+				NULL, 0, 0, "", 0, LLVMDWARFEmissionFull, 0, false, false, "", 0, "", 0);
+		)
 
+	DEBUG_RUN (
 #if defined (_WIN32)
 	string CodeView = STR_LIT("CodeView");
 	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
@@ -1067,6 +1085,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	string DIV = STR_LIT("Debug Info Version");
 	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
 			DIV.Data, DIV.Size, IntToMeta(&Gen, 3));
+	)
 
 	RCGenerateCompilerTypes(&Gen);
 	RCGenerateComplexTypes(&Gen);
@@ -1116,7 +1135,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 					Gen.map.Add(s->Register, Fn);
 					continue;
 				}
-				if(*s->Name == STR_LIT("type_table") && ((Info->Flags & CF_NoTypeTable) == 0))
+				if(*s->Name == STR_LIT("type_table") && ((Info->Flags & CF_Standalone) == 0))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
 					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);
@@ -1195,7 +1214,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 			}
 		}
 
-		if(FIdx + 1 != M->Files.Count)
+		if((Info->Flags & CF_DebugInfo) && FIdx + 1 != M->Files.Count)
 		{
 			char *FileName = NULL;
 			char *FileDirectory = NULL;
@@ -1207,14 +1226,16 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	}
 
 
-	LLVMDIBuilderFinalize(Gen.dbg);
+	DEBUG_RUN(LLVMDIBuilderFinalize(Gen.dbg);)
 
 	RunOptimizationPasses(&Gen, Machine.Target, Info->Optimization, Info->Flags);
 	RCEmitFile(Machine.Target, Gen.mod, M->Name, OutputBC);
 
-	LLVMDisposeDIBuilder(Gen.dbg);
+
+	DEBUG_RUN(LLVMDisposeDIBuilder(Gen.dbg);)
+
 	LLVMDisposeBuilder(Gen.bld);
-	Gen.LLVMDebugTypeMap.Free();
+	DEBUG_RUN(Gen.LLVMDebugTypeMap.Free();)
 	Gen.LLVMTypeMap.Free();
 }
 

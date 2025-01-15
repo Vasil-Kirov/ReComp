@@ -1150,7 +1150,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						struct_member Mem = Type->Struct.Members[MemberIdx];
 						PromotedUntyped = INVALID_TYPE;
 						if(!IsGeneric(Mem.Type))
-							PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
+							PromotedUntyped = TypeCheckAndPromote(Checker, Item->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
 					} break;
 					case TypeKind_Basic:
 					{

@@ -1506,6 +1506,8 @@ ANALYZE_SLICE_SELECTOR:
 		case AST_FN:
 		{
 			symbol *Sym = AnalyzeFunctionDecl(Checker, Expr);
+			if(IsGeneric(Expr->Fn.TypeIdx))
+				RaiseError(true, *Expr->ErrorInfo, "Lambdas currently cannot be generic");
 			AnalyzeFunctionBody(Checker, Expr->Fn.Body, Expr, Sym->Type);
 			return GetPointerTo(Sym->Type);
 		} break;

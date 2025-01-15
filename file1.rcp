@@ -16,8 +16,11 @@ union Foo {
 custom_t :: [4]u8;
 
 main :: fn() -> i32 {
-    a := custom_t {10};
-    return @i32 a[0];
+    my_fn :: fn(arg: $t) -> t {
+        return arg * 2;
+    };
+
+    return my_fn(@i32 10);
 }
 
 

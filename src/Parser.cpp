@@ -624,6 +624,13 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 			return NULL;
 		error_info *ErrorInfo = &P->Tokens[P->TokenIndex].ErrorInfo;
 
+		if(P->Current->Type == T_USING)
+		{
+			GetToken(P);
+			node *Type = ParseType(P);
+			return MakeVar(ErrorInfo, NULL, Type);
+		}
+
 		token ID = EatToken(P, T_ID, false);
 		string *MemberName = ID.ID;
 		if(ID.Type != T_ID)

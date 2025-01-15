@@ -109,6 +109,7 @@ struct struct_type
 	slice<struct_member> Members;
 	string Name;
 	u32 Flags;
+	u32 SubType;
 };
 
 struct slice_type

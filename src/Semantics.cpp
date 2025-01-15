@@ -898,7 +898,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					const type *PromotionType = NULL;
 					if(!IsTypeCompatible(ExpectType, ExprType, &PromotionType, true))
 					{
-						RaiseError(false, *Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
+						RaiseError(false, *Expr->Call.Args[Idx]->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
 								Idx, GetTypeName(ExpectType), GetTypeName(ExprType));
 					}
 					if(IsUntyped(ExprType))
@@ -1259,6 +1259,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		{
 			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
 			const type *Type = NULL;
+			Expr->Selector.SubIndex = -1;
 			if(TypeIdx == Basic_module)
 			{
 				Assert(Expr->Selector.Operand->Type == AST_ID);
@@ -1425,8 +1426,27 @@ ANALYZE_SLICE_SELECTOR:
 						}
 						if(Result == INVALID_TYPE)
 						{
-							RaiseError(true, *Expr->ErrorInfo, "No member named %s in struct %s; Invalid `.` selector",
-									Expr->Selector.Member->Data, GetTypeName(Type));
+							if(Type->Struct.SubType != INVALID_TYPE)
+							{
+								const type *Sub = GetType(Type->Struct.SubType);
+								ForArray(Idx, Sub->Struct.Members)
+								{
+									if(Sub->Struct.Members[Idx].ID == *Expr->Selector.Member)
+									{
+										Expr->Selector.Index = 0;
+										Expr->Selector.SubIndex = Idx;
+										Result = Sub->Struct.Members[Idx].Type;
+										break;
+									}
+								}
+							}
+
+							if(Result == INVALID_TYPE)
+							{
+								RaiseError(true, *Expr->ErrorInfo,
+										"No member named %s in struct %s; Invalid `.` selector",
+										Expr->Selector.Member->Data, GetTypeName(Type));
+							}
 						}
 					} break;
 					default:
@@ -2334,6 +2354,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
 	Checker->Scope.Push(StructScope);
 
+	u32 SubTypes = INVALID_TYPE;
+
 	type New = {};
 	New.Kind = TypeKind_Struct;
 	New.Struct.Name = *Node->StructDecl.Name;
@@ -2341,10 +2363,35 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	array<struct_member> Members {Node->StructDecl.Members.Count};
 	ForArray(Idx, Node->StructDecl.Members)
 	{
-		u32 Type = GetTypeFromTypeNode(Checker, Node->StructDecl.Members[Idx]->Var.TypeNode);
+		node *Member = Node->StructDecl.Members[Idx];
+		u32 Type = GetTypeFromTypeNode(Checker, Member->Var.TypeNode);
 		Type = FixPotentialFunctionPointer(Type);
-
 		const type *T = GetType(Type);
+		if(Member->Var.Name == NULL)
+		{
+			if(Idx != 0)
+			{
+				RaiseError(true, *Member->ErrorInfo, "Subtype declaration needs to come before any struct members, the base type is layed out at the start of the struct");
+			}
+			if(T->Kind != TypeKind_Struct)
+			{
+				RaiseError(true, *Member->ErrorInfo, "Cannot subtype non struct type %s", GetTypeName(T));
+			}
+			if(T->Struct.SubType != INVALID_TYPE)
+			{
+				RaiseError(true, *Member->ErrorInfo, "Multi-level subtyping is not allowed");
+			}
+			if(SubTypes != INVALID_TYPE)
+			{
+				RaiseError(true, *Member->ErrorInfo, "Cannot subtype multiple types! Trying to subtype %s while already subtyping %s", GetTypeName(T), GetTypeName(SubTypes));
+			}
+
+			SubTypes = Type;
+			Members.Data[Idx].ID = STR_LIT("base");
+			Members.Data[Idx].Type = Type;
+			continue;
+		}
+
 		if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
 			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Var.Name);
@@ -2365,6 +2412,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 
 	ForArray(Idx, Node->StructDecl.Members)
 	{
+		if(Node->StructDecl.Members[Idx]->Var.Name == NULL)
+			continue;
 		for(uint j = Idx + 1; j < Node->StructDecl.Members.Count; ++j)
 		{
 			if(*Node->StructDecl.Members[Idx]->Var.Name == *Node->StructDecl.Members[j]->Var.Name)
@@ -2376,6 +2425,7 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	}
 
 	New.Struct.Members = SliceFromArray(Members);
+	New.Struct.SubType = SubTypes;
 	if(Node->StructDecl.IsUnion)
 	{
 		if(Node->StructDecl.Members.Count == 0)

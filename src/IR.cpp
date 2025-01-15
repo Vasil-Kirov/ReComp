@@ -1081,6 +1081,13 @@ BUILD_SLICE_SELECTOR:
 								Instruction(OP_INDEX, Operand, Node->Selector.Index, TypeIdx, Builder));
 
 						u32 MemberTypeIdx = Type->Struct.Members[Node->Selector.Index].Type;
+						if(Node->Selector.SubIndex != -1)
+						{
+							Result = PushInstruction(Builder, 
+									Instruction(OP_INDEX, Result, Node->Selector.SubIndex, MemberTypeIdx, Builder));
+							MemberTypeIdx = GetType(MemberTypeIdx)->Struct.Members[Node->Selector.SubIndex].Type;
+						}
+
 						if(!IsLHS && IsLoadableType(MemberTypeIdx))
 						{
 							Result = PushInstruction(Builder,

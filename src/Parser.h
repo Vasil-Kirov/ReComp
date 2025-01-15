@@ -165,6 +165,7 @@ struct node
 			node *Operand;
 			const string *Member;
 			u32 Index;
+			u32 SubIndex;
 			u32 Type;
 		} Selector;
 		struct {

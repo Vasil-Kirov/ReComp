@@ -191,8 +191,10 @@ file *LexFile(string File, string *OutModuleName)
 	error_info ErrorInfo = {};
 	ErrorInfo.Data = DupeType(FileData, string);
 	ErrorInfo.FileName = File.Data;
-	ErrorInfo.Line = 1;
-	ErrorInfo.Character = 1;
+	ErrorInfo.Range.StartLine = 1;
+	ErrorInfo.Range.EndLine = 1;
+	ErrorInfo.Range.EndLine = 1;
+	ErrorInfo.Range.EndChar = 1;
 
 	file *Result = StringToTokens(FileData, ErrorInfo, OutModuleName);
 	Result->Name = File;
@@ -591,7 +593,7 @@ main(int ArgCount, char *Args[])
 			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1}, true);
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 			{
-				LogCompilerError("Error: Failed to evaluate build.compile");
+				LogCompilerError("Error: Failed to evaluate build.compile\n");
 				return 1;
 			}
 

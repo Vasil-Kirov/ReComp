@@ -30,6 +30,7 @@ def get_tests():
 dir_path = os.path.dirname(os.path.realpath(__file__))
 tests = get_tests()
 os.chdir('tests')
+os.system('')
 for test in tests:
     os.chdir(test)
 

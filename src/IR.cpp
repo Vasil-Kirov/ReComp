@@ -1495,7 +1495,7 @@ void IRPushDebugVariableInfo(block_builder *Builder, const error_info *ErrorInfo
 {
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
 	IRInfo->type = IR_DBG_VAR;
-	IRInfo->var.LineNo = ErrorInfo->Line;
+	IRInfo->var.LineNo = ErrorInfo->Range.StartLine;
 	IRInfo->var.Name = Name;
 	IRInfo->var.Register = Location;
 	IRInfo->var.TypeID = Type;
@@ -1838,9 +1838,12 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 
 void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 {
-	string AssertionLine = GetErrorSegment(*ErrorInfo);
+	string FirstPart;
+	string SecondPart;
+	string ThirdPart;
+	GetErrorSegments(*ErrorInfo, &FirstPart, &SecondPart, &ThirdPart);
 	string_builder b = MakeBuilder();
-	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s", ErrorInfo->FileName, ErrorInfo->Line, AssertionLine.Data);
+	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s%s%s\n", ErrorInfo->FileName, ErrorInfo->Range.StartLine, FirstPart.Data, SecondPart.Data, ThirdPart.Data);
 
 	string S = MakeString(b);
 	string *Message = DupeType(S, string);
@@ -2114,7 +2117,7 @@ void IRPushDebugArgInfo(block_builder *Builder, const error_info *ErrorInfo, int
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
 	IRInfo->type = IR_DBG_ARG;
 	IRInfo->arg.ArgNo = ArgNo;
-	IRInfo->arg.LineNo = ErrorInfo->Line;
+	IRInfo->arg.LineNo = ErrorInfo->Range.StartLine;
 	IRInfo->arg.Name = Name;
 	IRInfo->arg.Register = Location;
 	IRInfo->arg.TypeID = TypeID;
@@ -2127,7 +2130,7 @@ void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
 {
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
 	IRInfo->type = IR_DBG_LOCATION;
-	IRInfo->loc.LineNo = Info->Line;
+	IRInfo->loc.LineNo = Info->Range.StartLine;
 
 	PushInstruction(Builder,
 			InstructionDebugInfo(IRInfo));
@@ -2142,7 +2145,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
-	Function.LineNo = Node->ErrorInfo->Line;
+	Function.LineNo = Node->ErrorInfo->Range.StartLine;
 	Function.ModuleName = Module->Name;
 	if(Node->Fn.LinkName)
 		Function.LinkName = Node->Fn.LinkName;

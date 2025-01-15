@@ -62,12 +62,12 @@ char AdvanceC(string *String, error_info *Error)
 	char Result = *String->Data;
 	if(Result == '\n')
 	{
-		Error->Line++;
-		Error->Character = 1;
+		Error->Range.EndLine++;
+		Error->Range.EndChar = 1;
 	}
 	else
 	{
-		Error->Character++;
+		Error->Range.EndChar++;
 	}
 	String->Data++;
 	String->Size--;
@@ -120,7 +120,7 @@ token TokinizeCompilerDirective(string *String, error_info *ErrorInfo)
 	string ID = MakeString(Start, End - Start);
 	token_type TokenType = GetKeyword(ID);
 	if(TokenType == T_ID)
-		RaiseError(true, StartErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
+		RaiseError(true, *ErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
 
 	token Token = {};
 	Token.Type = TokenType;
@@ -132,7 +132,7 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
 
-	error_info StartErrorInfo = *ErrorInfo;
+	//error_info StartErrorInfo = *ErrorInfo;
 
 	while(IsIDCharacter(PeekC(String)) || isdigit(PeekC(String)))
 		AdvanceC(String, ErrorInfo);
@@ -143,7 +143,7 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 
 	token Token = {};
 	Token.Type = TokenType;
-	Token.ErrorInfo = StartErrorInfo;
+	Token.ErrorInfo = *ErrorInfo;
 	if(TokenType == T_ID)
 		Token.ID = MakeStringPointer(ID);
 	return Token;
@@ -151,7 +151,7 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 
 token TokinizeNumber(string *String, error_info *ErrorInfo)
 {
-	error_info StartErrorInfo = *ErrorInfo;
+	//error_info StartErrorInfo = *ErrorInfo;
 
 	if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'b')
 	{
@@ -171,7 +171,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 				break;
 			if(c != '0' && c != '1')
 			{
-				RaiseError(true, StartErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
+				RaiseError(true, *ErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -179,11 +179,11 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(true, StartErrorInfo, "Invalid binary number");
+			RaiseError(true, *ErrorInfo, "Invalid binary number");
 		}
 
 		string Number = MakeString(Builder);
-		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
 	}
 	else if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'x')
 	{
@@ -206,7 +206,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 			{}
 			else
 			{
-				RaiseError(true, StartErrorInfo, "Invalid character in hex number: %c", c);
+				RaiseError(true, *ErrorInfo, "Invalid character in hex number: %c", c);
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -214,11 +214,11 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(true, StartErrorInfo, "Invalid hex number");
+			RaiseError(true, *ErrorInfo, "Invalid hex number");
 		}
 
 		string Number = MakeString(Builder);
-		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
 	}
 	else
 	{
@@ -232,19 +232,19 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 		}
 
 		string Number = MakeString(Builder);
-		return MakeToken(T_VAL, StartErrorInfo, MakeStringPointer(Number));
+		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
 	}
 }
 
 token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
-	error_info StartErrorInfo = *ErrorInfo;
+	//error_info StartErrorInfo = *ErrorInfo;
 
 	char C = AdvanceC(String, ErrorInfo);
 	if(String->Size == 0)
 	{
-		return MakeToken((token_type)C, StartErrorInfo, NULL);
+		return MakeToken((token_type)C, *ErrorInfo, NULL);
 	}
 	if(String->Size > 2)
 	{
@@ -254,7 +254,7 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 		{
 			AdvanceC(String, ErrorInfo);
 			AdvanceC(String, ErrorInfo);
-			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+			return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
 		}
 	}
 	if(String->Size > 1)
@@ -264,7 +264,7 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 		if(PotentialKeyword != T_ID)
 		{
 			AdvanceC(String, ErrorInfo);
-			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+			return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
 		}
 	}
 
@@ -279,10 +279,10 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 			{
 				AdvanceC(String, ErrorInfo);
 			}
-			return MakeToken(PotentialKeyword, StartErrorInfo, NULL);
+			return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
 		}
 	}
-	return MakeToken((token_type)C, StartErrorInfo, NULL);
+	return MakeToken((token_type)C, *ErrorInfo, NULL);
 
 }
 
@@ -308,7 +308,7 @@ char GetEscapedChar(char ToEscape)
 
 token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 {
-	error_info StartErrorInfo = *ErrorInfo;
+	//error_info StartErrorInfo = *ErrorInfo;
 	AdvanceC(String, ErrorInfo);
 
 	string_builder Builder = MakeBuilder();
@@ -329,14 +329,14 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 	AdvanceC(String, ErrorInfo);
 	string Tokinized = MakeString(Builder);
 	if(CString)
-		return MakeToken(T_CSTR, StartErrorInfo, MakeStringPointer(Tokinized));
+		return MakeToken(T_CSTR, *ErrorInfo, MakeStringPointer(Tokinized));
 	else
-		return MakeToken(T_STR, StartErrorInfo,  MakeStringPointer(Tokinized));
+		return MakeToken(T_STR, *ErrorInfo,  MakeStringPointer(Tokinized));
 }
 
 token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 {
-	error_info StartErrorInfo = *ErrorInfo;
+	//error_info StartErrorInfo = *ErrorInfo;
 	char c = AdvanceC(String, ErrorInfo);
 	Assert(c == '\'');
 	u32 result = 0;
@@ -345,7 +345,7 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	{
 		if (i >= 4)
 		{
-			RaiseError(true, StartErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+			RaiseError(true, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
 		}
 		char c = AdvanceC(String, ErrorInfo);
 		if(c == '\\')
@@ -363,7 +363,7 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	
 	char end = AdvanceC(String, ErrorInfo);
 	Assert(end == '\'')
-	return MakeToken(T_CHAR, StartErrorInfo, (string *)(u64)result);
+	return MakeToken(T_CHAR, *ErrorInfo, (string *)(u64)result);
 }
 
 void SkipWhiteSpace(string *String, error_info *ErrorInfo)
@@ -386,6 +386,8 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	{
 		return MakeToken(T_EOF, *ErrorInfo, NULL);
 	}
+	ErrorInfo->Range.StartChar = ErrorInfo->Range.EndChar;
+	ErrorInfo->Range.StartLine = ErrorInfo->Range.EndLine;
 	char FirstChar = PeekC(String);
 
 	if(FirstChar == 'c' && String->Size > 1)

@@ -82,13 +82,13 @@ void LogCompilerError(const char *Format, ...)
 	
 	va_end(Args);
 
-	string_builder PrintBuilder = MakeBuilder();
-	PushBuilder(&PrintBuilder, FinalFormat);
-	PushBuilder(&PrintBuilder, "\n");
-	string Print = MakeString(PrintBuilder);
+	//string_builder PrintBuilder = MakeBuilder();
+	//PushBuilder(&PrintBuilder, FinalFormat);
+	//PushBuilder(&PrintBuilder, "\n");
+	//string Print = MakeString(PrintBuilder);
 
 	LogMutex.lock();
-	PlatformOutputString(Print, (log_level)-1);
+	PlatformOutputString(MakeString(FinalFormat), (log_level)-1);
 	LogMutex.unlock();
 
 	VFree(FinalFormat);

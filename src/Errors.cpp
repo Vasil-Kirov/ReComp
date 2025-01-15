@@ -1,6 +1,7 @@
 #include "Errors.h"
 #include "Basic.h"
 #include "Log.h"
+#include "Platform.h"
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
@@ -22,65 +23,78 @@ b32 IsBetween(i64 A, i64 L, i64 R)
 	return A > L && A < R;
 }
 
-string GetErrorSegment(error_info ErrorInfo)
+void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird)
 {
 	string_builder Builder = MakeBuilder();
 	string Code = *ErrorInfo.Data;
-	i64 Line = 1;
-	while(Line != ErrorInfo.Line)
+	i64 AtLine = 1;
+	while(AtLine != ErrorInfo.Range.StartLine)
 	{
 		if(Code.Data[0] == '\n')
-			Line++;
+			AtLine++;
 		AdvanceString(&Code);
 	}
-	char c = ' ';
+
+	char AtChar = 1;
+
+	while(AtChar != ErrorInfo.Range.StartChar)
+	{
+		char c = Code.Data[0];
+		Assert(c != '\n');
+		PushBuilder(&Builder, c);
+
+		AdvanceString(&Code);
+		AtChar++;
+	}
+	if(Builder.Size == 0)
+		*OutFirst = STR_LIT("");
+	else
+	{
+		*OutFirst = MakeString(Builder);
+		Builder = MakeBuilder();
+	}
+
+	while(AtChar != ErrorInfo.Range.EndChar || AtLine != ErrorInfo.Range.EndLine)
+	{
+		char c = Code.Data[0];
+		if(c == '\n')
+		{
+			AtChar = 0; // At the end of the loop it becomes 1
+			AtLine++;
+		}
+		PushBuilder(&Builder, c);
+
+		AdvanceString(&Code);
+		AtChar++;
+	}
+
+	if(Builder.Size == 0)
+		*OutHighlight = STR_LIT("");
+	else
+	{
+		*OutHighlight = MakeString(Builder);
+		Builder = MakeBuilder();
+	}
+
+	char c = 0;
 	do {
+		if(Code.Size == 0)
+			break;
+
 		c = Code.Data[0];
 		PushBuilder(&Builder, c);
 
 		AdvanceString(&Code);
-	} while(c != '\n' && c != 0);
-	return MakeString(Builder);
-#if 0
-	i64 Character = 1;
-	while(Character + 7 < ErrorInfo.Character)
-	{
-		Character++;
-		AdvanceString(&Code);
-	}
 
-	while(*Code.Data != 0 && Line - 1 <= ErrorInfo.Line)
-	{
-		if(Character - 7 >= ErrorInfo.Character)
-		{
-			while(Code.Data[0] != '\n' && Code.Data[0] != '\0') AdvanceString(&Code);
+	} while(c != '\n');
 
-			// @NOTE: Change this so we don't go back into the same branch
-			Character = 0;
-			continue;
-		}
-		if(Character == 1 && !IsBetween(ErrorInfo.Character, 0, 4))
-		{
-			PushBuilder(&Builder, '>');
-		}
-		else if(Line - 1 == ErrorInfo.Line && IsBetween(Character, ErrorInfo.Character - 2, ErrorInfo.Character + 2))
-		{
-			PushBuilder(&Builder, '^');
-		}
-		else
-		{
-			PushBuilder(&Builder, Code.Data[0]);
-		}
-		if(Code.Data[0] == '\n')
-		{
-			Line++;
-			Character = 0;
-		}
-		Character++;
-		AdvanceString(&Code);
+	if(Builder.Size == 0)
+		*OutThird = STR_LIT("");
+	else
+	{
+		*OutThird = MakeString(Builder);
+		Builder = MakeBuilder();
 	}
-	return MakeString(Builder);
-#endif
 }
 
 bool
@@ -103,19 +117,25 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	
 	va_end(Args);
 	
-	string ErrorSegment = GetErrorSegment(ErrorInfo);
+	string FirstPart;
+	string Highlight;
+	string AfterPart;
+	GetErrorSegments(ErrorInfo, &FirstPart, &Highlight, &AfterPart);
 
 	if(DumpingInfo)
 	{
 		void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg);
-		WriteStringError(ErrorInfo.FileName, ErrorInfo.Line, FinalFormat);
+		WriteStringError(ErrorInfo.FileName, ErrorInfo.Range.StartLine, FinalFormat);
 		VFree(FinalFormat);
 		return;
 	}
+
 	
-	LogCompilerError("\nError: %s%s (%d, %d):\n%s\n\n%s\n",
+	LogCompilerError("\nError: %s%s (%d, %d):\n%s\n\n%s",
 			BonusErrorMessage.Data,
-			ErrorInfo.FileName, ErrorInfo.Line, ErrorInfo.Character, FinalFormat, ErrorSegment.Data);
+			ErrorInfo.FileName, ErrorInfo.Range.StartLine, ErrorInfo.Range.StartChar, FinalFormat, FirstPart.Data);
+	PlatformOutputString(Highlight, LOG_ERROR);
+	LogCompilerError("%s\n", AfterPart.Data);
 
 	VFree(FinalFormat);
 

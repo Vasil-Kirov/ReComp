@@ -95,7 +95,7 @@ struct binary_stack
 		Used += Size;
 		if(Used >= MB(1))
 		{
-			LogCompilerError("Error: Interpreter stack ran out of memory");
+			LogCompilerError("Error: Interpreter stack ran out of memory\n");
 			abort();
 		}
 

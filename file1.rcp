@@ -26,6 +26,9 @@ main :: fn() -> i32 {
     //io.println("Hello: %", 0);
 
     //io.println("Hello %", "name");
+    x := 10.3;
+    y := 4;
+    z := x + y;
 
 
     return 0;

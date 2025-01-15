@@ -2705,7 +2705,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 				Assert(Redifined);
 				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
 						Node->Fn.Name->Data,
-						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 			}
 		}
 	}
@@ -2733,7 +2733,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 					Assert(Redifined);
 					RaiseError(true, *Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
 							Name.Data,
-							Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+							Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 				}
 			}
 			else if(Node->Decl.LHS->Type == AST_LIST)
@@ -2769,7 +2769,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 						Assert(Redifined);
 						RaiseError(true, *Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
 								Name.Data,
-								Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Line, Redifined->Node->ErrorInfo->Character);
+								Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 					}
 
 				}
@@ -3209,7 +3209,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				FnNode->Fn.FnModule = FnSym->Checker->Module;
 				string_builder Builder = MakeBuilder();
 				PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
-						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Line, Expr->ErrorInfo->Character);
+						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Range.StartLine, Expr->ErrorInfo->Range.StartChar);
 				SetBonusMessage(MakeString(Builder));
 
 				stack<scope*> SaveScopes = Checker->Scope;

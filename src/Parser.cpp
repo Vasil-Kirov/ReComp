@@ -388,7 +388,22 @@ token EatToken(parser *Parser, token_type Type, b32 Abort)
 	token Token = PeekToken(Parser);
 	if(Token.Type != Type)
 	{
-		RaiseError(Abort, Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
+		if(Parser->TokenIndex > 0)
+		{
+			token LastToken = Parser->Tokens[Parser->TokenIndex-1];
+			string Name = {};
+			if(LastToken.Type == T_ID)
+				Name = *LastToken.ID;
+			else
+				Name = MakeString(GetTokenName(LastToken.Type));
+
+			RaiseError(Abort, LastToken.ErrorInfo,
+					"Expected %s after %.*s", GetTokenName(Type), Name.Size, Name.Data);
+		}
+		else
+		{
+			RaiseError(Abort, Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
+		}
 		return token {};
 	}
 	GetToken(Parser);
@@ -528,7 +543,7 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 string MakeLambdaName(error_info *Info)
 {
 	string_builder Builder = MakeBuilder();
-	PushBuilderFormated(&Builder, "__lambda_%s%d", Info->FileName, Info->Line);
+	PushBuilderFormated(&Builder, "__lambda_%s%d%d", Info->FileName, Info->Range.StartLine, Info->Range.StartChar);
 	return MakeString(Builder);
 }
 
@@ -577,7 +592,7 @@ node *ParseEnum(parser *Parser)
 string *MakeAnonStructName(const error_info *e)
 {
 	string_builder b = MakeBuilder();
-	PushBuilderFormated(&b, "anon<%s|%d|%d>", e->FileName, e->Line, e->Character);
+	PushBuilderFormated(&b, "anon<%s|%d|%d>", e->FileName, e->Range.StartLine, e->Range.StartChar);
 	string Result = MakeString(b);
 	return DupeType(Result, string);
 }

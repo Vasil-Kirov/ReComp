@@ -933,6 +933,7 @@ node *ParseList(parser *Parser, node *Operand)
 			const string *Name = NULL;
 			if(PeekToken(Parser, 1).Type == T_EQ)
 			{
+				ErrorInfo = &Parser->Tokens[Parser->TokenIndex+1].ErrorInfo;
 				token ID = EatToken(Parser, T_ID, false);
 				if(ID.Type == 0)
 				{

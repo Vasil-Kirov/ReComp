@@ -2504,14 +2504,14 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 					u32 namePtr = PushInstruction(Builder, 
 							Instruction(OP_INDEX, MemberPtr, 0, EnumMemberType, Builder)
 							);
-					u32 valuePtr = PushInstruction(Builder, 
-							Instruction(OP_INDEX, MemberPtr, 1, EnumMemberType, Builder)
-							);
+				//	u32 valuePtr = PushInstruction(Builder, 
+				//			Instruction(OP_INDEX, MemberPtr, 1, EnumMemberType, Builder)
+				//			);
 
-					const_value *Value = DupeType(T->Enum.Members.Data[Idx].Value, const_value);
 					WriteString(Builder, namePtr, T->Enum.Members[Idx].Name);
-					u32 MemValue = PushInstruction(Builder, Instruction(OP_CONST, (u64)Value, T->Enum.Type, Builder));
-					PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
+					// @TODO: FIX, compile function currently doesn't have enum values
+				//	u32 MemValue = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, i, Builder));
+				//	PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
 				}
 				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), SliceEnumMemberType, NULL, membersPtr);
 			} break;

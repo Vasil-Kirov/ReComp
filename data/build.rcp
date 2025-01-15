@@ -31,12 +31,13 @@ compile :: fn() -> c.CompileInfo {
        io.println("Compiling file: %", f);
    }
 
-   //ti := #info c.CompileFlag;
-   //io.println("%", ti);
-   //io.println("%", ti.t.enum_.members.count);
-   //for it in ti.t.enum_.members {
-   //    io.println("%", it.name);
+   //enum_ := (#info c.CompileFlag).t.enum_;
+   //io.println("Name: %", enum_.name);
+   //for it in enum_.members {
+   //    io.println("name: %, value: %", it.name, it.value);
    // }
+   //io.println("flag: %", c.CompileFlag.DebugInfo);
+
 
 
     return out;

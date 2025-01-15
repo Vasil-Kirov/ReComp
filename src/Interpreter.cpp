@@ -1068,7 +1068,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 				{
 					if(*fn.Name == TypeTableInitName)
 					{
-						InterpretFunction(&VM, fn, {});
+						auto Result = InterpretFunction(&VM, fn, {});
+						Assert(Result.Kind == INTERPRET_OK);
 					}
 				}
 			}

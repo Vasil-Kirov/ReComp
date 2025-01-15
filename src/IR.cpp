@@ -533,6 +533,13 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 Idx = BuildIRFromExpression(Builder, Node->TypeInfoLookup.Expression);
 
 			Result = PushInstruction(Builder, Instruction(OP_TYPEINFO, s->Register, Idx, Node->TypeInfoLookup.Type, Builder));
+			if(IsLHS)
+			{
+				u32 Ptr = Result;
+				Result = PushInstruction(Builder, Instruction(OP_ALLOC, -1, GetPointerTo(Node->TypeInfoLookup.Type), Builder));
+				PushInstruction(Builder, InstructionStore(Result, Ptr, GetPointerTo(Node->TypeInfoLookup.Type)));
+			}
+			
 		} break;
 		case AST_MATCH:
 		{
@@ -2243,14 +2250,17 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 	u32 GenericTypeType  = FindStruct(STR_LIT("init.GenericType"));
 
 	u32 BasicKindType = FindEnum(STR_LIT("init.BasicKind"));
+	u32 EnumMemberType = FindStruct(STR_LIT("init.EnumMember"));
 	u32 StructMemberType = FindStruct(STR_LIT("init.StructMember"));
 	u32 VectorKindType = FindEnum(STR_LIT("init.VectorKind"));
 	u32 SliceMemberType = GetSliceType(StructMemberType);
+	u32 SliceEnumMemberType = GetSliceType(EnumMemberType);
 	u32 PointerMemberType = GetPointerTo(StructMemberType);
+	u32 PointerEnumMemberType = GetPointerTo(EnumMemberType);
 	u32 TypeSlice   = GetSliceType(Basic_type);
 	u32 TypePointer = GetPointerTo(Basic_type);
-	u32 StringPointer = GetPointerTo(Basic_string);
-	u32 StringSlice = GetSliceType(Basic_string);
+	//u32 StringPointer = GetPointerTo(Basic_string);
+	//u32 StringSlice = GetSliceType(Basic_string);
 
 	for(int i = 0; i < TypeCount; ++i)
 	{
@@ -2479,16 +2489,31 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 						);
 
 				u32 Alloc = PushInstruction(Builder, 
-						Instruction(OP_ALLOCGLOBAL, T->Enum.Members.Count, Basic_string, Builder));
+						Instruction(OP_ALLOCGLOBAL, T->Enum.Members.Count, EnumMemberType, Builder));
 				ForArray(Idx, T->Enum.Members)
 				{
+					// struct EnumMember {
+					//     name: string,
+					//     value: int,
+					// }
+
 					u32 MemberPtr = PushInstruction(Builder, 
-							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), StringPointer, Builder)
+							Instruction(OP_INDEX, Alloc, PushInt(Idx, Builder), PointerEnumMemberType, Builder)
 							);
 
-					WriteString(Builder, MemberPtr, T->Enum.Members[Idx].Name);
+					u32 namePtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, MemberPtr, 0, EnumMemberType, Builder)
+							);
+					u32 valuePtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, MemberPtr, 1, EnumMemberType, Builder)
+							);
+
+					const_value *Value = DupeType(T->Enum.Members.Data[Idx].Value, const_value);
+					WriteString(Builder, namePtr, T->Enum.Members[Idx].Name);
+					u32 MemValue = PushInstruction(Builder, Instruction(OP_CONST, (u64)Value, T->Enum.Type, Builder));
+					PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
 				}
-				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), StringSlice, NULL, membersPtr);
+				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), SliceEnumMemberType, NULL, membersPtr);
 			} break;
 			case TypeKind_Vector:
 			{

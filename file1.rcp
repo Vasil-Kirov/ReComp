@@ -1,32 +1,35 @@
 main
 
+#import io
+
 custom_t :: [4]u8;
 
 get_array_size :: fn(arr: $t) -> int {
     return size_of arr / size_of arr[0];
 }
 
-struct A {
-    c: int,
-}
 
-union Foo {
-    using A,
-    x: int,
-    y: f32,
-    z: i8,
-}
+enum MY_ENUM {
+    FOO = 1,
 
+    BAR = 40,
 
-i_want_a :: fn(x: *A) -> i32 {
-    return @i32 x.c;
+    D = 3,
 }
 
 main :: fn() -> i32 {
-    x := Foo {};
-    x.c = 10;
 
-    return i_want_a(&x.base);
+    x := #info MY_ENUM;
+    y := (#info MY_ENUM).t.enum_;
+    for it in x.t.enum_.members {
+        io.println("thingy: %", it);
+    }
+
+    for it in y.members {
+        io.println("thingy: %", it);
+    }
+
+    return 0;
 }
 
 

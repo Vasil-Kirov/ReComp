@@ -47,7 +47,9 @@ LLVMValueRef GenTypeInfo(generator *gen)
 	LLVMTypeRef TypeUnionType	  	= ConvertToLLVMType(gen, RCPTypeUnion);
 
 	u32 RCPStructMemberType = FindStruct(STR_LIT("init.StructMember"));
+	u32 RCPEnumMemberType = FindStruct(STR_LIT("init.EnumMember"));
 	LLVMTypeRef StructMemberType  	= ConvertToLLVMType(gen, RCPStructMemberType);
+	LLVMTypeRef EnumMemberType		= ConvertToLLVMType(gen, RCPEnumMemberType);
 	LLVMTypeRef TypeType = ConvertToLLVMType(gen, Basic_type);
 	LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
 	LLVMTypeRef U32Type = ConvertToLLVMType(gen, Basic_u32);
@@ -55,8 +57,9 @@ LLVMValueRef GenTypeInfo(generator *gen)
 	LLVMTypeRef BoolType = ConvertToLLVMType(gen, Basic_bool);
 
 	LLVMTypeRef StructMemberSliceType = ConvertToLLVMType(gen, GetSliceType(RCPStructMemberType));
+	LLVMTypeRef EnumMemberSliceType = ConvertToLLVMType(gen, GetSliceType(RCPEnumMemberType));
 	LLVMTypeRef TypeSliceType = ConvertToLLVMType(gen, GetSliceType(Basic_type));
-	LLVMTypeRef StringSliceType = ConvertToLLVMType(gen, GetSliceType(Basic_string));
+	//LLVMTypeRef StringSliceType = ConvertToLLVMType(gen, GetSliceType(Basic_string));
 
 	array<LLVMTypeRef> UnionArrayType{TypeCount};
 	u64 UnionSize			= LLVMABISizeOfType(gen->data, TypeUnionType);
@@ -284,22 +287,32 @@ LLVMValueRef GenTypeInfo(generator *gen)
 			} break;
 			case TypeKind_Enum:
 			{
+				// struct EnumMember {
+				//     name: string,
+				//     value: int,
+				// }
+				//
 				// struct EnumType {
 				//     name: string,
-				//     member_names: []string,
+				//     members: []EnumMember,
 				//     t: type,
 				// }
 
+				auto EnumType = ConvertToLLVMType(gen, T->Enum.Type);
 				array<LLVMValueRef> Members{T->Enum.Members.Count};
 				ForArray(Idx, T->Enum.Members)
 				{
 					auto it = T->Enum.Members[Idx];
-					Members[Idx] = RCConstString(gen, it.Name, IntType, StrType);
+					LLVMValueRef ConstVals[] = {
+						RCConstString(gen, it.Name, IntType, StrType),
+						LLVMConstInt(EnumType, it.Value.Int.IsSigned ? it.Value.Int.Signed : it.Value.Int.Unsigned, false),
+					};
+					Members[Idx] = LLVMConstNamedStruct(EnumMemberType, ConstVals, ARR_LEN(ConstVals));
 				}
 
 				LLVMValueRef ConstVals[] = {
 					RCConstString(gen, T->Enum.Name, IntType, StrType),
-					RCConstSlice(gen, Members, IntType, StrType, StringSliceType),
+					RCConstSlice(gen, Members, IntType, StrType, EnumMemberSliceType),
 					LLVMConstInt(TypeType, T->Enum.Type, false),
 				};
 

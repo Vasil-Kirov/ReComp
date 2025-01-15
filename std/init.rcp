@@ -108,9 +108,14 @@ struct SliceType {
     t: type,
 }
 
+struct EnumMember {
+    name: string,
+    value: int,
+}
+
 struct EnumType {
     name: string,
-    member_names: []string,
+    members: []EnumMember,
     t: type,
 }
 

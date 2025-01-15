@@ -22,6 +22,7 @@ compile :: fn() -> c.CompileInfo {
         files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
         //files = []string { "../file1.rcp" },
         opt = 0,
+        flags = @u32 c.CompileFlag.DebugInfo,
         //flags = @u32 (c.CompileFlag.SanAddress | c.CompileFlag.Standalone | c.CompileFlag.NoLink),
         //link = "/SUBSYSTEM:windows",
     };
@@ -29,6 +30,14 @@ compile :: fn() -> c.CompileInfo {
    for f in out.files {
        io.println("Compiling file: %", f);
    }
+
+   //ti := #info c.CompileFlag;
+   //io.println("%", ti);
+   //io.println("%", ti.t.enum_.members.count);
+   //for it in ti.t.enum_.members {
+   //    io.println("%", it.name);
+   // }
+
 
     return out;
 }

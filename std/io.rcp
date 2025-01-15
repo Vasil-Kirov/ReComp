@@ -188,8 +188,11 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 8: { return @int *@*i64 arg.val; }
             };
 
-            if val < e.member_names.count {
-                push_string(b, e.member_names[val]);
+            for m in e.members {
+                if m.value == val {
+                    push_string(b, m.name);
+                    break;
+                }
             }
         }
         init.TypeKind.Generic: {

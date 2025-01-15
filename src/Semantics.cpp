@@ -2051,6 +2051,13 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 			RaiseError(true, *Node->ErrorInfo,
 					"Left-hand side is a declaration list but right-hand does not yield multiple values");
 		}
+		if(Node->Decl.LHS->List.Nodes.Count != T->Struct.Members.Count)
+		{
+			const char *l = "values";
+			if(Node->Decl.LHS->List.Nodes.Count == 1)
+				l = "value";
+			RaiseError(true, *Node->ErrorInfo, "Left-hand side expects %d %s but right-hand side gives %d", Node->Decl.LHS->List.Nodes.Count, l, T->Struct.Members.Count);
+		}
 		slice<node *> Nodes = Node->Decl.LHS->List.Nodes;
 		uint At = 0;
 		For(Nodes)
@@ -2068,6 +2075,12 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	}
 	else if(Node->Decl.LHS->Type == AST_ID)
 	{
+		if(T->Kind == TypeKind_Struct && T->Struct.Flags & StructFlag_FnReturn)
+		{
+			RaiseError(true, *Node->ErrorInfo,
+					"Right-hand side of expression gives multiple values but left-hand side handles only 1");
+		}
+
 		if(!NoAdd)
 		{
 			AddVariable(Checker, Node->ErrorInfo, Type, Node->Decl.LHS->ID.Name, Node, Node->Decl.Flags);

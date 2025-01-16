@@ -5056,7 +5056,6 @@ fn init.__TypeTableInit() {
 		%3918 = STORE int %148
 		%3919 = STORE *init.TypeInfo %147
 		RET
-
 }
 
 fn __GlobalInitializerFunction.0() {
@@ -5733,7 +5732,6 @@ fn get_struct_member_offset(init.StructType %0, int %1) -> int {
 		%179 = STORE int %232
 		%233 = LOAD int %179
 		RET int %233
-
 }
 
 fn memcmp(* %0, * %1, int %2) -> i32;

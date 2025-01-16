@@ -19,15 +19,9 @@ enum MY_ENUM {
 
 main :: fn() -> i32 {
 
-    x := #info MY_ENUM;
-    y := (#info MY_ENUM).t.enum_;
-    for it in x.t.enum_.members {
-        io.println("thingy: %", it);
-    }
+    using MY_ENUM;
 
-    for it in y.members {
-        io.println("thingy: %", it);
-    }
+    io.println("% % %", FOO, BAR, D);
 
     return 0;
 }

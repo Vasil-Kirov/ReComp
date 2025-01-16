@@ -1941,7 +1941,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_USING:
 		{
 			const type *T = GetType(Node->Using.Type);
-			Assert(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Pointer);
+			Assert(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Pointer || T->Kind == TypeKind_Enum);
 			u32 Base = BuildIRFromExpression(Builder, Node->Using.Expr, true);
 			u32 StructTy = Node->Using.Type;
 			if(T->Kind == TypeKind_Pointer)
@@ -1950,14 +1950,30 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				StructTy = T->Pointer.Pointed;
 				T = GetType(T->Pointer.Pointed);
 			}
-			ForArray(Idx, T->Struct.Members)
+
+			if(T->Kind == TypeKind_Enum)
 			{
-				auto it = T->Struct.Members[Idx];
-				auto I = Instruction(OP_INDEX, Base, Idx, StructTy, Builder);
-				u32 MemberPtr = PushInstruction(Builder, I);
-				IRPushDebugVariableInfo(Builder, Node->ErrorInfo, it.ID, it.Type, MemberPtr);
-				PushIRLocal(Builder, DupeType(it.ID, string), MemberPtr, it.Type);
-				// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+				ForArray(Idx, T->Enum.Members)
+				{
+					auto it = T->Enum.Members[Idx];
+					auto I = Instruction(OP_ALLOC, -1, Node->Using.Type, Builder);
+					u32 Var = PushInstruction(Builder, I);
+					u32 Value = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, Node->Using.Type, Builder));
+					PushInstruction(Builder, InstructionStore(Var, Value, Node->Using.Type));
+					PushIRLocal(Builder, DupeType(it.Name, string), Var, Node->Using.Type);
+				}
+			}
+			else
+			{
+				ForArray(Idx, T->Struct.Members)
+				{
+					auto it = T->Struct.Members[Idx];
+					auto I = Instruction(OP_INDEX, Base, Idx, StructTy, Builder);
+					u32 MemberPtr = PushInstruction(Builder, I);
+					IRPushDebugVariableInfo(Builder, Node->ErrorInfo, it.ID, it.Type, MemberPtr);
+					PushIRLocal(Builder, DupeType(it.ID, string), MemberPtr, it.Type);
+					// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+				}
 			}
 		} break;
 		case AST_ASSERT:

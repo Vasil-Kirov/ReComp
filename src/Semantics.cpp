@@ -2490,7 +2490,17 @@ void AnalyzeUsing(checker *Checker, node *Node)
 	node *Expr = Node->Using.Expr;
 	u32 TIdx = AnalyzeExpression(Checker, Expr);
 	const type *T = GetType(TIdx);
-	if(T->Kind != TypeKind_Struct/* && !HasBasicFlag(T, BasicFlag_TypeID)*/)
+	if(HasBasicFlag(T, BasicFlag_TypeID))
+	{
+		TIdx = GetTypeFromTypeNode(Checker, Expr);
+		T = GetType(TIdx);
+		if(T->Kind != TypeKind_Enum)
+		{
+			RaiseError(false, *Expr->ErrorInfo, "Invalid type for using expression. `using` is only valid on enum types but this is %s", GetTypeName(T));
+			return;
+		}
+	}
+	else if(T->Kind != TypeKind_Struct)
 	{
 		if(T->Kind == TypeKind_Pointer && T->Pointer.Pointed != INVALID_TYPE && GetType(T->Pointer.Pointed)->Kind == TypeKind_Struct)
 		{
@@ -2498,7 +2508,7 @@ void AnalyzeUsing(checker *Checker, node *Node)
 		}
 		else
 		{
-			RaiseError(false, *Expr->ErrorInfo, "Invalid type on using expression, need a struct");
+			RaiseError(false, *Expr->ErrorInfo, "Invalid type on using expression, need an enum, struct, or pointer to struct");
 			return;
 		}
 	}
@@ -2508,10 +2518,20 @@ void AnalyzeUsing(checker *Checker, node *Node)
 	{
 		case AST_ID:
 		{
-			For(T->Struct.Members)
+			if(T->Kind == TypeKind_Enum)
 			{
-				AddVariable(Checker, Node->ErrorInfo, it->Type, DupeType(it->ID, string), Node, 0);
-				// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+				For(T->Enum.Members)
+				{
+					AddVariable(Checker, Node->ErrorInfo, TIdx, DupeType(it->Name, string), Node, 0);
+				}
+			}
+			else
+			{
+				For(T->Struct.Members)
+				{
+					AddVariable(Checker, Node->ErrorInfo, it->Type, DupeType(it->ID, string), Node, 0);
+					// @Cleanup: Useless DupeType? Maybe taking a pointer from T->Struct.Members is safe
+				}
 			}
 		} break;
 		default:

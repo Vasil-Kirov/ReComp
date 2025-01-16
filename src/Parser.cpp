@@ -1719,7 +1719,16 @@ node *ParseTopLevel(parser *Parser)
 			if(Parser->Current->Type == T_AS)
 			{
 				GetToken(Parser);
-				As = EatToken(Parser, T_ID, true).ID;
+				if(Parser->Current->Type == T_PTR)
+				{
+					GetToken(Parser);
+					string Any = STR_LIT("*");
+					As = DupeType(Any, string);
+				}
+				else
+				{
+					As = EatToken(Parser, T_ID, true).ID;
+				}
 			}
 
 			needs_resolving_import Imported = {

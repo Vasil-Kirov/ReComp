@@ -163,6 +163,17 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 	symbol *s = Builder->Module->Globals[Name];
 	if(s)
 		return s;
+	string NoNamespace = STR_LIT("*");
+	For(Builder->Imported)
+	{
+		if(it->As == NoNamespace)
+		{
+			s = it->M->Globals[Name];
+			if(s)
+				return s;
+		}
+	}
+
 
 	split Split = SplitAt(Name, '.');
 	if(Split.first.Data != NULL)

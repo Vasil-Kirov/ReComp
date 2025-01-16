@@ -329,6 +329,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 				u32 Type = FindType(Checker, &SearchName, &Checker->Module->Name);
 				if(Type != INVALID_TYPE)
 				{
+CHECK_ENUM_TYPE:
 					if(GetType(Type)->Kind != TypeKind_Enum)
 					{
 						if(!Error)
@@ -338,7 +339,24 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 
 					return Type;
 				}
-				else if(!Error)
+				else
+				{
+					string NoNamespace = STR_LIT("*");
+					For(Checker->Imported)
+					{
+						if(it->As == NoNamespace)
+						{
+							u32 Got = FindType(Checker, &SearchName, &it->M->Name);
+							if(Got != INVALID_TYPE)
+							{
+								Type = Got;
+								goto CHECK_ENUM_TYPE;
+							}
+						}
+					}
+				}
+
+				if(!Error)
 					return INVALID_TYPE;
 				RaiseError(true, *Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
 			}
@@ -668,6 +686,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					break;
 				}
 
+				string NoNamespace = STR_LIT("*");
+				if(Result == INVALID_TYPE)
+				{
+					For(Checker->Imported)
+					{
+						if(it->As == NoNamespace)
+						{
+							// @THREADING: NOT THREAD SAFE (maybe)
+							auto Sym = it->M->Globals[*Expr->ID.Name];
+							if(Sym)
+							{
+								Result = Sym->Type;
+								break;
+							}
+						}
+					}
+				}
 				if(Result == INVALID_TYPE)
 				{
 					import Import;
@@ -684,6 +719,22 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						Result = Basic_type;
 						Expr->ID.Type = Find;
+					}
+					else
+					{
+						For(Checker->Imported)
+						{
+							if(it->As == NoNamespace)
+							{
+								u32 Got = FindType(Checker, Expr->ID.Name, &it->M->Name);
+								if(Got != INVALID_TYPE)
+								{
+									Result = Basic_type;
+									Expr->ID.Type = Got;
+									break;
+								}
+							}
+						}
 					}
 				}
 				if(Result == INVALID_TYPE)

@@ -379,6 +379,46 @@ void SkipWhiteSpace(string *String, error_info *ErrorInfo)
 
 }
 
+token EatCommentAndNext(string *String, error_info *ErrorInfo)
+{
+	if(PeekCAhead(String, 1) == '/')
+	{
+		while(AdvanceC(String, ErrorInfo) != '\n');
+	}
+	else
+	{
+		Assert(PeekCAhead(String, 1) == '*');
+		AdvanceC(String, ErrorInfo);
+		AdvanceC(String, ErrorInfo);
+
+		int Depth = 1;
+		while(Depth > 0)
+		{
+			char c = AdvanceC(String, ErrorInfo);
+			if(c == '/')
+			{
+				c = PeekC(String);
+				if(c == '*')
+				{
+					AdvanceC(String, ErrorInfo);
+					Depth++;
+				}
+			}
+			else if(c == '*')
+			{
+				c = PeekC(String);
+				if(c == '/')
+				{
+					AdvanceC(String, ErrorInfo);
+					Depth--;
+				}
+			}
+		}
+
+	}
+	return GetNextToken(String, ErrorInfo);
+}
+
 token GetNextToken(string *String, error_info *ErrorInfo)
 {
 	SkipWhiteSpace(String, ErrorInfo);
@@ -421,11 +461,8 @@ token GetNextToken(string *String, error_info *ErrorInfo)
 	if(FirstChar == '/')
 	{
 		char SecondChar = PeekCAhead(String, 1);
-		if(SecondChar == '/')
-		{
-			while(AdvanceC(String, ErrorInfo) != '\n');
-			return GetNextToken(String, ErrorInfo);
-		}
+		if(SecondChar == '/' || SecondChar == '*')
+			return EatCommentAndNext(String, ErrorInfo);
 	}
 	return TokinizeSpecialCharacter(String, ErrorInfo);
 }

@@ -54,8 +54,9 @@ syn match rcpSBinaryNumber /\<0[bB][01_]\+\>/
 syn match rcpSHexNumber /\<0[xX][0-9a-fA-F_]\+\>/
 
 " Comments (starting with //)
-syn keyword rcpSTodo contained TODO FIXME LEAK XXX NOTE
+syn match rcpSTodo "@\<\w\+\>" contained display
 syn match rcpSComment "//.*$" contains=rcpSTodo
+syn region rcpSBlockComment start=/\v\/\*/ end=/\v\*\// contains=rcpSBlockComment, rcpSTodo
 
 
 " Highlighting groups
@@ -70,6 +71,7 @@ hi def link rcpSKeyword Keyword
 hi def link rcpSType Type
 hi def link rcpSTodo Todo
 hi def link rcpSComment Comment
+hi def link rcpSBlockComment Comment
 hi def link rcpSString String
 hi def link rcpSChar SpecialChar
 " 

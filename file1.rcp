@@ -8,6 +8,11 @@ get_array_size :: fn(arr: $t) -> int {
     return size_of arr / size_of arr[0];
 }
 
+/*
+/*
+*/
+COMMENT
+*/
 
 enum MY_ENUM {
     FOO = 1,

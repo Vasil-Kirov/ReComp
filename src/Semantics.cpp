@@ -620,7 +620,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		int I = FunctionType->Function.ArgCount;
 		node *Arg = FnNode->Fn.Args[I];
 		u32 flags = SymbolFlag_Const;
-		u32 ArgType = FindStruct(STR_LIT("init.Arg"));
+		u32 ArgType = FindStruct(STR_LIT("base.Arg"));
 		u32 Type = GetSliceType(ArgType);
 		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Var.Name, NULL, flags);
 
@@ -729,7 +729,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(false, *Expr->ErrorInfo, "#info expected an expression with a type of `type`, got: %s",
 						GetTypeName(ExprType));
 			}
-			u32 TypeInfoType = FindStruct(STR_LIT("init.TypeInfo"));
+			u32 TypeInfoType = FindStruct(STR_LIT("base.TypeInfo"));
 			Expr->TypeInfoLookup.Type = TypeInfoType;
 			Result = GetPointerTo(TypeInfoType);
 		} break;

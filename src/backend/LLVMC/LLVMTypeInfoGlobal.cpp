@@ -31,23 +31,23 @@ LLVMValueRef RCConstString(generator *gen, string S, LLVMTypeRef IntType, LLVMTy
 LLVMValueRef GenTypeInfo(generator *gen)
 {
 	uint TypeCount = GetTypeCount();
-	u32 RCPTypeUnion = FindStruct(STR_LIT("init.TypeUnion"));
-	u32 RCPTypeInfo = FindStruct(STR_LIT("init.TypeInfo"));
+	u32 RCPTypeUnion = FindStruct(STR_LIT("base.TypeUnion"));
+	u32 RCPTypeInfo = FindStruct(STR_LIT("base.TypeInfo"));
 	LLVMTypeRef TypeInfoType		= ConvertToLLVMType(gen, RCPTypeInfo);
-	//LLVMTypeRef TypeKindType		= ConvertToLLVMType(gen, FindEnum(  STR_LIT("init.TypeKind")));
-	LLVMTypeRef BasicTypeType		= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.BasicType")));
-	LLVMTypeRef StructTypeType   	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.StructType")));
-	LLVMTypeRef FunctionTypeType 	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.FunctionType")));
-	LLVMTypeRef PointerTypeType  	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.PointerType")));
-	LLVMTypeRef ArrayTypeType    	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.ArrayType")));
-	LLVMTypeRef SliceTypeType    	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.SliceType")));
-	LLVMTypeRef EnumTypeType     	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.EnumType")));
-	LLVMTypeRef VectorTypeType   	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.VectorType")));
-	LLVMTypeRef GenericTypeType  	= ConvertToLLVMType(gen, FindStruct(STR_LIT("init.GenericType")));
+	//LLVMTypeRef TypeKindType		= ConvertToLLVMType(gen, FindEnum(  STR_LIT("base.TypeKind")));
+	LLVMTypeRef BasicTypeType		= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.BasicType")));
+	LLVMTypeRef StructTypeType   	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.StructType")));
+	LLVMTypeRef FunctionTypeType 	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.FunctionType")));
+	LLVMTypeRef PointerTypeType  	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.PointerType")));
+	LLVMTypeRef ArrayTypeType    	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.ArrayType")));
+	LLVMTypeRef SliceTypeType    	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.SliceType")));
+	LLVMTypeRef EnumTypeType     	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.EnumType")));
+	LLVMTypeRef VectorTypeType   	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.VectorType")));
+	LLVMTypeRef GenericTypeType  	= ConvertToLLVMType(gen, FindStruct(STR_LIT("base.GenericType")));
 	LLVMTypeRef TypeUnionType	  	= ConvertToLLVMType(gen, RCPTypeUnion);
 
-	u32 RCPStructMemberType = FindStruct(STR_LIT("init.StructMember"));
-	u32 RCPEnumMemberType = FindStruct(STR_LIT("init.EnumMember"));
+	u32 RCPStructMemberType = FindStruct(STR_LIT("base.StructMember"));
+	u32 RCPEnumMemberType = FindStruct(STR_LIT("base.EnumMember"));
 	LLVMTypeRef StructMemberType  	= ConvertToLLVMType(gen, RCPStructMemberType);
 	LLVMTypeRef EnumMemberType		= ConvertToLLVMType(gen, RCPEnumMemberType);
 	LLVMTypeRef TypeType = ConvertToLLVMType(gen, Basic_type);
@@ -141,7 +141,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 	LLVMTypeRef TypeInfoArray = LLVMStructType(UnionArrayType.Data, TypeCount, false);
 
-	LLVMValueRef TypeTableContents = LLVMAddGlobal(gen->mod, TypeInfoArray, "init.type_table_contents");
+	LLVMValueRef TypeTableContents = LLVMAddGlobal(gen->mod, TypeInfoArray, "base.type_table_contents");
 	LLVMSetGlobalConstant(TypeTableContents, true);
 
 	auto ArrayValues = (LLVMValueRef *)VAlloc(sizeof(LLVMValueRef) * TypeCount);
@@ -367,7 +367,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 	u32 RCPTypeSlice = GetSliceType(RCPTypeInfo);
 	LLVMTypeRef TypeTableType = ConvertToLLVMType(gen, RCPTypeSlice);
-	LLVMValueRef TypeTable = LLVMAddGlobal(gen->mod, TypeTableType, "init.type_table");
+	LLVMValueRef TypeTable = LLVMAddGlobal(gen->mod, TypeTableType, "base.type_table");
 	LLVMSetGlobalConstant(TypeTable, true);
 
 	LLVMValueRef TypeSliceValues[] = {

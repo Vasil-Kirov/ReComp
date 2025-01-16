@@ -1114,7 +1114,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		AddedFns.Add(LinkName, Fn);
 	}
 
-	b32 IsInitModule = M->Name == STR_LIT("init");
+	b32 IsInitModule = M->Name == STR_LIT("base");
 	ForArray(MIdx, Modules)
 	{
 		// shadow
@@ -1187,7 +1187,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 	}
 	Gen.map.LockBottom();
 
-	string TypeTableInitName = STR_LIT("init.__TypeTableInit");
+	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(FIdx, M->Files)
 	{
 		ir *IR = M->Files[FIdx]->IR;
@@ -1346,7 +1346,7 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		if(File->Module->Name == STR_LIT("init"))
+		if(File->Module->Name == STR_LIT("base"))
 		{
 			FileFns[Idx] = InitFn;
 			continue;
@@ -1361,7 +1361,7 @@ LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef I
 		FileFns[Idx] = LLVMAddFunction(gen->mod, InitFnName.Data, FnType);
 	}
 
-	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "init.global_initializers", FnType);
+	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "base.global_initializers", FnType);
 	LLVMBasicBlockRef Block = LLVMAppendBasicBlockInContext(gen->ctx, MainFn, "only_block");
 	LLVMPositionBuilderAtEnd(gen->bld, Block);
 

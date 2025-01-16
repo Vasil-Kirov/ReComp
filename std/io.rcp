@@ -3,18 +3,18 @@ io
 #import os
 #import array
 #import mem
-#import init
+#import base
 #import str
 
-print_typetype :: fn(b: *[]u32, info: *init.TypeInfo) {
+print_typetype :: fn(b: *[]u32, info: *base.TypeInfo) {
     match info.kind {
-        init.TypeKind.Invalid: {
+        base.TypeKind.Invalid: {
             push_string(b, "invalid");
         }
-        init.TypeKind.Basic: {
+        base.TypeKind.Basic: {
             push_string(b, info.t.basic.name);
         }
-        init.TypeKind.Function: {
+        base.TypeKind.Function: {
             push_string(b, "fn(");
             args := info.t.function.args_t;
             for arg in args {
@@ -33,108 +33,108 @@ print_typetype :: fn(b: *[]u32, info: *init.TypeInfo) {
                 }
             }
         }
-        init.TypeKind.Struct: {
+        base.TypeKind.Struct: {
             push_string(b, info.t.struct_.name);
         }
-        init.TypeKind.Pointer: {
+        base.TypeKind.Pointer: {
             push_string(b, "*");
             print_typetype(b, #info info.t.pointer.pointee);
         }
-        init.TypeKind.Array: {
+        base.TypeKind.Array: {
             push_string(b, "[x]");
             print_typetype(b, #info info.t.array.t);
         }
-        init.TypeKind.Slice: {
+        base.TypeKind.Slice: {
             push_string(b, "[]");
             print_typetype(b, #info info.t.slice.t);
         }
-        init.TypeKind.Vector: {
+        base.TypeKind.Vector: {
             push_string(b, "<>");
         }
-        init.TypeKind.Enum: {
+        base.TypeKind.Enum: {
             push_string(b, info.t.enum_.name);
         }
-        init.TypeKind.Generic: {
+        base.TypeKind.Generic: {
             push_string(b, info.t.generic.name);
         }
     };
 
 }
 
-print_type :: fn(b: *[]u32, arg: init.Arg) {
+print_type :: fn(b: *[]u32, arg: base.Arg) {
     t := #info arg.t;
     match t.kind {
-        init.TypeKind.Invalid: {
+        base.TypeKind.Invalid: {
         }
-        init.TypeKind.Basic: {
+        base.TypeKind.Basic: {
             basic := t.t.basic;
-            if basic.kind == init.BasicKind.Bool {
+            if basic.kind == base.BasicKind.Bool {
                 if *@*bool arg.val {
                     push_string(b, "true");
                 } else {
                     push_string(b, "false");
                 }
             }
-            else if basic.kind == init.BasicKind.String {
+            else if basic.kind == base.BasicKind.String {
                 str: string = *@*string arg.val;
                 push_string(b, str);
             }
-            //else if basic.kind == init.BasicKind.Cstring {
+            //else if basic.kind == base.BasicKind.Cstring {
             //    str: cstring = *@*cstring arg.val;
             //    for i := 0; str[i] != '\0'; i += 1 {
             //        array.add(b, str[i]);
             //    }
 
             //}
-            else if basic.kind == init.BasicKind.U8  {
+            else if basic.kind == base.BasicKind.U8  {
                 num: uint = *@*u8 arg.val;
                 format_uint(b, num);
             }
-            else if basic.kind == init.BasicKind.U16 {
+            else if basic.kind == base.BasicKind.U16 {
                 num: uint = *@*u16 arg.val;
                 format_uint(b, num);
             }
-            else if basic.kind == init.BasicKind.U32 {
+            else if basic.kind == base.BasicKind.U32 {
                 num: uint = *@*u32 arg.val;
                 format_uint(b, num);
             }
-            else if basic.kind == init.BasicKind.U64 {
+            else if basic.kind == base.BasicKind.U64 {
                 num: uint = *@*u64 arg.val;
                 format_uint(b, num);
             }
-            else if basic.kind == init.BasicKind.I8  {
+            else if basic.kind == base.BasicKind.I8  {
                 num: int = *@*i8 arg.val;
                 format_int(b, num);
             }
-            else if basic.kind == init.BasicKind.I16 {
+            else if basic.kind == base.BasicKind.I16 {
                 num: int = *@*i16 arg.val;
                 format_int(b, num);
             }
-            else if basic.kind == init.BasicKind.I32 {
+            else if basic.kind == base.BasicKind.I32 {
                 num: int = *@*i32 arg.val;
                 format_int(b, num);
             }
-            else if basic.kind == init.BasicKind.I64 {
+            else if basic.kind == base.BasicKind.I64 {
                 num: int = *@*i64 arg.val;
                 format_int(b, num);
             }
-            else if basic.kind == init.BasicKind.Int {
+            else if basic.kind == base.BasicKind.Int {
                 num: int = *@*int arg.val;
                 format_int(b, num);
             }
-            else if basic.kind == init.BasicKind.Uint {
+            else if basic.kind == base.BasicKind.Uint {
                 num: uint = *@*uint arg.val;
                 format_uint(b, num);
             }
-            else if basic.kind == init.BasicKind.F32 {
+            else if basic.kind == base.BasicKind.F32 {
                 num := *@*f32 arg.val;
                 format_float(f32, b, num, 100);
             }
-            else if basic.kind == init.BasicKind.F64 {
+            else if basic.kind == base.BasicKind.F64 {
                 num := *@*f64 arg.val;
                 format_float(f64, b, num, 100);
             }
-            else if basic.kind == init.BasicKind.Type {
+            else if basic.kind == base.BasicKind.Type {
                 pt := *@*type arg.val;
                 info := #info pt;
                 print_typetype(b, info);
@@ -143,9 +143,9 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 array.add(b, '%');
             }
         }
-        init.TypeKind.Function: {
+        base.TypeKind.Function: {
         }
-        init.TypeKind.Struct: {
+        base.TypeKind.Struct: {
             st := t.t.struct_;
             push_string(b, st.name);
             push_string(b, " { ");
@@ -154,8 +154,8 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 push_string(b, m.name);
                 push_string(b, " = ");
                 ptr := @*u8 arg.val;
-                offset := init.get_struct_member_offset(st, n);
-                mem_arg := init.Arg {
+                offset := base.get_struct_member_offset(st, n);
+                mem_arg := base.Arg {
                     t = m.t,
                     val = &ptr[offset],
                 };
@@ -168,19 +168,19 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
             }
             push_string(b, " }");
         }
-        init.TypeKind.Pointer: {
+        base.TypeKind.Pointer: {
 			num: uint = *@*uint arg.val;
 	 		format_uint(b, num);
         }
-        init.TypeKind.Array: {
+        base.TypeKind.Array: {
         }
-        init.TypeKind.Slice: {
+        base.TypeKind.Slice: {
         }
-        init.TypeKind.Vector: {
+        base.TypeKind.Vector: {
         }
-        init.TypeKind.Enum: {
+        base.TypeKind.Enum: {
             e := t.t.enum_;
-            size := init.get_type_size(e.t);
+            size := base.get_type_size(e.t);
             val := match size {
                 1: { return @int *@*i8 arg.val; }
                 2: { return @int *@*i16 arg.val; }
@@ -195,24 +195,24 @@ print_type :: fn(b: *[]u32, arg: init.Arg) {
                 }
             }
         }
-        init.TypeKind.Generic: {
+        base.TypeKind.Generic: {
         }
     };
 }
 
-print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
+print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: base.Arg) {
     t := #info arg.t;
-    if c == 's' && t.kind == init.TypeKind.Pointer && t.t.pointer.pointee == u8 {
+    if c == 's' && t.kind == base.TypeKind.Pointer && t.t.pointer.pointee == u8 {
         str: *u8 = *@**u8 arg.val;
         for i := 0; str[i] != '\0'; i += 1 {
             array.add(b, str[i]);
         }
-    } else if c == 'c' && t.kind == init.TypeKind.Basic &&
-        (t.t.basic.kind == init.BasicKind.U8 || t.t.basic.kind == init.BasicKind.U32) {
+    } else if c == 'c' && t.kind == base.TypeKind.Basic &&
+        (t.t.basic.kind == base.BasicKind.U8 || t.t.basic.kind == base.BasicKind.U32) {
             c: u32;
-            if t.t.basic.kind == init.BasicKind.U8 {
+            if t.t.basic.kind == base.BasicKind.U8 {
                 c = *@*u8 arg.val;
-            } else if t.t.basic.kind == init.BasicKind.U32 {
+            } else if t.t.basic.kind == base.BasicKind.U32 {
                 c = *@*u32 arg.val;
             }
             array.add(b, c);
@@ -223,7 +223,7 @@ print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: init.Arg) {
     }
 }
 
-vsprint :: fn(str: string, args: []init.Arg) -> string {
+vsprint :: fn(str: string, args: []base.Arg) -> string {
     builder := internal_print(str, args);
     res := builder_to_string(&builder);
     array.free(&builder);
@@ -311,7 +311,7 @@ read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 // PRIVATE SECTION
 #private
 
-internal_print :: fn(fmt: string, args: []init.Arg) -> []u32 {
+internal_print :: fn(fmt: string, args: []base.Arg) -> []u32 {
     alloc := mem.create_generic_allocator();
     builder := array.create(u32, &alloc);
     arg_count := 0;

@@ -1008,7 +1008,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			Value.Type = s->Type;
 			if(s->LinkName)
 			{
-				static const string GlobalInits = STR_LIT("init.global_initializers");
+				static const string GlobalInits = STR_LIT("base.global_initializers");
 				static const string Main = STR_LIT("main.main");
 				if(*s->LinkName == GlobalInits || *s->LinkName == Main)
 					continue;
@@ -1048,7 +1048,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 		}
 	}
 
-	string TypeTableInitName = STR_LIT("init.__TypeTableInit");
+	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(MIdx, Modules)
 	{
 		module *m = Modules[MIdx];

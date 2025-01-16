@@ -2,7 +2,6 @@ build
 
 #import compile as c
 #import io
-#import init
 
 puts :: fn #foreign(str: *u8);
 

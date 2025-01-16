@@ -426,7 +426,7 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags)
 	string Dir = MakeString(StdDir);
 
 	string StdFiles[] = {
-		GetFilePath(Dir, "init.rcp"),
+		GetFilePath(Dir, "base.rcp"),
 		GetFilePath(Dir, "os.rcp"),
 		GetFilePath(Dir, "io.rcp"),
 		GetFilePath(Dir, "mem.rcp"),

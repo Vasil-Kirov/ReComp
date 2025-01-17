@@ -1303,6 +1303,20 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 				TypeIdx = MakeStruct(SliceFromArray(Members), Type->Struct.Name, Type->Struct.Flags & (~StructFlag_Generic));
 			}
+			else if(Type->Kind == TypeKind_Struct)
+			{
+				// Check for 0 initializing non nullable pointer
+				ForArray(Idx, Type->Struct.Members)
+				{
+					struct_member Member = Type->Struct.Members[Idx];
+					const type *MT = GetType(Member.Type);
+					if(MT->Kind == TypeKind_Pointer && (MT->Pointer.Flags & PointerFlag_Optional) == 0 &&
+							Filled[Idx] == NULL)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Trying to 0 initialize struct member %s which is a non nullable pointer, to use a struct literal of type %s, specify the member with a valid address.", Member.ID.Data, GetTypeName(Type));
+					}
+				}
+			}
 			Expr->TypeList.Type = TypeIdx;
 			Result = TypeIdx;
 		} break;

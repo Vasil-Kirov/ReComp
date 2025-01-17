@@ -5,15 +5,15 @@ main
 
 custom_t :: [4]u8;
 
+struct CannotZero {
+    a: int,
+    b: *,
+    c: f32,
+}
+
 get_array_size :: fn(arr: $t) -> int {
     return size_of arr / size_of arr[0];
 }
-
-/*
-/*
-*/
-COMMENT
-*/
 
 enum MY_ENUM {
     FOO = 1,
@@ -24,15 +24,17 @@ enum MY_ENUM {
 }
 
 main :: fn() -> i32 {
-
     using MY_ENUM;
+
 
     e := #info MY_ENUM;
     #assert e.kind == TypeKind.Enum;
 
     println("% % %", FOO, e.kind, TypeKind.Enum);
 
-    return 0;
+    f := CannotZero{ b = &e, c = 3.4, a = 5};
+
+    return @i32 f.c;
 }
 
 

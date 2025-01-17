@@ -92,7 +92,7 @@ Get the number of bytes for the sepcified memory unit (kb, mb, or gb)
 - `int`: the number of bytes for n of the memory unit
 
 
-#### `make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T 
+#### `make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T`
 **Description**
 Allocate a memory view with the given allocator, function asserts for a valid allocation
 

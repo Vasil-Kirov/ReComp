@@ -1,0 +1,8 @@
+intrin
+
+
+
+// @TODO:
+compare_exchange :: fn(expect: *int, need: int) -> int;
+
+

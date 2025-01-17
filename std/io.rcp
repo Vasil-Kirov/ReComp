@@ -3,256 +3,34 @@ io
 #import os
 #import array
 #import mem
-#import base
-#import str
+#import base as *
+#import str as *
 
-print_typetype :: fn(b: *[]u32, info: *base.TypeInfo) {
-    match info.kind {
-        base.TypeKind.Invalid: {
-            push_string(b, "invalid");
-        }
-        base.TypeKind.Basic: {
-            push_string(b, info.t.basic.name);
-        }
-        base.TypeKind.Function: {
-            push_string(b, "fn(");
-            args := info.t.function.args_t;
-            for arg in args {
-                print_typetype(b, #info arg);
-                if i + 1 != args.count {
-                    push_string(b, ", ");
-                }
-            }
-            push_string(b, ")");
-            if info.t.function.returns.count != 0 {
-                push_string(b, " -> ");
-                for t in info.t.function.returns {
-                    if i != 0
-                        push_string(b, ", ");
-                    print_typetype(b, #info t);
-                }
-            }
-        }
-        base.TypeKind.Struct: {
-            push_string(b, info.t.struct_.name);
-        }
-        base.TypeKind.Pointer: {
-            push_string(b, "*");
-            print_typetype(b, #info info.t.pointer.pointee);
-        }
-        base.TypeKind.Array: {
-            push_string(b, "[x]");
-            print_typetype(b, #info info.t.array.t);
-        }
-        base.TypeKind.Slice: {
-            push_string(b, "[]");
-            print_typetype(b, #info info.t.slice.t);
-        }
-        base.TypeKind.Vector: {
-            push_string(b, "<>");
-        }
-        base.TypeKind.Enum: {
-            push_string(b, info.t.enum_.name);
-        }
-        base.TypeKind.Generic: {
-            push_string(b, info.t.generic.name);
-        }
-    };
-
-}
-
-print_type :: fn(b: *[]u32, arg: base.Arg) {
-    t := #info arg.t;
-    match t.kind {
-        base.TypeKind.Invalid: {
-        }
-        base.TypeKind.Basic: {
-            basic := t.t.basic;
-            if basic.kind == base.BasicKind.Bool {
-                if *@*bool arg.val {
-                    push_string(b, "true");
-                } else {
-                    push_string(b, "false");
-                }
-            }
-            else if basic.kind == base.BasicKind.String {
-                str: string = *@*string arg.val;
-                push_string(b, str);
-            }
-            //else if basic.kind == base.BasicKind.Cstring {
-            //    str: cstring = *@*cstring arg.val;
-            //    for i := 0; str[i] != '\0'; i += 1 {
-            //        array.add(b, str[i]);
-            //    }
-
-            //}
-            else if basic.kind == base.BasicKind.U8  {
-                num: uint = *@*u8 arg.val;
-                format_uint(b, num);
-            }
-            else if basic.kind == base.BasicKind.U16 {
-                num: uint = *@*u16 arg.val;
-                format_uint(b, num);
-            }
-            else if basic.kind == base.BasicKind.U32 {
-                num: uint = *@*u32 arg.val;
-                format_uint(b, num);
-            }
-            else if basic.kind == base.BasicKind.U64 {
-                num: uint = *@*u64 arg.val;
-                format_uint(b, num);
-            }
-            else if basic.kind == base.BasicKind.I8  {
-                num: int = *@*i8 arg.val;
-                format_int(b, num);
-            }
-            else if basic.kind == base.BasicKind.I16 {
-                num: int = *@*i16 arg.val;
-                format_int(b, num);
-            }
-            else if basic.kind == base.BasicKind.I32 {
-                num: int = *@*i32 arg.val;
-                format_int(b, num);
-            }
-            else if basic.kind == base.BasicKind.I64 {
-                num: int = *@*i64 arg.val;
-                format_int(b, num);
-            }
-            else if basic.kind == base.BasicKind.Int {
-                num: int = *@*int arg.val;
-                format_int(b, num);
-            }
-            else if basic.kind == base.BasicKind.Uint {
-                num: uint = *@*uint arg.val;
-                format_uint(b, num);
-            }
-            else if basic.kind == base.BasicKind.F32 {
-                num := *@*f32 arg.val;
-                format_float(f32, b, num, 100);
-            }
-            else if basic.kind == base.BasicKind.F64 {
-                num := *@*f64 arg.val;
-                format_float(f64, b, num, 100);
-            }
-            else if basic.kind == base.BasicKind.Type {
-                pt := *@*type arg.val;
-                info := #info pt;
-                print_typetype(b, info);
-            }
-            else {
-                array.add(b, '%');
-            }
-        }
-        base.TypeKind.Function: {
-        }
-        base.TypeKind.Struct: {
-            st := t.t.struct_;
-            push_string(b, st.name);
-            push_string(b, " { ");
-            for n in st.members.count {
-                m := st.members[n];
-                push_string(b, m.name);
-                push_string(b, " = ");
-                ptr := @*u8 arg.val;
-                offset := base.get_struct_member_offset(st, n);
-                mem_arg := base.Arg {
-                    t = m.t,
-                    val = &ptr[offset],
-                };
-                mem_arg.t = m.t;
-
-                print_type(b, mem_arg);
-                if n + 1 != st.members.count {
-                    push_string(b, ", ");
-                }
-            }
-            push_string(b, " }");
-        }
-        base.TypeKind.Pointer: {
-			num: uint = *@*uint arg.val;
-	 		format_uint(b, num);
-        }
-        base.TypeKind.Array: {
-        }
-        base.TypeKind.Slice: {
-        }
-        base.TypeKind.Vector: {
-        }
-        base.TypeKind.Enum: {
-            e := t.t.enum_;
-            size := base.get_type_size(e.t);
-            val := match size {
-                1: { return @int *@*i8 arg.val; }
-                2: { return @int *@*i16 arg.val; }
-                4: { return @int *@*i32 arg.val; }
-                8: { return @int *@*i64 arg.val; }
-            };
-
-            for m in e.members {
-                if m.value == val {
-                    push_string(b, m.name);
-                    break;
-                }
-            }
-        }
-        base.TypeKind.Generic: {
-        }
-    };
-}
-
-print_type_with_formatter :: fn(b: *[]u32, c: u32, arg: base.Arg) {
-    t := #info arg.t;
-    if c == 's' && t.kind == base.TypeKind.Pointer && t.t.pointer.pointee == u8 {
-        str: *u8 = *@**u8 arg.val;
-        for i := 0; str[i] != '\0'; i += 1 {
-            array.add(b, str[i]);
-        }
-    } else if c == 'c' && t.kind == base.TypeKind.Basic &&
-        (t.t.basic.kind == base.BasicKind.U8 || t.t.basic.kind == base.BasicKind.U32) {
-            c: u32;
-            if t.t.basic.kind == base.BasicKind.U8 {
-                c = *@*u8 arg.val;
-            } else if t.t.basic.kind == base.BasicKind.U32 {
-                c = *@*u32 arg.val;
-            }
-            array.add(b, c);
-    } else {
-        print_type(b, arg);
-		if c != 0
-			array.add(b, c);
-    }
-}
-
-vsprint :: fn(str: string, args: []base.Arg) -> string {
+vsprint :: fn(str: string, args: []Arg) -> string {
     builder := internal_print(str, args);
-    res := builder_to_string(&builder);
-    array.free(&builder);
-    return string { data = &res[0], count = res.count };
+    res := from_builder(&builder, &mem.temp_alloc);
+    return res;
 }
 
 sprint :: fn(str: string, args: ...) -> string {
     builder := internal_print(str, args);
-    res := builder_to_string(&builder);
-    array.free(&builder);
-    return string { data = &res[0], count = res.count };
+    res := from_builder(&builder, &mem.temp_alloc);
+    return res;
 }
 
 print :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
-    res := builder_to_string(&builder);
-    os.print(&res[0], @u32 res.count);
-    array.free(&builder);
-    array.free(&res);
+    //res := from_builder(&builder, &mem.temp_alloc);
+    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
+    array.free(&builder.data);
 }
 
 println :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
-    array.add(&builder, '\n');
-    res := builder_to_string(&builder);
-    os.print(&res[0], @u32 res.count);
-    array.free(&builder);
-    array.free(&res);
-
+    builder_append_u32(&builder, '\n');
+    //res := from_builder(&builder, &mem.temp_alloc);
+    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
+    array.free(&builder.data);
 }
 
 read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
@@ -311,9 +89,66 @@ read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 // PRIVATE SECTION
 #private
 
-internal_print :: fn(fmt: string, args: []base.Arg) -> []u32 {
-    alloc := mem.create_generic_allocator();
-    builder := array.create(u32, &alloc);
+print_typetype :: fn(b: *Builder, info: *TypeInfo) {
+    match info.kind {
+        TypeKind.Invalid: {
+            builder_append(b, "invalid");
+        }
+        TypeKind.Basic: {
+            builder_append(b, info.t.basic.name);
+        }
+        TypeKind.Function: {
+            builder_append(b, "fn(");
+            args := info.t.function.args_t;
+            for arg in args {
+                print_typetype(b, #info arg);
+                if i + 1 != args.count {
+                    builder_append(b, ", ");
+                }
+            }
+            builder_append(b, ")");
+            if info.t.function.returns.count != 0 {
+                builder_append(b, " -> ");
+                for t in info.t.function.returns {
+                    if i != 0
+                        builder_append(b, ", ");
+                    print_typetype(b, #info t);
+                }
+            }
+        }
+        TypeKind.Struct: {
+            builder_append(b, info.t.struct_.name);
+        }
+        TypeKind.Pointer: {
+            builder_append(b, "*");
+            print_typetype(b, #info info.t.pointer.pointee);
+        }
+        TypeKind.Array: {
+            builder_append_u32(b, '[');
+            format_uint(b, info.t.array.member_count);
+            builder_append_u32(b, ']');
+            print_typetype(b, #info info.t.array.t);
+        }
+        TypeKind.Slice: {
+            builder_append(b, "[]");
+            print_typetype(b, #info info.t.slice.t);
+        }
+        TypeKind.Vector: {
+            builder_append(b, "<>");
+        }
+        TypeKind.Enum: {
+            builder_append(b, info.t.enum_.name);
+        }
+        TypeKind.Generic: {
+            builder_append(b, info.t.generic.name);
+        }
+    };
+
+}
+
+
+internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
+    builder := create_builder(&mem.temp_alloc);
     arg_count := 0;
     need_to_print_arg := false;
     for c in fmt {
@@ -326,7 +161,7 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> []u32 {
                 print_type_with_formatter(&builder, c, arg);
                 need_to_print_arg = false;
             } else {
-                array.add(&builder, c);
+                builder_append_u32(&builder, c);
             }
         }
     }
@@ -341,143 +176,165 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> []u32 {
     return builder;
 }
 
-push_string :: fn(b: *[]u32, to_push: string) {
-    for c in to_push {
-        array.add(b, c);
-    }
-}
-
-format_uint :: fn(b: *[]u32, num_in: uint) {
-    temp := [256]u32{};
-    num := num_in;
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    count := 0;
-    for num > 0 {
-        digit := num % 10;
-        num /= 10;
-        c := '0' + digit;
-        temp[count] = @u32 c;
-        count += 1;
-    }
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
-    }
-}
-
-format_int :: fn(b: *[]u32, num_in: int) {
-    temp := [256]u32{};
-    num := num_in;
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    is_neg := false;
-    if num < 0 {
-        num = 0 - num;
-        is_neg = true;
-    }
-
-    count := 0;
-    for num > 0 {
-        digit := num % 10;
-        num /= 10;
-        c := '0' + @u8 digit;
-        temp[count] = c;
-        count += 1;
-    }
-    
-    if is_neg array.add(b, '-');
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
-    }
-}
-
-format_float :: fn(ft: type, b: *[]u32, num_in: ft, round_at: i32) {
-    temp := [256]u32{};
-    count := 0;
-    num := num_in;
-
-    if ft != f32 && ft != f64 {
-        return;
-    }
-
-    if num == 0 {
-        array.add(b, '0');
-        return;
-    }
-
-    is_neg := false;
-    if num < 0 {
-        num = 0 - num;
-        is_neg = true;
-    }
-
-    num += 0.005;
-    int_val := @i32 num;
-    dec := @i32 (num * round_at) % round_at;
-
-    if dec == 0 {
-        temp[count] = '0';
-        count += 1;
-    }
-    else {
-        for dec > 0 {
-            temp[count] = '0' + @u8(dec % 10);
-            count += 1;
-            dec /= 10;
+print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
+    t := #info arg.t;
+    if c == 's' && t.kind == TypeKind.Pointer && t.t.pointer.pointee == u8 {
+        str: *u8 = *@**u8 arg.val;
+        for i := 0; str[i] != '\0'; i += 1 {
+            builder_append_u8(b, str[i]);
         }
-    }
-
-    temp[count] = '.';
-    count += 1;
-
-    if int_val == 0 {
-        temp[count] = '0';
-        count += 1;
+    } else if c == 'c' && t.kind == TypeKind.Basic &&
+        (t.t.basic.kind == BasicKind.U8 || t.t.basic.kind == BasicKind.U32) {
+            c: u32;
+            if t.t.basic.kind == BasicKind.U8 {
+                c = *@*u8 arg.val;
+            } else if t.t.basic.kind == BasicKind.U32 {
+                c = *@*u32 arg.val;
+            }
+            builder_append_u32(b, c);
     } else {
-        for int_val > 0 {
-            temp[count] = '0' + @u32 (int_val % 10);
-            count += 1;
-            int_val /= 10;
-        }
-    }
-
-
-    if is_neg {
-        array.add(b, '-');
-    }
-
-    for i in count {
-        array.add(b, temp[count - i - 1]);
+        print_type(b, arg);
+		if c != 0
+			builder_append_u32(b, c);
     }
 }
 
-builder_to_string :: fn(b_in: *[]u32) -> []u8 {
-    b := b_in;
-    alloc := mem.create_generic_allocator();
-    res := array.create(u8, &alloc);
-
-    for i in b.count {
-        ptr := @*u8 (&b.data[i]);
-        ptr = ptr + 3;
-        for *ptr == 0 {
-            ptr = ptr - 1;
+print_type :: fn(b: *Builder, arg: base.Arg) {
+    t := #info arg.t;
+    match t.kind {
+        base.TypeKind.Invalid: {
         }
+        TypeKind.Basic: {
+            basic := t.t.basic;
+            if basic.kind == BasicKind.Bool {
+                if *@*bool arg.val {
+                    builder_append(b, "true");
+                } else {
+                    builder_append(b, "false");
+                }
+            }
+            else if basic.kind == BasicKind.String {
+                str: string = *@*string arg.val;
+                builder_append(b, str);
+            }
+            //else if basic.kind == base.BasicKind.Cstring {
+            //    str: cstring = *@*cstring arg.val;
+            //    for i := 0; str[i] != '\0'; i += 1 {
+            //        array.add(b, str[i]);
+            //    }
 
-        size := str.get_codepoint_size(ptr);
-        for j in size {
-            array.add(&res, ptr[-j]);
+            //}
+            else if basic.kind == BasicKind.U8  {
+                num: uint = *@*u8 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == BasicKind.U16 {
+                num: uint = *@*u16 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == BasicKind.U32 {
+                num: uint = *@*u32 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == BasicKind.U64 {
+                num: uint = *@*u64 arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == BasicKind.I8  {
+                num: int = *@*i8 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == BasicKind.I16 {
+                num: int = *@*i16 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == BasicKind.I32 {
+                num: int = *@*i32 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == BasicKind.I64 {
+                num: int = *@*i64 arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == BasicKind.Int {
+                num: int = *@*int arg.val;
+                format_int(b, num);
+            }
+            else if basic.kind == BasicKind.Uint {
+                num: uint = *@*uint arg.val;
+                format_uint(b, num);
+            }
+            else if basic.kind == BasicKind.F32 {
+                num := *@*f32 arg.val;
+                format_float(f32, b, num, 100);
+            }
+            else if basic.kind == BasicKind.F64 {
+                num := *@*f64 arg.val;
+                format_float(f64, b, num, 100);
+            }
+            else if basic.kind == BasicKind.Type {
+                pt := *@*type arg.val;
+                info := #info pt;
+                print_typetype(b, info);
+            }
+            else {
+                builder_append_u32(b, '%');
+            }
         }
-    }
+        TypeKind.Function: {
+        }
+        TypeKind.Struct: {
+            st := t.t.struct_;
+            builder_append(b, st.name);
+            builder_append(b, " { ");
+            for n in st.members.count {
+                m := st.members[n];
+                builder_append(b, m.name);
+                builder_append(b, " = ");
+                ptr := @*u8 arg.val;
+                offset := get_struct_member_offset(st, n);
+                mem_arg := Arg {
+                    t = m.t,
+                    val = &ptr[offset],
+                };
+                mem_arg.t = m.t;
 
-    return res;
+                print_type(b, mem_arg);
+                if n + 1 != st.members.count {
+                    builder_append(b, ", ");
+                }
+            }
+            builder_append(b, " }");
+        }
+        TypeKind.Pointer: {
+			num: uint = *@*uint arg.val;
+	 		format_uint(b, num);
+        }
+        TypeKind.Array: {
+        }
+        TypeKind.Slice: {
+        }
+        TypeKind.Vector: {
+        }
+        TypeKind.Enum: {
+            e := t.t.enum_;
+            size := get_type_size(e.t);
+            val := match size {
+                1: { return @int *@*i8 arg.val; }
+                2: { return @int *@*i16 arg.val; }
+                4: { return @int *@*i32 arg.val; }
+                8: { return @int *@*i64 arg.val; }
+            };
+
+            for m in e.members {
+                if m.value == val {
+                    builder_append(b, m.name);
+                    break;
+                }
+            }
+        }
+        TypeKind.Generic: {
+        }
+    };
 }
-
 

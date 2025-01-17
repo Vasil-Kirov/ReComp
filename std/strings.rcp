@@ -38,30 +38,32 @@ to_int :: fn (str: string) -> int {
     return res;
 }
 
-create :: fn (alloc: *mem.Allocator) -> Builder {
+create_builder :: fn (alloc: *mem.Allocator) -> Builder {
     return Builder {
         data = array.create(u32, alloc)
     };
 }
 
-append :: fn(b: *Builder, str: string) {
+builder_append :: fn(b: *Builder, str: string) {
     b := b;
     for c in str {
         array.add(&b.data, c);
     }
 }
 
-append_u32 :: fn(b: *Builder, c: u32) {
+builder_append_u32 :: fn(b: *Builder, c: u32) {
     b := b;
     array.add(&b.data, c);
 }
 
-append_u8 :: fn(b: *Builder, c: u8) {
+builder_append_u8 :: fn(b: *Builder, c: u8) {
     b := b;
     array.add(&b.data, @u32 c);
 }
 
+// @TODO: proper utf8-handling
 from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
+    b := b;
     data_ := alloc.alloc((b.data.count*4)+1, alloc);
 	if data_ == null return "";
 	data := @*u8 ?data_;
@@ -74,6 +76,8 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
         len += 1;
     }
 	data[len] = 0;
+
+    array.free(&b.data);
 
     return string { len, data };
 }
@@ -129,5 +133,117 @@ index :: fn(s: string, idx: int) -> u32 {
         p = advance(p);
     }
     return deref(p);
+}
+
+format_uint :: fn(b: *Builder, num_in: uint) {
+    temp := [256]u32{};
+    num := num_in;
+    if num == 0 {
+        builder_append_u32(b, '0');
+        return;
+    }
+
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + digit;
+        temp[count] = @u32 c;
+        count += 1;
+    }
+
+    for i in count {
+        builder_append_u32(b, temp[count - i - 1]);
+    }
+}
+
+format_int :: fn(b: *Builder, num_in: int) {
+    temp := [256]u32{};
+    num := num_in;
+    if num == 0 {
+        builder_append_u32(b, '0');
+        return;
+    }
+
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    count := 0;
+    for num > 0 {
+        digit := num % 10;
+        num /= 10;
+        c := '0' + @u8 digit;
+        temp[count] = c;
+        count += 1;
+    }
+    
+    if is_neg builder_append_u32(b, '-');
+
+    for i in count {
+        builder_append_u32(b, temp[count - i - 1]);
+    }
+}
+
+format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
+    temp := [256]u32{};
+    count := 0;
+    num := num_in;
+
+    if ft != f32 && ft != f64 {
+        return;
+    }
+
+    if num == 0 {
+        builder_append_u32(b, '0');
+        return;
+    }
+
+    is_neg := false;
+    if num < 0 {
+        num = 0 - num;
+        is_neg = true;
+    }
+
+    num += 0.005;
+    int_val := @i32 num;
+    dec := @i32 (num * round_at) % round_at;
+
+    if dec == 0 {
+        temp[count] = '0';
+        count += 1;
+    }
+    else {
+        for dec > 0 {
+            temp[count] = '0' + @u8(dec % 10);
+            count += 1;
+            dec /= 10;
+        }
+    }
+
+    temp[count] = '.';
+    count += 1;
+
+    if int_val == 0 {
+        temp[count] = '0';
+        count += 1;
+    } else {
+        for int_val > 0 {
+            temp[count] = '0' + @u32 (int_val % 10);
+            count += 1;
+            int_val /= 10;
+        }
+    }
+
+
+    if is_neg {
+        builder_append_u32(b, '-');
+    }
+
+    for i in count {
+        builder_append_u32(b, temp[count - i - 1]);
+    }
 }
 

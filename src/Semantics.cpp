@@ -165,6 +165,19 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 			symbol *s = Checker->Module->Globals[*Node->ID.Name];
 			if(s)
 				return s;
+			string NoNamespace = STR_LIT("*");
+			For(Checker->Imported)
+			{
+				if(it->As == NoNamespace)
+				{
+					// @THREADING: NOT THREAD SAFE (maybe)
+					auto Sym = it->M->Globals[*Node->ID.Name];
+					if(Sym)
+					{
+						return Sym;
+					}
+				}
+			}
 			return NULL;
 		} break;
 		case AST_SELECTOR:
@@ -206,6 +219,23 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 	}
 }
 
+u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
+{
+	string NoNamespace = STR_LIT("*");
+	For(Checker->Imported)
+	{
+		if(it->As == NoNamespace)
+		{
+			u32 Got = FindType(Checker, Name, &it->M->Name);
+			if(Got != INVALID_TYPE)
+			{
+				return Got;
+			}
+		}
+	}
+	return INVALID_TYPE;
+}
+
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 {
 	if(TypeNode == NULL)
@@ -218,7 +248,11 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 			const string *Name = TypeNode->ID.Name;
 			u32 Type = FindType(Checker, Name);
 			if(Type == INVALID_TYPE)
+				Type = FindTypeNoNamespaceImport(Checker, Name);
+
+			if(Type == INVALID_TYPE)
 			{
+
 				if(!Error)
 					return INVALID_TYPE;
 				// @NOTE: is this a good idea?
@@ -327,9 +361,11 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 			if(!FindImportedModule(Checker->Imported, SearchName, &Import))
 			{
 				u32 Type = FindType(Checker, &SearchName, &Checker->Module->Name);
+				if(Type == INVALID_TYPE)
+					Type = FindTypeNoNamespaceImport(Checker, &SearchName); 
+
 				if(Type != INVALID_TYPE)
 				{
-CHECK_ENUM_TYPE:
 					if(GetType(Type)->Kind != TypeKind_Enum)
 					{
 						if(!Error)
@@ -338,22 +374,6 @@ CHECK_ENUM_TYPE:
 					}
 
 					return Type;
-				}
-				else
-				{
-					string NoNamespace = STR_LIT("*");
-					For(Checker->Imported)
-					{
-						if(it->As == NoNamespace)
-						{
-							u32 Got = FindType(Checker, &SearchName, &it->M->Name);
-							if(Got != INVALID_TYPE)
-							{
-								Type = Got;
-								goto CHECK_ENUM_TYPE;
-							}
-						}
-					}
 				}
 
 				if(!Error)
@@ -3200,7 +3220,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
 			if(!FnSym)
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Couldn't resolve generic function");
+				RaiseError(true, *Expr->ErrorInfo, "Couldn't find generic function symbol");
 			}
 
 			const type *T = GetType(FnSym->Type);

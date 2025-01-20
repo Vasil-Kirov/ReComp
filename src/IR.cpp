@@ -463,18 +463,6 @@ u32 BuildIRMatch(block_builder *Builder, node *Node)
 	return Result;
 }
 
-u32 StructPointerToStruct(block_builder *Builder, u32 Ptr, const type *T)
-{
-	// @NOTE: Pointers to structs (and slices) are a bit weird here
-	const type *Pointed = GetType(T->Pointer.Pointed);
-	u32 LoadType = T->Pointer.Pointed;
-	if(Pointed->Kind == TypeKind_Struct || Pointed->Kind == TypeKind_Slice)
-		LoadType = GetPointerTo(T->Pointer.Pointed);
-
-	return PushInstruction(Builder, 
-			Instruction(OP_LOAD, 0, Ptr, LoadType, Builder));
-}
-
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -1043,7 +1031,7 @@ SEARCH_TYPE_DONE:
 				const type *Type = GetType(Node->Selector.Type);
 				u32 TypeIdx = Node->Selector.Type;
 				u32 Operand = -1;
-				if(Node->Selector.Operand)
+				if(Node->Selector.Operand && Type->Kind != TypeKind_Pointer)
 					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
 				
 				switch(Type->Kind)
@@ -1087,7 +1075,8 @@ BUILD_SLICE_SELECTOR:
 					{
 						if(Type->Kind == TypeKind_Pointer)
 						{
-							Operand = StructPointerToStruct(Builder, Operand, Type);
+							Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, false);
+							//Operand = StructPointerToStruct(Builder, Operand, Type);
 
 							TypeIdx = Type->Pointer.Pointed;
 							Type = GetType(Type->Pointer.Pointed);
@@ -1953,13 +1942,17 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			const type *T = GetType(Node->Using.Type);
 			Assert(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Pointer || T->Kind == TypeKind_Enum);
-			u32 Base = BuildIRFromExpression(Builder, Node->Using.Expr, true);
+			u32 Base = -1;
 			u32 StructTy = Node->Using.Type;
 			if(T->Kind == TypeKind_Pointer)
 			{
-				Base = StructPointerToStruct(Builder, Base, T);
+				Base = BuildIRFromExpression(Builder, Node->Using.Expr, false);
 				StructTy = T->Pointer.Pointed;
 				T = GetType(T->Pointer.Pointed);
+			}
+			else
+			{
+				Base = BuildIRFromExpression(Builder, Node->Using.Expr, true);
 			}
 
 			if(T->Kind == TypeKind_Enum)

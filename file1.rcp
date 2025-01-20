@@ -5,10 +5,9 @@ main
 
 custom_t :: [4]u8;
 
-struct CannotZero {
-    a: int,
-    b: *,
+struct Foo {
     c: f32,
+    a: int,
 }
 
 get_array_size :: fn(arr: $t) -> int {
@@ -23,19 +22,14 @@ enum MY_ENUM {
     D = 3,
 }
 
+
+var := Foo { a = 4 };
+
+get_valid_ptr :: fn() -> *Foo { return &var; }
+
 main :: fn() -> i32 {
-    using MY_ENUM;
-
-
-    e := #info MY_ENUM;
-    #assert e.kind == TypeKind.Enum;
-    e.adsjfio;
-
-    println("% % %", FOO, e.kind, TypeKind.Enum);
-
-    f := CannotZero{ b = &e, c = 3.4, a = 5};
-
-    return @i32 f.c;
+    a := get_valid_ptr();
+    return @i32 a.a + @i32 get_valid_ptr().a;
 }
 
 

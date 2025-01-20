@@ -353,6 +353,11 @@ void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID)
 {
 	const type *CustomType = GetType(TypeID);
 	string Name = GetTypeNameAsString(CustomType);
+
+	split Split = SplitAt(Name, '.');
+	if(Split.second.Data != NULL)
+		Name = Split.second;
+
 	int Size = GetTypeSize(CustomType) * 8;
 	int Align = GetTypeAlignment(CustomType) * 8;
 
@@ -443,6 +448,11 @@ LLVMMetadataRef LLMVDebugDefineStruct(generator *gen, u32 TypeID)
 		Members[Idx] = LLVMDIBuilderCreateMemberType(gen->dbg, gen->f_dbg, Member.ID.Data, Member.ID.Size, gen->f_dbg, 0, Size, Alignment, Offset, LLVMDIFlagZero, DebugT);
 	}
 	string Name = GetTypeNameAsString(CustomType);
+
+	split Split = SplitAt(Name, '.');
+	if(Split.second.Data != NULL)
+		Name = Split.second;
+
 	int Size = GetTypeSize(CustomType) * 8;
 	LLVMMetadataRef Made = LLVMDIBuilderCreateStructType(gen->dbg,
 			gen->f_dbg,

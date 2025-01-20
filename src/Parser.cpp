@@ -11,6 +11,12 @@ string ErrorID = STR_LIT("Error");
 
 node *ParseOperand(parser *Parser);
 
+void CopyRangeEndToErrorInfo(error_info *Out, const error_info *End)
+{
+	Out->Range.EndChar = End->Range.EndChar;
+	Out->Range.EndLine = End->Range.EndLine;
+}
+
 node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 {
 	node *Result = (node *)AllocatePermanent(sizeof(node));
@@ -911,6 +917,7 @@ node *ParseSelectors(parser *Parser, node *Operand)
 		else
 			Name = ID.ID;
 
+		CopyRangeEndToErrorInfo(ErrorInfo, &ID.ErrorInfo);
 		Operand = MakeSelector(ErrorInfo, Operand, Name);
 		if(Parser->Current->Type != T_DOT)
 			break;

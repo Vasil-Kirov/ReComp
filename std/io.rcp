@@ -6,10 +6,17 @@ io
 #import base as *
 #import str as *
 
-vsprint :: fn(str: string, args: []Arg) -> string {
+print :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
-    res := from_builder(&builder, &mem.temp_alloc);
-    return res;
+    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
+    array.free(&builder.data);
+}
+
+println :: fn(str: string, args: ...) {
+    builder := internal_print(str, args);
+    builder_append_u32(&builder, '\n');
+    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
+    array.free(&builder.data);
 }
 
 sprint :: fn(str: string, args: ...) -> string {
@@ -18,19 +25,10 @@ sprint :: fn(str: string, args: ...) -> string {
     return res;
 }
 
-print :: fn(str: string, args: ...) {
+vsprint :: fn(str: string, args: []Arg) -> string {
     builder := internal_print(str, args);
-    //res := from_builder(&builder, &mem.temp_alloc);
-    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
-    array.free(&builder.data);
-}
-
-println :: fn(str: string, args: ...) {
-    builder := internal_print(str, args);
-    builder_append_u32(&builder, '\n');
-    //res := from_builder(&builder, &mem.temp_alloc);
-    os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
-    array.free(&builder.data);
+    res := from_builder(&builder, &mem.temp_alloc);
+    return res;
 }
 
 read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {

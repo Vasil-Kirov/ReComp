@@ -29,6 +29,7 @@ main :: fn() -> i32 {
 
     e := #info MY_ENUM;
     #assert e.kind == TypeKind.Enum;
+    e.adsjfio;
 
     println("% % %", FOO, e.kind, TypeKind.Enum);
 

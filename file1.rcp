@@ -46,7 +46,6 @@ main :: fn() -> i32 {
         _: {
             yield 30;
         }
-
     };
     println("%", val);
 

@@ -689,6 +689,21 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	Checker->CurrentFnReturnTypeIdx = Save;
 }
 
+b32 IsConstant(checker *Checker, node *Expr)
+{
+	if(Expr->Type == AST_CONSTANT || Expr->Type == AST_CHARLIT)
+		return true;
+
+	if(Expr->Type == AST_SELECTOR)
+	{
+		u32 T = AnalyzeExpression(Checker, Expr->Selector.Operand);
+		if(T == Basic_type)
+			return true;
+	}
+
+	return false;
+}
+
 u32 AnalyzeAtom(checker *Checker, node *Expr)
 {
 	u32 Result = INVALID_TYPE;
@@ -837,6 +852,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				else
 				{
+					if(!IsConstant(Checker, Case->Case.Value))
+					{
+						RaiseError(true, *Case->Case.Value->ErrorInfo, "Case value must be constant");
+					}
+
 					u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
 					TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
 				}

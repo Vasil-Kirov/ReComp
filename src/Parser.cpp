@@ -1374,11 +1374,10 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 	return MakeDecl(ErrorInfo, LHS, Expression, MaybeTypeNode, Flags);
 }
 
-node *ParseNode(parser *Parser)
+node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 {
 	token Token = PeekToken(Parser);
 	node *Result = NULL;
-	b32 ExpectSemicolon = true;
 	switch(Token.Type)
 	{
 		case T_DEFER:
@@ -1489,66 +1488,51 @@ node *ParseNode(parser *Parser)
 			using ft = for_type;
 
 			ft Kind = ft::C;
+			node *FirstNode = NULL;
+			if(PeekToken(Parser).Type == T_STARTSCOPE)
 			{
-				int depth = 0;
-				b32 FoundType = false;
-				while(true)
+				Kind = ft::Infinite;
+			}
+			else
+			{
+				b32 SaveLists = Parser->NoStructLists;
+				Parser->NoStructLists = true;
+
+				FirstNode = ParseNode(Parser, false);
+
+				Parser->NoStructLists = SaveLists;
+
+				token t = PeekToken(Parser);
+				if(t.Type == T_IN)
 				{
-					token T = PeekToken(Parser, depth);
-					if(T.Type == T_EOF)
+					if(FirstNode->Type != AST_ID && FirstNode->Type != AST_LIST)
 					{
-						RaiseError(true, *ErrorInfo, "Found EOF while parsing for loop");
+						RaiseError(true, *FirstNode->ErrorInfo, "Expected names of iterators before `in` keyword");
 					}
-					if(T.Type == T_STARTSCOPE)
-					{
-						if(!FoundType)
-						{
-							if(depth == 0)
-								Kind = ft::Infinite;
-							else
-								Kind = ft::While;
-						}
-						break;
-					}
-					else if(T.Type == T_IN)
-					{
-						if(FoundType)
-							RaiseError(true, *ErrorInfo, "Malformed for loop, couldn't identify type");
-						FoundType = true;
-						Kind = ft::It;
-						break;
-					}
-					else if(T.Type == T_SEMICOL)
-					{
-						if(FoundType && Kind != ft::C)
-							RaiseError(true, *ErrorInfo, "Malformed for loop, couldn't identify type");
-
-						if(FoundType && Kind == ft::C)
-							break;
-						FoundType = true;
-						Kind = ft::C;
-					}
-
-					depth++;
+					Kind = ft::It;
 				}
+				else if(t.Type == T_SEMICOL || FirstNode == NULL)
+				{
+					Kind = ft::C;
+				}
+				else
+				{
+					Kind = ft::While;
+				}
+
 			}
 
 			switch(Kind)
 			{
 				case ft::C:
 				{
-					node *ForInit = NULL;
+					node *ForInit = FirstNode;
 					node *ForExpr = NULL;
 					node *ForIncr = NULL;
 
-					if(PeekToken(Parser).Type != ';') {
-						b32 SaveILists = Parser->NoItemLists;
-						Parser->NoItemLists = false;
-						node *LHS = ParseExpression(Parser);
-						ForInit = ParseDeclaration(Parser, false, LHS);
-						Parser->NoItemLists = SaveILists;
+					if(ForInit != NULL) {
+						EatToken(Parser, ';', false);
 					}
-					EatToken(Parser, ';', false);
 
 					b32 nsl = Parser->NoStructLists;
 					Parser->NoStructLists = true;
@@ -1566,14 +1550,7 @@ node *ParseNode(parser *Parser)
 				{
 					ERROR_INFO;
 
-					token ItToken = EatToken(Parser, T_ID, false);
-					string *ItName = NULL;
-					if(ItToken.Type == 0)
-						ItName = &ErrorID;
-					else
-						ItName = ItToken.ID;
-
-					node *It = MakeID(ErrorInfo, ItName);
+					node *It = FirstNode;
 					EatToken(Parser, T_IN, true);
 					b32 nsl = Parser->NoStructLists;
 					Parser->NoStructLists = true;
@@ -1584,10 +1561,7 @@ node *ParseNode(parser *Parser)
 				} break;
 				case ft::While:
 				{
-					b32 nsl = Parser->NoStructLists;
-					Parser->NoStructLists = true;
-					node *WhileExpr = ParseExpression(Parser);
-					Parser->NoStructLists = nsl;
+					node *WhileExpr = FirstNode;
 					Result = MakeFor(ErrorInfo, WhileExpr, NULL, NULL, ft::While);
 				} break;
 				case ft::Infinite:

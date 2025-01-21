@@ -2241,7 +2241,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		case ft::C:
 		{
 			if(Node->For.Expr1)
-				AnalyzeDeclerations(Checker, Node->For.Expr1);
+				AnalyzeNode(Checker, Node->For.Expr1);
 			if(Node->For.Expr2)
 			{
 				AnalyzeBooleanExpression(Checker, &Node->For.Expr2);
@@ -2265,7 +2265,6 @@ void AnalyzeFor(checker *Checker, node *Node)
 				T = GetType(TypeIdx);
 				FillUntypedStack(Checker, TypeIdx);
 			}
-			Assert(Node->For.Expr1->Type == AST_ID);
 			u32 ItType = INVALID_TYPE;
 			if(T->Kind == TypeKind_Array)
 				ItType = T->Array.Type;
@@ -2284,15 +2283,34 @@ void AnalyzeFor(checker *Checker, node *Node)
 			else
 				Assert(false);
 
-			AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
-					Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
-			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
+			if(Node->For.Expr1->Type == AST_ID)
 			{
-				string *n = NewType(string);
-				*n = STR_LIT("i");
-
-				AddVariable(Checker, Node->For.Expr1->ErrorInfo, Basic_int,
-						n, Node->For.Expr1, 0);
+				AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
+						Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
+			}
+			else
+			{
+				Assert(Node->For.Expr1->Type == AST_LIST);
+				auto List = Node->For.Expr1->List;
+				if(List.Nodes.Count != 2)
+				{
+					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Expected exactly 2 names in list in for in iteration. First is the name of the index, second is the name of the iterator");
+				}
+				For(List.Nodes)
+				{
+					if((*it)->Type != AST_ID)
+					{
+						RaiseError(true, *(*it)->ErrorInfo, "Expected valid names in for in iteration naming list");
+					}
+				}
+				if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
+				{}
+				else
+				{
+					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Iterating variable of type %s doesn't accept multiple iteration names", GetTypeName(T));
+				}
+				AddVariable(Checker, List.Nodes[0]->ErrorInfo, Basic_int, List.Nodes[0]->ID.Name, List.Nodes[0], 0);
+				AddVariable(Checker, List.Nodes[1]->ErrorInfo, ItType,    List.Nodes[1]->ID.Name, List.Nodes[1], 0);
 			}
 			Node->For.ItType = ItType;
 			Node->For.ArrayType = TypeIdx;

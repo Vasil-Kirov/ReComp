@@ -1760,17 +1760,22 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				unreachable;
 			}
 
-			IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
-					*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
-			PushIRLocal(Builder, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
-
-			if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
+			if(Node->For.Expr1->Type == AST_ID)
 			{
-				string *n = NewType(string);
-				*n = STR_LIT("i");
 				IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
-						*n, Basic_int, IAlloc);
-				PushIRLocal(Builder, n, IAlloc, Basic_int);
+						*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
+				PushIRLocal(Builder, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
+			}
+			else
+			{
+				Assert(Node->For.Expr1->Type == AST_LIST);
+				auto List = Node->For.Expr1->List;
+				IRPushDebugVariableInfo(Builder, List.Nodes[0]->ErrorInfo, *List.Nodes[0]->ID.Name, Basic_int, IAlloc);
+				PushIRLocal(Builder, List.Nodes[0]->ID.Name, IAlloc, Basic_int);
+
+				IRPushDebugVariableInfo(Builder, List.Nodes[1]->ErrorInfo, *List.Nodes[1]->ID.Name, Node->For.ItType, ItAlloc);
+				PushIRLocal(Builder, List.Nodes[1]->ID.Name, ItAlloc, Node->For.ItType);
+
 			}
 		}
 
@@ -1820,7 +1825,7 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 	basic_block End   = AllocateBlock(Builder);
 
 	if(Node->For.Expr1)
-		BuildIRFromDecleration(Builder, Node->For.Expr1);
+		BuildIRFunctionLevel(Builder, Node->For.Expr1);
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, Cond);
 

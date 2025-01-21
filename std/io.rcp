@@ -98,7 +98,7 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
         TypeKind.Function: {
             builder_append(b, "fn(");
             args := info.t.function.args_t;
-            for arg in args {
+            for i, arg in args {
                 print_typetype(b, #info arg);
                 if i + 1 != args.count {
                     builder_append(b, ", ");
@@ -107,7 +107,7 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
             builder_append(b, ")");
             if info.t.function.returns.count != 0 {
                 builder_append(b, " -> ");
-                for t in info.t.function.returns {
+                for i, t in info.t.function.returns {
                     if i != 0
                         builder_append(b, ", ");
                     print_typetype(b, #info t);

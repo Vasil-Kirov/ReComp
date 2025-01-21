@@ -290,7 +290,7 @@ struct parse_result
 };
 
 node *AllocateNode(const error_info *ErrorInfo, node_type Type);
-node *ParseNode(parser *Parser);
+node *ParseNode(parser *Parser, b32 ExpectSemicolon=true);
 node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);

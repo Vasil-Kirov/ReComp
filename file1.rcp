@@ -28,6 +28,9 @@ var := Foo { a = 4 };
 get_valid_ptr :: fn() -> *Foo { return &var; }
 
 main :: fn() -> i32 {
+    num := 10;
+    for n in num println("%", n);
+
     a := get_valid_ptr();
     return @i32 a.a + @i32 get_valid_ptr().a;
 }

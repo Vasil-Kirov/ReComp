@@ -2317,7 +2317,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		} break;
 		case ft::While:
 		{
-			AnalyzeExpression(Checker, Node->For.Expr1);
+			AnalyzeBooleanExpression(Checker, &Node->For.Expr1);
 		} break;
 		case ft::Infinite:
 		{

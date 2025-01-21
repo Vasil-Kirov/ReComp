@@ -78,6 +78,7 @@ struct ir_switchint
 {
 	slice<u32> Cases;
 	slice<u32> OnValues;
+	u32 Default;
 	u32 Matcher;
 	u32 After;
 };
@@ -177,6 +178,12 @@ struct profiling
 	node *Callback;
 };
 
+struct yield_info
+{
+	u32 ToBlockID;
+	u32 ValueStore;
+};
+
 struct block_builder
 {
 	basic_block CurrentBlock;
@@ -186,6 +193,7 @@ struct block_builder
 	module *Module;
 	profiling *Profile;
 	stack<dict<symbol>> Scope;
+	stack<yield_info> YieldReturn;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;
 	u32 LastRegister;

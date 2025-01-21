@@ -534,5 +534,6 @@ void InitializeLexer()
 	AddKeyword("void", T_VOID);
 	AddKeyword("@profile", T_PROFILE);
 	AddKeyword("using",  T_USING);
+	AddKeyword("yield",  T_YIELD);
 }
 

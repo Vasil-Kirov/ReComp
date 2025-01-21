@@ -66,6 +66,7 @@ enum node_type
 	AST_EMBED,
 	AST_ASSERT,
 	AST_USING,
+	AST_YIELD,
 };
 
 struct node
@@ -77,6 +78,10 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Expr;
+			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
+		} Yield;
 		struct {
 			node *Expr;
 			u32 Type; // Set by semantic analyzer

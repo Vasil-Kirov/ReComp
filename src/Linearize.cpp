@@ -35,6 +35,10 @@ int Linearizer::LinearizeNode(node *Node)
 	LNode Result = LNode(Node);
 	switch(Node->Type)
 	{
+		case AST_YIELD:
+		{
+			Result.Left = LinearizeNode(Node->Yield.Expr);
+		} break;
 		case AST_USING:
 		{
 			Result.Left = LinearizeNode(Node->Using.Expr);

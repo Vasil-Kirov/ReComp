@@ -374,14 +374,23 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 	basic_block After = AllocateBlock(Builder);
 	dynamic<u32> CaseBlocks = {};
 	dynamic<u32> OnValues = {};
+	u32 Default = -1;
 	ForArray(Idx, Node->Match.Cases)
 	{
 		node *Case = Node->Match.Cases[Idx];
-		u32 Value = BuildIRFromExpression(Builder, Case->Case.Value);
-		OnValues.Push(Value);
+		if(Case->Case.Value == NULL)
+		{
+			OnValues.Push(0);
+			Default = Idx;
+		}
+		else
+		{
+			u32 Value = BuildIRFromExpression(Builder, Case->Case.Value);
+			OnValues.Push(Value);
+		}
 	}
 
-	u32 ReturnType = Node->Match.ReturnType;
+	Builder->YieldReturn.Push({.ToBlockID = After.ID, .ValueStore = Result});
 	ForArray(Idx, Node->Match.Cases)
 	{
 		basic_block CaseBlock = AllocateBlock(Builder);
@@ -390,24 +399,18 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		ForArray(BodyIdx, Case->Case.Body)
 		{
 			node *Node = Case->Case.Body[BodyIdx];
-			if(Node->Type == AST_RETURN && Node->Return.Expression)
-			{
-				Assert(Result != -1);
-				u32 Expr = BuildIRFromExpression(Builder, Node->Return.Expression);
-				PushInstruction(Builder, 
-						InstructionStore(Result, Expr, ReturnType));
-			}
-			else
-			{
-				BuildIRFunctionLevel(Builder, Node);
-			}
+			BuildIRFunctionLevel(Builder, Node);
 		}
 
-		PushInstruction(Builder,
-				Instruction(OP_JMP, After.ID, Basic_type, Builder));
+		if(!Builder->CurrentBlock.HasTerminator)
+		{
+			PushInstruction(Builder,
+					Instruction(OP_JMP, After.ID, Basic_type, Builder));
+		}
 
 		CaseBlocks.Push(CaseBlock.ID);
 	}
+	Builder->YieldReturn.Pop();
 	Terminate(Builder, After);
 
 	for(int i = 0; i < Builder->Function->Blocks.Count; ++i)
@@ -417,6 +420,7 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 			ir_switchint *Info = NewType(ir_switchint);
 			Info->OnValues = SliceFromArray(OnValues);
 			Info->Cases    = SliceFromArray(CaseBlocks);
+			Info->Default  = Default;
 			Info->After    = After.ID;
 			Info->Matcher  = Matcher;
 			instruction I = Instruction(OP_SWITCHINT, (u64)Info, Node->Match.ReturnType, Builder);
@@ -2071,6 +2075,19 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 
 		    PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
+		} break;
+		case AST_YIELD:
+		{
+			yield_info Info = Builder->YieldReturn.Peek();
+			if(Node->Yield.Expr)
+			{
+				Assert(Info.ValueStore != -1);
+				u32 Expr = BuildIRFromExpression(Builder, Node->Yield.Expr);
+				PushInstruction(Builder, 
+						InstructionStore(Info.ValueStore, Expr, Node->Yield.TypeIdx));
+			}
+			PushInstruction(Builder, Instruction(OP_JMP, Info.ToBlockID, Basic_type, Builder));
+			Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_IF:
 		{

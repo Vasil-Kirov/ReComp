@@ -90,6 +90,7 @@ enum token_type
 	T_PROFILE=-70,
 	T_ASSERT=-71,
 	T_USING =-72,
+	T_YIELD =-73,
 };
 
 struct token

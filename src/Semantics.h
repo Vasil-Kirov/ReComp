@@ -48,6 +48,8 @@ struct checker
 	dynamic<node *> GeneratedGlobalNodes;
 	slice<u32> CurrentFnReturnTypeIdx;
 	string File;
+	u32 YieldT;
+	node **YieldExpr;
 };
 
 void AddFunctionToModule(checker *Checker, node *FnNode);

@@ -25,6 +25,14 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeYield(const error_info *ErrorInfo, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_YIELD);
+	Result->Yield.Expr = Expr;
+
+	return Result;
+}
+
 node *MakeUsing(const error_info *ErrorInfo, node *Expr)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_USING);
@@ -1462,6 +1470,20 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			}
 			Result = MakeReturn(ErrorInfo, Expr);
 		} break;
+		case T_YIELD:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *Expr = NULL;
+			if(Parser->Current->Type != ';')
+			{
+				b32 Save = Parser->NoItemLists;
+				Parser->NoItemLists = false;
+				Expr = ParseExpression(Parser);
+				Parser->NoItemLists = Save;
+			}
+			Result = MakeYield(ErrorInfo, Expr);
+		} break;
 		case T_IF:
 		{
 			ERROR_INFO;
@@ -1880,6 +1902,11 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_YIELD:
+		{
+			R->Yield.Expr = CopyASTNode(N->Yield.Expr);
+			R->Yield.TypeIdx = N->Yield.TypeIdx;
+		} break;
 		case AST_USING:
 		{
 			R->Using.Expr = CopyASTNode(N->Using.Expr);

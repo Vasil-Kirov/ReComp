@@ -177,26 +177,26 @@ get_type_alignment :: fn(t: type) -> int {
     result := match ti.kind {
         TypeKind.Basic: {
             if t == string
-                return 8;
-            return get_basic_type_size(ti.t.basic);
+                yield 8;
+            yield get_basic_type_size(ti.t.basic);
         }
         TypeKind.Function: {
-            return 8;
+            yield 8;
         }
         TypeKind.Pointer: {
-            return 8;
+            yield 8;
         }
         TypeKind.Slice: {
-            return 8;
+            yield 8;
         }
         TypeKind.Array: {
-            return get_type_alignment(ti.t.array.t);
+            yield get_type_alignment(ti.t.array.t);
         }
         TypeKind.Enum: {
-            return get_type_alignment(ti.t.enum_.t);
+            yield get_type_alignment(ti.t.enum_.t);
         }
         TypeKind.Struct: {
-            return get_struct_alignment(t);
+            yield get_struct_alignment(t);
         }
     };
     return result;
@@ -235,25 +235,25 @@ get_type_size :: fn(t: type) -> int {
     ti := #info t;
     result := match ti.kind {
         TypeKind.Basic: {
-            return get_basic_type_size(ti.t.basic);
+            yield get_basic_type_size(ti.t.basic);
         }
         TypeKind.Function: {
-            return 8;
+            yield 8;
         }
         TypeKind.Pointer: {
-            return 8;
+            yield 8;
         }
         TypeKind.Array: {
-            return get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
+            yield get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
         }
         TypeKind.Slice: {
-            return 16;
+            yield 16;
         }
         TypeKind.Enum: {
-            return get_type_size(ti.t.enum_.t);
+            yield get_type_size(ti.t.enum_.t);
         }
         TypeKind.Struct: {
-            return get_struct_size(t);
+            yield get_struct_size(t);
         }
     };
     return result;

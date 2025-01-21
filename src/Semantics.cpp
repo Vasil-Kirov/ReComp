@@ -821,19 +821,36 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(false, *Expr->ErrorInfo, "`match` expression has no cases");
 			}
 
+			b32 FoundDefault = false;
 			ForArray(Idx, Expr->Match.Cases)
 			{
 				node *Case = Expr->Match.Cases[Idx];
-
-				u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
-				TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
+				if(Case->Case.Value->Type == AST_ID && *Case->Case.Value->ID.Name == STR_LIT("_"))
+				{
+					if(FoundDefault)
+					{
+						RaiseError(false, *Case->ErrorInfo, "Multiple default cases in match");
+					}
+					FoundDefault = true;
+					// default:
+					Case->Case.Value = NULL;
+				}
+				else
+				{
+					u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
+					TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
+				}
 			}
 
 			Result = INVALID_TYPE;
-			b32 HasResult = false;
 
+			node **WasYieldExpr = Checker->YieldExpr;
+			u32 WasYieldT = Checker->YieldT;
+
+			Checker->Scope.Push(AllocScope(Expr, Checker->Scope.TryPeek()));
 			ForArray(Idx, Expr->Match.Cases)
 			{
+				Checker->YieldT = INVALID_TYPE;
 				node *Case = Expr->Match.Cases[Idx];
 				if(!Case->Case.Body.IsValid())
 				{
@@ -842,53 +859,43 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 
 				Checker->Scope.Push(AllocScope(Case, Checker->Scope.TryPeek()));
-				b32 CaseReturns = false;
 				for(int BodyIdx = 0; BodyIdx < Case->Case.Body.Count; ++BodyIdx)
 				{
-					// @TODO: This is buggy with if and for statements (I think)
-					node *Node = Case->Case.Body[BodyIdx];
-					if(Node->Type == AST_RETURN)
-					{
-						if(Node->Return.Expression)
-						{
-							u32 TypeIdx = AnalyzeExpression(Checker, Node->Return.Expression);
-							CaseReturns = true;
-							if(!HasResult)
-							{
-								HasResult = true;
-								if(Idx != 0)
-								{
-									RaiseError(false, *Case->ErrorInfo, "Previous cases do not return a value but this one does");
-									continue;
-								}
-								Result = TypeIdx;
-								const type *T = GetType(Result);
-								if(IsUntyped(T))
-								{
-									Result = UntypedGetType(T);
-									FillUntypedStack(Checker, Result);
-								}
-							}
-							else
-							{
-								TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, TypeIdx, NULL, &Case->Case.Body.Data[BodyIdx], "match expected a return of type %s, got type %s");
-							}
-						}
-					}
-					else
-					{
-						AnalyzeNode(Checker, Node);
-					}
+					AnalyzeNode(Checker, Case->Case.Body[BodyIdx]);
 				}
-				if(!CaseReturns && HasResult)
+				if(Idx == 0)
 				{
-					RaiseError(false, *Case->ErrorInfo, "Missing return in a match that returns a value");
+					Result = Checker->YieldT;
+				}
+				else
+				{
+					if(Result == INVALID_TYPE && Checker->YieldT != INVALID_TYPE)
+					{
+						RaiseError(false, *Case->ErrorInfo, "Trying to yield a value in case when previous case doesn't");
+					}
+					else if(Checker->YieldT == INVALID_TYPE && Result != INVALID_TYPE)
+					{
+						RaiseError(false, *Case->ErrorInfo, "Not yielding a value in case when previous case yields value of type %s", GetTypeName(Result));
+					}
+					else if(Checker->YieldT != INVALID_TYPE && Result != INVALID_TYPE)
+					{
+						Result = TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Checker->YieldT, NULL, Checker->YieldExpr, "match expected a yield of type %s based on previous cases, but got type %s");
+					}
 				}
 				CheckBodyForUnreachableCode(Case->Case.Body);
 				Checker->Scope.Pop();
 			}
+			Checker->Scope.Pop();
+
+			Checker->YieldT = WasYieldT;
+			Checker->YieldExpr = WasYieldExpr;
 			Expr->Match.MatchType = ExprTypeIdx;
 			Expr->Match.ReturnType = Result;
+
+			if(IsUntyped(Expr->Match.ReturnType))
+			{
+				Checker->UntypedStack.Push(&Expr->Match.ReturnType);
+			}
 		} break;
 		case AST_RESERVED:
 		{
@@ -2563,7 +2570,7 @@ void CheckBodyForUnreachableCode(slice<node *> Body)
 	ForArray(Idx, Body)
 	{
 		node *Node = Body[Idx];
-		if(Node->Type == AST_RETURN)
+		if(Node->Type == AST_RETURN || Node->Type == AST_YIELD)
 		{
 			b32 DeadCode = false;
 			if(Idx + 1 != Body.Count)
@@ -2572,7 +2579,13 @@ void CheckBodyForUnreachableCode(slice<node *> Body)
 					DeadCode = true;
 			}
 			if(DeadCode)
-				RaiseError(false, *Body[Idx + 1]->ErrorInfo, "Unreachable code after return statement");
+			{
+				const char *Name = "return";
+				if(Node->Type == AST_YIELD)
+					Name = "yield";
+
+				RaiseError(false, *Body[Idx + 1]->ErrorInfo, "Unreachable code after %s statement", Name);
+			}
 		}
 		if(Node->Type == AST_BREAK && Idx + 1 != Body.Count)
 		{
@@ -2781,6 +2794,34 @@ RetErr:
 				RaiseError(false, *Node->ErrorInfo, "Function expects a return value, invalid empty return!");
 			}
 			Node->Return.TypeIdx = FnRetTypeID;
+		} break;
+		case AST_YIELD:
+		{
+			u32 T = INVALID_TYPE;
+			if(Node->Yield.Expr)
+			{
+				T = AnalyzeExpression(Checker, Node->Yield.Expr);
+			}
+			Node->Yield.TypeIdx = T;
+			Checker->YieldT = T;
+			Checker->YieldExpr = &Node->Yield.Expr;
+
+			b32 FoundYieldScope = false;
+			scope *Current = Checker->Scope.TryPeek();
+
+			while(Current)
+			{
+				if(Current->ScopeNode->Type == AST_MATCH)
+				{
+					FoundYieldScope = true;
+					break;
+				}
+				Current = Current->Parent;
+			}
+			if(!FoundYieldScope)
+			{
+				RaiseError(false, *Node->ErrorInfo, "yield outside of match statement is not valid");
+			}
 		} break;
 		case AST_SCOPE:
 		{

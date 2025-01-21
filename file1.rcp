@@ -27,12 +27,30 @@ var := Foo { a = 4 };
 
 get_valid_ptr :: fn() -> *Foo { return &var; }
 
-main :: fn() -> i32 {
-    num := 10;
-    for n in num println("%", n);
+get_count :: fn(sl: []i32) -> int {
+    return sl[2];
+}
 
-    a := get_valid_ptr();
-    return @i32 a.a + @i32 get_valid_ptr().a;
+main :: fn() -> i32 {
+    sl := []i32{1, 2, 3};
+    val := match 60 {
+        1: {
+            yield 3;
+        }
+        2: {
+            yield 4;
+        }
+        3: {
+            yield 1;
+        }
+        _: {
+            yield 30;
+        }
+
+    };
+    println("%", val);
+
+    return @i32 val;
 }
 
 

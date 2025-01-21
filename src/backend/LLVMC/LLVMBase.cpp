@@ -678,13 +678,27 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			ir_switchint *Info = (ir_switchint *)I.BigRegister;
 			LLVMValueRef Matcher = gen->map.Get(Info->Matcher);
-			LLVMValueRef Switch = LLVMBuildSwitch(gen->bld, Matcher, gen->blocks[Info->After].Block, Info->Cases.Count);
+			LLVMBasicBlockRef Else = NULL;
+			u32 BlockCount = Info->Cases.Count;
+			if(Info->Default != -1)
+			{
+				Else = gen->blocks[Info->Cases[Info->Default]].Block;
+				BlockCount--;
+			}
+			else
+			{
+				Else = gen->blocks[Info->After].Block;
+			}
+			LLVMValueRef Switch = LLVMBuildSwitch(gen->bld, Matcher, Else, BlockCount);
 
 			ForArray(Idx, Info->Cases)
 			{
-				u32 Case = Info->Cases[Idx];
-				LLVMValueRef V = gen->map.Get(Info->OnValues[Idx]);
-				LLVMAddCase(Switch, V, gen->blocks[Case].Block);
+				if(Idx != Info->Default)
+				{
+					u32 Case = Info->Cases[Idx];
+					LLVMValueRef V = gen->map.Get(Info->OnValues[Idx]);
+					LLVMAddCase(Switch, V, gen->blocks[Case].Block);
+				}
 			}
 
 		} break;

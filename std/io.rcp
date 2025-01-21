@@ -318,10 +318,10 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             e := t.t.enum_;
             size := get_type_size(e.t);
             val := match size {
-                1: { return @int *@*i8 arg.val; }
-                2: { return @int *@*i16 arg.val; }
-                4: { return @int *@*i32 arg.val; }
-                8: { return @int *@*i64 arg.val; }
+                1: { yield @int *@*i8 arg.val; }
+                2: { yield @int *@*i16 arg.val; }
+                4: { yield @int *@*i32 arg.val; }
+                8: { yield @int *@*i64 arg.val; }
             };
 
             for m in e.members {

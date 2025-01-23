@@ -1748,10 +1748,10 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			}
 			else if(HasBasicFlag(T, BasicFlag_String))
 			{
+				u32 Data = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 				if(!Node->For.ItByRef)
 				{
-					u32 Data = PushInstruction(Builder,
-							Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 					const symbol *DerefFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("deref"));;
 
 					call_info *Info = NewType(call_info);
@@ -1764,7 +1764,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				}
 				else
 				{
-					ItAlloc = BuildIRStoreVariable(Builder, StringPtr, Node->For.ItType);
+					ItAlloc = BuildIRStoreVariable(Builder, Data, Node->For.ItType);
 				}
 			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))

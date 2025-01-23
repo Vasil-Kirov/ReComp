@@ -2,6 +2,7 @@ main
 
 #import io as *
 #import base as *
+#import str as *
 
 custom_t :: [4]u8;
 
@@ -36,13 +37,12 @@ struct BIG_STRUCT {
 };
 
 main :: fn() -> i32 {
-    a := BIG_STRUCT {};
-    b := BIG_STRUCT {};
-    c := BIG_STRUCT {};
-    view := []BIG_STRUCT { a, b, c };
-    for &it in view it.vals[0] = 1;
+    str := "foo string";
+    for &it in str {
+        println("%c", deref(it));
+    }
 
-    return @i32 view[0].vals[0];
+    return 0;
 }
 
 

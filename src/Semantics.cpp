@@ -2321,7 +2321,11 @@ void AnalyzeFor(checker *Checker, node *Node)
 				if(it->Unary.Op == '&' && it->Unary.Operand->Type == AST_ID)
 				{
 					Node->For.ItByRef = true;
-					ItType = GetPointerTo(ItType);
+					if(IsString(T))
+						ItType = GetPointerTo(Basic_u8);
+					else
+						ItType = GetPointerTo(ItType);
+
 					AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
 							it->Unary.Operand->ID.Name, Node->For.Expr1, 0);
 				}
@@ -2361,7 +2365,10 @@ void AnalyzeFor(checker *Checker, node *Node)
 								}
 								else
 								{
-									ItType = GetPointerTo(ItType);
+									if(IsString(T))
+										ItType = GetPointerTo(Basic_u8);
+									else
+										ItType = GetPointerTo(ItType);
 								}
 								Error = false;
 								Names[Idx] = it->Unary.Operand->ID.Name;

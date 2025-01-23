@@ -1710,11 +1710,14 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				u32 I = PushInstruction(Builder, 
 						Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
 
-				u32 ElemPtr = PushInstruction(Builder,
+				u32 Elem = PushInstruction(Builder,
 						Instruction(OP_INDEX, Array, I, Node->For.ArrayType, Builder));
 
-				u32 Elem = PushInstruction(Builder, 
-						Instruction(OP_LOAD, 0, ElemPtr, Node->For.ItType, Builder));
+				if(!Node->For.ItByRef)
+				{
+					Elem = PushInstruction(Builder, 
+						Instruction(OP_LOAD, 0, Elem, Node->For.ItType, Builder));
+				}
 
 				ItAlloc = BuildIRStoreVariable(Builder, Elem, Node->For.ItType);
 			}
@@ -1723,7 +1726,9 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				u32 I = PushInstruction(Builder, 
 						Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
 
-				u32 PointerTo = GetPointerTo(Node->For.ItType);
+				u32 PointerTo = Node->For.ItType;
+				if(!Node->For.ItByRef)
+					PointerTo = GetPointerTo(PointerTo);
 				u32 DataPtr = PushInstruction(Builder,
 						Instruction(OP_INDEX, Array, 1, Node->For.ArrayType, Builder));
 
@@ -1733,7 +1738,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 				Data = PushInstruction(Builder,
 						Instruction(OP_INDEX, Data, I, PointerTo, Builder));
 
-				if(IsLoadableType(Node->For.ItType))
+				if(!Node->For.ItByRef)
 				{
 					Data = PushInstruction(Builder, 
 							Instruction(OP_LOAD, 0, Data, Node->For.ItType, Builder));
@@ -1743,17 +1748,24 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			}
 			else if(HasBasicFlag(T, BasicFlag_String))
 			{
-				u32 Data = PushInstruction(Builder,
-						Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
-				const symbol *DerefFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("deref"));;
+				if(!Node->For.ItByRef)
+				{
+					u32 Data = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
+					const symbol *DerefFn = GetBuiltInFunction(Builder, STR_LIT("str"), STR_LIT("deref"));;
 
-				call_info *Info = NewType(call_info);
-				Info->Operand = DerefFn->Register;
-				Info->Args = SliceFromConst({Data});
-				u32 Derefed = PushInstruction(Builder, 
-						Instruction(OP_CALL, (u64)Info, DerefFn->Type, Builder));
+					call_info *Info = NewType(call_info);
+					Info->Operand = DerefFn->Register;
+					Info->Args = SliceFromConst({Data});
+					u32 Derefed = PushInstruction(Builder, 
+							Instruction(OP_CALL, (u64)Info, DerefFn->Type, Builder));
 
-				ItAlloc = BuildIRStoreVariable(Builder, Derefed, Node->For.ItType);
+					ItAlloc = BuildIRStoreVariable(Builder, Derefed, Node->For.ItType);
+				}
+				else
+				{
+					ItAlloc = BuildIRStoreVariable(Builder, StringPtr, Node->For.ItType);
+				}
 			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))
 			{
@@ -1770,15 +1782,32 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 						*Node->For.Expr1->ID.Name, Node->For.ItType, ItAlloc);
 				PushIRLocal(Builder, Node->For.Expr1->ID.Name, ItAlloc, Node->For.ItType);
 			}
+			else if(Node->For.Expr1->Type == AST_UNARY)
+			{
+				auto it = Node->For.Expr1->Unary.Operand;
+				Assert(it->Type == AST_ID);
+				IRPushDebugVariableInfo(Builder, Node->ErrorInfo,
+						*it->ID.Name, Node->For.ItType, ItAlloc);
+				PushIRLocal(Builder, it->ID.Name, ItAlloc, Node->For.ItType);
+			}
 			else
 			{
 				Assert(Node->For.Expr1->Type == AST_LIST);
 				auto List = Node->For.Expr1->List;
+
+				// Index
 				IRPushDebugVariableInfo(Builder, List.Nodes[0]->ErrorInfo, *List.Nodes[0]->ID.Name, Basic_int, IAlloc);
 				PushIRLocal(Builder, List.Nodes[0]->ID.Name, IAlloc, Basic_int);
 
-				IRPushDebugVariableInfo(Builder, List.Nodes[1]->ErrorInfo, *List.Nodes[1]->ID.Name, Node->For.ItType, ItAlloc);
-				PushIRLocal(Builder, List.Nodes[1]->ID.Name, ItAlloc, Node->For.ItType);
+				// It
+				auto it = Node->For.Expr1->List.Nodes[1];
+				if(it->Type == AST_UNARY)
+				{
+					it = it->Unary.Operand;
+				}
+				Assert(it->Type == AST_ID);
+				IRPushDebugVariableInfo(Builder, it->ErrorInfo, *it->ID.Name, Node->For.ItType, ItAlloc);
+				PushIRLocal(Builder, it->ID.Name, ItAlloc, Node->For.ItType);
 
 			}
 		}

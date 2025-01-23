@@ -198,6 +198,7 @@ struct node
 			// The rest are for iterator expressions
 			u32 ArrayType;
 			u32 ItType; // Set by semantics analyzer
+			b32 ItByRef;
 		} For;
 		struct {
 			node *Operand;

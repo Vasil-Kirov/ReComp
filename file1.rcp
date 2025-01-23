@@ -31,25 +31,18 @@ get_count :: fn(sl: []i32) -> int {
     return sl[2];
 }
 
-main :: fn() -> i32 {
-    sl := []i32{1, 2, 3};
-    val := match 60 {
-        1: {
-            yield 3;
-        }
-        2: {
-            yield 4;
-        }
-        3: {
-            yield 1;
-        }
-        _: {
-            yield 30;
-        }
-    };
-    println("%", val);
+struct BIG_STRUCT {
+    vals: [4096]bool,
+};
 
-    return @i32 val;
+main :: fn() -> i32 {
+    a := BIG_STRUCT {};
+    b := BIG_STRUCT {};
+    c := BIG_STRUCT {};
+    view := []BIG_STRUCT { a, b, c };
+    for &it in view it.vals[0] = 1;
+
+    return @i32 view[0].vals[0];
 }
 
 

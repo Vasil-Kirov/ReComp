@@ -273,6 +273,7 @@ node *MakeFor(const error_info *ErrorInfo, node *Expr1, node *Expr2, node *Expr3
 	Result->For.Expr2 = Expr2;
 	Result->For.Expr3 = Expr3;
 	Result->For.Kind = Kind;
+	Result->For.ItByRef = false;
 
 	return Result;
 }
@@ -1529,7 +1530,12 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 				{
 					if(FirstNode->Type != AST_ID && FirstNode->Type != AST_LIST)
 					{
-						RaiseError(true, *FirstNode->ErrorInfo, "Expected names of iterators before `in` keyword");
+						if(FirstNode->Type == AST_UNARY && FirstNode->Unary.Op == '&')
+						{}
+						else
+						{
+							RaiseError(true, *FirstNode->ErrorInfo, "Expected names of iterators before `in` keyword");
+						}
 					}
 					Kind = ft::It;
 				}
@@ -1979,6 +1985,7 @@ node *CopyASTNode(node *N)
 			R->For.Kind = N->For.Kind;
 			R->For.ArrayType = N->For.ArrayType;
 			R->For.ItType = N->For.ItType;
+			R->For.ItByRef = N->For.ItByRef;
 		} break;
 
 		case AST_ID:

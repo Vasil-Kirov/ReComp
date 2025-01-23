@@ -2315,6 +2315,21 @@ void AnalyzeFor(checker *Checker, node *Node)
 				AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
 						Node->For.Expr1->ID.Name, Node->For.Expr1, 0);
 			}
+			else if(Node->For.Expr1->Type == AST_UNARY)
+			{
+				auto it = Node->For.Expr1;
+				if(it->Unary.Op == '&' && it->Unary.Operand->Type == AST_ID)
+				{
+					Node->For.ItByRef = true;
+					ItType = GetPointerTo(ItType);
+					AddVariable(Checker, Node->For.Expr1->ErrorInfo, ItType,
+							it->Unary.Operand->ID.Name, Node->For.Expr1, 0);
+				}
+				else
+				{
+					RaiseError(true, *it->ErrorInfo, "Invalid expression at for in loop. Expected a name for the iterator");
+				}
+			}
 			else
 			{
 				Assert(Node->For.Expr1->Type == AST_LIST);
@@ -2323,11 +2338,41 @@ void AnalyzeFor(checker *Checker, node *Node)
 				{
 					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Expected exactly 2 names in list in for in iteration. First is the name of the index, second is the name of the iterator");
 				}
-				For(List.Nodes)
+
+				const string *Names[2] = {};
+				ForArray(Idx, List.Nodes)
 				{
-					if((*it)->Type != AST_ID)
+					auto it = List.Nodes[Idx];
+					if(it->Type != AST_ID)
 					{
-						RaiseError(true, *(*it)->ErrorInfo, "Expected valid names in for in iteration naming list");
+						bool Error = true;
+						if(it->Type == AST_UNARY)
+						{
+							if(it->Unary.Op == '&' && it->Unary.Operand->Type == AST_ID)
+							{
+								Node->For.ItByRef = true;
+								if(Idx == 0)
+								{
+									RaiseError(false, *it->ErrorInfo, "Index cannot be iterated by pointer");
+								}
+								else if(HasBasicFlag(T, BasicFlag_Integer))
+								{
+									RaiseError(false, *it->ErrorInfo, "Integer cannot be iterated by pointer");
+								}
+								else
+								{
+									ItType = GetPointerTo(ItType);
+								}
+								Error = false;
+								Names[Idx] = it->Unary.Operand->ID.Name;
+							}
+						}
+						if(Error)
+							RaiseError(true, *it->ErrorInfo, "Expected a name for the iterator");
+					}
+					else
+					{
+						Names[Idx] = it->ID.Name;
 					}
 				}
 				if(T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice || HasBasicFlag(T, BasicFlag_String))
@@ -2336,8 +2381,8 @@ void AnalyzeFor(checker *Checker, node *Node)
 				{
 					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Iterating variable of type %s doesn't accept multiple iteration names", GetTypeName(T));
 				}
-				AddVariable(Checker, List.Nodes[0]->ErrorInfo, Basic_int, List.Nodes[0]->ID.Name, List.Nodes[0], 0);
-				AddVariable(Checker, List.Nodes[1]->ErrorInfo, ItType,    List.Nodes[1]->ID.Name, List.Nodes[1], 0);
+				AddVariable(Checker, List.Nodes[0]->ErrorInfo, Basic_int, Names[0], List.Nodes[0], 0);
+				AddVariable(Checker, List.Nodes[1]->ErrorInfo, ItType,    Names[1], List.Nodes[1], 0);
 			}
 			Node->For.ItType = ItType;
 			Node->For.ArrayType = TypeIdx;

@@ -2046,22 +2046,6 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		    u32 Expression = -1;
 		    u32 Type = Node->Return.TypeIdx;
 
-		    ForArray(Idx, Builder->Defered.Data)
-		    {
-		  	  int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
-		  	  auto s = Builder->Defered.Data[ActualIdx];
-
-		  	  ForArray(SIdx, s.Expressions)
-		  	  {
-		  		  int ActualSIdx = s.Expressions.Count - 1 - SIdx;
-		  		  auto ExprBody = s.Expressions[ActualSIdx];
-		  		  For(ExprBody)
-		  		  {
-		  			  BuildIRFunctionLevel(Builder, (*it));
-		  		  }
-		  	  }
-		    }
-
 		    if(Type != INVALID_TYPE)
 		    {
 		  	  const type *RT = GetType(Type);
@@ -2080,6 +2064,22 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  			  Type = ComplexTypeToSizeType(RT);
 		  			  Expression = PushInstruction(Builder,
 		  					  Instruction(OP_LOAD, 0, Expression, Type, Builder));
+		  		  }
+		  	  }
+		    }
+
+		    ForArray(Idx, Builder->Defered.Data)
+		    {
+		  	  int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
+		  	  auto s = Builder->Defered.Data[ActualIdx];
+
+		  	  ForArray(SIdx, s.Expressions)
+		  	  {
+		  		  int ActualSIdx = s.Expressions.Count - 1 - SIdx;
+		  		  auto ExprBody = s.Expressions[ActualSIdx];
+		  		  For(ExprBody)
+		  		  {
+		  			  BuildIRFunctionLevel(Builder, (*it));
 		  		  }
 		  	  }
 		    }

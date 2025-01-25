@@ -37,10 +37,15 @@ struct BIG_STRUCT {
 };
 
 main :: fn() -> i32 {
-    str := "foo string";
-    for &it in str {
-        println("%c", deref(it));
-    }
+	#if arm32 {
+		f := @*i32?null;
+		*f = 1;
+	} #elif x64 {
+		str := "foo string";
+		for &it in str {
+			println("%c", deref(it));
+		}
+	}
 
     return 0;
 }

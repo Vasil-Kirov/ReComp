@@ -478,9 +478,9 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 		}
 	}
 
-	if(Parser.ExpectingCloseParen > 0)
+	if(Parser.ScopeLevel > 0)
 	{
-		RaiseError(false, *Nodes[Nodes.Count-1]->ErrorInfo, "Unexpected EOF, unterminated #if");
+		RaiseError(false, *Nodes[Nodes.Count-1]->ErrorInfo, "Unexpected EOF, unterminated scope");
 	}
 
 	parse_result Result = {};
@@ -757,6 +757,58 @@ node *ParseType(parser *Parser, b32 ShouldError)
 		ERROR_INFO;
 		string Int = STR_LIT("int");
 		Result = MakeID(ErrorInfo, DupeType(Int, string));
+	}
+	return Result;
+}
+
+void SkipPwdIf(parser *Parser, const error_info *ErrorInfo)
+{
+	int depth = 1;
+	while(depth > 0)
+	{
+		token_type Type = Parser->Current->Type;
+		if(Type == T_STARTSCOPE)
+			depth++;
+		else if(Type == T_ENDSCOPE)
+			depth--;
+		else if(Type == T_EOF)
+		{
+			RaiseError(true, *ErrorInfo, "#if is not terminated");
+		}
+		GetToken(Parser);
+	}
+}
+
+node *ParsePwdIf(parser *Parser)
+{
+	node *Result = NULL;
+	while(true)
+	{
+		ERROR_INFO;
+		GetToken(Parser);
+		token ID = EatToken(Parser, T_ID, true);
+		EatToken(Parser, T_STARTSCOPE, true);
+		b32 IsTrue = false;
+		ForArray(Idx, Parser->ConfigIDs)
+		{
+			if(*ID.ID == Parser->ConfigIDs[Idx])
+			{
+				IsTrue = true;
+				break;
+			}
+		}
+		if(IsTrue)
+		{
+			Result = MakeScope(ErrorInfo, true);
+			Parser->ScopeLevel++;
+			break;
+		}
+		else
+		{
+			SkipPwdIf(Parser, ErrorInfo);
+			if(Parser->Current->Type != T_PWDELIF)
+				break;
+		}
 	}
 	return Result;
 }
@@ -1620,6 +1672,21 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			ExpectSemicolon = false;
 			Result = MakeScope(ErrorInfo, false);
 		} break;
+		case T_PWDIF:
+		{
+			Result = ParsePwdIf(Parser);
+			ExpectSemicolon = false;
+		} break;
+		case T_PWDELIF:
+		{
+			ERROR_INFO;
+			// skip it
+			GetToken(Parser);
+			EatToken(Parser, T_ID, false);
+			EatToken(Parser, T_STARTSCOPE, true);
+			SkipPwdIf(Parser, ErrorInfo);
+			ExpectSemicolon = false;
+		} break;
 		case T_SEMICOL:
 		{
 		} break;
@@ -1759,16 +1826,20 @@ node *ParseTopLevel(parser *Parser)
 		{
 			Result = ParseStruct(Parser, IsStructUnion, false);
 		} break;
-		case T_CLOSEPAREN:
+		case T_ENDSCOPE:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
 
-			if(Parser->ExpectingCloseParen == 0)
+			if(Parser->ScopeLevel-- == 0)
 			{
-				RaiseError(false, *ErrorInfo, "Unexpected `)`");
+				RaiseError(false, *ErrorInfo, "Unexpected `}`");
 			}
-			Parser->ExpectingCloseParen--;
+			Result = (node *)0x1;
+		} break;
+		case T_PWDIF:
+		{
+			ParsePwdIf(Parser);
 			Result = (node *)0x1;
 		} break;
 		case T_PWDELIF:
@@ -1777,67 +1848,8 @@ node *ParseTopLevel(parser *Parser)
 			// skip it
 			GetToken(Parser);
 			EatToken(Parser, T_ID, false);
-			EatToken(Parser, T_OPENPAREN, true);
-			int depth = 1;
-			while(depth > 0)
-			{
-				token_type Type = Parser->Current->Type;
-				if(Type == T_OPENPAREN)
-					depth++;
-				else if(Type == T_CLOSEPAREN)
-					depth--;
-				else if(Type == T_EOF)
-				{
-					RaiseError(true, *ErrorInfo, "#elif is not terminated");
-				}
-				GetToken(Parser);
-			}
-
-			Result = (node *)0x1;
-		} break;
-		case T_PWDIF:
-		{
-			while(true) {
-				ERROR_INFO;
-				GetToken(Parser);
-				token ID = EatToken(Parser, T_ID, true);
-				EatToken(Parser, T_OPENPAREN, true);
-				b32 IsTrue = false;
-				ForArray(Idx, Parser->ConfigIDs)
-				{
-					if(*ID.ID == Parser->ConfigIDs[Idx])
-					{
-						IsTrue = true;
-						break;
-					}
-				}
-				if(IsTrue)
-				{
-					Parser->ExpectingCloseParen++;
-					break;
-				}
-				else
-				{
-					int depth = 1;
-					while(depth > 0)
-					{
-						token_type Type = Parser->Current->Type;
-						if(Type == T_OPENPAREN)
-							depth++;
-						else if(Type == T_CLOSEPAREN)
-							depth--;
-						else if(Type == T_EOF)
-						{
-							RaiseError(true, *ErrorInfo, "#if is not terminated");
-						}
-						GetToken(Parser);
-					}
-
-					if(Parser->Current->Type != T_PWDELIF)
-						break;
-				}
-			}
-
+			EatToken(Parser, T_STARTSCOPE, true);
+			SkipPwdIf(Parser, ErrorInfo);
 			Result = (node *)0x1;
 		} break;
 		case T_SEMICOL:

@@ -286,7 +286,6 @@ struct parser
 	b32 NoStructLists;
 	b32 NoItemLists;
 	uint ScopeLevel;
-	uint ExpectingCloseParen;
 };
 
 struct parse_result

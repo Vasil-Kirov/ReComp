@@ -65,6 +65,7 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 		return;
 	switch(Info->type)
 	{
+		case IR_DBG_INTERP_ERROR_INFO: {} break;
 		case IR_DBG_VAR:
 		{
 			if(gen->CurrentScope == NULL)

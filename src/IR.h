@@ -89,6 +89,7 @@ enum ir_debug_type
 	IR_DBG_LOCATION,
 	IR_DBG_SCOPE,
 	IR_DBG_ARG,
+	IR_DBG_INTERP_ERROR_INFO,
 };
 
 struct ir_debug_info
@@ -111,6 +112,9 @@ struct ir_debug_info
 			int ArgNo;
 			u32 TypeID;
 		} arg;
+		struct {
+			const error_info *ErrorInfo;
+		} err_i;
 	};
 };
 
@@ -127,6 +131,7 @@ struct instruction
 			u32 Right;
 		};
 		u64 BigRegister;
+		void *Ptr;
 	};
 	u32 Result;
 	u32 Type;

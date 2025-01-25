@@ -110,6 +110,7 @@ struct interpreter
 	ap_memory Arena;
 	stack_alloc StackAllocator;
 	stack<binary_stack> Stack;
+	stack<const error_info *> ErrorInfo;
 	slice<function> Imported;
 	string CurrentFnName;
 	b32 IsCurrentFnRetInPtr;

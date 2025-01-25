@@ -6,7 +6,7 @@ build
 #import array as arr
 #import mem
 
-puts :: fn #foreign(str: *u8);
+putf :: fn #foreign(str: *u8);
 
 // @BUG
 // my_fff :: fn() -> i32 { return 4; }
@@ -25,6 +25,8 @@ compile :: fn() -> c.CompileInfo {
         //flags = @u32 (c.CompileFlag.SanAddress | c.CompileFlag.Standalone | c.CompileFlag.NoLink),
         //link = "/SUBSYSTEM:windows",
     };
+
+   putf(c"foo");
 
    for f in out.files {
        io.println("Compiling file: %", f);

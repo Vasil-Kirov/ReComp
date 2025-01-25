@@ -24,6 +24,16 @@ inline u32 PushAlloc(u32 Type, block_builder *Builder)
 			Instruction(OP_ALLOC, -1, Type, Builder));
 }
 
+inline instruction Instruction(op Op, void *Ptr, u32 Type, block_builder *Builder, int Reserved)
+{
+	instruction Result;
+	Result.Ptr = Ptr;
+	Result.Op = Op;
+	Result.Type = Type;
+	Result.Result = Builder->LastRegister++;
+	return Result;
+}
+
 inline instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder)
 {
 	instruction Result;
@@ -198,6 +208,15 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 		Assert(false);
 	}
 	return NULL;
+}
+
+void PushErrorInfo(block_builder *Builder, node *Node)
+{
+	ir_debug_info *Info = NewType(ir_debug_info);
+	Info->type = IR_DBG_INTERP_ERROR_INFO;
+	Info->err_i.ErrorInfo = Node->ErrorInfo;
+	instruction DbgErrI = InstructionDebugInfo(Info);
+	PushInstruction(Builder, DbgErrI);
 }
 
 u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, const type *SliceType = NULL, u32 Alloc = -1)
@@ -597,6 +616,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_CALL:
 		{
+			PushErrorInfo(Builder, Node);
+
 			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
@@ -2020,6 +2041,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
+			PushErrorInfo(Builder, Node);
+
 		    u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
 		    basic_block AssertFailed = AllocateBlock(Builder);
 		    basic_block After = AllocateBlock(Builder);
@@ -3065,6 +3088,7 @@ INSIDE_EQ:
 				ir_debug_info *Info = (ir_debug_info *)Instr.BigRegister;
 				switch(Info->type)
 				{
+					case IR_DBG_INTERP_ERROR_INFO: {} break;
 					case IR_DBG_ARG:
 					{
 						PushBuilderFormated(Builder, "DEBUG_ARG_INFO %s #%d", Info->arg.Name.Data, Info->arg.ArgNo);

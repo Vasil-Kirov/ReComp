@@ -779,7 +779,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				call_info *CallInfo = (call_info *)I.BigRegister;
 				value *Operand = VM->Registers.GetValue(CallInfo->Operand);
 				if(Operand->ptr == NULL)
+				{
+					RaiseError(true, *VM->ErrorInfo.Peek(), "Compile time interpreter cannot find called function. If it's in a dynamic library, you can pass it with the --vmdll flag.");
 					return { INTERPRET_RUNTIME_ERROR };
+				}
 
 				if(Operand->Type & (1 << 31))
 				{
@@ -837,7 +840,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_ARG:
 			{
 				if(!OptionalArgs.IsValid())
+				{
+					Assert(false);
 					return { INTERPRET_RUNTIME_ERROR };
+				}
 				int Index = I.BigRegister;
 				if(VM->IsCurrentFnRetInPtr)
 					Index++;
@@ -853,7 +859,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_IF:
 			{
 				if(!OptionalBlocks.IsValid())
+				{
+					Assert(false);
 					return { INTERPRET_RUNTIME_ERROR };
+				}
 
 				value *Cond = VM->Registers.GetValue(I.Result);
 				if(Cond->u64)
@@ -865,7 +874,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_JMP:
 			{
 				if(!OptionalBlocks.IsValid())
+				{
+					Assert(false);
 					return { INTERPRET_RUNTIME_ERROR };
+				}
 
 				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
 				InstrIdx = -1;
@@ -961,16 +973,19 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(NEQ, !=);
 			case OP_DEBUGINFO:
 			{
+				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+				if(Info->type == IR_DBG_INTERP_ERROR_INFO)
+					VM->ErrorInfo.Peek() = Info->err_i.ErrorInfo;
+
 				if(InterpreterTrace)
 				{
-					ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
 					if(Info->type == IR_DBG_LOCATION)
 						LINFO("%s at line: %d", VM->CurrentFnName.Data, Info->loc.LineNo);
 				}
 			} break;
 			default:
 			{
-				LERROR("Unsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
+				LERROR("-- COMPILER BUG --\nUnsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
 				return { INTERPRET_RUNTIME_ERROR };
 			} break;
 		}
@@ -1081,6 +1096,8 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree)
 {
+	VM->ErrorInfo.Push(NULL);
+
 	binary_stack Stack = {};
 	Stack.Memory = VM->StackAllocator.Push(MB(1));
 
@@ -1115,8 +1132,9 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	}
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
-
 	VM->CurrentFnName = SaveCurrentFn;
+
+	VM->ErrorInfo.Pop();
 	return Result;
 }
 

@@ -29,13 +29,406 @@ void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 	NewScope.LastRegister = VM->Registers.LastRegister;
 }
 
-u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
+#include <dyncall.h>
+
+char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DCaggr*> AggrToFree)
 {
-	if(Operand->ptr == NULL) {
-		LDEBUG("Not found function, returning 0");
-		return 0;
+	char Sig = 0;
+	switch(T->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			switch (T->Basic.Kind)
+			{
+				case Basic_bool:
+				{
+					Sig = DC_SIGCHAR_BOOL;
+				} break;
+				case Basic_u8:
+				{
+					Sig = DC_SIGCHAR_UCHAR;
+				} break;
+				case Basic_u16:
+				{
+					Sig = DC_SIGCHAR_USHORT;
+				} break;
+				case Basic_u32:
+				{
+					Sig = DC_SIGCHAR_UINT;
+				} break;
+				case Basic_u64:
+				{
+					Sig = DC_SIGCHAR_ULONGLONG;
+				} break;
+				case Basic_i8:
+				{
+					Sig = DC_SIGCHAR_CHAR;
+				} break;
+				case Basic_i16:
+				{
+					Sig = DC_SIGCHAR_SHORT;
+				} break;
+				case Basic_i32:
+				{
+					Sig = DC_SIGCHAR_INT;
+				} break;
+				case Basic_i64:
+				{
+					Sig = DC_SIGCHAR_LONGLONG;
+				} break;
+				case Basic_f32:
+				{
+					Sig = DC_SIGCHAR_FLOAT;
+				} break;
+				case Basic_f64:
+				{
+					Sig = DC_SIGCHAR_DOUBLE;
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					int RegisterSize = GetRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: Sig = DC_SIGCHAR_LONGLONG; break;
+						case 4: Sig = DC_SIGCHAR_INT; break;
+						case 2: Sig = DC_SIGCHAR_SHORT; break;
+						default: unreachable;
+					}
+				} break;
+				case Basic_uint:
+				{
+					int RegisterSize = GetRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: Sig = DC_SIGCHAR_ULONGLONG; break;
+						case 4: Sig = DC_SIGCHAR_UINT; break;
+						case 2: Sig = DC_SIGCHAR_USHORT; break;
+						default: unreachable;
+					}
+				} break;
+				case Basic_string:
+				{
+					Sig = DC_SIGCHAR_AGGREGATE;
+					*ExtraArg = MakeAggr(Basic_string, AggrToFree);
+				} break;
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_auto:
+				case Basic_module:
+				Assert(false);
+			}
+		} break;
+		case TypeKind_Array:
+		{
+			if(NumberOfElems)
+			{
+				*NumberOfElems = T->Array.MemberCount;
+				Sig = GetSigChar(GetType(T->Array.Type), NULL, ExtraArg, AggrToFree);
+			}
+			else
+			{
+				Sig = DC_SIGCHAR_POINTER;
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			Sig = DC_SIGCHAR_POINTER;
+		} break;
+		case TypeKind_Enum:
+		{
+			Sig = GetSigChar(GetType(T->Enum.Type), NumberOfElems, ExtraArg, AggrToFree);
+		} break;
+		case TypeKind_Slice:
+		{
+			*ExtraArg = MakeAggr(T, AggrToFree);
+			Sig = DC_SIGCHAR_AGGREGATE;
+		} break;
+		case TypeKind_Struct:
+		{
+			*ExtraArg = MakeAggr(T, AggrToFree);
+			Sig = DC_SIGCHAR_AGGREGATE;
+		} break;
+		default: unreachable;
+	}
+	return Sig;
+}
+
+DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree)
+{
+	DCaggr *Aggr = dcNewAggr(T->Struct.Members.Count, GetTypeSize(T));
+
+	if(T->Kind == TypeKind_Struct)
+	{
+		ForArray(Idx, T->Struct.Members)
+		{
+			auto it = T->Struct.Members[Idx];
+			auto MemT = GetType(it.Type);
+			DCaggr *ExtraArg = NULL;
+			int NumberOfElems = 1;
+			char Sig = GetSigChar(MemT, &NumberOfElems, &ExtraArg, AggrToFree);
+
+			dcAggrField(Aggr, Sig, GetStructMemberOffset(T, Idx), NumberOfElems, ExtraArg);
+		}
+	}
+	else if(T->Kind == TypeKind_Slice)
+	{
+		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
+		char Second = DC_SIGCHAR_POINTER;
+		dcAggrField(Aggr, First, 0, 0);
+		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
+	}
+	else if(IsString(T))
+	{
+		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
+		char Second = DC_SIGCHAR_STRING;
+		dcAggrField(Aggr, First, 0, 0);
+		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
 	}
 
+	dcCloseAggr(Aggr);
+	AggrToFree.Push(Aggr);
+	return Aggr;
+}
+
+DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree)
+{
+	const type *T = GetType(TIdx);
+	return MakeAggr(T, AggrToFree);
+}
+
+u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
+{
+	Assert(Operand->ptr);
+	const type *FnT = GetType(Operand->Type & ~(1 << 31));
+	LDEBUG("TYPE: %s", GetTypeName(FnT));
+	
+	dynamic<DCaggr*> Aggrs = {};
+
+	DCCallVM *dc = dcNewCallVM(MB(8));
+	if(Info->Args.Count >= FnT->Function.ArgCount)
+	{
+		dcMode(dc, DC_CALL_C_ELLIPSIS_VARARGS);
+	}
+	else
+	{
+		dcMode(dc, DC_CALL_C_DEFAULT);
+	}
+	dcReset(dc);
+
+	if(FnT->Function.Returns.Count == 1)
+	{
+		const type *Ret = GetType(FnT->Function.Returns[0]);
+		if(IsString(Ret))
+		{
+			DCaggr *Aggr = MakeAggr(Ret, Aggrs);
+			dcBeginCallAggr(dc, Aggr);
+		}
+		else if(Ret->Kind == TypeKind_Slice)
+		{
+			DCaggr *Aggr = MakeAggr(Ret, Aggrs);
+			dcBeginCallAggr(dc, Aggr);
+		}
+		else if(Ret->Kind == TypeKind_Struct)
+		{
+			DCaggr *Aggr = MakeAggr(Ret, Aggrs);
+			dcBeginCallAggr(dc, Aggr);
+		}
+	}
+
+	for(int i = 0; i < Info->Args.Count; ++i)
+	{
+		const value *Arg = VM->Registers.GetValue(Info->Args[i]);
+		u32 TIdx = INVALID_TYPE;
+		if(i >= FnT->Function.ArgCount)
+		{
+			TIdx = Arg->Type;
+		}
+		else
+		{
+			TIdx = FnT->Function.Args[i];
+		}
+
+		const type *T = GetType(TIdx);
+		switch(T->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				switch (T->Basic.Kind)
+				{
+					case Basic_bool:
+					{
+						dcArgBool(dc, Arg->u64);
+					} break;
+					case Basic_u8:
+					{
+						dcArgChar(dc, Arg->u64);
+					} break;
+					case Basic_u16:
+					{
+						dcArgShort(dc, Arg->u64);
+					} break;
+					case Basic_u32:
+					{
+						// @TODO: might be wrong
+						dcArgInt(dc, Arg->u64);
+					} break;
+					case Basic_u64:
+					{
+						dcArgChar(dc, Arg->u64);
+					} break;
+					case Basic_i8:
+					{
+						dcArgChar(dc, Arg->i64);
+					} break;
+					case Basic_i16:
+					{
+						dcArgShort(dc, Arg->i64);
+					} break;
+					case Basic_i32:
+					{
+						// @TODO: might be wrong
+						dcArgInt(dc, Arg->i64);
+					} break;
+					case Basic_i64:
+					{
+						dcArgLongLong(dc, Arg->i64);
+					} break;
+					case Basic_f32:
+					{
+						dcArgFloat(dc, Arg->f32);
+					} break;
+					case Basic_f64:
+					{
+						dcArgFloat(dc, Arg->f64);
+					} break;
+					case Basic_type:
+					case Basic_int:
+					{
+						int RegisterSize = GetRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: dcArgLongLong(dc, Arg->i64); break;
+							case 4: dcArgInt(dc, Arg->i64); break;
+							case 2: dcArgShort(dc, Arg->i64); break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_uint:
+					{
+						int RegisterSize = GetRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: dcArgLongLong(dc, Arg->u64); break;
+							case 4: dcArgInt(dc, Arg->u64); break;
+							case 2: dcArgShort(dc, Arg->u64); break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_string:
+					{
+						DCaggr *StrT = MakeAggr(Basic_string, Aggrs);
+						dcArgAggr(dc, StrT, Arg->ptr);
+					} break;
+					case Basic_UntypedFloat:
+					case Basic_UntypedInteger:
+					case Basic_auto:
+					case Basic_module:
+					Assert(false);
+				}
+			} break;
+			case TypeKind_Slice:
+			case TypeKind_Struct:
+			{
+				DCaggr *Aggr = MakeAggr(T, Aggrs);
+				dcArgAggr(dc, Aggr, Arg->ptr);
+			} break;
+			case TypeKind_Pointer:
+			case TypeKind_Array:
+			{
+				dcArgPointer(dc, Arg->ptr);
+			} break;
+			default: unreachable;
+		}
+	}
+
+	u64 Result = 0;
+	if(FnT->Function.Returns.Count == 0)
+	{
+		dcCallVoid(dc, Operand->ptr);
+	}
+	else if(FnT->Function.Returns.Count == 1)
+	{
+		const type *Ret = GetType(FnT->Function.Returns[0]);
+		switch(Ret->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				if(Ret->Basic.Kind == Basic_bool)
+				{
+					Result = dcCallBool(dc, Operand->ptr);
+				}
+				else if(Ret->Basic.Kind == Basic_f32)
+				{
+					Result = dcCallFloat(dc, Operand->ptr);
+				}
+				else if(Ret->Basic.Kind == Basic_f64)
+				{
+					Result = dcCallDouble(dc, Operand->ptr);
+				}
+				else if(Ret->Basic.Kind == Basic_string)
+				{
+					void *Ptr = VM->Stack.Peek().Allocate(GetTypeSize(Basic_string));
+					DCaggr *Aggr = MakeAggr(Ret, Aggrs);
+					dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
+					Result = (u64)Ptr;
+				}
+				else
+				{
+					uint Size = GetTypeSize(Ret);
+					switch(Size)
+					{
+						case 1:
+						Result = dcCallChar(dc, Operand->ptr); break;
+						case 2:
+						Result = dcCallShort(dc, Operand->ptr); break;
+						case 4:
+						// @TODO: might be wrong
+						Result = dcCallInt(dc, Operand->ptr); break;
+						case 8:
+						Result = dcCallLongLong(dc, Operand->ptr); break;
+					}
+				}
+			} break;
+			case TypeKind_Struct:
+			case TypeKind_Slice:
+			{
+				void *Ptr = VM->Stack.Peek().Allocate(GetTypeSize(Ret));
+				DCaggr *Aggr = MakeAggr(Ret, Aggrs);
+				dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
+				Result = (u64)Ptr;
+			} break;
+			case TypeKind_Pointer:
+			{
+				Result = (u64)dcCallPointer(dc, Operand->ptr);
+			} break;
+			default: unreachable;
+		}
+	}
+	else
+	{
+		// @TODO: Error out
+		Assert(false);
+	}
+
+	For(Aggrs)
+	{
+		dcFreeAggr(*it);
+	}
+	Aggrs.Free();
+	dcFree(dc);
+	return Result;
+#if 0
 	typedef u64 (*inter_fn)(void *, value *);
 
 	value *Args = (value *)VAlloc(Info->Args.Count * sizeof(value));
@@ -43,7 +436,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	{
 		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
 	}
-
+	// @LEAK?
 	assembler Asm = MakeAssembler(KB(1));
 	//  Windows:
 	//  rcx = operand
@@ -187,6 +580,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	u64 Result = ToCall(Operand->ptr, Args);
 	FreeVirtualMemory(Asm.Code);
 	return Result;
+#endif
 }
 
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)

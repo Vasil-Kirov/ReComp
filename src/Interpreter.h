@@ -116,6 +116,10 @@ struct interpreter
 	b32 IsCurrentFnRetInPtr;
 };
 
+#include <dyncall.h>
+DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree);
+DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree);
+
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree=false);
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 

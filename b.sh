@@ -2,6 +2,7 @@
 
 DEFINES="-D_CRT_SECURE_NO_WARNINGS -DDEBUG -DCM_LINUX"
 LIBS=$(llvm-config --ldflags --libs)
+LIBS+=' -ldyncall_s'
 
 DO_ASAN='-fsanitize=address'
 DO_ASAN=''

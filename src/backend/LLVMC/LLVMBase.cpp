@@ -114,6 +114,158 @@ dynamic<t> RCCopyTypeMap(dynamic<t> Map)
 	return Result;
 }
 
+LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
+{
+	const type *T = GetType(TIdx);
+	LLVMTypeRef lt = ConvertToLLVMType(gen, TIdx);
+	switch(T->Kind)
+	{
+		case TypeKind_Vector:
+		case TypeKind_Generic:
+		case TypeKind_Function:
+		case TypeKind_Invalid:
+		unreachable;
+
+		case TypeKind_Enum: { return FromPtr(gen, T->Enum.Type, Ptr); } break;
+		case TypeKind_Basic:
+		{
+			switch(T->Basic.Kind)
+			{
+				case Basic_bool:
+				{
+					return LLVMConstInt(lt, *(u8 *)Ptr, false);
+				} break;
+				case Basic_u8:
+				{
+					return LLVMConstInt(lt, *(u8 *)Ptr, false);
+				} break;
+				case Basic_u16:
+				{
+					return LLVMConstInt(lt, *(u16 *)Ptr, false);
+				} break;
+				case Basic_u32:
+				{
+					return LLVMConstInt(lt, *(u32 *)Ptr, false);
+				} break;
+				case Basic_u64:
+				{
+					return LLVMConstInt(lt, *(u64 *)Ptr, false);
+				} break;
+				case Basic_i8:
+				{
+					return LLVMConstInt(lt, *(i8 *)Ptr, true);
+				} break;
+				case Basic_i16:
+				{
+					return LLVMConstInt(lt, *(i16 *)Ptr,true);
+				} break;
+				case Basic_i32:
+				{
+					return LLVMConstInt(lt, *(i32 *)Ptr,true);
+				} break;
+				case Basic_i64:
+				{
+					return LLVMConstInt(lt, *(i64 *)Ptr,true);
+				} break;
+				case Basic_f32:
+				{
+					return LLVMConstReal(lt, *(f32 *)Ptr);
+				} break;
+				case Basic_f64:
+				{
+					return LLVMConstReal(lt, *(f64 *)Ptr);
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					int RegisterSize = GetRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: return LLVMConstInt(lt, *(i64 *)Ptr, true);
+						case 4: return LLVMConstInt(lt, *(i32 *)Ptr, true);
+						case 2: return LLVMConstInt(lt, *(i16 *)Ptr, true);
+						default: unreachable;
+					}
+				} break;
+				case Basic_uint:
+				{
+					int RegisterSize = GetRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: return LLVMConstInt(lt, *(u64 *)Ptr, false);
+						case 4: return LLVMConstInt(lt, *(u32 *)Ptr, false);
+						case 2: return LLVMConstInt(lt, *(u16 *)Ptr, false);
+						default: unreachable;
+					}
+				} break;
+				case Basic_string:
+				{
+					LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());
+					LLVMTypeRef Ptr = LLVMPointerTypeInContext(gen->ctx, 0);
+					string Str;
+					Str.Size = *(size_t *)Ptr;
+					Str.Data = *((const char **)Ptr+1);
+
+					LLVMValueRef Size = LLVMConstInt(IntTy, Str.Size, true);
+					LLVMValueRef Data = RCGetStringConstPtr(gen, &Str);
+					LLVMValueRef Vals[2] = { Size, Data };
+					return LLVMConstStruct(Vals, 2, false);
+				} break;
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_auto:
+				case Basic_module:
+				Assert(false);
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			return LLVMConstInt(lt, *(size_t *)Ptr, false);
+		} break;
+		case TypeKind_Struct:
+		{
+			u8 *At = (u8 *)Ptr;
+			auto Values = array<LLVMValueRef>(T->Struct.Members.Count);
+			int Count = 0;
+			For(T->Struct.Members)
+			{
+				Values[Count++] = FromPtr(gen, it->Type, At);
+				At += GetTypeSize(it->Type);
+			}
+			return LLVMConstNamedStruct(lt, Values.Data, Count);
+		} break;
+		case TypeKind_Slice:
+		{
+			size_t TypeSize = GetTypeSize(T->Slice.Type);
+			u8 *At = (u8 *)Ptr;
+			size_t Size = *(size_t *)At;
+			At += sizeof(size_t);
+			u8 *Elems = *(u8 **)At;
+			auto Values = array<LLVMValueRef>(Size);
+			int Count = 0;
+			for(int i = 0; i < Size; ++i)
+			{
+				Values[Count++] = FromPtr(gen, T->Slice.Type, Elems);
+				Elems += TypeSize;
+			}
+			return LLVMConstNamedStruct(lt, Values.Data, Count);
+		} break;
+		case TypeKind_Array:
+		{
+			u8 *At = (u8 *)Ptr;
+			int ElemSize = GetTypeSize(T->Array.Type);
+			auto Values = array<LLVMValueRef>(T->Array.MemberCount);
+			int Count = 0;
+			for(int i = 0; i < T->Array.MemberCount; ++i)
+			{
+				Values[Count++] = FromPtr(gen, T->Array.Type, At);
+				At += ElemSize;
+			}
+			return LLVMConstArray2(ConvertToLLVMType(gen, T->Array.Type), Values.Data, Count);
+		} break;
+	}
+}
+
 void RCGenerateInstruction(generator *gen, instruction I)
 {
 #define LLVM_BIN_OP(CAPITAL_OP, Op) \
@@ -275,10 +427,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				}
 				else
 				{
-					unreachable;
+					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
 				}
 			}
-			else if(Type->Basic.Flags & BasicFlag_Float)
+			else if(HasBasicFlag(Type, BasicFlag_Float))
 			{
 				if(Val->Type == const_type::Integer)
 				{
@@ -290,7 +442,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					Value = LLVMConstReal(LLVMType, Val->Float);
 				}
 			}
-			else if(Type->Basic.Flags & BasicFlag_Integer)
+			else if(HasBasicFlag(Type, BasicFlag_Integer))
 			{
 				if(Val->Type == const_type::Integer)
 				{
@@ -302,7 +454,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					Value = LLVMConstInt(LLVMType, Val->Float, true);
 				}
 			}
-			else if(Type->Basic.Flags & BasicFlag_String)
+			else if(IsString(Type))
 			{
 				LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
 				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
@@ -314,7 +466,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMBuildStore(gen->bld, Size,    SizePtr);
 				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
 			}
-			else if(Type->Basic.Flags & BasicFlag_Boolean)
+			else if(HasBasicFlag(Type, BasicFlag_Boolean))
 			{
 				if(Val->Type == const_type::Integer)
 				{
@@ -337,6 +489,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					Assert(Val->Type == const_type::Float);
 					Value = LLVMConstInt(LLVMType, Val->Float, true);
 				}
+			}
+			else if(Type->Kind == TypeKind_Struct || Type->Kind == TypeKind_Slice || Type->Kind == TypeKind_Array)
+			{
+				Assert(Val->Type == const_type::Aggr);
+				LLVMValueRef Initializer = FromPtr(gen, I.Type, Val->Struct.Ptr);
+				Value = LLVMAddGlobal(gen->mod, LLVMType, "");
+				LLVMSetInitializer(Value, Initializer);
 			}
 			else
 			{
@@ -679,7 +838,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 						u32 Second = T->Struct.Members[i + 1].Type;
 						if(First == Basic_f32 && Second == Basic_f32)
 						{
-							Ptr = LLVMBuildPointerCast(gen->bld, Ptr, LLVMVectorType(LLVMFloatTypeInContext(gen->ctx), 2), "");
+							//Ptr = LLVMBuildPointerCast(gen->bld, Ptr, LLVMVectorType(LLVMFloatTypeInContext(gen->ctx), 2), "");
 							LLVMBuildStore(gen->bld, LLVMGetParam(gen->fn, At), Ptr);
 							++i;
 						}

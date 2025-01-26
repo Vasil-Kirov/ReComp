@@ -790,6 +790,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			Result = AnalyzeExpression(Checker, Expr->Run.Body[0]);
 			Expr->Run.TypeIdx = Result;
+#if 0
+			if(Result != INVALID_TYPE)
+			{
+				const type *T = GetType(Result);
+				if(T->Kind != TypeKind_Basic && T->Kind != TypeKind_Pointer)
+				{
+					RaiseError(false, *Expr->ErrorInfo, "#run cannot give a value of type %s", GetTypeName(T));
+				}
+			}
+#endif
 		} break;
 		case AST_LIST:
 		{

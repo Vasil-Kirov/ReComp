@@ -7,6 +7,7 @@ enum class const_type
 	Integer,
 	Float,
 	String,
+	Aggr,
 };
 
 enum const_string_flags
@@ -29,6 +30,11 @@ struct const_string
 	int Flags;
 };
 
+struct const_struct
+{
+	void *Ptr;
+};
+
 struct const_value
 {
 	const_type Type;
@@ -36,6 +42,7 @@ struct const_value
 		const_integer Int;
 		f64 Float;
 		const_string String;
+		const_struct Struct;
 	};
 };
 

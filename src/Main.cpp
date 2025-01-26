@@ -660,7 +660,6 @@ main(int ArgCount, char *Args[])
 
 			// Remake vm to evaluate enums with new info
 
-			{
 				VMBuildTimer2 = VLibStartTimer("VM");
 				interpreter ComptimeVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
 				EvaluateEnums(&ComptimeVM);
@@ -670,9 +669,7 @@ main(int ArgCount, char *Args[])
 				{
 					DoRuns(&ComptimeVM, (*it)->IR);
 				}
-				ComptimeVM.StackAllocator.Free();
 				VLibStopTimer(&VMBuildTimer2);
-			}
 
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
@@ -693,6 +690,7 @@ main(int ArgCount, char *Args[])
 			}
 #endif
 			VLibStopTimer(&FileTimer.LLVM);
+			ComptimeVM.StackAllocator.Free();
 
 			// @NOTE:
 			// free now because the interpreter doesn't properly handle struct return values

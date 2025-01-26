@@ -1,7 +1,9 @@
 #include "ConstVal.h"
+#include "Memory.h"
 #include "Type.h"
 #include <cmath>
 #include <stdlib.h>
+#include <Interpreter.h>
 
 const_value MakeConstString(const string *String)
 {
@@ -156,6 +158,7 @@ u32 GetConstantType(const const_value &Value)
 			else
 				return Basic_string;
 		} break;
+		default: unreachable;
 	}
 }
 
@@ -183,6 +186,7 @@ u32 GetConstantTypedType(const const_value *Value)
 		{
 			return Basic_string;
 		} break;
+		default: unreachable;
 	}
 }
 
@@ -215,18 +219,70 @@ size_t GetUTF8Count(const string *String)
 const_value FromInterp(value &Value)
 {
 	const type *T = GetType(Value.Type);
-	Assert(HasBasicFlag(T, BasicFlag_Integer));
+	if(T->Kind == TypeKind_Enum)
+		T = GetType(T->Enum.Type);
 	const_value V = {};
-	V.Type = const_type::Integer;
-	if(HasBasicFlag(T, BasicFlag_Unsigned))
+	switch(T->Kind)
 	{
-		V.Int.IsSigned = false;
-		V.Int.Unsigned = Value.u64;
-	}
-	else
-	{
-		V.Int.IsSigned = true;
-		V.Int.Signed = Value.i64;
+		case TypeKind_Invalid:
+		case TypeKind_Vector:
+		case TypeKind_Enum:
+		case TypeKind_Generic:
+		case TypeKind_Function:
+		unreachable;
+		case TypeKind_Basic:
+		{
+			if(HasBasicFlag(T, BasicFlag_Integer | BasicFlag_TypeID))
+			{
+				V.Type = const_type::Integer;
+				if(HasBasicFlag(T, BasicFlag_Unsigned))
+				{
+					V.Int.IsSigned = false;
+					V.Int.Unsigned = Value.u64;
+				}
+				else
+				{
+					V.Int.IsSigned = true;
+					V.Int.Signed = Value.i64;
+				}
+			}
+			else if(HasBasicFlag(T, BasicFlag_Float))
+			{
+				V.Type = const_type::Float;
+				if(T->Basic.Kind == Basic_f32)
+				{
+					V.Float = (f64)Value.f32;
+				}
+				else
+				{
+					V.Float = Value.f64;
+				}
+			}
+			else if(IsString(T))
+			{
+				string TheString = {};
+				TheString.Size = *(size_t *)Value.ptr;
+				TheString.Data = *((const char **)Value.ptr+1);
+				V.Type = const_type::String;
+				V.String.Data = DupeType(TheString, string);
+			}
+			else
+			{
+				unreachable;
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			V.Type = const_type::Integer;
+			V.Int.Unsigned = (u64)Value.ptr;
+		} break;
+		case TypeKind_Array:
+		case TypeKind_Slice:
+		case TypeKind_Struct:
+		{
+			V.Type = const_type::Aggr;
+			V.Struct.Ptr = Value.ptr;
+		} break;
 	}
 	return V;
 }

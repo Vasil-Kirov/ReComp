@@ -3272,6 +3272,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 					{
 						PushBuilderFormated(Builder, "%%%d = %s %f", Instr.Result, GetTypeName(Type), Val->Float);
 					} break;
+					case ct::Aggr:
+					{
+						PushBuilderFormated(Builder, "%%%d = %s {...}", Instr.Result, GetTypeName(Type));
+					} break;
 				}
 			} break;
 			case OP_FN:

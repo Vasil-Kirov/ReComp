@@ -733,6 +733,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						Value.ptr = VM->Stack.Peek().Allocate(Size);
 						VM->Registers.AddValue(it->Result, Value);
 					} break;
+					case TypeKind_Vector:
 					case TypeKind_Struct:
 					case TypeKind_Array:
 					{
@@ -970,6 +971,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 								else
 									VMValue.ptr = (void *)Val->Int.Unsigned;
 							} break;
+							case const_type::Aggr:
 							case const_type::Float:
 							{
 								unreachable;
@@ -986,7 +988,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						VMValue.ptr = (void *)Val->Int.Unsigned;
 				}
 				else
-					Assert(false);
+				{
+					Assert(Val->Type == const_type::Aggr);
+					VMValue.ptr = Val->Struct.Ptr;
+				}
 
 				if(!NoAdd)
 					VM->Registers.AddValue(I.Result, VMValue);
@@ -1083,7 +1088,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						value *Result = VM->Registers.GetValue(I.Result);
 						memcpy(Result->ptr, Value->ptr, Size);
 					} break;
-					default: unreachable;
+					case TypeKind_Vector:
+					{
+						NoResult = true;
+						uint Size = GetTypeSize(Type);
+						value *Result = VM->Registers.GetValue(I.Result);
+						memcpy(Result->ptr, Value->ptr, Size);
+					} break;
+					default: {
+						LDEBUG("%s", GetTypeName(Type));
+
+						unreachable;
+					} break;
 				}
 				if(!NoResult)
 					VM->Registers.AddValue(I.Result, Result);
@@ -1307,13 +1323,15 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						int TypeSize = GetTypeSize(I.Type);
 						void *Memory = VM->Stack.Peek().Allocate(TypeSize);
 						u8 *Ptr = (u8 *)Memory;
+						int Passed = 0;
 						ForArray(Idx, T->Struct.Members)
 						{
-							const type *MemT = GetType(OptionalArgs.Data[Loc.Start + Idx].Type);
+							const type *MemT = GetType(OptionalArgs.Data[Loc.Start + Passed++].Type);
 							int MemSize = GetTypeSize(MemT);
 							if(MemT->Kind == TypeKind_Vector)
 							{
 								memcpy(Ptr, OptionalArgs.Data[Loc.Start].ptr, GetTypeSize(MemT));
+								Idx++;
 							}
 							else
 							{
@@ -1702,6 +1720,7 @@ void DoRuns(interpreter *VM, ir *IR)
 			}
 			if(RunI.Type != INVALID_TYPE)
 			{
+				Result.Result.Type = RunI.Type;
 				const_value ConstVal = FromInterp(Result.Result);
 				instruction NewI = {};
 				NewI.Op = OP_CONST;

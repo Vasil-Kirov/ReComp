@@ -1,68 +1,27 @@
 main
 
-#import io as *
-#import base as *
-#import str as *
+custom_t :: []i32;
 
-custom_t :: [4]u8;
-
-struct Foo {
-    c: f32,
-    a: int,
+struct SomeVals {
+	a: f32,
+	b: f32,
 }
 
-get_array_size :: fn(arr: $t) -> int {
-    return size_of arr / size_of arr[0];
+get_struct :: fn(val: int) -> SomeVals {
+	return SomeVals { @f32 val * 2, @f32 val };
 }
 
-enum MY_ENUM {
-    FOO = 1,
-
-    BAR = 40,
-
-    D = 3,
-}
-
-
-var := Foo { a = 4 };
-
-get_valid_ptr :: fn() -> *Foo { return &var; }
-
-get_count :: fn(sl: []i32) -> int {
-    return sl[2];
-}
-
-struct BIG_STRUCT {
-    vals: [4096]bool,
-};
-
-do_print :: fn(arg: i32) -> i32 {
-	println("Hello World!");
-	return 10 + arg;
-}
-
-struct TwoPtrs {
-	a: int,
-	b: int,
-}
-
-get_thing :: fn(a: TwoPtrs) {
-	io.println("F: %", a.a + a.b);
-}
-
-foo :: fn(list: ...) -> i32 {
-    sum := 0;
-    for i in list.count {
-        it := list[i];
-        if it.t == i32 {
-            sum += *@*i32 it.val;
-        }
-    }
-    return @i32 sum;
+get_array :: fn(x: SomeVals) -> [10]i32 {
+	return [10]i32 { 1, 2, @i32 x.a, @i32 x.b, 5 };
 }
 
 main :: fn() -> i32 {
-	return foo(1, @i32 2, @i32 3, 4) - 5;
+	arr := #run get_array( #run get_struct(10) );
+	sum := @i32 0;
+
+	for it in arr	sum += it;
+
+    return sum - 38;
 }
 
 

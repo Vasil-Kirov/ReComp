@@ -22,6 +22,7 @@
 #include "llvm-c/Types.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
+#include <cstdlib>
 
 std::mutex LLVMNoThreadSafetyMutex;
 
@@ -162,6 +163,14 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ALLOC: // Handled before
 		{
+		} break;
+		case OP_RUN:
+		{
+			int CBlock = gen->CurrentBlock;
+			LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[I.Right].Block);
+			LLVMBuildUnreachable(gen->bld);
+
+			LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[CBlock].Block);
 		} break;
 		case OP_RDTSC:
 		{
@@ -604,49 +613,91 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_ARG:
 		{
-			u64 Idx = I.BigRegister;
-			if(gen->IsCurrentFnRetInPtr)
-				Idx++;
-			LLVMValueRef Arg = LLVMGetParam(gen->fn, Idx);
-			const type *Type = GetType(I.Type);
-			if(PTarget != platform_target::Windows &&
-					Type->Kind == TypeKind_Struct && IsStructAllFloats(Type))
+			u64 Index = I.BigRegister;
+			arg_location Loc;
+			if(Index < gen->irfn.Args.Count)
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "vec");
-				for(int i = 0; i < Type->Struct.Members.Count / 2; ++i)
-				{
-					if(i != 0) {
-						Idx++;
-						Arg = LLVMGetParam(gen->fn, Idx);
-					}
-					
-					auto Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, i * 2, "");
-					//LLVMBuildMemCpy(gen->bld, Ptr, AlignVec2, Arg, AlignVec2, SizeVec2);
-					LLVMBuildStore(gen->bld, Arg, Ptr);
-				}
-
-				gen->map.Add(I.Result, AsArg);
+				Loc = gen->irfn.Args[Index];
 			}
-			else if(IsPassInAsIntType(Type))
+			else if(gen->irfn.Args.Count == 0)
 			{
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-				LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
-				LLVMBuildStore(gen->bld, Arg, AsArg);
-				gen->map.Add(I.Result, AsArg);
+				Loc = {.Load = LoadAs_Normal, .Start = (int)Index, .Count = 1};
 			}
-#if 0
-			else if(Idx >= FnType->Function.ArgCount)
-			{
-				Assert(FnType->Function.Flags & SymbolFlag_VarFunc);
-				LLVMTypeRef LLVMType = ConvertToLLVMType(gen->ctx, I.Type);
-				Arg = LLVMBuildLoad2(gen->bld, LLVMType, Arg, "args");
-				gen->map.Add(I.Result, Arg);
-			}
-#endif
 			else
 			{
-				gen->map.Add(I.Result, Arg);
+				arg_location Last = gen->irfn.Args[gen->irfn.Args.Count - 1];
+				u64 AfterLast = Index - gen->irfn.Args.Count;
+				Loc = arg_location{.Load = LoadAs_Normal, .Start = Last.Start + Last.Count + (int)AfterLast, .Count = 1};
+			}
+
+			switch(Loc.Load)
+			{
+				case LoadAs_Normal:
+				{
+					Assert(Loc.Count == 1);
+					LLVMValueRef Arg = LLVMGetParam(gen->fn, Loc.Start);
+					gen->map.Add(I.Result, Arg);
+				} break;
+				case LoadAs_Int:
+				{
+					Assert(Loc.Count == 1);
+					Assert(GetType(I.Type)->Kind == TypeKind_Struct);
+					LLVMValueRef Arg = LLVMGetParam(gen->fn, Loc.Start);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					LLVMBuildStore(gen->bld, Arg, AsArg);
+					gen->map.Add(I.Result, AsArg);
+				} break;
+				case LoadAs_MultiInt:
+				{
+					Assert(Loc.Count == 2);
+					Assert(GetType(I.Type)->Kind == TypeKind_Struct);
+					LLVMValueRef Int1 = LLVMGetParam(gen->fn, Loc.Start);
+					LLVMValueRef Int2 = LLVMGetParam(gen->fn, Loc.Start+1);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					LLVMBuildStore(gen->bld, Int1, AsArg);
+					int Idx = GetPointerPassIdx(I.Type, 8);
+					LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, Idx, "");
+					LLVMBuildStore(gen->bld, Int2, Ptr);
+
+					gen->map.Add(I.Result, AsArg);
+				} break;
+				case LoadAs_Floats:
+				{
+					const type *T = GetType(I.Type);
+					Assert(T->Kind == TypeKind_Struct);
+					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					int At = Loc.Start;
+
+					int i = 0;
+					for(; i+1 < T->Struct.Members.Count; ++i)
+					{
+						LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, i, "");
+						u32 First = T->Struct.Members[i].Type;
+						u32 Second = T->Struct.Members[i + 1].Type;
+						if(First == Basic_f32 && Second == Basic_f32)
+						{
+							Ptr = LLVMBuildPointerCast(gen->bld, Ptr, LLVMVectorType(LLVMFloatTypeInContext(gen->ctx), 2), "");
+							LLVMBuildStore(gen->bld, LLVMGetParam(gen->fn, At), Ptr);
+							++i;
+						}
+						else
+						{
+							LLVMBuildStore(gen->bld, LLVMGetParam(gen->fn, At), Ptr);
+						}
+						At++;
+					}
+
+					if(i < T->Struct.Members.Count)
+					{
+						LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, i, "");
+						LLVMBuildStore(gen->bld, LLVMGetParam(gen->fn, At), Ptr);
+					}
+
+					gen->map.Add(I.Result, AsArg);
+				} break;
 			}
 		} break;
 		case OP_RET:
@@ -850,11 +901,18 @@ LLVMMetadataRef RCGenerateDebugInfoForFunction(generator *gen, function fn)
 	return Meta;
 }
 
+
 void RCGenerateFunction(generator *gen, function fn)
 {
 	gen->blocks = (rc_block *)VAlloc(fn.Blocks.Count * sizeof(rc_block));
 	gen->BlockCount = fn.Blocks.Count;
 	//gen->FnType = fn.Type;
+	auto Compare = [](const void *Aptr, const void *Bptr) -> int {
+		basic_block *A = (basic_block *)Aptr;
+		basic_block *B = (basic_block *)Bptr;
+		return (i32)A->ID - (i32)B->ID;
+	};
+	qsort(fn.Blocks.Data, fn.Blocks.Count, sizeof(basic_block), Compare);
 	ForArray(Idx, fn.Blocks)
 	{
 		basic_block Block = fn.Blocks[Idx];
@@ -904,8 +962,8 @@ void RCGenerateFunction(generator *gen, function fn)
 	}
 	else
 	{
-		u32 Returns = ReturnsToType(GetType(fn.Type)->Function.Returns);
-		gen->IsCurrentFnRetInPtr = IsRetTypePassInPointer(Returns);
+		gen->IsCurrentFnRetInPtr = fn.ReturnPassedInPtr;
+		gen->irfn = fn;
 		if(CompileFlags & CF_DebugInfo)
 		{
 			gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);

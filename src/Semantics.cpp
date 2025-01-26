@@ -782,6 +782,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_RUN:
+		{
+			if(Expr->Run.Body.Count != 1)
+			{
+				RaiseError(true, *Expr->ErrorInfo, "#run in expression expected a single expression as argument");
+			}
+			Result = AnalyzeExpression(Checker, Expr->Run.Body[0]);
+			Expr->Run.TypeIdx = Result;
+		} break;
 		case AST_LIST:
 		{
 			array<u32> Ts(Expr->List.Nodes.Count);
@@ -2675,7 +2684,7 @@ void CheckBodyForUnreachableCode(slice<node *> Body)
 void AnalyzeUsing(checker *Checker, node *Node)
 {
 	Assert(Node->Type == AST_USING);
-	node *Expr = Node->Using.Expr;
+	node *Expr = Node->TypedExpr.Expr;
 	u32 TIdx = AnalyzeExpression(Checker, Expr);
 	const type *T = GetType(TIdx);
 	if(HasBasicFlag(T, BasicFlag_TypeID))
@@ -2700,7 +2709,7 @@ void AnalyzeUsing(checker *Checker, node *Node)
 			return;
 		}
 	}
-	Node->Using.Type = TIdx;
+	Node->TypedExpr.TypeIdx = TIdx;
 
 	switch(Expr->Type)
 	{
@@ -2870,13 +2879,13 @@ RetErr:
 		case AST_YIELD:
 		{
 			u32 T = INVALID_TYPE;
-			if(Node->Yield.Expr)
+			if(Node->TypedExpr.Expr)
 			{
-				T = AnalyzeExpression(Checker, Node->Yield.Expr);
+				T = AnalyzeExpression(Checker, Node->TypedExpr.Expr);
 			}
-			Node->Yield.TypeIdx = T;
+			Node->TypedExpr.TypeIdx = T;
 			Checker->YieldT = T;
-			Checker->YieldExpr = &Node->Yield.Expr;
+			Checker->YieldExpr = &Node->TypedExpr.Expr;
 
 			b32 FoundYieldScope = false;
 			scope *Current = Checker->Scope.TryPeek();
@@ -2909,6 +2918,10 @@ RetErr:
 				}
 				Checker->Scope.Pop();
 			}
+		} break;
+		case AST_RUN:
+		{
+			AnalyzeInnerBody(Checker, Node->Run.Body);
 		} break;
 		default:
 		{
@@ -3571,9 +3584,9 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
-		if(Nodes[I]->Type == AST_FN)
+		node *Node = Nodes[I];
+		if(Node->Type == AST_FN)
 		{
-			node *Node = Nodes[I];
 			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0 && (Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
 				if(Node->Fn.ProfileCallback)
@@ -3592,10 +3605,10 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 			}
 		}
-	}
-	ForArray(Idx, Checker->GeneratedGlobalNodes)
-	{
-		Nodes.Push(Checker->GeneratedGlobalNodes[Idx]);
+		else if(Node->Type == AST_RUN)
+		{
+			AnalyzeInnerBody(Checker, Node->Run.Body);
+		}
 	}
 }
 

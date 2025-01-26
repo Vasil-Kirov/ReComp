@@ -15,33 +15,42 @@ puts :: fn #foreign(str: *u8);
 // 	A = my_fff(),
 // }
 
+struct TwoPtrs {
+	a: int,
+	b: int,
+}
+
+get_thing :: fn(a: TwoPtrs) {
+	io.println("F: %", a.a + a.b);
+}
 
 compile :: fn() -> c.CompileInfo {
-    out := c.CompileInfo {
-        files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
-        //files = []string { "../file1.rcp" },
-        opt = 0,
-        flags = @u32 c.CompileFlag.DebugInfo,
-        //flags = @u32 (c.CompileFlag.SanAddress | c.CompileFlag.Standalone | c.CompileFlag.NoLink),
-        //link = "/SUBSYSTEM:windows",
-    };
+	get_thing(TwoPtrs{12, 43});
+	out := c.CompileInfo {
+		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
+		 //files = []string { "../file1.rcp" },
+		 opt = 0,
+		 flags = @u32 c.CompileFlag.DebugInfo,
+		 //flags = @u32 (c.CompileFlag.SanAddress | c.CompileFlag.Standalone | c.CompileFlag.NoLink),
+		 //link = "/SUBSYSTEM:windows",
+	 };
 
-   puts(c"foo");
+	 puts(c"foo");
 
-   for f in out.files {
-       io.println("Compiling file: %", f);
-   }
+	 for f in out.files {
+	     io.println("Compiling file: %", f);
+	 }
 
-   //enum_ := (#info c.CompileFlag).t.enum_;
-   //io.println("Name: %", enum_.name);
-   //for it in enum_.members {
-   //    io.println("name: %, value: %", it.name, it.value);
-   // }
-   //io.println("flag: %", c.CompileFlag.DebugInfo);
+	 //enum_ := (#info c.CompileFlag).t.enum_;
+	 //io.println("Name: %", enum_.name);
+	 //for it in enum_.members {
+	 //    io.println("name: %, value: %", it.name, it.value);
+	 // }
+	 //io.println("flag: %", c.CompileFlag.DebugInfo);
 
 
 
-    return out;
+	 return out;
 }
 
 after_link :: fn() {

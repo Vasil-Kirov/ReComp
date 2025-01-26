@@ -21,7 +21,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "x64CodeWriter.h"
 #include "CommandLine.h"
 #include "Dict.h"
-#include "Linearize.h"
+//#include "Linearize.h"
 #include "StackAllocator.h"
 #include "Globals.h"
 
@@ -58,7 +58,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "x64CodeWriter.cpp"
 #include "CommandLine.cpp"
 #include "DumpInfo.cpp"
-#include "Linearize.cpp"
+//#include "Linearize.cpp"
 #include "StackAllocator.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -564,8 +564,8 @@ main(int ArgCount, char *Args[])
 		}
 		const type *CompileT = GetType(CompileFunction->Type);
 		Assert(CompileT->Kind == TypeKind_Function);
-		if(CompileT->Function.Returns.Count != 1 ||
-				GetTypeNameAsString(CompileT->Function.Returns[0]) != STR_LIT("compile.CompileInfo"))
+		if(CompileT->Function.ArgCount < 1 ||
+				GetTypeNameAsString(CompileT->Function.Args[0]) != STR_LIT("*compile.CompileInfo"))
 		{
 			LFATAL("compile function needs to return compile.CompileInfo");
 		}
@@ -590,7 +590,7 @@ main(int ArgCount, char *Args[])
 
 			if(InterpreterTrace)
 				LINFO("Interpreting compile function");
-			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1}, true);
+			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 			{
 				LogCompilerError("Error: Failed to evaluate build.compile\n");
@@ -662,11 +662,15 @@ main(int ArgCount, char *Args[])
 
 			{
 				VMBuildTimer2 = VLibStartTimer("VM");
-				interpreter EnumVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
-				EvaluateEnums(&EnumVM);
+				interpreter ComptimeVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
+				EvaluateEnums(&ComptimeVM);
 				if(HasErroredOut())
 					exit(1);
-				EnumVM.StackAllocator.Free();
+				For(FileArray)
+				{
+					DoRuns(&ComptimeVM, (*it)->IR);
+				}
+				ComptimeVM.StackAllocator.Free();
 				VLibStopTimer(&VMBuildTimer2);
 			}
 
@@ -710,6 +714,11 @@ main(int ArgCount, char *Args[])
 		EvaluateEnums(&VM);
 		if(HasErroredOut())
 			exit(1);
+		For(FileArray)
+		{
+			DoRuns(&VM, (*it)->IR);
+		}
+		VM.StackAllocator.Free();
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
 		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
@@ -765,7 +774,7 @@ main(int ArgCount, char *Args[])
 		LWARN("Type Checking:             %lldms", TypeCheckTime            / 1000);
 		LWARN("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
 		LWARN("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
-		LWARN("Enum Evaluation:           %lldms", TimeTaken(&VMBuildTimer2)/ 1000);
+		LWARN("Compile Time Evaluation:   %lldms", TimeTaken(&VMBuildTimer2)/ 1000);
 		LWARN("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
 		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}

@@ -45,7 +45,6 @@ struct checker
 	slice<import> Imported;
 	stack<u32 *> UntypedStack;
 	dynamic<node *> *Nodes;
-	dynamic<node *> GeneratedGlobalNodes;
 	slice<u32> CurrentFnReturnTypeIdx;
 	string File;
 	u32 YieldT;

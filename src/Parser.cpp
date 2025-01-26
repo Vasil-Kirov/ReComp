@@ -25,18 +25,20 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
-node *MakeYield(const error_info *ErrorInfo, node *Expr)
+node *MakeRun(const error_info *ErrorInfo, slice<node *> Body)
 {
-	node *Result = AllocateNode(ErrorInfo, AST_YIELD);
-	Result->Yield.Expr = Expr;
+	node *Result = AllocateNode(ErrorInfo, AST_RUN);
+	Result->Run.Body = Body;
+	Result->Run.TypeIdx = INVALID_TYPE;
 
 	return Result;
 }
 
-node *MakeUsing(const error_info *ErrorInfo, node *Expr)
+node *MakeTypedExpr(const error_info *ErrorInfo, node_type T, node *Expr)
 {
-	node *Result = AllocateNode(ErrorInfo, AST_USING);
-	Result->Using.Expr = Expr;
+	node *Result = AllocateNode(ErrorInfo, T);
+	Result->TypedExpr.Expr = Expr;
+	Result->TypedExpr.TypeIdx = INVALID_TYPE;
 
 	return Result;
 }
@@ -1246,6 +1248,14 @@ node *ParseOperand(parser *Parser)
 			Result = ParseExpression(Parser);
 			EatToken(Parser, T_CLOSEPAREN, true);
 		} break;
+		case T_RUN:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			dynamic<node *> Body = {};
+			Body.Push(ParseExpression(Parser));
+			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
+		} break;
 	}
 	return Result;
 }
@@ -1441,6 +1451,15 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 	node *Result = NULL;
 	switch(Token.Type)
 	{
+		case T_RUN:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			dynamic<node *> Body = {};
+			ParseMaybeBody(Parser, Body);
+			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
+			ExpectSemicolon = false;
+		} break;
 		case T_DEFER:
 		{
 			ERROR_INFO;
@@ -1463,7 +1482,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			ERROR_INFO;
 			GetToken(Parser);
 			node *Expr = ParseUnary(Parser);
-			Result = MakeUsing(ErrorInfo, Expr);
+			Result = MakeTypedExpr(ErrorInfo, AST_USING, Expr);
 		} break;
 #if 0
 		case T_SHADOW:
@@ -1535,7 +1554,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 				Expr = ParseExpression(Parser);
 				Parser->NoItemLists = Save;
 			}
-			Result = MakeYield(ErrorInfo, Expr);
+			Result = MakeTypedExpr(ErrorInfo, AST_YIELD, Expr);
 		} break;
 		case T_IF:
 		{
@@ -1857,6 +1876,14 @@ node *ParseTopLevel(parser *Parser)
 			GetToken(Parser);
 			Result = (node *)0x1;
 		} break;
+		case T_RUN:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			dynamic<node *> Body = {};
+			ParseMaybeBody(Parser, Body);
+			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
+		} break;
 		case T_EOF:
 		{
 			return NULL;
@@ -1866,7 +1893,7 @@ node *ParseTopLevel(parser *Parser)
 #if defined(DEBUG)
 			LERROR("%d", Parser->Current->Type);
 #endif
-			RaiseError(false, Parser->Current->ErrorInfo, "Unexpected Top Level declaration: %s", GetTokenName(Parser->Current->Type));
+			RaiseError(false, Parser->Current->ErrorInfo, "Unexpected top level expression: %s", GetTokenName(Parser->Current->Type));
 			GetToken(Parser);
 		} break;
 	}
@@ -1920,15 +1947,20 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_RUN:
+		{
+			R->Run.Body = CopyNodeSlice(N->Run.Body);
+			R->Run.TypeIdx = N->Run.TypeIdx;
+		} break;
 		case AST_YIELD:
 		{
-			R->Yield.Expr = CopyASTNode(N->Yield.Expr);
-			R->Yield.TypeIdx = N->Yield.TypeIdx;
+			R->TypedExpr.Expr = CopyASTNode(N->TypedExpr.Expr);
+			R->TypedExpr.TypeIdx = N->TypedExpr.TypeIdx;
 		} break;
 		case AST_USING:
 		{
-			R->Using.Expr = CopyASTNode(N->Using.Expr);
-			R->Using.Type = N->Using.Type;
+			R->TypedExpr.Expr = CopyASTNode(N->TypedExpr.Expr);
+			R->TypedExpr.TypeIdx = N->TypedExpr.TypeIdx;
 		} break;
 
 		case AST_ASSERT:

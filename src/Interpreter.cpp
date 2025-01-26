@@ -1,3 +1,4 @@
+#include "ConstVal.h"
 #include "DynamicLib.h"
 #include "Errors.h"
 #include "IR.h"
@@ -1233,22 +1234,107 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_ARG:
 			{
-				if(!OptionalArgs.IsValid())
+				if(!OptionalArgs.IsValid() || VM->CurrentFn.Name == NULL)
 				{
 					Assert(false);
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 				int Index = I.BigRegister;
-				if(VM->IsCurrentFnRetInPtr)
-					Index++;
+				arg_location Loc;
+				if(Index < VM->CurrentFn.Args.Count)
+				{
+					Loc = VM->CurrentFn.Args[Index];
+				}
+				else
+				{
+					arg_location Last = VM->CurrentFn.Args[VM->CurrentFn.Args.Count - 1];
+					Loc = arg_location{.Load = LoadAs_Normal, .Start = Last.Start + Last.Count, .Count = 1};
+				}
 
-				//int TypeSize = GetTypeSize(I.Type);
-				//void *Memory = VM->Stack.Peek().Allocate(TypeSize);
-				//value Value = {};
-				//Value.Type = GetPointerTo(I.Type);
-				//Value.ptr = Memory;
-				//Store(VM, &Value, &OptionalArgs.Data[Index], I.Type);
-				VM->Registers.AddValue(I.Result, OptionalArgs[Index]);
+				switch(Loc.Load)
+				{
+					case LoadAs_Normal:
+					{
+						Assert(Loc.Count == 1);
+						VM->Registers.AddValue(I.Result, OptionalArgs[Loc.Start]);
+					} break;
+					case LoadAs_Int:
+					{
+						Assert(Loc.Count == 1);
+						Assert(GetType(I.Type)->Kind == TypeKind_Struct);
+						int TypeSize = GetTypeSize(I.Type);
+						void *Memory = VM->Stack.Peek().Allocate(TypeSize);
+						value Value = {};
+						Value.Type = I.Type;
+						Value.ptr = Memory;
+						// @TODO: Undefined behavior
+						Store(VM, &Value, &OptionalArgs.Data[Loc.Start], I.Type);
+						VM->Registers.AddValue(I.Result, Value);
+					} break;
+					case LoadAs_MultiInt:
+					{
+						Assert(Loc.Count == 2);
+						Assert(GetType(I.Type)->Kind == TypeKind_Struct);
+						int TypeSize = GetTypeSize(I.Type);
+						u8 *Memory = (u8 *)VM->Stack.Peek().Allocate(TypeSize);
+						memcpy(Memory, &OptionalArgs.Data[Loc.Start].u64, 8);
+						switch(TypeSize-8)
+						{
+							case 8:
+							{
+								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 8);
+							} break;
+							case 4:
+							{
+								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 4);
+							} break;
+							case 2:
+							{
+								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 2);
+							} break;
+							default :unreachable;
+						}
+
+						value Value = {};
+						Value.Type = I.Type;
+						Value.ptr = Memory;
+						VM->Registers.AddValue(I.Result, Value);
+					} break;
+					case LoadAs_Floats:
+					{
+						const type *T = GetType(I.Type);
+						Assert(T->Kind == TypeKind_Struct);
+						int TypeSize = GetTypeSize(I.Type);
+						void *Memory = VM->Stack.Peek().Allocate(TypeSize);
+						u8 *Ptr = (u8 *)Memory;
+						ForArray(Idx, T->Struct.Members)
+						{
+							const type *MemT = GetType(OptionalArgs.Data[Loc.Start + Idx].Type);
+							int MemSize = GetTypeSize(MemT);
+							if(MemT->Kind == TypeKind_Vector)
+							{
+								memcpy(Ptr, OptionalArgs.Data[Loc.Start].ptr, GetTypeSize(MemT));
+							}
+							else
+							{
+								Assert(HasBasicFlag(MemT, BasicFlag_Float));
+								if(MemT->Basic.Kind == Basic_f32)
+								{
+									memcpy(Ptr, &OptionalArgs.Data[Loc.Start+Idx].f32, 4);
+								}
+								else
+								{
+									memcpy(Ptr, &OptionalArgs.Data[Loc.Start+Idx].f64, 8);
+								}
+							}
+							Ptr += MemSize;
+						}
+						value Value = {};
+						Value.Type = I.Type;
+						Value.ptr = Memory;
+						VM->Registers.AddValue(I.Result, Value);
+					} break;
+				}
 			} break;
 			case OP_IF:
 			{
@@ -1488,13 +1574,31 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 	return VM;
 }
 
-interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree)
+interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start)
 {
-	VM->ErrorInfo.Push(NULL);
+	function WasFn = VM->CurrentFn;
+	VM->CurrentFn = Fn;
 
+	VM->ErrorInfo.Push(NULL);
 	binary_stack Stack = {};
 	Stack.Memory = VM->StackAllocator.Push(MB(1));
+	VM->Stack.Push(Stack);
+	code_chunk Chunk;
+	Chunk.Code = Start;
+	VM->Executing = &Chunk;
 
+	DoAllocationForBlocks(VM, Blocks);
+	interpret_result Result = Run(VM, Blocks, Args);
+
+	VM->StackAllocator.Pop();
+	VM->Stack.Pop();
+	VM->ErrorInfo.Pop();
+	VM->CurrentFn = WasFn;
+	return Result;
+}
+
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args)
+{
 	string SaveCurrentFn = VM->CurrentFnName;
 
 	if(InterpreterTrace && Function.Name)
@@ -1509,26 +1613,12 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
 
-	VM->IsCurrentFnRetInPtr = IsRetTypePassInPointer(ReturnsToType(GetType(Function.Type)->Function.Returns));
-	VM->Stack.Push(Stack);
-
-	interpret_result Result = {};
-	code_chunk Chunk;
-	Chunk.Code = SliceFromArray(Function.Blocks[0].Code);
-	VM->Executing = &Chunk;
-	DoAllocationForBlocks(VM, SliceFromArray(Function.Blocks));
-	Result = Run(VM, SliceFromArray(Function.Blocks), Args);
-
-	if(!NoFree)
-	{
-		VM->StackAllocator.Pop();
-		VM->Stack.Pop();
-	}
+	VM->IsCurrentFnRetInPtr = Function.ReturnPassedInPtr;
+	interpret_result Result = RunBlocks(VM, Function, SliceFromArray(Function.Blocks), Args, SliceFromArray(Function.Blocks[0].Code));
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 	VM->CurrentFnName = SaveCurrentFn;
 
-	VM->ErrorInfo.Pop();
 	return Result;
 }
 
@@ -1548,11 +1638,7 @@ void EvaluateEnums(interpreter *VM)
 		{
 			For(T->Enum.Members)
 			{
-				code_chunk Chunk = {};
-				Chunk.Code = it->Evaluate;
-				VM->Executing = &Chunk;
-				DoAllocationForInstructions(VM, it->Evaluate);
-				interpret_result Result = Run(VM, {}, {});
+				interpret_result Result = RunBlocks(VM, {}, {}, {}, it->Evaluate);
 				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 				{
 					RaiseError(false, *it->Expr->ErrorInfo,
@@ -1572,5 +1658,64 @@ void EvaluateEnums(interpreter *VM)
 
 	VM->StackAllocator.Pop();
 	VM->Stack.Pop();
+}
+
+void DoRuns(interpreter *VM, ir *IR)
+{
+	b32 DoAbort = false;
+	ForArray(Idx, IR->Functions)
+	{
+		auto fn = IR->Functions[Idx];
+		For(fn.Runs)
+		{
+			uint BlockIndex = -1;
+			ForArray(BIdx, fn.Blocks)
+			{
+				if(fn.Blocks[BIdx].ID == it->BlockID)
+				{
+					BlockIndex = BIdx;
+					break;
+				}
+			}
+			Assert(BlockIndex != -1);
+			instruction RunI = fn.Blocks[BlockIndex].Code[it->Index];
+			uint RunBlockID = RunI.Right;
+			uint RunIndex = -1;
+			ForArray(BIdx, fn.Blocks)
+			{
+				if(fn.Blocks[BIdx].ID == RunBlockID)
+				{
+					RunIndex = BIdx;
+					break;
+				}
+			}
+			Assert(RunIndex != -1);
+			interpret_result Result = RunBlocks(VM, fn, SliceFromArray(fn.Blocks), {}, SliceFromArray(fn.Blocks[RunIndex].Code));
+			instruction Unreachable = {};
+			Unreachable.Op = OP_UNREACHABLE;
+			fn.Blocks.Data[RunIndex].Code.Push(Unreachable);
+
+			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+			{
+				DoAbort = true;
+				continue;
+			}
+			if(RunI.Type != INVALID_TYPE)
+			{
+				const_value ConstVal = FromInterp(Result.Result);
+				instruction NewI = {};
+				NewI.Op = OP_CONST;
+				NewI.Type = RunI.Type;
+				NewI.BigRegister = (u64)DupeType(ConstVal, const_value);
+				NewI.Result = RunI.Result;
+				fn.Blocks[BlockIndex].Code.Data[it->Index] = NewI;
+			}
+		}
+	}
+
+	if(DoAbort)
+	{
+		exit(1);
+	}
 }
 

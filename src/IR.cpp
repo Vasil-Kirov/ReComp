@@ -18,6 +18,16 @@ void Terminate(block_builder *Builder, basic_block GoTo)
 	Builder->CurrentBlock = GoTo;
 }
 
+u32 GenerateVoidFnT()
+{
+	type *NT = AllocType(TypeKind_Function);
+	NT->Function.Args = NULL;
+	NT->Function.ArgCount = 0;
+	NT->Function.Returns = {};
+	NT->Function.Flags = 0;
+	return AddType(NT);
+}
+
 inline u32 PushAlloc(u32 Type, block_builder *Builder)
 {
 	return PushInstruction(Builder,
@@ -267,6 +277,26 @@ u32 AllocateAndCopy(block_builder *Builder, u32 Type, u32 Expr)
 	return Expr;
 }
 
+int GetPointerPassIdx(u32 TypeIdx, uint Size)
+{
+	const type *T = GetType(TypeIdx);
+	ForArray(Idx, T->Struct.Members)
+	{
+		if(GetStructMemberOffset(T, Idx) == Size)
+		{
+			return Idx;
+		}
+	}
+	unreachable;
+}
+
+u32 GetPointerPassSize(block_builder *Builder, u32 StructPtr, u32 TypeIdx, uint Size)
+{
+	int Idx = GetPointerPassIdx(TypeIdx, Size);
+	return PushInstruction(Builder,
+			Instruction(OP_INDEX, StructPtr, Idx, TypeIdx, Builder));
+}
+
 void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS, b32 IsForeign)
 {
 	const type *ArgType = GetType(ArgTypeIdx);
@@ -314,19 +344,32 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		u32 FloatVector = AddType(Type);
 		u32 StructPtr = BuildIRFromExpression(Builder, Expr, IsLHS);
 
-		for(int i = 0; i < ArgType->Struct.Members.Count / 2; ++i)
+		int i = 0;
+		for(; i+1 < ArgType->Struct.Members.Count; ++i)
 		{
+			u32 First = ArgType->Struct.Members[i].Type;
+			u32 Second = ArgType->Struct.Members[i + 1].Type;
 			u32 MemPtr = PushInstruction(Builder,
-					Instruction(OP_INDEX, StructPtr, i * 2, ArgTypeIdx, Builder));
-			u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, FloatVector, Builder));
-			Args.Push(Mem);
+					Instruction(OP_INDEX, StructPtr, i, ArgTypeIdx, Builder));
+			if(First == Basic_f32 && Second == Basic_f32)
+			{
+				u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, FloatVector, Builder));
+				Args.Push(Mem);
+				++i;
+			}
+			else
+			{
+				u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, First, Builder));
+				Args.Push(Mem);
+			}
 		}
 
-		if(ArgType->Struct.Members.Count % 2 != 0)
+		if(i < ArgType->Struct.Members.Count)
 		{
+			u32 MemT = ArgType->Struct.Members[i].Type;
 			u32 MemPtr = PushInstruction(Builder,
-					Instruction(OP_INDEX, StructPtr, ArgType->Struct.Members.Count - 1, ArgTypeIdx, Builder));
-			u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, Basic_f32, Builder));
+					Instruction(OP_INDEX, StructPtr, i, ArgTypeIdx, Builder));
+			u32 Mem = PushInstruction(Builder, Instruction(OP_LOAD, 0, MemPtr, MemT, Builder));
 			Args.Push(Mem);
 		}
 
@@ -334,8 +377,57 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	}
 
 	u32 Pass = -1;
+	const type *T = ArgType;
 	switch(Size)
 	{
+		case 16:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			u32 SecondT = Basic_u64;
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			u32 Ptr = GetPointerPassSize(Builder, Res, ArgTypeIdx, 8);
+			u32 First = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u64, Builder));
+			u32 Second = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, Ptr, SecondT, Builder));
+
+			Args.Push(First);
+			Args.Push(Second);
+			return;
+		} break;
+		case 12:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			u32 SecondT = Basic_u32;
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			u32 Ptr = GetPointerPassSize(Builder, Res, ArgTypeIdx, 8);
+			u32 First = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u64, Builder));
+			u32 Second = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, Ptr, SecondT, Builder));
+
+			Args.Push(First);
+			Args.Push(Second);
+			return;
+		} break;
+		case 10:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			u32 SecondT = Basic_u16;
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			u32 Ptr = GetPointerPassSize(Builder, Res, ArgTypeIdx, 8);
+			u32 First = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Res, Basic_u64, Builder));
+			u32 Second = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, Ptr, SecondT, Builder));
+
+			Args.Push(First);
+			Args.Push(Second);
+			return;
+		} break;
 		case 8:
 		{
 			u32 Res = BuildIRFromExpression(Builder, Expr, true);
@@ -362,12 +454,7 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		} break;
 		default:
 		{
-			static bool WarningGiven = false;
-			if(IsForeign && Size > 8 && !WarningGiven)
-			{
-				WarningGiven = true;
-				LWARN("Passing structs of size %d to functions is not properly supported, if it's used to interface with other languages, it will result in unspecified behavior", Size);
-			}
+PUSH_PTR:
 			u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
 			if(IsForeign)
 				Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
@@ -486,6 +573,22 @@ u32 BuildIRMatch(block_builder *Builder, node *Node)
 	return Result;
 }
 
+u32 BuildRun(block_builder *Builder, node *Node)
+{
+	Assert(Node->Type == AST_RUN);
+	basic_block RunBlock = AllocateBlock(Builder);
+	basic_block Save = Builder->CurrentBlock;
+	Builder->CurrentBlock = RunBlock;
+	Assert(Node->Run.Body.Count == 1);
+	For(Node->Run.Body)
+	{
+		BuildIRFunctionLevel(Builder, *it);
+	}
+	Terminate(Builder, Save);
+	Builder->RunIndexes.Push(run_location{Save.ID, (uint)Save.Code.Count});
+	return PushInstruction(Builder, Instruction(OP_RUN, 0, RunBlock.ID, Node->Run.TypeIdx, Builder));
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -519,6 +622,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
+		} break;
+		case AST_RUN:
+		{
+			Result = BuildRun(Builder, Node);
 		} break;
 		case AST_LIST:
 		{
@@ -1999,19 +2106,19 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_USING:
 		{
-			const type *T = GetType(Node->Using.Type);
+			const type *T = GetType(Node->TypedExpr.TypeIdx);
 			Assert(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Pointer || T->Kind == TypeKind_Enum);
 			u32 Base = -1;
-			u32 StructTy = Node->Using.Type;
+			u32 StructTy = Node->TypedExpr.TypeIdx;
 			if(T->Kind == TypeKind_Pointer)
 			{
-				Base = BuildIRFromExpression(Builder, Node->Using.Expr, false);
+				Base = BuildIRFromExpression(Builder, Node->TypedExpr.Expr, false);
 				StructTy = T->Pointer.Pointed;
 				T = GetType(T->Pointer.Pointed);
 			}
 			else
 			{
-				Base = BuildIRFromExpression(Builder, Node->Using.Expr, true);
+				Base = BuildIRFromExpression(Builder, Node->TypedExpr.Expr, true);
 			}
 
 			if(T->Kind == TypeKind_Enum)
@@ -2019,11 +2126,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 				ForArray(Idx, T->Enum.Members)
 				{
 					auto it = T->Enum.Members[Idx];
-					auto I = Instruction(OP_ALLOC, -1, Node->Using.Type, Builder);
+					auto I = Instruction(OP_ALLOC, -1, Node->TypedExpr.TypeIdx, Builder);
 					u32 Var = PushInstruction(Builder, I);
-					u32 Value = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, Node->Using.Type, Builder));
-					PushInstruction(Builder, InstructionStore(Var, Value, Node->Using.Type));
-					PushIRLocal(Builder, DupeType(it.Name, string), Var, Node->Using.Type);
+					u32 Value = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, Node->TypedExpr.TypeIdx, Builder));
+					PushInstruction(Builder, InstructionStore(Var, Value, Node->TypedExpr.TypeIdx));
+					PushIRLocal(Builder, DupeType(it.Name, string), Var, Node->TypedExpr.TypeIdx);
 				}
 			}
 			else
@@ -2131,12 +2238,12 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		case AST_YIELD:
 		{
 			yield_info Info = Builder->YieldReturn.Peek();
-			if(Node->Yield.Expr)
+			if(Node->TypedExpr.Expr)
 			{
 				Assert(Info.ValueStore != -1);
-				u32 Expr = BuildIRFromExpression(Builder, Node->Yield.Expr);
+				u32 Expr = BuildIRFromExpression(Builder, Node->TypedExpr.Expr);
 				PushInstruction(Builder, 
-						InstructionStore(Info.ValueStore, Expr, Node->Yield.TypeIdx));
+						InstructionStore(Info.ValueStore, Expr, Node->TypedExpr.TypeIdx));
 			}
 			PushInstruction(Builder, Instruction(OP_JMP, Info.ToBlockID, Basic_type, Builder));
 			Builder->CurrentBlock.HasTerminator = true;
@@ -2244,15 +2351,242 @@ void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
 			InstructionDebugInfo(IRInfo));
 }
 
+b32 CanGetPointerAfterSize(const type *T, int Size)
+{
+	ForArray(Idx, T->Struct.Members)
+	{
+		if(GetStructMemberOffset(T, Idx) == Size)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void FixFunctionComplexParameter(u32 TIdx, const type *T, dynamic<u32>& Args, load_as *As)
+{
+	if(T->Kind != TypeKind_Struct)
+	{
+		*As = LoadAs_Normal;
+		Args.Push(GetPointerTo(TIdx));
+		return;
+	}
+
+	Assert(T->Kind == TypeKind_Struct);
+	int Size = GetTypeSize(T);
+	if(Size > MAX_PARAMETER_SIZE)
+	{
+		*As = LoadAs_Normal;
+		Args.Push(GetPointerTo(TIdx));
+		return;
+	}
+
+	// @TODO: Works for now, but it doesn't handle mixed types:
+	// sturct example {
+	//	a: i32,
+	//	b: f32,
+	//	c: f32,
+	//	d: f32,
+	// }
+	// should be passes as call(int64, <2 x float>)
+	b32 AllFloats = IsStructAllFloats(T);
+	if(AllFloats && PTarget != platform_target::Windows)
+	{
+		type *Type = AllocType(TypeKind_Vector);
+		Type->Vector.Kind = Vector_Float;
+		Type->Vector.ElementCount = 2;
+		u32 FloatVector = AddType(Type);
+
+		int i = 0;
+		for(; i+1 < T->Struct.Members.Count; ++i)
+		{
+			u32 First = T->Struct.Members[i].Type;
+			u32 Second = T->Struct.Members[i + 1].Type;
+			if(First == Basic_f32 && Second == Basic_f32)
+			{
+				Args.Push(FloatVector);
+				++i;
+			}
+			else
+			{
+				Args.Push(First);
+			}
+		}
+
+		if(i < T->Struct.Members.Count)
+		{
+			u32 Last = T->Struct.Members[i].Type;
+			Args.Push(Last);
+		}
+
+		*As = LoadAs_Floats;
+		return;
+	}
+
+	switch(Size)
+	{
+		case 16:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			*As = LoadAs_MultiInt;
+			Args.Push(Basic_u64);
+			Args.Push(Basic_u64);
+		} break;
+		case 12:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			*As = LoadAs_MultiInt;
+			Args.Push(Basic_u64);
+			Args.Push(Basic_u32);
+		} break;
+		case 10:
+		{
+			if(PTarget == platform_target::Windows || !CanGetPointerAfterSize(T, 8))
+				goto PUSH_PTR;
+			*As = LoadAs_MultiInt;
+			Args.Push(Basic_u64);
+			Args.Push(Basic_u16);
+		} break;
+		case 8:
+		{
+			*As = LoadAs_Int;
+			Args.Push(Basic_u64);
+		} break;
+		case 4:
+		{
+			*As = LoadAs_Int;
+			Args.Push(Basic_u32);
+		} break;
+		case 2:
+		{
+			*As = LoadAs_Int;
+			Args.Push(Basic_u16);
+		} break;
+		case 1:
+		{
+			*As = LoadAs_Int;
+			Args.Push(Basic_u8);
+		} break;
+		default:
+		{
+PUSH_PTR:
+			*As = LoadAs_Normal;
+			Args.Push(GetPointerTo(TIdx));
+		} break;
+	}
+}
+
+u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr)
+{
+	*RetInPtr = false;
+
+	const type *T = GetType(TIdx);
+	Assert(T->Kind == TypeKind_Function);
+	if(T->Function.Returns.Count == 0 || T->Function.Returns.Count == 1)
+	{
+		if(T->Function.Returns.Count == 1 && IsLoadableType(T->Function.Returns[0]))
+		{
+			b32 NoNeedToFix = true;
+			for(int i = 0; i < T->Function.ArgCount; ++i)
+			{
+				if(!IsLoadableType(T->Function.Args[i]))
+				{
+					NoNeedToFix = false;
+					break;
+				}
+			}
+			if(NoNeedToFix)
+			{
+				for(int i = 0; i < T->Function.ArgCount; ++i)
+				{
+					Loc.Push(arg_location{.Load = LoadAs_Normal, .Start = i, .Count = 1});
+				}
+				return TIdx;
+			}
+		}
+	}
+	dynamic<u32> FnArgs = {};
+	u32 Return = INVALID_TYPE;
+	if(T->Function.Returns.Count != 0)
+	{
+		u32 Returns = ReturnsToType(T->Function.Returns);
+		const type *RT = GetType(Returns);
+		if(IsRetTypePassInPointer(Returns))
+		{
+			*RetInPtr = true;
+			FnArgs.Push(GetPointerTo(Returns));
+		}
+		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
+		{
+			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && PTarget != platform_target::Windows)
+			{
+				Return = AllFloatsStructToReturnType(RT);
+			}
+			else
+			{
+				Return = ComplexTypeToSizeType(RT);
+			}
+		}
+		else if(RT->Kind == TypeKind_Function)
+		{
+			Return = GetPointerTo(INVALID_TYPE);
+		}
+		else
+		{
+			Return = Returns;
+		}
+	}
+
+	for (int i = 0; i < T->Function.ArgCount; ++i) {
+		const type *ArgType = GetType(T->Function.Args[i]);
+		arg_location Location;
+		Location.Start = FnArgs.Count;
+		if(!IsLoadableType(ArgType))
+		{
+			FixFunctionComplexParameter(T->Function.Args[i], ArgType, FnArgs, &Location.Load);
+		}
+		else
+		{
+			Location.Load = LoadAs_Normal;
+			FnArgs.Push(T->Function.Args[i]);
+		}
+		Location.Count = FnArgs.Count - Location.Start;
+		Loc.Push(Location);
+	}
+
+	type *NewT = AllocType(TypeKind_Function);
+	NewT->Function.ArgCount = FnArgs.Count;
+	NewT->Function.Args = FnArgs.Data;
+	if(Return == INVALID_TYPE)
+		NewT->Function.Returns = {};
+	else
+		NewT->Function.Returns = SliceFromConst({Return});
+	NewT->Function.Flags = T->Function.Flags;
+
+	return AddType(NewT);
+}
+
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported, u32 IRStartRegister)
 {
 	module *Module = Node->Fn.FnModule;
 	string NameNoPtr = *Name;
+	if(NameNoPtr == STR_LIT("internal_print"))
+	{
+		LDEBUG("L");
+	}
+
+	b32 RetInPtr = false;
+	const type *OgType = GetType(TypeIdx);
+	dynamic<arg_location> Locations = {};
+	TypeIdx = FixFunctionTypeForCallConv(TypeIdx, Locations, &RetInPtr);
 
 	function Function = {};
 	Function.Name = Name;
 	Function.Type = TypeIdx;
+	Function.Args = SliceFromArray(Locations);
 	Function.LineNo = Node->ErrorInfo->Range.StartLine;
 	Function.ModuleName = Module->Name;
 	if(Node->Fn.LinkName)
@@ -2261,26 +2595,27 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		Function.LinkName = Name;
 	else
 		Function.LinkName = StructToModuleNamePtr(NameNoPtr, Function.ModuleName);
+	Function.ReturnPassedInPtr = RetInPtr;
+
 	if(Body.IsValid())
 	{
 		block_builder Builder = MakeBlockBuilder(&Function, IRStartRegister, Module);
 		Builder.Imported = Imported;
 		Builder.Module = Module;
 
-		const type *FnType = GetType(TypeIdx);
 		IRPushDebugLocation(&Builder, Node->ErrorInfo);
 
 		ForArray(Idx, Args)
 		{
 			u32 Type = INVALID_TYPE;
-			if(Idx >= FnType->Function.ArgCount)
+			if(Idx >= OgType->Function.ArgCount)
 			{
 				u32 ArgType = FindStruct(STR_LIT("base.Arg"));
 				Type = GetSliceType(ArgType);
 			}
 			else
 			{
-				Type = FnType->Function.Args[Idx];
+				Type = OgType->Function.Args[Idx];
 			}
 			u32 Register = PushInstruction(&Builder,
 					Instruction(OP_ARG, Idx, Type, &Builder));
@@ -2313,6 +2648,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		}
 
 		Terminate(&Builder, {});
+		Function.Runs = SliceFromArray(Builder.RunIndexes);
 		Function.LastRegister = Builder.LastRegister;
 		Builder.Function = NULL;
 		Builder.Scope.Pop().Free();
@@ -2649,6 +2985,18 @@ function GlobalLevelIR(node *Node, slice<import> Imported, module *Module, u32 I
 				Result = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, IRStartRegister);
 			}
 		} break;
+		case AST_RUN:
+		{
+			static u32 VoidFnT = GenerateVoidFnT();
+			string NoFnName = STR_LIT("");
+			function FakeFn = {};
+			FakeFn.Name = DupeType(NoFnName, string);
+			FakeFn.Type = VoidFnT;
+			FakeFn.LinkName = FakeFn.Name;
+			FakeFn.NoDebugInfo = true;
+			block_builder Builder = MakeBlockBuilder(&FakeFn, IRStartRegister, Module);
+			BuildRun(&Builder, Node);
+		} break;
 		case AST_DECL:
 		case AST_ENUM:
 		case AST_STRUCTDECL:
@@ -2697,16 +3045,6 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, u32 StartRegister)
 
 	IR->Functions.Push(TypeTableFn);
 	Builder.Scope.Pop().Free();
-}
-
-u32 GenerateVoidFnT()
-{
-	type *NT = AllocType(TypeKind_Function);
-	NT->Function.Args = NULL;
-	NT->Function.ArgCount = 0;
-	NT->Function.Returns = {};
-	NT->Function.Flags = 0;
-	return AddType(NT);
 }
 
 ir BuildIR(file *File, u32 StartRegister)
@@ -3029,6 +3367,10 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 				}
 				*Builder += ']';
 			} break;
+			case OP_RUN:
+			{
+				PushBuilderFormated(Builder, "%%%d = compile_time block_%d", Instr.Result, Instr.Right);
+			} break;
 			case OP_IF:
 			{
 				PushBuilderFormated(Builder, "IF %%%d goto block_%d, else goto block_%d", Instr.Result, Instr.Left, Instr.Right);
@@ -3197,6 +3539,7 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_NOP:
 		{
 		} break;
+		case OP_RUN:
 		case OP_ENUM_ACCESS:
 		case OP_UNREACHABLE:
 		case OP_TYPEINFO:

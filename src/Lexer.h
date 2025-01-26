@@ -86,11 +86,12 @@ enum token_type
 	T_EMBED_STR  = -66,
 	T_VOID = -67,
 	T_CONTINUE = -68,
-	T_PWDELIF=-69,
-	T_PROFILE=-70,
-	T_ASSERT=-71,
-	T_USING =-72,
-	T_YIELD =-73,
+	T_PWDELIF= -69,
+	T_PROFILE= -70,
+	T_ASSERT= -71,
+	T_USING = -72,
+	T_YIELD = -73,
+	T_RUN = -74,
 };
 
 struct token

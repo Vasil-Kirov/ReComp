@@ -30,6 +30,7 @@ struct generator
 	LLVMTargetDataRef data;
 	value_map map;
 	LLVMValueRef fn;
+	function irfn;
 	rc_block *blocks;
 	LLVMMetadataRef CurrentLocation;
 	LLVMMetadataRef CurrentScope;

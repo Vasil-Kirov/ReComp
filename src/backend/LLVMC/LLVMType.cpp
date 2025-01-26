@@ -632,10 +632,20 @@ void LLVMFixFunctionComplexParameter(generator *g, u32 ArgTypeIdx, const type *A
 
 LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID)
 {
+	LLVMTypeRef Found = LLVMFindMapType(g, TypeID);
+	if(Found)
+		return Found;
+
+	// @Performance
+	dynamic<arg_location> Unused = {};
+	b32 Unused2 = false;
+	TypeID = FixFunctionTypeForCallConv(TypeID, Unused, &Unused2);
+	Unused.Free();
+
 	LLVMContextRef Context = g->ctx;
 	Assert(Context);
 	Assert(TypeID != INVALID_TYPE);
-	LLVMTypeRef Found = LLVMFindMapType(g, TypeID);
+	Found = LLVMFindMapType(g, TypeID);
 	if(Found)
 		return Found;
 

@@ -36,18 +36,33 @@ struct BIG_STRUCT {
     vals: [4096]bool,
 };
 
-main :: fn() -> i32 {
-	#if arm32 {
-		f := @*i32?null;
-		*f = 1;
-	} #elif x64 {
-		str := "foo string";
-		for &it in str {
-			println("%c", deref(it));
-		}
-	}
+do_print :: fn(arg: i32) -> i32 {
+	println("Hello World!");
+	return 10 + arg;
+}
 
-    return 0;
+struct TwoPtrs {
+	a: int,
+	b: int,
+}
+
+get_thing :: fn(a: TwoPtrs) {
+	io.println("F: %", a.a + a.b);
+}
+
+foo :: fn(list: ...) -> i32 {
+    sum := 0;
+    for i in list.count {
+        it := list[i];
+        if it.t == i32 {
+            sum += *@*i32 it.val;
+        }
+    }
+    return @i32 sum;
+}
+
+main :: fn() -> i32 {
+	return foo(1, @i32 2, @i32 3, 4) - 5;
 }
 
 

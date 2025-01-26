@@ -112,6 +112,7 @@ struct interpreter
 	stack<binary_stack> Stack;
 	stack<const error_info *> ErrorInfo;
 	slice<function> Imported;
+	function CurrentFn;
 	string CurrentFnName;
 	b32 IsCurrentFnRetInPtr;
 };
@@ -120,7 +121,7 @@ struct interpreter
 DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree);
 DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree);
 
-interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args, b32 NoFree=false);
+interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
 
 #define BIN_OP(OP, o) case OP_##OP: \

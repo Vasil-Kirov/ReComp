@@ -62,6 +62,9 @@ enum op
 	// Right = Member Idx;
 	OP_ENUM_ACCESS,
 
+	// Right = Block
+	OP_RUN,
+
 	OP_UNREACHABLE,
 
 	OP_COUNT,
@@ -158,17 +161,41 @@ struct basic_block
 	b32 HasTerminator;
 };
 
+struct run_location
+{
+	uint BlockID;
+	uint Index;
+};
+
+enum load_as
+{
+	LoadAs_Normal,
+	LoadAs_Int,
+	LoadAs_MultiInt,
+	LoadAs_Floats,
+};
+
+struct arg_location
+{
+	load_as Load;
+	int Start;
+	int Count;
+};
+
 struct function
 {
 	const string *Name;
 	const string *LinkName;
 	dynamic<basic_block> Blocks;
 	slice<symbol> ModuleSymbols;
+	slice<run_location> Runs;
+	slice<arg_location> Args;
 	string ModuleName;
 	u32 LineNo;
 	u32 LastRegister;
 	u32 Type;
 	b32 NoDebugInfo;
+	b32 ReturnPassedInPtr;
 };
 
 struct defer_scope
@@ -199,6 +226,7 @@ struct block_builder
 	profiling *Profile;
 	stack<dict<symbol>> Scope;
 	stack<yield_info> YieldReturn;
+	dynamic<run_location> RunIndexes;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;
 	u32 LastRegister;
@@ -221,9 +249,11 @@ u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported, u32 IRStartRegister);
+b32 CanGetPointerAfterSize(const type *T, int Size);
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
+int GetPointerPassIdx(u32 TypeIdx, uint Size);
 
 void GetUsedRegisters(instruction I, dynamic<u32> &out);
-
+u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr);

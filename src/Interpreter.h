@@ -22,6 +22,7 @@ struct compile_info
 	interp_string TargetTriple;
 	u32 Arch;
 	interp_string Link;
+	interp_string InternalFile;
 };
 
 enum interpret_result_kind
@@ -123,6 +124,9 @@ DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree);
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
+void DoRuns(interpreter *VM, ir *IR);
+void EvaluateEnums(interpreter *VM);
+void DoGlobals(interpreter *VM, ir *IR);
 
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\

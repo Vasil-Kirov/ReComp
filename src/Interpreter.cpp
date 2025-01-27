@@ -1,4 +1,5 @@
 #include "ConstVal.h"
+#include "Dynamic.h"
 #include "DynamicLib.h"
 #include "Errors.h"
 #include "IR.h"
@@ -202,7 +203,6 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 {
 	Assert(Operand->ptr);
 	const type *FnT = GetType(Operand->Type & ~(1 << 31));
-	LDEBUG("TYPE: %s", GetTypeName(FnT));
 	
 	dynamic<DCaggr*> Aggrs = {};
 
@@ -702,7 +702,9 @@ basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
 	unreachable;
 }
 
-void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instructions)
+#define ALLOC(SIZE) Globals ? ArenaAllocate(&VM->Arena, SIZE) : VM->Stack.Peek().Allocate(SIZE)
+
+void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instructions, b32 Globals)
 {
 	For(Instructions)
 	{
@@ -714,7 +716,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 				uint Size = GetTypeSize(Type);
 				value Value;
 				Value.Type = GetPointerTo(it->Type);
-				Value.ptr = VM->Stack.Peek().Allocate(Size);
+				Value.ptr = ALLOC(Size);
 				VM->Registers.AddValue(it->Result, Value);
 			} break;
 			case OP_LOAD:
@@ -730,7 +732,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						uint Size = sizeof(size_t) * 2;
 						value Value;
 						Value.Type = Basic_string;
-						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						Value.ptr = ALLOC(Size);
 						VM->Registers.AddValue(it->Result, Value);
 					} break;
 					case TypeKind_Vector:
@@ -740,7 +742,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						uint Size = GetTypeSize(it->Type);
 						value Value;
 						Value.Type = it->Type;
-						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						Value.ptr = ALLOC(Size);
 						VM->Registers.AddValue(it->Result, Value);
 					} break;
 					case TypeKind_Slice:
@@ -748,7 +750,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						uint Size = sizeof(size_t) * 2;
 						value Value;
 						Value.Type = it->Type;
-						Value.ptr = VM->Stack.Peek().Allocate(Size);
+						Value.ptr = ALLOC(Size);
 						VM->Registers.AddValue(it->Result, Value);
 					} break;
 					default: break;
@@ -768,7 +770,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 				if(IsString(Type))
 				{
 					const_value *Val = (const_value *)it->BigRegister;
-					void *Memory = VM->Stack.Peek().Allocate(sizeof(size_t)*2);
+					void *Memory = ALLOC(sizeof(size_t)*2);
 
 					*(size_t *)Memory = GetUTF8Count(Val->String.Data);
 
@@ -797,12 +799,12 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 	}
 }
 
-void DoAllocationForBlocks(interpreter *VM, slice<basic_block> Blocks)
+void DoAllocationForBlocks(interpreter *VM, slice<basic_block> Blocks, b32 Globals)
 {
 	ForArray(Idx, Blocks)
 	{
 		basic_block& Block = Blocks.Data[Idx];
-		DoAllocationForInstructions(VM, SliceFromArray(Block.Code));
+		DoAllocationForInstructions(VM, SliceFromArray(Block.Code), Globals);
 	}
 }
 
@@ -1481,6 +1483,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						LINFO("%s at line: %d", VM->CurrentFnName.Data, Info->loc.LineNo);
 				}
 			} break;
+			case OP_RESULT:
+			{
+				VM->Registers.LastAdded = I.Right;
+			}
+			break;
 			default:
 			{
 				LERROR("-- COMPILER BUG --\nUnsupported Interpreter OP: (%d/%d)", I.Op, OP_COUNT-1);
@@ -1561,6 +1568,18 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 		}
 	}
 
+	EvaluateEnums(&VM);
+
+	ForArray(MIdx, Modules)
+	{
+		module *m = Modules[MIdx];
+		ForArray(FIdx, m->Files)
+		{
+			file *f = m->Files[FIdx];
+			DoGlobals(&VM, f->IR);
+		}
+	}
+
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(MIdx, Modules)
 	{
@@ -1571,28 +1590,30 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 			ForArray(fnIdx, f->IR->Functions)
 			{
 				function fn = f->IR->Functions[fnIdx];
-				const char *sub = strstr(fn.Name->Data, "__GlobalInitializerFunction");
-				if(sub)
+				if(*fn.Name == TypeTableInitName)
 				{
-					//LDEBUG("Module: %s", m->Name.Data);
-					InterpretFunction(&VM, fn, {});
-				}
-				else
-				{
-					if(*fn.Name == TypeTableInitName)
-					{
-						auto Result = InterpretFunction(&VM, fn, {});
-						Assert(Result.Kind == INTERPRET_OK);
-					}
+					auto Result = InterpretFunction(&VM, fn, {});
+					Assert(Result.Kind == INTERPRET_OK);
 				}
 			}
 		}
 	}
 
+	ForArray(MIdx, Modules)
+	{
+		module *m = Modules[MIdx];
+		ForArray(FIdx, m->Files)
+		{
+			file *f = m->Files[FIdx];
+			DoRuns(&VM, f->IR);
+		}
+	}
+
+
 	return VM;
 }
 
-interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start)
+interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals=false)
 {
 	function WasFn = VM->CurrentFn;
 	VM->CurrentFn = Fn;
@@ -1605,7 +1626,7 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 	Chunk.Code = Start;
 	VM->Executing = &Chunk;
 
-	DoAllocationForBlocks(VM, Blocks);
+	DoAllocationForBlocks(VM, Blocks, Globals);
 	interpret_result Result = Run(VM, Blocks, Args);
 
 	VM->StackAllocator.Pop();
@@ -1678,9 +1699,63 @@ void EvaluateEnums(interpreter *VM)
 	VM->Stack.Pop();
 }
 
+void DoGlobals(interpreter *VM, ir *IR)
+{
+	For(IR->Globals)
+	{
+		if(it->Init.Name == NULL)
+		{
+			value Result = {};
+			Result.Type = it->s->Type;
+			Result.ptr = ArenaAllocate(&VM->Arena, GetTypeSize(it->s->Type));
+			VM->Registers.AddValue(it->s->Register, Result);
+			continue;
+		}
+
+		interpret_result Result = RunBlocks(VM, it->Init, SliceFromArray(it->Init.Blocks), {}, SliceFromArray(it->Init.Blocks[0].Code), true);
+		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+		{
+			exit(1);
+		}
+		else
+		{
+			Result.Result.Type = it->s->Type;
+			const_value ConstVal = FromInterp(Result.Result);
+			it->Value = ConstVal;
+
+			if(IsLoadableType(it->s->Type))
+			{
+				value Global = {};
+				Global.Type = it->s->Type;
+				Global.ptr = ArenaAllocate(&VM->Arena, GetTypeSize(Global.Type));
+				Store(VM, &Global, &Result.Result, it->s->Type);
+				Result.Result = Global;
+			}
+
+			VM->Registers.AddValue(it->s->Register, Result.Result);
+		}
+	}
+}
+
 void DoRuns(interpreter *VM, ir *IR)
 {
 	b32 DoAbort = false;
+
+	For(IR->GlobalRuns)
+	{
+		interpret_result Result = RunBlocks(VM, *it, SliceFromArray(it->Blocks), {}, SliceFromArray(it->Blocks[0].Code));
+		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+		{
+			DoAbort = true;
+			continue;
+		}
+	}
+
+	if(DoAbort)
+	{
+		exit(1);
+	}
+
 	ForArray(Idx, IR->Functions)
 	{
 		auto fn = IR->Functions[Idx];

@@ -56,6 +56,59 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 	}
 
+	string Internal = STR_LIT("internal");
+	string Base = STR_LIT("base");
+	b32 HasInternal = false;
+	b32 HasBase = false;
+	For(Imports)
+	{
+		if(it->M->Name == Internal)
+		{
+			HasInternal = true;
+		}
+		else if(it->M->Name == Base)
+		{
+			HasBase = true;
+		}
+	}
+
+	if(!HasInternal)
+	{
+		module *InternalMod = NULL;
+		For(Modules)
+		{
+			if((*it)->Name == Internal)
+			{
+				InternalMod = (*it);
+				break;
+			}
+		}
+		if(InternalMod == NULL)
+		{
+			LogCompilerError("Error: internal module is not found, if you replaced it in CompileInfo, make sure the module name is `internal`");
+			exit(1);
+		}
+		Imports.Push(import{.M = InternalMod, .As = STR_LIT("")});
+	}
+	if(!HasBase)
+	{
+		module *BaseMod = NULL;
+		For(Modules)
+		{
+			if((*it)->Name == Base)
+			{
+				BaseMod = (*it);
+				break;
+			}
+		}
+		if(BaseMod == NULL)
+		{
+			LogCompilerError("Error: base module is missing");
+			exit(1);
+		}
+		Imports.Push(import{.M = BaseMod, .As = STR_LIT("")});
+	}
+
 	return SliceFromArray(Imports);
 }
 

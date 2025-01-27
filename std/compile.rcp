@@ -28,6 +28,7 @@ struct CompileInfo {
     target_triple: string,
     arch: Arch,
 	link: string,
+	internals_file: string,
 }
 
 

@@ -7,7 +7,11 @@ gb :: fn(b: int) -> int { return b << 30; }
 
 // scratch allocator to be used when you don't care about storing the memory long term
 // it's the user's job to reset it
-temp_alloc := create_scratch(mb(1));
+temp_alloc :=  Allocator {
+			alloc = generic_alloc,
+			free = generic_free,
+			data = null,
+		};
 
 struct Allocator {
     alloc: fn(size: int, this: *Allocator) -> ?*,
@@ -78,7 +82,10 @@ no_free :: fn(p: *, this: *Allocator) {
 }
 
 create_scratch :: fn(max_size: int) -> Allocator {
-    ctx := @*ScratchContext os.alloc(max_size + size_of ScratchContext);
+	mem := os.alloc(max_size + size_of ScratchContext);
+	#assert mem;
+    ctx := @*ScratchContext ?mem;
+
 	ctx.start   = @*u8 (ctx + 1);
     ctx.current = @*u8 (ctx + 1);
     ctx.max = ctx.current + max_size;

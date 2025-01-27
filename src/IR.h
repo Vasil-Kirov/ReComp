@@ -1,4 +1,5 @@
 #pragma once
+#include "ConstVal.h"
 #include "Module.h"
 #include "Parser.h"
 #include "Stack.h"
@@ -64,6 +65,10 @@ enum op
 
 	// Right = Block
 	OP_RUN,
+
+	// Signals the result of an expression for the interpreter
+	// Right = register
+	OP_RESULT,
 
 	OP_UNREACHABLE,
 
@@ -234,9 +239,18 @@ struct block_builder
 	b32 IsGlobal;
 };
 
+struct ir_global
+{
+	const symbol *s;
+	function Init;
+	const_value Value;
+};
+
 struct ir
 {
-	dynamic<function>Functions;
+	dynamic<function> Functions;
+	dynamic<ir_global> Globals;
+	dynamic<function> GlobalRuns;
 	u32 MaxRegisters;
 };
 

@@ -420,7 +420,7 @@ function *FindFunction(slice<function> Functions, string Name)
 	return NULL;
 }
 
-void AddStdFiles(dynamic<string> &Files, u32 Flags)
+void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 {
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
@@ -449,12 +449,17 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags)
 	{
 		Files.Push(GetFilePath(Dir, "req.rcp"));
 	}
+
+	if(Internals.Data == NULL)
+	{
+		Files.Push(GetFilePath(Dir, "internal.rcp"));
+	}
 }
 
 void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module*> *OutModules, b32 NoStdLib)
 {
 	dynamic<string> FileNames = {};
-	AddStdFiles(FileNames, NoStdLib);
+	AddStdFiles(FileNames, NoStdLib, {});
 	FileNames.Push(Name);
 	slice<file*> Files = RunBuildPipeline(SliceFromArray(FileNames), Timers, CommandLine, false, OutModules);
 	for(int i = 0; i < Files.Count; ++i)
@@ -581,7 +586,6 @@ main(int ArgCount, char *Args[])
 		VMBuildTimer = VLibStartTimer("VM");
 
 		VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
-		EvaluateEnums(&VM);
 		if(HasErroredOut())
 			exit(1);
 
@@ -649,7 +653,7 @@ main(int ArgCount, char *Args[])
 			{
 				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
 			}
-			AddStdFiles(FileNames, Info->Flags);
+			AddStdFiles(FileNames, Info->Flags, Info->InternalFile);
 
 			For(ConfigIDs)
 			{
@@ -662,13 +666,8 @@ main(int ArgCount, char *Args[])
 
 				VMBuildTimer2 = VLibStartTimer("VM");
 				interpreter ComptimeVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
-				EvaluateEnums(&ComptimeVM);
 				if(HasErroredOut())
 					exit(1);
-				For(FileArray)
-				{
-					DoRuns(&ComptimeVM, (*it)->IR);
-				}
 				VLibStopTimer(&VMBuildTimer2);
 
 
@@ -705,22 +704,17 @@ main(int ArgCount, char *Args[])
 
 		dynamic<string> FileNames = {};
 		FileNames.Push(CommandLine.SingleFile);
-		AddStdFiles(FileNames, false);
+		AddStdFiles(FileNames, false, {});
 		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 		
 		VM = MakeInterpreter(ModuleArray, 100, DLLs, DLLCount);
-		EvaluateEnums(&VM);
 		if(HasErroredOut())
 			exit(1);
-		For(FileArray)
-		{
-			DoRuns(&VM, (*it)->IR);
-		}
-		VM.StackAllocator.Free();
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
 		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
 		VLibStopTimer(&FileTimer.LLVM);
+		VM.StackAllocator.Free();
 	}
 
 

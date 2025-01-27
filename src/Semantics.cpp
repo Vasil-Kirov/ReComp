@@ -693,13 +693,28 @@ b32 IsConstant(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_CONSTANT || Expr->Type == AST_CHARLIT)
 		return true;
+	if(Expr->Type == AST_EMBED)
+		return true;
 
 	if(Expr->Type == AST_SELECTOR)
 	{
 		u32 T = AnalyzeExpression(Checker, Expr->Selector.Operand);
 		if(T == Basic_type)
 			return true;
+		return IsConstant(Checker, Expr->Selector.Operand);
 	}
+
+	if(Expr->Type == AST_BINARY)
+	{
+		return IsConstant(Checker, Expr->Binary.Left) && IsConstant(Checker, Expr->Binary.Right);
+	}
+
+	if(Expr->Type == AST_UNARY)
+		return IsConstant(Checker, Expr->Unary.Operand);
+	if(Expr->Type == AST_INDEX)
+		return IsConstant(Checker, Expr->Index.Operand) && IsConstant(Checker, Expr->Index.Expression);
+	if(Expr->Type == AST_TYPELIST)
+		return true;
 
 	return false;
 }
@@ -2931,7 +2946,14 @@ RetErr:
 		} break;
 		case AST_RUN:
 		{
-			AnalyzeInnerBody(Checker, Node->Run.Body);
+			if(Node->Run.Body.Count == 0)
+			{
+				RaiseError(false, *Node->ErrorInfo, "#run doesn't have an expression");
+			}
+			else
+			{
+				AnalyzeInnerBody(Checker, Node->Run.Body);
+			}
 		} break;
 		default:
 		{
@@ -3011,6 +3033,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 	Checker->Module = ThisModule;
 	Checker->Scope = {};
 	Checker->CurrentFnReturnTypeIdx = {};
+	Checker->Scope.Push(AllocScope(NULL));
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
 
@@ -3038,6 +3061,14 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 		{
 			node *Node = Nodes[I];
 			u32 Type = AnalyzeDeclerations(Checker, Node, true);
+			if(Node->Decl.Expression)
+			{
+				if(!IsConstant(Checker, Node->Decl.Expression))
+				{
+					RaiseError(false, *Node->Decl.Expression->ErrorInfo, "Expression for global variable must be constant");
+					continue;
+				}
+			}
 			if(Node->Decl.LHS->Type == AST_ID)
 			{
 				string Name = *Node->Decl.LHS->ID.Name;
@@ -3060,6 +3091,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			}
 			else if(Node->Decl.LHS->Type == AST_LIST)
 			{
+				RaiseError(true, *Node->ErrorInfo, "Multi-variable declaration is not allowed in global scope"); 
 				const type *T = GetType(Type);
 				if(T->Kind != TypeKind_Struct || (T->Struct.Flags & StructFlag_FnReturn) == 0)
 				{
@@ -3166,6 +3198,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 			string *TypeName = StructToModuleNamePtr(Name, Checker->Module->Name);
 
 			AddNameToTypeMap(TypeName, T);
+			Nodes[I]->Type = AST_NOP;
 		}
 	}
 }
@@ -3617,6 +3650,10 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		}
 		else if(Node->Type == AST_RUN)
 		{
+			if(Node->Run.Body.Count == 0)
+			{
+				RaiseError(false, *Node->ErrorInfo, "#run doesn't have an expression");
+			}
 			AnalyzeInnerBody(Checker, Node->Run.Body);
 		}
 	}

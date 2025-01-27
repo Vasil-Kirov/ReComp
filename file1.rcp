@@ -1,25 +1,16 @@
 main
 
+#import io
+
 custom_t :: []i32;
 
-struct SomeVals {
-	a: f32,
-	b: f32,
-}
+f: i32;
 
-get_struct :: fn(val: int) -> SomeVals {
-	return SomeVals { @f32 val * 2, @f32 val };
-}
-
-get_array :: fn(x: SomeVals) -> [10]i32 {
-	return [10]i32 { 1, 2, @i32 x.a, @i32 x.b, 5 };
-}
 
 main :: fn() -> i32 {
-	arr := #run get_array( #run get_struct(10) );
 	sum := @i32 0;
-
-	for it in arr	sum += it;
+	//io.print("%", #embed_str "file2.rcp");
+	io.println("Hello World");
 
     return sum - 38;
 }

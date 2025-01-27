@@ -26,6 +26,7 @@ get_thing :: fn(a: TwoPtrs) {
 
 compile :: fn() -> c.CompileInfo {
 	get_thing(TwoPtrs{12, 43});
+
 	out := c.CompileInfo {
 		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
 		 //files = []string { "../file1.rcp" },

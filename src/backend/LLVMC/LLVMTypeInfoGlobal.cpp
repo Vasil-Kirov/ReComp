@@ -23,7 +23,7 @@ LLVMValueRef RCConstSlice(generator *gen, array<LLVMValueRef> Slice, LLVMTypeRef
 LLVMValueRef RCConstString(generator *gen, string S, LLVMTypeRef IntType, LLVMTypeRef String)
 {
 	LLVMValueRef Count = LLVMConstInt(IntType, S.Size, false);
-	LLVMValueRef StrPtr = LLVMBuildGlobalString(gen->bld, S.Data, "");
+	LLVMValueRef StrPtr = RCGetStringConstPtr(gen, &S);
 	LLVMValueRef ConstVals[] = { Count, StrPtr };
 	return LLVMConstNamedStruct(String, ConstVals, 2);
 }

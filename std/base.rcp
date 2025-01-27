@@ -152,7 +152,7 @@ struct TypeInfo {
 
 //type_info :: fn #intr (T: type) -> TypeInfo;
 
-global_initializers :: fn();
+//global_initializers :: fn();
 
 get_struct_alignment :: fn(st: type) -> int {
     t := (#info st).t.struct_;
@@ -284,7 +284,6 @@ memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> i32;
 main :: fn #link="main.main"() -> i32;
 
 entry :: fn #link="main"() -> i32 {
-    global_initializers();
     res := main();
 
     return res;

@@ -28,7 +28,23 @@ std::mutex LLVMNoThreadSafetyMutex;
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
-	return LLVMBuildGlobalStringPtr(gen->bld, String->Data, "");
+	auto LLVMu8 = LLVMIntTypeInContext(gen->ctx, 8);
+	auto Chars = array<LLVMValueRef>(String->Size+1);
+	ForArray(Idx, Chars)
+	{
+		Chars[Idx] = LLVMConstInt(LLVMu8, String->Data[Idx], false);
+	}
+	Chars[String->Size] = LLVMConstNull(LLVMu8);
+
+	auto ArrayType = LLVMArrayType(LLVMu8, String->Size+1);
+	LLVMValueRef Global = LLVMAddGlobal(gen->mod, ArrayType, "");
+	LLVMValueRef Init = LLVMConstArray(LLVMu8, Chars.Data, Chars.Count);
+
+	LLVMSetInitializer(Global, Init);
+	LLVMSetGlobalConstant(Global, true);
+	LLVMSetLinkage(Global, LLVMLinkerPrivateLinkage);
+	//return LLVMBuildGlobalStringPtr(gen->bld, String->Data, "");
+	return Global;
 }
 
 void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef OutArray[2])
@@ -266,6 +282,117 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 	}
 }
 
+LLVMValueRef FromConstVal(generator *gen, const_value *Val, u32 TypeIdx, b32 StructAsPointer)
+{
+	const type *Type = GetType(TypeIdx);
+	if(Type->Kind == TypeKind_Enum)
+	{
+		Type = GetType(Type->Enum.Type);
+	}
+
+	LLVMTypeRef LLVMType = ConvertToLLVMType(gen, TypeIdx);
+	LLVMValueRef Value;
+	if(Type->Kind == TypeKind_Pointer)
+	{
+		if(Val->Type == const_type::String)
+		{
+			Value = RCGetStringConstPtr(gen, Val->String.Data);
+		}
+		else if(Val->Int.Unsigned == 0)
+		{
+			Assert(Val->Type == const_type::Integer);
+			Value = LLVMConstPointerNull(LLVMType);
+		}
+		else
+		{
+			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+		}
+	}
+	else if(HasBasicFlag(Type, BasicFlag_Float))
+	{
+		if(Val->Type == const_type::Integer)
+		{
+			Value = LLVMConstReal(LLVMType, Val->Int.Signed);
+		}
+		else
+		{
+			Assert(Val->Type == const_type::Float);
+			Value = LLVMConstReal(LLVMType, Val->Float);
+		}
+	}
+	else if(HasBasicFlag(Type, BasicFlag_Integer))
+	{
+		if(Val->Type == const_type::Integer)
+		{
+			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
+		}
+		else
+		{
+			Assert(Val->Type == const_type::Float);
+			Value = LLVMConstInt(LLVMType, Val->Float, true);
+		}
+	}
+	else if(IsString(Type))
+	{
+		LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
+		LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
+		LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
+		LLVMValueRef ConstantVals[2] = { Size, DataPtr };
+		Value = LLVMConstNamedStruct(LLVMType, ConstantVals, 2);
+		if(StructAsPointer)
+		{
+			LLVMValueRef Init = Value;
+			Value = LLVMAddGlobal(gen->mod, LLVMType, "");
+			LLVMSetInitializer(Value, Init);
+			LLVMSetGlobalConstant(Value, true);
+			LLVMSetLinkage(Value, LLVMLinkerPrivateLinkage);
+		}
+	}
+	else if(HasBasicFlag(Type, BasicFlag_Boolean))
+	{
+		if(Val->Type == const_type::Integer)
+		{
+			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+		}
+		else
+		{
+			Assert(Val->Type == const_type::Float);
+			Value = LLVMConstInt(LLVMType, Val->Float, true);
+		}
+	}
+	else if(HasBasicFlag(Type, BasicFlag_TypeID))
+	{
+		if(Val->Type == const_type::Integer)
+		{
+			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
+		}
+		else
+		{
+			Assert(Val->Type == const_type::Float);
+			Value = LLVMConstInt(LLVMType, Val->Float, true);
+		}
+	}
+	else if(Type->Kind == TypeKind_Struct || Type->Kind == TypeKind_Slice || Type->Kind == TypeKind_Array)
+	{
+		Assert(Val->Type == const_type::Aggr);
+		Value = FromPtr(gen, TypeIdx, Val->Struct.Ptr);
+		if(StructAsPointer)
+		{
+			LLVMValueRef Initializer = Value;
+			Value = LLVMAddGlobal(gen->mod, LLVMType, "");
+			LLVMSetInitializer(Value, Initializer);
+			LLVMSetGlobalConstant(Value, true);
+			LLVMSetLinkage(Value, LLVMLinkerPrivateLinkage);
+		}
+	}
+	else
+	{
+		LDEBUG("%d", Type->Kind);
+		unreachable;
+	}
+	return Value;
+}
+
 void RCGenerateInstruction(generator *gen, instruction I)
 {
 #define LLVM_BIN_OP(CAPITAL_OP, Op) \
@@ -310,6 +437,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 	switch(I.Op)
 	{
+		case OP_RESULT:
 		case OP_NOP:
 		{
 		} break;
@@ -374,6 +502,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 			LLVMValueRef Value = LLVMAddGlobal(gen->mod, LLVMArrayType2(LLVMType, I.BigRegister), "");
 			LLVMSetInitializer(Value, LLVMConstNull(LLVMArrayType2(LLVMType, I.BigRegister)));
+			LLVMSetLinkage(Value, LLVMLinkerPrivateLinkage);
 			gen->map.Add(I.Result, Value);
 		} break;
 		case OP_CONSTINT:
@@ -411,99 +540,9 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			if(Type->Kind == TypeKind_Enum)
 				Type = GetType(Type->Enum.Type);
 
-			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+			LLVMValueRef Value = FromConstVal(gen, Val, I.Type, true);
 
-			LLVMValueRef Value;
-			if(Type->Kind == TypeKind_Pointer)
-			{
-				if(Val->Type == const_type::String)
-				{
-					Value = RCGetStringConstPtr(gen, Val->String.Data);
-				}
-				else if(Val->Int.Unsigned == 0)
-				{
-					Assert(Val->Type == const_type::Integer);
-					Value = LLVMConstPointerNull(LLVMType);
-				}
-				else
-				{
-					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
-				}
-			}
-			else if(HasBasicFlag(Type, BasicFlag_Float))
-			{
-				if(Val->Type == const_type::Integer)
-				{
-					Value = LLVMConstReal(LLVMType, Val->Int.Signed);
-				}
-				else
-				{
-					Assert(Val->Type == const_type::Float);
-					Value = LLVMConstReal(LLVMType, Val->Float);
-				}
-			}
-			else if(HasBasicFlag(Type, BasicFlag_Integer))
-			{
-				if(Val->Type == const_type::Integer)
-				{
-					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
-				}
-				else
-				{
-					Assert(Val->Type == const_type::Float);
-					Value = LLVMConstInt(LLVMType, Val->Float, true);
-				}
-			}
-			else if(IsString(Type))
-			{
-				LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
-				LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
-				LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
-				Value = LLVMBuildAlloca(gen->bld, LLVMType, "");
-
-				LLVMValueRef SizePtr   = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 0, "Size");
-				LLVMValueRef StringPtr = LLVMBuildStructGEP2(gen->bld, LLVMType, Value, 1, "String");
-				LLVMBuildStore(gen->bld, Size,    SizePtr);
-				LLVMBuildStore(gen->bld, DataPtr, StringPtr);
-			}
-			else if(HasBasicFlag(Type, BasicFlag_Boolean))
-			{
-				if(Val->Type == const_type::Integer)
-				{
-					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
-				}
-				else
-				{
-					Assert(Val->Type == const_type::Float);
-					Value = LLVMConstInt(LLVMType, Val->Float, true);
-				}
-			}
-			else if(HasBasicFlag(Type, BasicFlag_TypeID))
-			{
-				if(Val->Type == const_type::Integer)
-				{
-					Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, Val->Int.IsSigned);
-				}
-				else
-				{
-					Assert(Val->Type == const_type::Float);
-					Value = LLVMConstInt(LLVMType, Val->Float, true);
-				}
-			}
-			else if(Type->Kind == TypeKind_Struct || Type->Kind == TypeKind_Slice || Type->Kind == TypeKind_Array)
-			{
-				Assert(Val->Type == const_type::Aggr);
-				LLVMValueRef Initializer = FromPtr(gen, I.Type, Val->Struct.Ptr);
-				Value = LLVMAddGlobal(gen->mod, LLVMType, "");
-				LLVMSetInitializer(Value, Initializer);
-			}
-			else
-			{
-				LDEBUG("%d", Type->Kind);
-				unreachable;
-			}
 			gen->map.Add(I.Result, Value);
-
 		} break;
 		case OP_UNREACHABLE:
 		{
@@ -1259,7 +1298,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*> Files, compile_info *Info)
+void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file*> Files, compile_info *Info)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -1329,9 +1368,9 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 	dynamic<gen_fn_info> Functions = {};
 
-	LLVMValueRef MaybeInitFn = NULL;
 	// Generate internal functions
 	dict<LLVMValueRef> AddedFns = {};
+#if 0
 	ForArray(FIdx, M->Files)
 	{
 		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
@@ -1345,12 +1384,25 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 		MaybeInitFn = Fn;
 		AddedFns.Add(LinkName, Fn);
 	}
+#endif
+
+	dynamic<module*> UnitModules = {};
+	UnitModules.Push(M);
+	ForArray(FIdx, M->Files)
+	{
+		auto Imported = M->Files[FIdx]->Imported;
+		For(Imported)
+		{
+			UnitModules.Push(it->M);
+		}
+	}
+
 
 	b32 IsInitModule = M->Name == STR_LIT("base");
-	ForArray(MIdx, Modules)
+	ForArray(MIdx, UnitModules)
 	{
 		// shadow
-		module *m = Modules[MIdx];
+		module *m = UnitModules[MIdx];
 		ForArray(GIdx, m->Globals.Data)
 		{
 			symbol *s = m->Globals.Data[GIdx];
@@ -1360,6 +1412,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 
 			if(IsInitModule)
 			{
+#if 0
 				if(*s->Name == STR_LIT("global_initializers"))
 				{
 					LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
@@ -1367,6 +1420,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 					Gen.map.Add(s->Register, Fn);
 					continue;
 				}
+#endif
 				if(*s->Name == STR_LIT("type_table") && ((Info->Flags & CF_Standalone) == 0))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
@@ -1404,6 +1458,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 				Gen.map.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);
 			}
+#if 0
 			else
 			{
 				string LinkName = *s->LinkName;
@@ -1414,6 +1469,47 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> Modules, slice<file*
 					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
 				Gen.map.Add(s->Register, Global);
 				AddedFns.Add(LinkName, Global);
+			}
+#endif
+		}
+	}
+
+	ForArray(MIdx, UnitModules)
+	{
+		module *m = UnitModules[MIdx];
+		ForArray(FIdx, m->Files)
+		{
+			ir *IR = m->Files[FIdx]->IR;
+			For(IR->Globals)
+			{
+				LLVMLinkage Linkage;
+				if(it->s->Flags & SymbolFlag_Public || it->s->Flags & SymbolFlag_Extern)
+				{
+					Linkage = LLVMExternalLinkage;
+				}
+				else
+				{
+					Linkage = LLVMPrivateLinkage;
+					if(m->Name != M->Name)
+						continue;
+				}
+
+				string LinkName = *it->s->LinkName;
+				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, it->s->Type);
+				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
+				//LLVMSetGlobalConstant(Global, it->s->Flags & SymbolFlag_Const);
+				LLVMSetLinkage(Global, Linkage);
+				if(m->Name != M->Name)
+				{
+					Gen.map.Add(it->s->Register, Global);
+					continue;
+				}
+				if(it->Init.LinkName != NULL)
+				{
+					LLVMValueRef Init = FromConstVal(&Gen, &it->Value, it->s->Type, false);
+					LLVMSetInitializer(Global, Init);
+				}
+				Gen.map.Add(it->s->Register, Global);
 			}
 		}
 	}

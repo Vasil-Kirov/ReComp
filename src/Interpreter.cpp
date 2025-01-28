@@ -842,7 +842,16 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value NewVal = *v;
 				Assert(NewVal.ptr);
 				VM->Registers.AddValue(I.Result, NewVal);
-				VM->Registers.Links.Push(global_link{.GlobalRegister = s->Register, .LocalRegister = I.Result});
+				b32 Found = false;
+				For(VM->Registers.Links)
+				{
+					if(it->LocalRegister == I.Result)
+					{
+						Found = true;
+					}
+				}
+				if(!Found)
+					VM->Registers.Links.Push(global_link{.GlobalRegister = s->Register, .LocalRegister = I.Result});
 			} break;
 			case OP_ZEROUT:
 			{
@@ -1667,27 +1676,30 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 {
 	function WasFn = VM->CurrentFn;
 	VM->CurrentFn = Fn;
-
+	void *StackMemory = VM->StackAllocator.Push(MB(1));
+	void *RegisterMemory = VM->StackAllocator.Push(Fn.LastRegister * sizeof(value));
 	VM->ErrorInfo.Push(NULL);
+
 	binary_stack Stack = {};
-	Stack.Memory = VM->StackAllocator.Push(MB(1));
+	Stack.Memory = StackMemory;
 	VM->Stack.Push(Stack);
+
 	code_chunk Chunk;
 	Chunk.Code = Start;
 	VM->Executing = &Chunk;
 
-	VM->Registers.Init(Fn.LastRegister, VM->StackAllocator.Push(Fn.LastRegister * sizeof(value)));
+	VM->Registers.Init(Fn.LastRegister, RegisterMemory);
 
 	DoAllocationForBlocks(VM, Blocks, Globals);
 	interpret_result Result = Run(VM, Blocks, Args);
 
 	VM->Registers.DeInit();
 
+	VM->ErrorInfo.Pop();
+	VM->StackAllocator.Pop();
 	VM->StackAllocator.Pop();
 
-	VM->StackAllocator.Pop();
 	VM->Stack.Pop();
-	VM->ErrorInfo.Pop();
 	VM->CurrentFn = WasFn;
 	return Result;
 }

@@ -21,7 +21,9 @@ main :: fn() -> i32 {
     return x;
 }
 
-#run main();
+
+
+#run for true ff();
 
 
 // do_foo :: fn(s: []$T) {

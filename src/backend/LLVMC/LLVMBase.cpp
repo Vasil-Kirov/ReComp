@@ -1511,19 +1511,25 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 				}
 
 				string LinkName = *it->s->LinkName;
-				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, it->s->Type);
+				u32 TIdx = it->s->Type;
+				const type *T = GetType(TIdx);
+				if(T->Kind == TypeKind_Function)
+					TIdx = GetPointerTo(TIdx);
+				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, TIdx);
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 				//LLVMSetGlobalConstant(Global, it->s->Flags & SymbolFlag_Const);
 				LLVMSetLinkage(Global, Linkage);
-				if(m->Name != M->Name)
+				if(m->Name == M->Name)
 				{
-					Gen.map.Add(it->s->Register, Global);
-					continue;
-				}
-				if(it->Init.LinkName != NULL)
-				{
-					LLVMValueRef Init = FromConstVal(&Gen, &it->Value, it->s->Type, false);
-					LLVMSetInitializer(Global, Init);
+					if(it->Init.LinkName != NULL)
+					{
+						LLVMValueRef Init = FromConstVal(&Gen, &it->Value, TIdx, false);
+						LLVMSetInitializer(Global, Init);
+					}
+					else
+					{
+						LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
+					}
 				}
 				Gen.map.Add(it->s->Register, Global);
 			}

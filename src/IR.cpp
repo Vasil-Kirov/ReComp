@@ -3513,9 +3513,12 @@ string Dissasemble(ir *IR)
 	{
 		Builder += *it->s->Name;
 		if(it->Init.LinkName == NULL)
+		{
+			Builder += ";\n";
 			continue;
+		}
 		Builder += " = {\n";
-		DissasembleBasicBlock(&Builder, it->Init.Blocks.Data, 1);
+		DissasembleBasicBlock(&Builder, it->Init.Blocks.Data, 0);
 		Builder += "}\n";
 	}
 	For(IR->Functions)

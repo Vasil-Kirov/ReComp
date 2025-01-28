@@ -6,12 +6,19 @@ custom_t :: []i32;
 
 f :: c"fstr";
 
+some_fn: fn() -> i32;
+
+ff :: fn() -> i32 { return 10;}
+
+x: i32;
 
 main :: fn() -> i32 {
 	sum := (#embed_str "data/embed.txt").count;
-	io.println("%s", f);
+	some_fn = ff;
+	io.println("%", some_fn());
+	//io.println("%s", f);
 
-    return @i32 sum;
+    return x;
 }
 
 #run main();

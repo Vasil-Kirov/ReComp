@@ -252,6 +252,9 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 		}
 
 		const type *T = GetType(TIdx);
+		if(T->Kind == TypeKind_Enum)
+			T = GetType(T->Enum.Type);
+
 		switch(T->Kind)
 		{
 			case TypeKind_Basic:
@@ -350,7 +353,11 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 			{
 				dcArgPointer(dc, Arg->ptr);
 			} break;
-			default: unreachable;
+			default:
+			{
+				LDEBUG("%s", GetTypeName(T));
+				unreachable;
+			}
 		}
 	}
 

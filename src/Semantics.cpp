@@ -3076,9 +3076,11 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 				Sym->Checker = Checker;
 				Sym->Name = Node->Decl.LHS->ID.Name;
 				Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
-				Sym->Type = Type;
+				Sym->Type = FixPotentialFunctionPointer(Type);
 				Sym->Flags = Node->Decl.Flags;
 				Sym->Node = Node;
+
+				Sym->Flags &= ~SymbolFlag_Function;
 				bool Success = Checker->Module->Globals.Add(Name, Sym);
 				if(!Success)
 				{

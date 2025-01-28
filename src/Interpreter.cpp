@@ -203,7 +203,11 @@ DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree)
 u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 {
 	Assert(Operand->ptr);
-	const type *FnT = GetType(Operand->Type & ~(1 << 31));
+	const type *FnT = GetType(Operand->Type);
+	if(FnT->Kind == TypeKind_Pointer)
+		FnT = GetType(FnT->Pointer.Pointed);
+
+	Assert(FnT->Kind == TypeKind_Function);
 	
 	dynamic<DCaggr*> Aggrs = {};
 
@@ -832,21 +836,27 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				// 	%1 = OP_GLOBAL fn_foo
 				// 	%0 = OP_STORE  %1
 				const symbol *s = (const symbol *)I.Ptr;
-				if(*s->Name == STR_LIT("create_builder"))
-				{
-					LDEBUG("BUILDER");
-				}
 
 				value *v = VM->Globals.GetValue(s->Register);
 				Assert(v->Flags & value_flag::Global);
 				value NewVal = *v;
 				Assert(NewVal.ptr);
 				VM->Registers.AddValue(I.Result, NewVal);
+				VM->Registers.Links.Push(global_link{.GlobalRegister = s->Register, .LocalRegister = I.Result});
 			} break;
 			case OP_ZEROUT:
 			{
 				value *Value = VM->Registers.GetValue(I.Right);
 				memset(Value->ptr, 0, GetTypeSize(I.Type));
+			} break;
+			case OP_PTRDIFF:
+			{
+				auto LHS = VM->Registers.GetValue(I.Left);
+				auto RHS = VM->Registers.GetValue(I.Right);
+				value Value = {};
+				Value.Type = I.Type;
+				Value.ptr = (void *)((u8 *)LHS->ptr - (u8 *)RHS->ptr);
+				VM->Registers.AddValue(I.Result, Value);
 			} break;
 			case OP_CONSTINT:
 			{
@@ -1051,9 +1061,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value Result = {};
 				Result.Type = I.Type;
 
-				if(Value->Flags & value_flag::ForeignCall)
-					Result.Flags |= value_flag::ForeignCall;
-
 				const type *Type = GetType(I.Type);
 				if(Type->Kind == TypeKind_Enum)
 				{
@@ -1179,45 +1186,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				if(VM->KeepTrackOfStoredGlobals && Right->Flags & value_flag::Global)
 				{
 					u32 GlobalRegister = -1;
-					For(VM->Executing->Code)
+					For(VM->Registers.Links)
 					{
-						if(it->Op == OP_GLOBAL)
+						if(it->LocalRegister == I.Right)
 						{
-							if(it->Result == I.Right)
-							{
-								const symbol *s = (const symbol *)it->Ptr;
-								GlobalRegister = s->Register;
-								break;
-							}
+							GlobalRegister = it->GlobalRegister;
 						}
 					}
-					if(GlobalRegister == -1)
+					// @TODO: Investigate if this should be an if or an assert
+					if(GlobalRegister != -1)
 					{
-						Assert(OptionalBlocks.Count > 0);
-						ForArray(BIdx, OptionalBlocks)
-						{
-							auto b = OptionalBlocks[BIdx];
-							For(b.Code)
-							{
-								if(it->Op == OP_GLOBAL)
-								{
-									if(it->Result == I.Right)
-									{
-										const symbol *s = (const symbol *)it->Ptr;
-										GlobalRegister = s->Register;
-										break;
-									}
-								}
-							}
-							if(GlobalRegister != -1) break;
-						}
-						Assert(GlobalRegister != -1);
+						VM->StoredGlobals[Left->ptr] = GlobalRegister;
 					}
-					VM->StoredGlobals[Left->ptr] = GlobalRegister;
-				}
-				if(Right->Flags & value_flag::ForeignCall)
-				{
-					Left->Flags |= value_flag::ForeignCall;
 				}
 			} break;
 			case OP_INDEX:
@@ -1269,7 +1249,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 
-				if(Operand->Flags & value_flag::ForeignCall)
+				if(((u64)Operand->ptr & (1ull << 63)) == 0)
 				{
 					u64 Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
 					if(I.Type != INVALID_TYPE)
@@ -1282,7 +1262,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else
 				{
-					function *F = (function *)Operand->ptr;
+					function *F = (function *)((u64)Operand->ptr & ~(1ull << 63));
 					dynamic<value> Args = {};
 					ForArray(Idx, CallInfo->Args)
 					{
@@ -1293,7 +1273,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					interpreter_scope CurrentScope = VM->Registers;
 					interpreter_scope NewScope = {};
 
-					NewScope.Init(F->LastRegister, VM->StackAllocator.Push(F->LastRegister * sizeof(value)));
+					//NewScope.Init(F->LastRegister, VM->StackAllocator.Push(F->LastRegister * sizeof(value)));
 
 					VM->Registers = NewScope;
 
@@ -1305,7 +1285,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					VM->Registers.AddValue(I.Result, Result.Result);
 
 					Args.Free();
-					VM->StackAllocator.Pop();
+					//VM->StackAllocator.Pop();
 					//NewScope.Free();
 					if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 						return Result;
@@ -1609,7 +1589,6 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 			{
 				if(s->Flags & SymbolFlag_Extern)
 				{
-					Value.Flags |= value_flag::ForeignCall;
 					For(DLs)
 					{
 						void *Proc = GetSymLibrary(*it, s->LinkName->Data);
@@ -1628,6 +1607,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 				else
 				{
 					Value.ptr = s->Node->Fn.IR;
+					Value.ptr = (void *)((u64)Value.ptr | (1ull << 63));
 				}
 			}
 			else
@@ -1647,7 +1627,6 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 		ForArray(FIdx, m->Files)
 		{
 			file *f = m->Files[FIdx];
-			LDEBUG("file: %s", f->Name.Data);
 			DoGlobals(&VM, f->IR);
 		}
 	}
@@ -1701,6 +1680,8 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 
 	DoAllocationForBlocks(VM, Blocks, Globals);
 	interpret_result Result = Run(VM, Blocks, Args);
+
+	VM->Registers.DeInit();
 
 	VM->StackAllocator.Pop();
 

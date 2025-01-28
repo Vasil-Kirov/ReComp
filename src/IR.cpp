@@ -3052,7 +3052,6 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 		case AST_DECL:
 		{
 			function FakeFn = {};
-			LDEBUG("global: %s", Node->Decl.LHS->ID.Name->Data);
 			if(Node->Decl.Expression)
 			{
 				string NoFnName = STR_LIT("");

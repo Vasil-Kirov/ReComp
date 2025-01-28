@@ -35,9 +35,6 @@ foo :: fn() -> i32 {
 }
 
 compile :: fn() -> c.CompileInfo {
-	foo();
-	get_thing(TwoPtrs{INT, 43});
-
 	out := c.CompileInfo {
 		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
 		 //files = []string { "../file1.rcp" },
@@ -47,11 +44,11 @@ compile :: fn() -> c.CompileInfo {
 		 //link = "/SUBSYSTEM:windows",
 	 };
 
-	 puts(c"foo");
+	 //puts(c"foo");
 
-	 for f in out.files {
-	     io.println("Compiling file: %", f);
-	 }
+	 //for f in out.files {
+	 //    io.println("Compiling file: %", f);
+	 //}
 
 	 //enum_ := (#info c.CompileFlag).t.enum_;
 	 //io.println("Name: %", enum_.name);
@@ -65,9 +62,9 @@ compile :: fn() -> c.CompileInfo {
 }
 
 after_link :: fn() {
-    for c in "Done" {
-        io.println("%c", c);
-    }
+    //for c in "Done" {
+    //    io.println("%c", c);
+    //}
     return;
 }
 

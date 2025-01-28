@@ -36,7 +36,6 @@ enum interpret_result_kind
 enum class value_flag: u32
 {
 	Global = BIT(0),
-	ForeignCall = BIT(1),
 };
 
 inline value_flag operator|(value_flag a, value_flag b)
@@ -80,12 +79,19 @@ struct code_chunk
 	slice<instruction> Code;
 };
 
+struct global_link
+{
+	u32 GlobalRegister;
+	u32 LocalRegister;
+};
+
 struct interpreter_scope
 {
 	u32 LastRegister;
 	u32 MaxRegisters;
 	u32 LastAdded;
 	value *Registers;
+	dynamic<global_link> Links = {};
 	void AddValue(uint Register, value Value)
 	{
 		LastAdded = Register;
@@ -101,6 +107,11 @@ struct interpreter_scope
 		MaxRegisters = MaxRegisterCount;
 		LastRegister = 0;
 		Registers = (value *)Mem;//(value *)VAlloc(MaxRegisterCount * sizeof(value));
+		Links = {};
+	}
+	void DeInit()
+	{
+		Links.Free();
 	}
 	//void Free()
 	//{

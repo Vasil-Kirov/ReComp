@@ -11,15 +11,17 @@ ff :: fn() -> i32 { return 10;}
 
 x: i32;
 
+puts: fn #foreign(str: *u8) -> i32;
+
 main :: fn() -> i32 {
 	f2.init();
-	io.println("%", f2.fn_ptr(c"foo"));
+	io.println("% %", puts(c"asdf"), f2.fn_ptr(c"foo"));
 	//io.println("%s", f);
 
     return x;
 }
 
-//#run main();
+#run main();
 
 
 // do_foo :: fn(s: []$T) {

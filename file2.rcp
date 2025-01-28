@@ -4,8 +4,17 @@ f2
 fn_ptr: *fn(str: *u8) -> i32;
 puts: fn #foreign(str: *u8) -> i32;
 
-init :: fn () {
-	fn_ptr = puts;
+get_the_fn :: fn() -> * {
+	maybe_x := @?*void puts;
+	if maybe_x == null { #assert false; }
+	return ?maybe_x;
 }
 
+init :: fn () {
+	fn_ptr = get_the_fn();
+	x := fn_ptr;
+	y := x;
+	x(c"X");
+	y(c"X");
+}
 

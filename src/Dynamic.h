@@ -49,7 +49,10 @@ struct dynamic {
 	}
 	void Free()
 	{
-		VFree(Data);
+		if(Data)
+		{
+			VFree(Data);
+		}
 		Data = NULL;
 		Count = 0;
 		Capacity = 0;

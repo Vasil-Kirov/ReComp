@@ -15,6 +15,15 @@ DLIB OpenLibrary(const char *Name)
 #endif
 }
 
+const char *DLGetLastError()
+{
+#if _WIN32
+#error IMPLEMENT
+#else
+	return dlerror();
+#endif
+}
+
 void *GetSymLibrary(DLIB Lib, const char *FnName)
 {
 #if _WIN32

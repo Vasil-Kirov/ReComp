@@ -92,6 +92,9 @@ enum token_type
 	T_USING = -72,
 	T_YIELD = -73,
 	T_RUN = -74,
+	T_LOAD_DL = -75,
+	T_LOAD_SYSTEM_DL = -76,
+
 };
 
 struct token

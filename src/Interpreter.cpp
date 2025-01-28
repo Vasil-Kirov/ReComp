@@ -15,6 +15,7 @@
 #include <math.h>
 
 bool InterpreterTrace = false;
+dynamic<DLIB> DLs = {};
 
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
@@ -1208,7 +1209,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value *Operand = VM->Registers.GetValue(CallInfo->Operand);
 				if(Operand->ptr == NULL)
 				{
-					RaiseError(true, *VM->ErrorInfo.Peek(), "Compile time interpreter cannot find called function. If it's in a dynamic library, you can pass it with the --vmdll flag.");
+					RaiseError(true, *VM->ErrorInfo.Peek(), "Compile time interpreter cannot find called function. If it's in a dynamic library, you can load dynamic libraries for compile time execution using the #load_dl and #load_system_dl directives.");
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 
@@ -1513,7 +1514,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastAdded)};
 }
 
-void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
+void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 {
 	ForArray(MIdx, Modules)
 	{
@@ -1554,9 +1555,9 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters, 
 				if(s->Flags & SymbolFlag_Extern)
 				{
 					Value.Type |= 1 << 31;
-					for(int Idx = 0; Idx < DLLCount; ++Idx)
+					For(DLs)
 					{
-						void *Proc = GetSymLibrary(DLLs[Idx], s->LinkName->Data);
+						void *Proc = GetSymLibrary(*it, s->LinkName->Data);
 						if(Proc)
 						{
 							Value.ptr = Proc;

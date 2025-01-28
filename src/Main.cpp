@@ -503,21 +503,19 @@ main(int ArgCount, char *Args[])
 
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 
-	DLIB DLLs[256] = {};
-	int DLLCount = 0;
 
 #if _WIN32
-	DLLs[DLLCount++] = OpenLibrary("kernel32");
-	DLLs[DLLCount++] = OpenLibrary("user32");
-	DLLs[DLLCount++] = OpenLibrary("ntdll");
-	DLLs[DLLCount++] = OpenLibrary("msvcrt");
-	DLLs[DLLCount++] = OpenLibrary("ucrt");
-	DLLs[DLLCount++] = OpenLibrary("ucrtbase");
+	DLs.Push(OpenLibrary("kernel32"));
+	DLs.Push(OpenLibrary("user32"));
+	DLs.Push(OpenLibrary("ntdll"));
+	DLs.Push(OpenLibrary("msvcrt"));
+	DLs.Push(OpenLibrary("ucrt"));
+	DLs.Push(OpenLibrary("ucrtbase"));
 #elif CM_LINUX
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
-	DLLs[DLLCount++] = OpenLibrary("libc.so");
-	DLLs[DLLCount++] = OpenLibrary(GetFilePath(Dir, "system_call.so").Data);
+	DLs.Push(OpenLibrary("libc.so"));
+	DLs.Push(OpenLibrary(GetFilePath(Dir, "system_call.so").Data));
 #else
 
 #endif
@@ -528,7 +526,7 @@ main(int ArgCount, char *Args[])
 		 {
 			 LFATAL("Passed shared library %s could not be found", CommandLine.ImportDLLs[Idx].Data);
 		 }
-		 DLLs[DLLCount++] = Lib;
+		 DLs.Push(Lib);
 	}
 
 	dynamic<timers> Timers = {};
@@ -585,7 +583,7 @@ main(int ArgCount, char *Args[])
 
 		VMBuildTimer = VLibStartTimer("VM");
 
-		MakeInterpreter(VM, BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
+		MakeInterpreter(VM, BuildModules, BuildFile.IR->MaxRegisters);
 		if(HasErroredOut())
 			exit(1);
 
@@ -666,7 +664,7 @@ main(int ArgCount, char *Args[])
 
 				VMBuildTimer2 = VLibStartTimer("VM");
 				interpreter ComptimeVM = {};
-				MakeInterpreter(ComptimeVM, ModuleArray, 0, DLLs, DLLCount);
+				MakeInterpreter(ComptimeVM, ModuleArray, 0);
 				if(HasErroredOut())
 					exit(1);
 				VLibStopTimer(&VMBuildTimer2);
@@ -708,7 +706,7 @@ main(int ArgCount, char *Args[])
 		AddStdFiles(FileNames, false, {});
 		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 		
-		MakeInterpreter(VM, ModuleArray, 100, DLLs, DLLCount);
+		MakeInterpreter(VM, ModuleArray, 100);
 		if(HasErroredOut())
 			exit(1);
 

@@ -523,6 +523,8 @@ void InitializeLexer()
 	AddKeyword("#elif",    T_PWDELIF);
 	AddKeyword("#info",    T_INFO);
 	AddKeyword("#assert",  T_ASSERT);
+	AddKeyword("#load_dl",  T_LOAD_DL);
+	AddKeyword("#load_system_dl",  T_LOAD_SYSTEM_DL);
 	AddKeyword("#run",   T_RUN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);

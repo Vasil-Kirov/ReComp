@@ -153,10 +153,12 @@ DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree);
 DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree);
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args);
-interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount);
+interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters);
 void DoRuns(interpreter *VM, ir *IR);
 void EvaluateEnums(interpreter *VM);
 void DoGlobals(interpreter *VM, ir *IR);
+
+extern dynamic<DLIB> DLs;
 
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\

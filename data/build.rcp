@@ -6,6 +6,8 @@ build
 #import array as arr
 #import mem
 
+#load_system_dl "libSDL3.so"
+
 puts :: fn #foreign(str: *u8);
 
 // @BUG
@@ -48,7 +50,6 @@ compile :: fn() -> c.CompileInfo {
 	 //    io.println("name: %, value: %", it.name, it.value);
 	 // }
 	 //io.println("flag: %", c.CompileFlag.DebugInfo);
-
 
 
 	 return out;

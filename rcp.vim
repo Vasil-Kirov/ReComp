@@ -42,6 +42,10 @@ syn match rcpSCompilerDir /#if/
 syn match rcpSCompilerDir /#elif/
 syn match rcpSCompilerDir /#assert/
 syn match rcpSCompilerDir /#run/
+syn match rcpSCompilerDir /#embed_str/
+syn match rcpSCompilerDir /#embed_bin/
+syn match rcpSCompilerDir /#load_system_dl/
+syn match rcpSCompilerDir /#load_dl/
 
 " Types
 syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void

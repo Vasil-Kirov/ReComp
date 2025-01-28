@@ -1,7 +1,10 @@
 #include "Parser.h"
 #include "Dynamic.h"
+#include "DynamicLib.h"
 #include "Errors.h"
+#include "Interpreter.h"
 #include "Lexer.h"
+#include "Log.h"
 #include "Memory.h"
 #include "Semantics.h"
 #include "Type.h"
@@ -1744,6 +1747,59 @@ node *ParseTopLevel(parser *Parser)
 	node *ProfileCallback = NULL;
 	switch(Parser->Current->Type)
 	{
+		case T_LOAD_SYSTEM_DL:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token T = EatToken(Parser, T_STR, false);
+			if(T.ID == NULL)
+				return (node *)0x1;
+			DLIB Lib = OpenLibrary(T.ID->Data);
+			if(Lib == NULL)
+			{
+				RaiseError(false, *ErrorInfo, "Failed to load system dynamic library:\n%s", DLGetLastError());
+			}
+			else
+			{
+				// @THREADING: NOT THREAD SAFE
+				DLs.Push(Lib);
+			}
+
+			return (node *)0x1;
+		} break;
+		case T_LOAD_DL:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			token T = EatToken(Parser, T_STR, false);
+			if(T.ID == NULL)
+				return (node *)0x1;
+
+			int FileNameSize = strlen(ErrorInfo->FileName);
+			auto b = MakeBuilder();
+			int End = FileNameSize-1;
+			for(; End >= 0
+					&& ErrorInfo->FileName[End] != '/'
+					&& ErrorInfo->FileName[End] != '\\'
+					; --End);
+			string Tmp = {ErrorInfo->FileName, (size_t)End+1};
+
+			b += Tmp;
+			b += *T.ID;
+			string Path = MakeString(b);
+			LDEBUG("LIB: %s", Path.Data);
+			DLIB Lib = OpenLibrary(Path.Data);
+			if(Lib == NULL)
+			{
+				RaiseError(false, *ErrorInfo, "Failed to load local dynamic library:\n%s", DLGetLastError());
+			}
+			else
+			{
+				// @THREADING: NOT THREAD SAFE
+				DLs.Push(Lib);
+			}
+			return (node *)0x1;
+		} break;
 		case T_PUBLIC:
 		{
 			GetToken(Parser);

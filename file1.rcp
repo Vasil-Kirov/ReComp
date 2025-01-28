@@ -4,15 +4,14 @@ main
 
 custom_t :: []i32;
 
-f: i32;
+f :: c"fstr";
 
 
 main :: fn() -> i32 {
-	sum := @i32 0;
-	//io.print("%", #embed_str "file2.rcp");
-	io.println("Hello World");
+	sum := (#embed_str "data/embed.txt").count;
+	io.println("%s", f);
 
-    return sum - 38;
+    return @i32 sum;
 }
 
 

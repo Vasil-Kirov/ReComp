@@ -273,8 +273,17 @@ const_value FromInterp(value &Value)
 		} break;
 		case TypeKind_Pointer:
 		{
-			V.Type = const_type::Integer;
-			V.Int.Unsigned = (u64)Value.ptr;
+			if(IsCString(T))
+			{
+				string CString = { .Data = (const char *)Value.ptr, .Size = 0 };
+				V.Type = const_type::String;
+				V.String.Data = DupeType(CString, string);
+			}
+			else
+			{
+				V.Type = const_type::Integer;
+				V.Int.Unsigned = (u64)Value.ptr;
+			}
 		} break;
 		case TypeKind_Array:
 		case TypeKind_Slice:

@@ -179,7 +179,7 @@ u32 MakeIRString(block_builder *Builder, string S)
 			Instruction(OP_CONST, (u64)Val, Basic_string, Builder));
 }
 
-const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error = true)
+const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error = true, b32 *OutIsGlobal=NULL)
 {
 	string Name = *NamePtr;
 	for(int i = Builder->Scope.Data.Count-1; i >= 0; i--)
@@ -191,7 +191,11 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 
 	symbol *s = Builder->Module->Globals[Name];
 	if(s)
+	{
+		if(OutIsGlobal) *OutIsGlobal = true;
 		return s;
+	}
+
 	string NoNamespace = STR_LIT("*");
 	For(Builder->Imported)
 	{
@@ -199,7 +203,10 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 		{
 			s = it->M->Globals[Name];
 			if(s)
+			{
+				if(OutIsGlobal) *OutIsGlobal = true;
 				return s;
+			}
 		}
 	}
 
@@ -213,7 +220,10 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 			{
 				s = it->M->Globals[Split.second];
 				if(s)
+				{
+					if(OutIsGlobal) *OutIsGlobal = true;
 					return s;
+				}
 				break;
 			}
 		}
@@ -611,8 +621,23 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Instruction(OP_CONSTINT, Node->ID.Type, Basic_uint, Builder));
 				break;
 			}
-			const symbol *Local = GetIRLocal(Builder, Node->ID.Name);
-			Result = Local->Register;
+
+			b32 IsGlobal = false;
+			const symbol *Local = GetIRLocal(Builder, Node->ID.Name, true, &IsGlobal);
+			if(IsGlobal)
+			{
+				instruction GlobalI = {};
+				GlobalI.Op = OP_GLOBAL;
+				GlobalI.Ptr = (void *)Local;
+				GlobalI.Result = Local->Register;
+				GlobalI.Type = Local->Type;
+
+				Result = PushInstruction(Builder, GlobalI);
+			}
+			else
+			{
+				Result = Local->Register;
+			}
 
 			b32 ShouldLoad = true;
 			if(IsLHS)
@@ -3011,6 +3036,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u
 		case AST_DECL:
 		{
 			function FakeFn = {};
+			LDEBUG("global: %s", Node->Decl.LHS->ID.Name->Data);
 			if(Node->Decl.Expression)
 			{
 				string NoFnName = STR_LIT("");
@@ -3169,6 +3195,11 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			case OP_NOP:
 			{
 				PushBuilder(Builder, "NOP");
+			} break;
+			case OP_GLOBAL:
+			{
+				const symbol *s = (const symbol *)Instr.Ptr;
+				PushBuilderFormated(Builder, "%%%d = GLOBAL %s", Instr.Result, s->LinkName->Data);
 			} break;
 			case OP_RESULT:
 			{
@@ -3475,14 +3506,22 @@ string DissasembleFunction(function Fn, int indent)
 	return MakeString(Builder);
 }
 
-string Dissasemble(slice<function> Functions)
+string Dissasemble(ir *IR)
 {
 	string_builder Builder = MakeBuilder();
-	ForArray(FnIdx, Functions)
+	For(IR->Globals)
 	{
-		function Fn = Functions[FnIdx];
+		Builder += *it->s->Name;
+		if(it->Init.LinkName == NULL)
+			continue;
+		Builder += " = {\n";
+		DissasembleBasicBlock(&Builder, it->Init.Blocks.Data, 1);
+		Builder += "}\n";
+	}
+	For(IR->Functions)
+	{
+		Builder += DissasembleFunction(*it, 0);
 		Builder += '\n';
-		Builder += DissasembleFunction(Fn, 0);
 	}
 	return MakeString(Builder);
 }

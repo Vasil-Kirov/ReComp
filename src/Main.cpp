@@ -228,7 +228,7 @@ void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
 	
 	if(ShouldOutputIR(File->Module->Name, CommandLine))
 	{
-		string Dissasembly = Dissasemble(SliceFromArray(File->IR->Functions));
+		string Dissasembly = Dissasemble(File->IR);
 		LWARN("[ MODULE %s ]\n\n%s", File->Module->Name.Data, Dissasembly.Data);
 	}
 }
@@ -585,7 +585,7 @@ main(int ArgCount, char *Args[])
 
 		VMBuildTimer = VLibStartTimer("VM");
 
-		VM = MakeInterpreter(BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
+		MakeInterpreter(VM, BuildModules, BuildFile.IR->MaxRegisters, DLLs, DLLCount);
 		if(HasErroredOut())
 			exit(1);
 
@@ -665,7 +665,8 @@ main(int ArgCount, char *Args[])
 			// Remake vm to evaluate enums with new info
 
 				VMBuildTimer2 = VLibStartTimer("VM");
-				interpreter ComptimeVM = MakeInterpreter(ModuleArray, 0, DLLs, DLLCount);
+				interpreter ComptimeVM = {};
+				MakeInterpreter(ComptimeVM, ModuleArray, 0, DLLs, DLLCount);
 				if(HasErroredOut())
 					exit(1);
 				VLibStopTimer(&VMBuildTimer2);
@@ -673,7 +674,7 @@ main(int ArgCount, char *Args[])
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
+			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -707,12 +708,12 @@ main(int ArgCount, char *Args[])
 		AddStdFiles(FileNames, false, {});
 		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
 		
-		VM = MakeInterpreter(ModuleArray, 100, DLLs, DLLCount);
+		MakeInterpreter(VM, ModuleArray, 100, DLLs, DLLCount);
 		if(HasErroredOut())
 			exit(1);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info);
+		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info, VM.StoredGlobals);
 		VLibStopTimer(&FileTimer.LLVM);
 		VM.StackAllocator.Free();
 	}

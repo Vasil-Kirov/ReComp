@@ -4,6 +4,7 @@
 #include "DynamicLib.h"
 #include "Memory.h"
 #include "StackAllocator.h"
+#include <unordered_map>
 
 #define mmax(a, b) (a > b) ? a : b
 
@@ -32,9 +33,28 @@ enum interpret_result_kind
 	INTERPRET_RUNTIME_ERROR
 };
 
+enum class value_flag: u32
+{
+	Global = BIT(0),
+};
+
+inline value_flag operator|(value_flag a, value_flag b)
+{
+    return static_cast<value_flag>(static_cast<u32>(a) | static_cast<u32>(b));
+}
+
+inline u32 operator&(value_flag a, value_flag b)
+{
+    return (u32) (static_cast<value_flag>(static_cast<u32>(a) & static_cast<u32>(b)));
+}
+
+inline value_flag& operator|=(value_flag &a, value_flag b)
+{
+	return a = a | b;
+}
+
 struct value
 {
-	u32 Type;
 	union
 	{
 		u64 u64;
@@ -43,6 +63,9 @@ struct value
 		f32 f32;
 		void *ptr;
 	};
+	// @TODO: maybe putting these in an anonymous struct would make it smaller?
+	value_flag Flags;
+	u32 Type;
 };
 
 struct interpret_result
@@ -104,6 +127,12 @@ struct binary_stack
 	}
 };
 
+struct stored_global
+{
+	void *Ptr;
+	uint Register;
+};
+
 struct interpreter
 {
 	code_chunk *Executing;
@@ -113,6 +142,7 @@ struct interpreter
 	stack<binary_stack> Stack;
 	stack<const error_info *> ErrorInfo;
 	slice<function> Imported;
+	std::unordered_map<void *, uint> StoredGlobals;
 	function CurrentFn;
 	string CurrentFnName;
 	b32 IsCurrentFnRetInPtr;

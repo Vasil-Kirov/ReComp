@@ -23,20 +23,25 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/Analysis.h"
 #include <cstdlib>
+#include <unordered_map>
 
 std::mutex LLVMNoThreadSafetyMutex;
 
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
 	auto LLVMu8 = LLVMIntTypeInContext(gen->ctx, 8);
-	auto Chars = array<LLVMValueRef>(String->Size+1);
+	size_t Size = String->Size;
+	if(Size == 0)
+		Size = strlen(String->Data);
+
+	auto Chars = array<LLVMValueRef>(Size+1);
 	ForArray(Idx, Chars)
 	{
 		Chars[Idx] = LLVMConstInt(LLVMu8, String->Data[Idx], false);
 	}
-	Chars[String->Size] = LLVMConstNull(LLVMu8);
+	Chars[Size] = LLVMConstNull(LLVMu8);
 
-	auto ArrayType = LLVMArrayType(LLVMu8, String->Size+1);
+	auto ArrayType = LLVMArrayType(LLVMu8, Size+1);
 	LLVMValueRef Global = LLVMAddGlobal(gen->mod, ArrayType, "");
 	LLVMValueRef Init = LLVMConstArray(LLVMu8, Chars.Data, Chars.Count);
 
@@ -236,7 +241,13 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 		} break;
 		case TypeKind_Pointer:
 		{
-			return LLVMConstInt(lt, *(size_t *)Ptr, false);
+			void *Val = *(void **)Ptr;
+			auto found = gen->StoredGlobals.find(Ptr);
+			if(found != gen->StoredGlobals.end())
+			{
+				return gen->map.Get(found->second);
+			}
+			return LLVMConstInt(lt, (unsigned long long)Val, false);
 		} break;
 		case TypeKind_Struct:
 		{
@@ -444,6 +455,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ALLOC: // Handled before
 		{
 		} break;
+		case OP_GLOBAL:
+		{
+			const symbol *s = (const symbol *)I.Ptr;
+			gen->map.Add(I.Result, gen->map.Get(s->Register));
+		} break;
 		case OP_RUN:
 		{
 			int CBlock = gen->CurrentBlock;
@@ -630,7 +646,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);
 
 
-			generator NewGen = {};
+			generator NewGen = {.StoredGlobals = gen->StoredGlobals};
 			NewGen.ctx = gen->ctx;
 			NewGen.mod = gen->mod;
 			NewGen.bld = LLVMCreateBuilderInContext(NewGen.ctx);
@@ -1298,13 +1314,13 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file*> Files, compile_info *Info)
+void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file*> Files, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
 	llvm_init_info Machine = RCInitLLVM(Info);
 
-	generator Gen = {};
+	generator Gen = {.StoredGlobals = StoredGlobals};
 	//file *File = M->Files[0];
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
@@ -1711,16 +1727,17 @@ struct file_generate_info
 	slice<module*> Modules;
 	slice<file*> Files;
 	compile_info *Info;
+	const std::unordered_map<void *, uint> *StoredGlobals;
 };
 
 void GenWorkerFn(void *Data)
 {
 	file_generate_info *Info = (file_generate_info *)Data;
-	RCGenerateFile(Info->M, Info->OutputBC, Info->Modules, Info->Files, Info->Info);
+	RCGenerateFile(Info->M, Info->OutputBC, Info->Modules, Info->Files, Info->Info, *Info->StoredGlobals);
 	LDEBUG("Done with module: %s", Info->M->Name.Data);
 }
 
-void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags, compile_info *Info)
+void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
 {
 	work_queue *Queue = CreateWorkQueue();
 	if((CommandFlags & CommandFlag_nothread) == 0)
@@ -1737,6 +1754,7 @@ void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags
 		FInfo->Modules = Modules;
 		FInfo->Files = Files;
 		FInfo->Info = Info;
+		FInfo->StoredGlobals = &StoredGlobals;
 		job Job = {
 			.Task = GenWorkerFn,
 			.Data = FInfo,

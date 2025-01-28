@@ -7,6 +7,7 @@
 #include "llvm-c/Target.h"
 #include "llvm-c/TargetMachine.h"
 #include <IR.h>
+#include <unordered_map>
 
 struct rc_block
 {
@@ -39,6 +40,7 @@ struct generator
 	b32 IsCurrentFnRetInPtr;
 	dynamic<LLVMTypeEntry> LLVMTypeMap;
 	dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
+	const std::unordered_map<void *, uint> &StoredGlobals;
 	dict<llvm_intrin> Intrinsics;
 };
 

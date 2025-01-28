@@ -69,6 +69,9 @@ enum op
 	// Signals the result of an expression for the interpreter
 	// Right = register
 	OP_RESULT,
+	
+	// Ptr = symbol*
+	OP_GLOBAL,
 
 	OP_UNREACHABLE,
 
@@ -255,7 +258,7 @@ struct ir
 };
 
 ir BuildIR(file *File, u32 LastRegister);
-string Dissasemble(slice<function> Fn);
+//string Dissasemble(slice<function> Fn);
 string DissasembleFunction(function Fn, int indent);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);

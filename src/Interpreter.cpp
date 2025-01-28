@@ -818,6 +818,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_NOP:
 			{
 			} break;
+			case OP_GLOBAL:
+			{
+				// 	%0 = OP_INDEX  arr
+				// 	%1 = OP_GLOBAL fn_foo
+				// 	%0 = OP_STORE  %1
+				const symbol *s = (const symbol *)I.Ptr;
+				value *v = VM->Registers.GetValue(s->Register);
+				value NewVal = *v;
+				NewVal.Flags |= value_flag::Global;
+				VM->Registers.AddValue(I.Result, NewVal);
+			} break;
 			case OP_ZEROUT:
 			{
 				value *Value = VM->Registers.GetValue(I.Right);
@@ -1147,6 +1158,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value *Left = VM->Registers.GetValue(I.Left);
 				value *Right = VM->Registers.GetValue(I.Right);
 				Store(VM, Left, Right, I.Type);
+				if(Right->Flags & value_flag::Global)
+				{
+					VM->StoredGlobals[Left->ptr] = I.Right;
+				}
 			} break;
 			case OP_INDEX:
 			{
@@ -1498,7 +1513,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastAdded)};
 }
 
-interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
+void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs, u32 DLLCount)
 {
 	ForArray(MIdx, Modules)
 	{
@@ -1513,7 +1528,6 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 		}
 	}
 
-	interpreter VM = {};
 	InitArenaMem(&VM.Arena, GB(64), MB(1));
 	VM.Registers.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
 
@@ -1576,6 +1590,7 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 		ForArray(FIdx, m->Files)
 		{
 			file *f = m->Files[FIdx];
+			LDEBUG("file: %s", f->Name.Data);
 			DoGlobals(&VM, f->IR);
 		}
 	}
@@ -1609,8 +1624,6 @@ interpreter MakeInterpreter(slice<module*> Modules, u32 MaxRegisters, DLIB *DLLs
 		}
 	}
 
-
-	return VM;
 }
 
 interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals=false)

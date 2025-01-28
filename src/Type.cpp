@@ -634,6 +634,14 @@ b32 IsCastValid(const type *From, const type *To)
 		return IsCastValid(T, From);
 	}
 
+	if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
+	{
+		if(From->Pointer.Flags & PointerFlag_Optional)
+		{
+			return To->Pointer.Flags & PointerFlag_Optional;
+		}
+	}
+
 	if(From->Kind != To->Kind)
 		return false;
 

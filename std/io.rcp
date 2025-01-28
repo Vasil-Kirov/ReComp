@@ -74,7 +74,9 @@ readln :: fn(alloc: *mem.Allocator) -> string {
 
 read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 	stdin := os.stdin();
-	buf := @*u8 alloc.alloc(bytes, alloc);
+	allocated := alloc.alloc(bytes, alloc);
+	if allocated == null return "";
+	buf := @*u8 ?allocated;
 	read := os.read(stdin, buf, bytes);
 	if read == -1 || read == 0 {
 		alloc.free(buf, alloc);

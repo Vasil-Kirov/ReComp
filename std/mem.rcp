@@ -7,9 +7,9 @@ gb :: fn(b: int) -> int { return b << 30; }
 
 // scratch allocator to be used when you don't care about storing the memory long term
 // it's the user's job to reset it
-temp_alloc :=  Allocator {
-			alloc = generic_alloc,
-			free = generic_free,
+temp_alloc := Allocator {
+			alloc = arena_alloc,
+			free = no_free,
 			data = null,
 		};
 
@@ -65,7 +65,11 @@ struct ScratchContext {
 }
 
 arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
-    ctx := @*ScratchContext this.data;
+	if this.data == null {
+		this := this;
+		*this = create_scratch(mb(1));
+	}
+    ctx := @*ScratchContext ?this.data;
     os.assert(ctx != null, "Invalid allocator for arena_alloc()");
     os.assert(ctx.max > ctx.current, "Calling arena_alloc() with an out of memory arena");
 
@@ -100,14 +104,14 @@ create_scratch :: fn(max_size: int) -> Allocator {
 }
 
 reset_scratch :: fn(a: *Allocator) {
-    ctx := @*ScratchContext a.data;
-	#assert ctx;
+	#assert a.data;
+    ctx := @*ScratchContext ?a.data;
 	ctx.current = ctx.start;
 }
 
 destroy_scratch :: fn(a: *Allocator) {
-    ctx := @*ScratchContext a.data;
-	#assert ctx;
+	#assert a.data;
+    ctx := @*ScratchContext ?a.data;
     os.free(ctx);
 }
 

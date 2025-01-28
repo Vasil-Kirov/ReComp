@@ -6,7 +6,7 @@ custom_t :: []i32;
 
 f :: c"fstr";
 
-some_fn: fn() -> i32;
+some_fn: *fn() -> i32;
 
 ff :: fn() -> i32 { return 10;}
 

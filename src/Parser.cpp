@@ -1853,6 +1853,27 @@ node *ParseTopLevel(parser *Parser)
 					EatToken(Parser, ';', false);
 				Result = Fn;
 			}
+			else if(Decl->Decl.Type && Decl->Decl.Type->Type == AST_FN)
+			{
+				const string *LHSName = NULL;
+				if(LHS->Type != AST_ID)
+				{
+					RaiseError(false, *LHS->ErrorInfo, "Expected a name on the left of function ");
+					LHSName = &ErrorID;
+				}
+				else
+				{
+					LHSName = LHS->ID.Name;
+				}
+				node *Fn = Decl->Decl.Type;
+				Fn->Fn.ProfileCallback = ProfileCallback;
+				Fn->Fn.Name = LHSName;
+				if(Parser->CurrentlyPublic)
+					Fn->Fn.Flags |= SymbolFlag_Public;
+				if(!Fn->Fn.Body.IsValid())
+					EatToken(Parser, ';', false);
+				Result = Fn;
+			}
 			else
 			{
 				if(Parser->CurrentlyPublic)

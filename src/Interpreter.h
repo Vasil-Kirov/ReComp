@@ -36,6 +36,7 @@ enum interpret_result_kind
 enum class value_flag: u32
 {
 	Global = BIT(0),
+	ForeignCall = BIT(1),
 };
 
 inline value_flag operator|(value_flag a, value_flag b)
@@ -136,6 +137,7 @@ struct stored_global
 struct interpreter
 {
 	code_chunk *Executing;
+	interpreter_scope Globals;
 	interpreter_scope Registers;
 	ap_memory Arena;
 	stack_alloc StackAllocator;
@@ -146,6 +148,7 @@ struct interpreter
 	function CurrentFn;
 	string CurrentFnName;
 	b32 IsCurrentFnRetInPtr;
+	b32 KeepTrackOfStoredGlobals;
 };
 
 #include <dyncall.h>

@@ -29,6 +29,7 @@ struct generator
 	LLVMDIBuilderRef dbg; // Debug Info Builder
 	LLVMMetadataRef f_dbg; // Metadata for current file
 	LLVMTargetDataRef data;
+	value_map global;
 	value_map map;
 	LLVMValueRef fn;
 	function irfn;

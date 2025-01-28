@@ -257,7 +257,7 @@ struct ir
 	u32 MaxRegisters;
 };
 
-ir BuildIR(file *File, u32 LastRegister);
+ir BuildIR(file *File);
 //string Dissasemble(slice<function> Fn);
 string DissasembleFunction(function Fn, int indent);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
@@ -265,7 +265,7 @@ instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Bui
 u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
-		slice<import> Imported, u32 IRStartRegister);
+		slice<import> Imported);
 b32 CanGetPointerAfterSize(const type *T, int Size);
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);

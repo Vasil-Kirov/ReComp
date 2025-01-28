@@ -1,16 +1,11 @@
 f2
 
-#import mat as mt
-#import main as main
-#import io
-#import main
 
-struct something {
-    x: main.custom_t
+fn_ptr: *fn(str: *u8) -> i32;
+puts: fn #foreign(str: *u8) -> i32;
+
+init :: fn () {
+	fn_ptr = puts;
 }
 
-fnf :: fn(m: $T) {
-	t := type_of m;
-	io.println("% % %", t, mt.m4, t == mt.m4);
-}
 

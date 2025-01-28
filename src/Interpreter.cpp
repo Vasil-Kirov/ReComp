@@ -832,9 +832,15 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				// 	%1 = OP_GLOBAL fn_foo
 				// 	%0 = OP_STORE  %1
 				const symbol *s = (const symbol *)I.Ptr;
-				value *v = VM->Registers.GetValue(s->Register);
+				if(*s->Name == STR_LIT("create_builder"))
+				{
+					LDEBUG("BUILDER");
+				}
+
+				value *v = VM->Globals.GetValue(s->Register);
+				Assert(v->Flags & value_flag::Global);
 				value NewVal = *v;
-				NewVal.Flags |= value_flag::Global;
+				Assert(NewVal.ptr);
 				VM->Registers.AddValue(I.Result, NewVal);
 			} break;
 			case OP_ZEROUT:
@@ -1044,6 +1050,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				//Value->Type = I.Type;
 				value Result = {};
 				Result.Type = I.Type;
+
+				if(Value->Flags & value_flag::ForeignCall)
+					Result.Flags |= value_flag::ForeignCall;
+
 				const type *Type = GetType(I.Type);
 				if(Type->Kind == TypeKind_Enum)
 				{
@@ -1127,7 +1137,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_TYPEINFO:
 			{
-				value *TypeTable = VM->Registers.GetValue(I.Left);
+				value *TypeTable = VM->Globals.GetValue(I.Left);
 				value *Idx = VM->Registers.GetValue(I.Right);
 				void *Data = *(((void **)TypeTable->ptr) + 1);
 				u8 *Result = ((u8 *)Data) + Idx->i64 * GetTypeSize(I.Type);
@@ -1166,9 +1176,48 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value *Left = VM->Registers.GetValue(I.Left);
 				value *Right = VM->Registers.GetValue(I.Right);
 				Store(VM, Left, Right, I.Type);
-				if(Right->Flags & value_flag::Global)
+				if(VM->KeepTrackOfStoredGlobals && Right->Flags & value_flag::Global)
 				{
-					VM->StoredGlobals[Left->ptr] = I.Right;
+					u32 GlobalRegister = -1;
+					For(VM->Executing->Code)
+					{
+						if(it->Op == OP_GLOBAL)
+						{
+							if(it->Result == I.Right)
+							{
+								const symbol *s = (const symbol *)it->Ptr;
+								GlobalRegister = s->Register;
+								break;
+							}
+						}
+					}
+					if(GlobalRegister == -1)
+					{
+						Assert(OptionalBlocks.Count > 0);
+						ForArray(BIdx, OptionalBlocks)
+						{
+							auto b = OptionalBlocks[BIdx];
+							For(b.Code)
+							{
+								if(it->Op == OP_GLOBAL)
+								{
+									if(it->Result == I.Right)
+									{
+										const symbol *s = (const symbol *)it->Ptr;
+										GlobalRegister = s->Register;
+										break;
+									}
+								}
+							}
+							if(GlobalRegister != -1) break;
+						}
+						Assert(GlobalRegister != -1);
+					}
+					VM->StoredGlobals[Left->ptr] = GlobalRegister;
+				}
+				if(Right->Flags & value_flag::ForeignCall)
+				{
+					Left->Flags |= value_flag::ForeignCall;
 				}
 			} break;
 			case OP_INDEX:
@@ -1220,7 +1269,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 
-				if(Operand->Type & (1 << 31))
+				if(Operand->Flags & value_flag::ForeignCall)
 				{
 					u64 Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
 					if(I.Type != INVALID_TYPE)
@@ -1244,9 +1293,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					interpreter_scope CurrentScope = VM->Registers;
 					interpreter_scope NewScope = {};
 
-					uint Max = mmax(CurrentScope.MaxRegisters, F->LastRegister);
-					NewScope.Init(Max, VM->StackAllocator.Push(Max * sizeof(value)));
-					CopyRegisters(VM, NewScope);
+					NewScope.Init(F->LastRegister, VM->StackAllocator.Push(F->LastRegister * sizeof(value)));
 
 					VM->Registers = NewScope;
 
@@ -1537,7 +1584,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 	}
 
 	InitArenaMem(&VM.Arena, GB(64), MB(1));
-	VM.Registers.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
+	VM.Globals.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
 
 	ForArray(MIdx, Modules)
 	{
@@ -1548,6 +1595,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 
 			value Value = {};
 			Value.Type = s->Type;
+			Value.Flags |= value_flag::Global;
 			if(s->LinkName)
 			{
 				static const string GlobalInits = STR_LIT("base.global_initializers");
@@ -1561,7 +1609,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 			{
 				if(s->Flags & SymbolFlag_Extern)
 				{
-					Value.Type |= 1 << 31;
+					Value.Flags |= value_flag::ForeignCall;
 					For(DLs)
 					{
 						void *Proc = GetSymLibrary(*it, s->LinkName->Data);
@@ -1586,10 +1634,11 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 			{
 				Value.ptr = ArenaAllocate(&VM.Arena, GetTypeSize(T));
 			}
-			VM.Registers.AddValue(s->Register, Value);
+			VM.Globals.AddValue(s->Register, Value);
 		}
 	}
 
+	VM.KeepTrackOfStoredGlobals = true;
 	EvaluateEnums(&VM);
 
 	ForArray(MIdx, Modules)
@@ -1632,6 +1681,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 		}
 	}
 
+	VM.KeepTrackOfStoredGlobals = false;
 }
 
 interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals=false)
@@ -1647,8 +1697,12 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 	Chunk.Code = Start;
 	VM->Executing = &Chunk;
 
+	VM->Registers.Init(Fn.LastRegister, VM->StackAllocator.Push(Fn.LastRegister * sizeof(value)));
+
 	DoAllocationForBlocks(VM, Blocks, Globals);
 	interpret_result Result = Run(VM, Blocks, Args);
+
+	VM->StackAllocator.Pop();
 
 	VM->StackAllocator.Pop();
 	VM->Stack.Pop();
@@ -1729,7 +1783,8 @@ void DoGlobals(interpreter *VM, ir *IR)
 			value Result = {};
 			Result.Type = it->s->Type;
 			Result.ptr = ArenaAllocate(&VM->Arena, GetTypeSize(it->s->Type));
-			VM->Registers.AddValue(it->s->Register, Result);
+			Result.Flags |= value_flag::Global;
+			VM->Globals.AddValue(it->s->Register, Result);
 			continue;
 		}
 
@@ -1753,7 +1808,8 @@ void DoGlobals(interpreter *VM, ir *IR)
 				Result.Result = Global;
 			}
 
-			VM->Registers.AddValue(it->s->Register, Result.Result);
+			Result.Result.Flags |= value_flag::Global;
+			VM->Globals.AddValue(it->s->Register, Result.Result);
 		}
 	}
 }

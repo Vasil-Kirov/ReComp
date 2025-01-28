@@ -221,10 +221,10 @@ void AnalyzeFile(file *File)
 		exit(1);
 }
 
-void BuildIRFile(file *File, command_line CommandLine, u32 IRStartRegister)
+void BuildIRFile(file *File, command_line CommandLine)
 {
 	File->IR = NewType(ir);
-	*File->IR = BuildIR(File, IRStartRegister);
+	*File->IR = BuildIR(File);
 	
 	if(ShouldOutputIR(File->Module->Name, CommandLine))
 	{
@@ -269,7 +269,6 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		exit(1);
 
 	CurrentModules = SliceFromArray(Modules);
-	u32 MaxCount;
 	{
 		Timers->TypeCheck = VLibStartTimer("Type Checking");
 		ResolveSymbols(Files, WantMain);
@@ -278,7 +277,7 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 			file *F = Files[Idx];
 			AnalyzeFile(F);
 		}
-		MaxCount = AssignIRRegistersForModuleSymbols(Modules);
+		AssignIRRegistersForModuleSymbols(Modules);
 		VLibStopTimer(&Timers->TypeCheck);
 	}
 
@@ -299,9 +298,9 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		ForArray(Idx, Files)
 		{
 			file *File = Files[Idx];
-			BuildIRFile(File, CommandLine, MaxCount);
+			BuildIRFile(File, CommandLine);
 		}
-		BuildEnumIR(SliceFromArray(Modules), MaxCount);
+		BuildEnumIR(SliceFromArray(Modules));
 
 		VLibStopTimer(&Timers->IR);
 	}

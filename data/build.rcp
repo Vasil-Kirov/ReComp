@@ -5,6 +5,7 @@ build
 #import os
 #import array as arr
 #import mem
+#import str as *
 
 #load_system_dl "libSDL3.so"
 
@@ -26,8 +27,16 @@ get_thing :: fn(a: TwoPtrs) {
 	io.println("F: %", a.a + a.b);
 }
 
+INT :: 10;
+
+foo :: fn() -> i32 {
+	b := create_builder(&mem.temp_alloc);
+	return 10;
+}
+
 compile :: fn() -> c.CompileInfo {
-	get_thing(TwoPtrs{12, 43});
+	foo();
+	get_thing(TwoPtrs{INT, 43});
 
 	out := c.CompileInfo {
 		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },

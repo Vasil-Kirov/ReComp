@@ -245,7 +245,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 			auto found = gen->StoredGlobals.find(Ptr);
 			if(found != gen->StoredGlobals.end())
 			{
-				return gen->map.Get(found->second);
+				return gen->global.Get(found->second);
 			}
 			return LLVMConstInt(lt, (unsigned long long)Val, false);
 		} break;
@@ -458,7 +458,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_GLOBAL:
 		{
 			const symbol *s = (const symbol *)I.Ptr;
-			gen->map.Add(I.Result, gen->map.Get(s->Register));
+			gen->map.Add(I.Result, gen->global.Get(s->Register));
 		} break;
 		case OP_RUN:
 		{
@@ -485,7 +485,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			u32 TInfo = I.Type;
 			u32 TInfoPtr = GetPointerTo(I.Type);
 			u32 TInfoSlice = GetSliceType(TInfo);
-			LLVMValueRef TypeTable = gen->map.Get(I.Left);
+			LLVMValueRef TypeTable = gen->global.Get(I.Left);
 			LLVMValueRef Idx = gen->map.Get(I.Right);
 			LLVMTypeRef TypeInfo = ConvertToLLVMType(gen, TInfo);
 			LLVMTypeRef TypeSlice = ConvertToLLVMType(gen, TInfoSlice);
@@ -657,10 +657,9 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.LLVMTypeMap = RCCopyTypeMap(gen->LLVMTypeMap);
 			NewGen.LLVMDebugTypeMap = RCCopyTypeMap(gen->LLVMDebugTypeMap);
 			NewGen.Intrinsics = gen->Intrinsics;
+			NewGen.global = gen->global;
 
 			gen->map.Add(I.Result, LLVMFn);
-			for(int i = 0; i < gen->map.Bottom; ++i)
-				NewGen.map.Add(gen->map.Data[i].Register, gen->map.Data[i].Value);
 			RCGenerateFunction(&NewGen, *Fn);
 			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
 			NewGen.LLVMTypeMap.Free();
@@ -1441,7 +1440,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
 					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);
-					Gen.map.Add(s->Register, TypeTable);
+					Gen.global.Add(s->Register, TypeTable);
 					continue;
 				}
 			}
@@ -1458,7 +1457,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 			LLVMValueRef AlreadyIn = AddedFns[*s->LinkName];
 			if(AlreadyIn)
 			{
-				Gen.map.Add(s->Register, AlreadyIn);
+				Gen.global.Add(s->Register, AlreadyIn);
 			}
 
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
@@ -1471,7 +1470,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
-				Gen.map.Add(s->Register, Fn);
+				Gen.global.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);
 			}
 #if 0
@@ -1531,11 +1530,10 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 						LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
 					}
 				}
-				Gen.map.Add(it->s->Register, Global);
+				Gen.global.Add(it->s->Register, Global);
 			}
 		}
 	}
-	Gen.map.LockBottom();
 
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(FIdx, M->Files)

@@ -149,13 +149,13 @@ basic_block AllocateBlock(block_builder *Builder)
 	return Block;
 }
 
-block_builder MakeBlockBuilder(function *Fn, u32 StartRegister, module *Module)
+block_builder MakeBlockBuilder(function *Fn, module *Module)
 {
 	block_builder Builder = {};
 	Builder.Scope.Push({});
 	Builder.Function = Fn;
 	Builder.CurrentBlock = AllocateBlock(&Builder);
-	Builder.LastRegister = StartRegister;
+	Builder.LastRegister = 0;
 	Builder.Module = Module;
 
 	return Builder;
@@ -271,7 +271,7 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 	return Alloc;
 }
 
-const symbol *GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
+const u32 GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
 {
 	// @TODO: Global abuse
 	For(CurrentModules)
@@ -279,9 +279,13 @@ const symbol *GetBuiltInFunction(block_builder *Builder, string Module, string F
 		if((*it)->Name == Module)
 		{
 			symbol *s = (*it)->Globals[FnName];
+
 			if(s)
-				return s;
-			Assert(false);
+			{
+				instruction GlobalI = Instruction(OP_GLOBAL, (void *)s, s->Type, Builder, 0);
+				return PushInstruction(Builder, GlobalI);
+			}
+			unreachable;
 		}
 	}
 
@@ -626,11 +630,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const symbol *Local = GetIRLocal(Builder, Node->ID.Name, true, &IsGlobal);
 			if(IsGlobal)
 			{
-				instruction GlobalI = {};
-				GlobalI.Op = OP_GLOBAL;
-				GlobalI.Ptr = (void *)Local;
-				GlobalI.Result = Local->Register;
-				GlobalI.Type = Local->Type;
+				instruction GlobalI = Instruction(OP_GLOBAL, (void *)Local, Local->Type, Builder, 0);
 
 				Result = PushInstruction(Builder, GlobalI);
 			}
@@ -655,7 +655,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			
 			if(ShouldLoad && IsLoadableType(Type))
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Local->Register, Local->Type, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
 		} break;
 		case AST_RUN:
 		{
@@ -1144,7 +1144,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				// @TODO: This is for selecting enums from modules
 				// Ex. my_mod.my_enum.VALUE
 				// but it's kinda hacky, find a better way to do this
-				const symbol *Sym = GetIRLocal(Builder, Mangled, false);
+				b32 IsGlobal = false;
+				const symbol *Sym = GetIRLocal(Builder, Mangled, false, &IsGlobal);
 				if(!Sym)
 				{
 					string Name = *Mangled;
@@ -1185,7 +1186,16 @@ SEARCH_TYPE_DONE:
 				else
 				{
 					const type *Type = GetType(Node->Selector.Type);
-					Result = Sym->Register;
+					if(IsGlobal)
+					{
+						instruction GlobalI = Instruction(OP_GLOBAL, (void *)Sym, Sym->Type, Builder, 0);
+
+						Result = PushInstruction(Builder, GlobalI);
+					}
+					else
+					{
+						Result = Sym->Register;
+					}
 					if(!IsLHS && !IsFn(Type))
 					{
 						Result = PushInstruction(Builder,
@@ -1303,7 +1313,7 @@ BUILD_SLICE_SELECTOR:
 		} break;
 		case AST_FN:
 		{
-			function fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported, Builder->LastRegister);
+			function fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
 
 			Result = PushInstruction(Builder,
 					Instruction(OP_FN, (u64)DupeType(fn, function), fn.Type, Builder));
@@ -1915,13 +1925,14 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 						Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 				if(!Node->For.ItByRef)
 				{
-					const symbol *DerefFn = GetBuiltInFunction(Builder, STR_LIT("internal"), STR_LIT("deref"));;
+					u32 DerefFn = GetBuiltInFunction(Builder, STR_LIT("internal"), STR_LIT("deref"));;
+					u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 					call_info *Info = NewType(call_info);
-					Info->Operand = DerefFn->Register;
+					Info->Operand = DerefFn;
 					Info->Args = SliceFromConst({Data});
 					u32 Derefed = PushInstruction(Builder, 
-							Instruction(OP_CALL, (u64)Info, DerefFn->Type, Builder));
+							Instruction(OP_CALL, (u64)Info, FnT, Builder));
 
 					ItAlloc = BuildIRStoreVariable(Builder, Derefed, Node->For.ItType);
 				}
@@ -1994,13 +2005,14 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			u32 Data = PushInstruction(Builder,
 					Instruction(OP_LOAD, 0, StringPtr, GetPointerTo(Basic_u8), Builder));
 
-			const symbol *AdvanceFn = GetBuiltInFunction(Builder, STR_LIT("internal"), STR_LIT("advance"));;
+			u32 AdvanceFn = GetBuiltInFunction(Builder, STR_LIT("internal"), STR_LIT("advance"));;
+			u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 			call_info *Info = NewType(call_info);
-			Info->Operand = AdvanceFn->Register;
+			Info->Operand = AdvanceFn;
 			Info->Args = SliceFromConst({Data});
 			Data = PushInstruction(Builder, 
-					Instruction(OP_CALL, (u64)Info, AdvanceFn->Type, Builder));
+					Instruction(OP_CALL, (u64)Info, FnT, Builder));
 
 			PushInstruction(Builder,
 					InstructionStore(StringPtr, Data, GetPointerTo(Basic_u8)));
@@ -2076,25 +2088,28 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
 
 	string Internal = STR_LIT("internal");
-	const symbol *StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
+	u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
+	u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 	call_info *Call = NewType(call_info);
 	Call = NewType(call_info);
-	Call->Operand = StdOut->Register;
+	Call->Operand = StdOut;
 	Call->Args = {};
-	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, StdOut->Type, Builder));
+	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
 
-	const symbol *s = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
+	u32 Write = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
+	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 	Call = NewType(call_info);
-	Call->Operand = s->Register;
+	Call->Operand = Write;
 	Call->Args = SliceFromConst({Handle, Data, Count});
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, s->Type, Builder));
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
 
-	const symbol *abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
+	u32 Abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
+	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 	Call = NewType(call_info);
-	Call->Operand = abort->Register;
+	Call->Operand = Abort;
 	Call->Args = {};
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, abort->Type, Builder));
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
 
 	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
 }
@@ -2604,7 +2619,7 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 }
 
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
-		slice<import> Imported, u32 IRStartRegister)
+		slice<import> Imported)
 {
 	module *Module = Node->Fn.FnModule;
 	string NameNoPtr = *Name;
@@ -2630,7 +2645,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 	if(Body.IsValid())
 	{
-		block_builder Builder = MakeBlockBuilder(&Function, IRStartRegister, Module);
+		block_builder Builder = MakeBlockBuilder(&Function, Module);
 		Builder.Imported = Imported;
 		Builder.Module = Module;
 
@@ -3002,7 +3017,7 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 	}
 }
 
-void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u32 IRStartRegister)
+void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 {
 	static u32 VoidFnT = GenerateVoidFnT();
 	switch(Node->Type)
@@ -3013,7 +3028,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u
 
 			if((Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
-				function Fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported, IRStartRegister);
+				function Fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported);
 				if(Fn.LastRegister > IR->MaxRegisters)
 					IR->MaxRegisters = Fn.LastRegister;
 
@@ -3028,9 +3043,10 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u
 			FakeFn.Type = VoidFnT;
 			FakeFn.LinkName = FakeFn.Name;
 			FakeFn.NoDebugInfo = true;
-			block_builder Builder = MakeBlockBuilder(&FakeFn, IRStartRegister, Module);
+			block_builder Builder = MakeBlockBuilder(&FakeFn, Module);
 			BuildRun(&Builder, Node);
 			Terminate(&Builder, {});
+			FakeFn.LastRegister = Builder.LastRegister;
 			IR->GlobalRuns.Push(FakeFn);
 		} break;
 		case AST_DECL:
@@ -3044,10 +3060,11 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u
 				FakeFn.Type = VoidFnT;
 				FakeFn.LinkName = FakeFn.Name;
 				FakeFn.NoDebugInfo = true;
-				block_builder Builder = MakeBlockBuilder(&FakeFn, IRStartRegister, Module);
+				block_builder Builder = MakeBlockBuilder(&FakeFn, Module);
 				PushErrorInfo(&Builder, Node);
 				BuildIRFromExpression(&Builder, Node->Decl.Expression);
 				Terminate(&Builder, {});
+				FakeFn.LastRegister = Builder.LastRegister;
 			}
 			Assert(Node->Decl.LHS->Type == AST_ID);
 			const string *Name = Node->Decl.LHS->ID.Name;
@@ -3068,7 +3085,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module, u
 	}
 }
 
-void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, u32 StartRegister)
+void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT)
 {
 	if(File->Module->Name != STR_LIT("base"))
 		return;
@@ -3081,7 +3098,7 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, u32 StartRegister)
 	TypeTableFn.LinkName = TypeTableFn.Name;
 	TypeTableFn.NoDebugInfo = true;
 
-	block_builder Builder = MakeBlockBuilder(&TypeTableFn, StartRegister, File->Module);
+	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module);
 
 	string TypeTableName = STR_LIT("type_table");
 	uint TypeCount = GetTypeCount();
@@ -3094,27 +3111,31 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, u32 StartRegister)
 	u32 Size = PushInt(TypeCount, &Builder);
 
 	BuildTypeTable(&Builder, Data, ArrayType, TypeCount);
-	BuildSlice(&Builder, Data, Size, Sym->Type, NULL, Sym->Register);
+
+	instruction GlobalI = Instruction(OP_GLOBAL, (void *)Sym, Sym->Type, &Builder, 0);
+	u32 LocalRegister = PushInstruction(&Builder, GlobalI);
+	BuildSlice(&Builder, Data, Size, Sym->Type, NULL, LocalRegister);
 
 	PushInstruction(&Builder, Instruction(OP_RET, -1, 0, INVALID_TYPE, &Builder));
 	Terminate(&Builder, {});
 	TypeTableFn.LastRegister = Builder.LastRegister;
 
 	IR->Functions.Push(TypeTableFn);
+	IR->Globals.Push(ir_global{.s = Sym, .Init = {}});
 	Builder.Scope.Pop().Free();
 }
 
-ir BuildIR(file *File, u32 StartRegister)
+ir BuildIR(file *File)
 {
 	ir IR = {};
 	u32 NodeCount = File->Nodes.Count;
 	static u32 VoidFnT = GenerateVoidFnT();
 
-	BuildTypeTableFn(&IR, File, VoidFnT, StartRegister);
+	BuildTypeTableFn(&IR, File, VoidFnT);
 
 	for(int I = 0; I < NodeCount; ++I)
 	{
-		GlobalLevelIR(&IR, File->Nodes[I], File->Checker->Imported, File->Module, StartRegister);
+		GlobalLevelIR(&IR, File->Nodes[I], File->Checker->Imported, File->Module);
 	}
 	for(int I = 0; I < NodeCount; ++I)
 	{
@@ -3135,7 +3156,7 @@ ir BuildIR(file *File, u32 StartRegister)
 
 extern type **TypeTable;
 
-void BuildEnumIR(slice<module *> Modules, u32 LastRegister)
+void BuildEnumIR(slice<module *> Modules)
 {
 	array<import> ImportArray{Modules.Count};
 	ForArray(Idx, Modules)
@@ -3160,7 +3181,7 @@ void BuildEnumIR(slice<module *> Modules, u32 LastRegister)
 			Fn.LinkName = Fn.Name;
 			Fn.NoDebugInfo = true;
 
-			block_builder Builder = MakeBlockBuilder(&Fn, LastRegister, M);
+			block_builder Builder = MakeBlockBuilder(&Fn, M);
 			Builder.Imported = Imports;
 			For(T->Enum.Members)
 			{

@@ -4,6 +4,7 @@
 stack_alloc::stack_alloc() : Tracker(1024), At(0), DoZeroOut(false)
 {
 	InitArenaMem(&Arena, GB(16), MB(32));
+	Arena.Name = "stack";
 }
 
 void stack_alloc::Free()

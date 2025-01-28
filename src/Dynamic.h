@@ -27,6 +27,11 @@ struct dynamic {
 			Capacity = NewCapacity;
 		}
 	}
+	T *GetLast() const
+	{
+		Assert(Count != 0);
+		return &Data[Count-1];
+	};
 	T *GetPtr(size_t Index) const
 	{
 		Assert(Index < Count);

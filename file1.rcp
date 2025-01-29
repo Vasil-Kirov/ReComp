@@ -12,18 +12,25 @@ ff :: fn() -> i32 { return 10;}
 x: i32;
 
 puts: fn #foreign(str: *u8) -> i32;
+printf: fn #foreign(fmt: *u8, args: ...) -> i32;
+sinf: fn #foreign(arg: f32) -> f32;
+sin: fn #foreign(arg: f64) -> f64;
 
 main :: fn() -> i32 {
-	f2.init();
-	io.println("% %", puts(c"asdf"), f2.fn_ptr(c"foo"));
+	//f2.init();
+	x := 0.5;
+	s1 := sin(0.5);
+	s2 := sinf(x);
+	printf(c"%f %f\n", s1, @f64 s2);
+	//io.println("% %", @f64 1.5, x);
 	//io.println("%s", f);
 
-    return x;
+    return 0;
 }
 
 
 
-#run for true ff();
+#run main();
 
 
 // do_foo :: fn(s: []$T) {

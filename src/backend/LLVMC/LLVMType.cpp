@@ -812,11 +812,11 @@ LLVMOpcode RCCast(const type *From, const type *To)
 		}
 		else
 		{
-			// @TODO: other pointer casts ?
+			// @Note: other pointer casts ?
 			// ???
 			// It should probably not do anything here, pointer to pointer shouldn't be
 			// outputed to the backend
-			Assert(false);
+			unreachable;
 		}
 	}
 	else if(From->Kind == TypeKind_Enum)

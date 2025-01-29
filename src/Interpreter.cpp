@@ -200,7 +200,7 @@ DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree)
 	return MakeAggr(T, AggrToFree);
 }
 
-u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
+value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 {
 	Assert(Operand->ptr);
 	const type *FnT = GetType(Operand->Type);
@@ -309,7 +309,7 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 					} break;
 					case Basic_f64:
 					{
-						dcArgFloat(dc, Arg->f64);
+						dcArgDouble(dc, Arg->f64);
 					} break;
 					case Basic_type:
 					case Basic_int:
@@ -365,13 +365,14 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 		}
 	}
 
-	u64 Result = 0;
+	value Result = {};
 	if(FnT->Function.Returns.Count == 0)
 	{
 		dcCallVoid(dc, Operand->ptr);
 	}
 	else if(FnT->Function.Returns.Count == 1)
 	{
+		Result.Type = FnT->Function.Returns[0];
 		const type *Ret = GetType(FnT->Function.Returns[0]);
 		switch(Ret->Kind)
 		{
@@ -379,37 +380,54 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 			{
 				if(Ret->Basic.Kind == Basic_bool)
 				{
-					Result = dcCallBool(dc, Operand->ptr);
+					Result.u64 = dcCallBool(dc, Operand->ptr);
 				}
 				else if(Ret->Basic.Kind == Basic_f32)
 				{
-					Result = dcCallFloat(dc, Operand->ptr);
+					Result.f32 = dcCallFloat(dc, Operand->ptr);
 				}
 				else if(Ret->Basic.Kind == Basic_f64)
 				{
-					Result = dcCallDouble(dc, Operand->ptr);
+					Result.f64 = dcCallDouble(dc, Operand->ptr);
 				}
 				else if(Ret->Basic.Kind == Basic_string)
 				{
 					void *Ptr = VM->Stack.Peek().Allocate(GetTypeSize(Basic_string));
 					DCaggr *Aggr = MakeAggr(Ret, Aggrs);
-					dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
-					Result = (u64)Ptr;
+					Result.ptr = dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
 				}
 				else
 				{
 					uint Size = GetTypeSize(Ret);
-					switch(Size)
+					if(Ret->Basic.Flags & BasicFlag_Unsigned)
 					{
-						case 1:
-						Result = dcCallChar(dc, Operand->ptr); break;
-						case 2:
-						Result = dcCallShort(dc, Operand->ptr); break;
-						case 4:
-						// @TODO: might be wrong
-						Result = dcCallInt(dc, Operand->ptr); break;
-						case 8:
-						Result = dcCallLongLong(dc, Operand->ptr); break;
+						switch(Size)
+						{
+							case 1:
+							Result.u64 = dcCallChar(dc, Operand->ptr); break;
+							case 2:
+							Result.u64 = dcCallShort(dc, Operand->ptr); break;
+							case 4:
+							// @TODO: might be wrong
+							Result.u64 = dcCallInt(dc, Operand->ptr); break;
+							case 8:
+							Result.u64 = dcCallLongLong(dc, Operand->ptr); break;
+						}
+					}
+					else
+					{
+						switch(Size)
+						{
+							case 1:
+							Result.i64 = dcCallChar(dc, Operand->ptr); break;
+							case 2:
+							Result.i64 = dcCallShort(dc, Operand->ptr); break;
+							case 4:
+							// @TODO: might be wrong
+							Result.i64 = dcCallInt(dc, Operand->ptr); break;
+							case 8:
+							Result.i64 = dcCallLongLong(dc, Operand->ptr); break;
+						}
 					}
 				}
 			} break;
@@ -418,12 +436,11 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 			{
 				void *Ptr = VM->Stack.Peek().Allocate(GetTypeSize(Ret));
 				DCaggr *Aggr = MakeAggr(Ret, Aggrs);
-				dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
-				Result = (u64)Ptr;
+				Result.ptr = dcCallAggr(dc, Operand->ptr, Aggr, Ptr);
 			} break;
 			case TypeKind_Pointer:
 			{
-				Result = (u64)dcCallPointer(dc, Operand->ptr);
+				Result.ptr = dcCallPointer(dc, Operand->ptr);
 			} break;
 			default: unreachable;
 		}
@@ -594,6 +611,199 @@ u64 PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 	FreeVirtualMemory(Asm.Code);
 	return Result;
 #endif
+}
+
+void CopyInt(value *Result, value *Value, const type *From, const type *To)
+{
+	if(HasBasicFlag(From, BasicFlag_Unsigned))
+	{
+		if(HasBasicFlag(To, BasicFlag_Unsigned))
+		{
+			Result->u64 = Value->u64;
+		}
+		else
+		{
+			Result->i64 = Value->u64;
+		}
+	}
+	else
+	{
+		if(HasBasicFlag(To, BasicFlag_Unsigned))
+		{
+			Result->u64 = Value->i64;
+		}
+		else
+		{
+			Result->i64 = Value->i64;
+		}
+	}
+}
+
+void CastExt(value *Result, value *Value, const type *From, const type *To)
+{
+	// float
+	if(To->Basic.Flags & BasicFlag_Float)
+	{
+		Result->f64 = Value->f32;
+	}
+	else
+	{
+		// @TODO:?
+		CopyInt(Result, Value, From, To);
+	}
+}
+
+void CastTrunc(value *Result, value *Value, const type *From, const type *To)
+{
+	if(To->Basic.Flags & BasicFlag_Float)
+	{
+		Result->f32 = Value->f64;
+	}
+	else
+	{
+		CopyInt(Result, Value, From, To);
+	}
+
+}
+
+void CastFloatInt(value *Result, value *Value, const type *From, const type *To)
+{
+	if(From->Basic.Flags & BasicFlag_Float)
+	{
+		if(To->Basic.Flags & BasicFlag_Unsigned)
+		{
+			if(From->Basic.Kind == Basic_f32)
+			{
+				Result->u64 = Value->f32;
+			}
+			else
+			{
+				Result->u64 = Value->f64;
+			}
+		}
+		else
+		{
+			if(From->Basic.Kind == Basic_f32)
+			{
+				Result->i64 = Value->f32;
+			}
+			else
+			{
+				Result->i64 = Value->f64;
+			}
+		}
+	}
+	else if(To->Basic.Flags & BasicFlag_Float)
+	{
+		if(From->Basic.Flags & BasicFlag_Unsigned)
+		{
+			if(To->Basic.Kind == Basic_f32)
+			{
+				Result->f32 = Value->u64;
+			}
+			else
+			{
+				Result->f64 = Value->u64;
+			}
+		}
+		else
+		{
+			if(To->Basic.Kind == Basic_f32)
+			{
+				Result->f32 = Value->i64;
+			}
+			else
+			{
+				Result->f64 = Value->i64;
+			}
+		}
+	}
+	else
+	{
+		unreachable;
+	}
+}
+
+value PerformCast(value *Value, const type *From, u32 ToIdx)
+{
+	const type *To = GetType(ToIdx);
+	if(From->Kind == TypeKind_Enum)
+	{
+		From = GetType(From->Enum.Type);
+	}
+	if(To->Kind == TypeKind_Enum)
+	{
+		To = GetType(To->Enum.Type);
+	}
+
+
+	value Result = {};
+	Result.Type = ToIdx;
+	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Basic)
+	{
+		int FromSize = GetTypeSize(From);
+		int ToSize   = GetTypeSize(To);
+		if(HasBasicFlag(From, BasicFlag_Float) != HasBasicFlag(To, BasicFlag_Float))
+		{
+			CastFloatInt(&Result, Value, From, To);
+			return Result;
+		}
+		else if(ToSize < FromSize)
+		{
+			CastTrunc(&Result, Value, From, To);
+		}
+		else if(ToSize > FromSize)
+		{
+			CastExt(&Result, Value, From, To);
+		}
+		else if(HasBasicFlag(From, BasicFlag_Float))
+		{
+			if(From->Basic.Kind == Basic_f32)
+			{
+				Result.f32 = Value->f32;
+			}
+			else
+			{
+				Result.f64 = Value->f64;
+			}
+		}
+		else
+		{
+			CopyInt(&Result, Value, From, To);
+		}
+	}
+	else if(From->Kind == TypeKind_Pointer || To->Kind == TypeKind_Pointer)
+	{
+		if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
+		{
+			if(HasBasicFlag(To, BasicFlag_Unsigned))
+			{
+				Result.u64 = (u64)Value->ptr;
+			}
+			else
+			{
+				Result.i64 = (i64)Value->ptr;
+			}
+		}
+		else if(To->Kind == TypeKind_Pointer && From->Kind == TypeKind_Basic)
+		{
+			if(HasBasicFlag(From, BasicFlag_Unsigned))
+			{
+				Result.ptr = (void *)Value->u64;
+			}
+			else
+			{
+				Result.ptr = (void *)Value->i64;
+			}
+		}
+	}
+	else
+	{
+		LDEBUG("from %s to %s", GetTypeName(From), GetTypeName(To));
+		unreachable;
+	}
+
+	return Result;
 }
 
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
@@ -842,16 +1052,19 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value NewVal = *v;
 				Assert(NewVal.ptr);
 				VM->Registers.AddValue(I.Result, NewVal);
-				b32 Found = false;
-				For(VM->Registers.Links)
+				if(VM->KeepTrackOfStoredGlobals)
 				{
-					if(it->LocalRegister == I.Result)
+					b32 Found = false;
+					For(VM->Registers.Links)
 					{
-						Found = true;
+						if(it->LocalRegister == I.Result)
+						{
+							Found = true;
+						}
 					}
+					if(!Found)
+						VM->Registers.Links.Push(global_link{.GlobalRegister = s->Register, .LocalRegister = I.Result});
 				}
-				if(!Found)
-					VM->Registers.Links.Push(global_link{.GlobalRegister = s->Register, .LocalRegister = I.Result});
 			} break;
 			case OP_ZEROUT:
 			{
@@ -1242,10 +1455,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				//u32 FromType = I.Right;
 				u32 ToType = I.Type;
 				value *Val = VM->Registers.GetValue(I.Left);
-				value Result = {};
-				Result.Type = ToType;
-				// @TODO:?
-				Result.ptr = Val->ptr;
+				const type *From = GetType(Val->Type);
+				value Result = PerformCast(Val, From, ToType);
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_CALL:
@@ -1260,13 +1471,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 				if(((u64)Operand->ptr & (1ull << 63)) == 0)
 				{
-					u64 Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
+					value Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
 					if(I.Type != INVALID_TYPE)
 					{
-						value Value = {};
-						Value.Type = I.Type;
-						Value.u64 = Result;
-						VM->Registers.AddValue(I.Result, Value);
+						VM->Registers.AddValue(I.Result, Result);
 					}
 				}
 				else
@@ -1659,6 +1867,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 		}
 	}
 
+	VM.KeepTrackOfStoredGlobals = false;
 	ForArray(MIdx, Modules)
 	{
 		module *m = Modules[MIdx];
@@ -1669,7 +1878,6 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 		}
 	}
 
-	VM.KeepTrackOfStoredGlobals = false;
 }
 
 interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals=false)

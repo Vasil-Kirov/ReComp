@@ -1058,6 +1058,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				Assert(v->Flags & value_flag::Global);
 				value NewVal = *v;
+				NewVal.Type = GetPointerTo(s->Type);
 				Assert(NewVal.ptr);
 				VM->Registers.AddValue(I.Result, NewVal);
 				if(VM->KeepTrackOfStoredGlobals)
@@ -1799,7 +1800,24 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 		}
 	}
-	return { INTERPRET_NORETURN, *VM->Registers.GetValue(VM->Registers.LastAdded)};
+	value Result = *VM->Registers.GetValue(VM->Registers.LastAdded);
+	if(VM->KeepTrackOfStoredGlobals && Result.Flags & value_flag::Global)
+	{
+		u32 GlobalRegister = -1;
+		For(VM->Registers.Links)
+		{
+			if(it->LocalRegister == VM->Registers.LastAdded)
+			{
+				GlobalRegister = it->GlobalRegister;
+			}
+		}
+		// @TODO: Investigate if this should be an if or an assert
+		if(GlobalRegister != -1)
+		{
+			VM->StoredGlobals[Result.ptr] = GlobalRegister;
+		}
+	}
+	return { INTERPRET_NORETURN, Result };
 }
 
 void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)

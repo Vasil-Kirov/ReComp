@@ -316,6 +316,11 @@ LLVMValueRef FromConstVal(generator *gen, const_value *Val, u32 TypeIdx, b32 Str
 		}
 		else
 		{
+			auto f = gen->StoredGlobals.find((void *)Val->Int.Unsigned);
+			if(f != gen->StoredGlobals.end())
+			{
+				return gen->global.Get(f->second);
+			}
 			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
 		}
 	}

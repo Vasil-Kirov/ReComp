@@ -8,9 +8,10 @@ custom_t :: []i32;
 
 f :: c"fstr";
 
-ff :: fn() -> i32 { return 10;}
+ff :: fn() -> i32 { return 0;}
 
-x :: #run ff();
+y := 10;
+x := #run &y;
 
 puts: fn #foreign(str: *u8) -> i32;
 printf: fn #foreign(fmt: *u8, args: ...) -> i32;
@@ -23,9 +24,10 @@ main :: fn() -> i32 {
 	//s1 := sin(0.5);
 	//s2 := sinf(x);
 	//io.println("% %", @f64 1.5, x);
-	io.println("%", x);
+	io.println("%", y);
+	*x = 5;
+	io.println("%", y);
 
-	os.abort();
     return 0;
 }
 

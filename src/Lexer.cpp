@@ -521,6 +521,7 @@ void InitializeLexer()
 	AddKeyword("#embed_str", T_EMBED_STR);
 	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("#elif",    T_PWDELIF);
+	AddKeyword("#else",    T_PWDELSE);
 	AddKeyword("#info",    T_INFO);
 	AddKeyword("#assert",  T_ASSERT);
 	AddKeyword("#load_dl",  T_LOAD_DL);

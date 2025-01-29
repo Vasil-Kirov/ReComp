@@ -94,6 +94,7 @@ enum token_type
 	T_RUN = -74,
 	T_LOAD_DL = -75,
 	T_LOAD_SYSTEM_DL = -76,
+	T_PWDELSE= -77,
 
 };
 

@@ -2,6 +2,7 @@ main
 
 #import io
 #import f2
+#import os
 
 custom_t :: []i32;
 
@@ -25,6 +26,7 @@ main :: fn() -> i32 {
 	//io.println("% %", @f64 1.5, x);
 	//io.println("%s", f);
 
+	os.abort();
     return 0;
 }
 

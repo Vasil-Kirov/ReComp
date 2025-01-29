@@ -811,6 +811,14 @@ node *ParsePwdIf(parser *Parser)
 		else
 		{
 			SkipPwdIf(Parser, ErrorInfo);
+			if(Parser->Current->Type == T_PWDELSE)
+			{
+				GetToken(Parser);
+				EatToken(Parser, T_STARTSCOPE, true);
+				Result = MakeScope(ErrorInfo, true);
+				Parser->ScopeLevel++;
+				break;
+			}
 			if(Parser->Current->Type != T_PWDELIF)
 				break;
 		}
@@ -1699,12 +1707,16 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			Result = ParsePwdIf(Parser);
 			ExpectSemicolon = false;
 		} break;
+		case T_PWDELSE:
 		case T_PWDELIF:
 		{
 			ERROR_INFO;
 			// skip it
 			GetToken(Parser);
-			EatToken(Parser, T_ID, false);
+
+			if(Token.Type == T_PWDELIF)
+				EatToken(Parser, T_ID, false);
+
 			EatToken(Parser, T_STARTSCOPE, true);
 			SkipPwdIf(Parser, ErrorInfo);
 			ExpectSemicolon = false;
@@ -1938,12 +1950,16 @@ node *ParseTopLevel(parser *Parser)
 			ParsePwdIf(Parser);
 			Result = (node *)0x1;
 		} break;
+		case T_PWDELSE:
 		case T_PWDELIF:
 		{
 			ERROR_INFO;
 			// skip it
-			GetToken(Parser);
-			EatToken(Parser, T_ID, false);
+			token Token = GetToken(Parser);
+
+			if(Token.Type == T_PWDELIF)
+				EatToken(Parser, T_ID, false);
+
 			EatToken(Parser, T_STARTSCOPE, true);
 			SkipPwdIf(Parser, ErrorInfo);
 			Result = (node *)0x1;

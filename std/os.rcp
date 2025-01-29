@@ -267,9 +267,18 @@ assert :: fn(cond: bool, reason: string) {
 	O_RDWR :: 0x2;
 	O_APPEND :: 0x400;
 
+#if LIBC {
+	exit :: fn #foreign(code: int);
+	
+	abort :: fn() {
+		exit(1);
+	}
+}
+#else {
 	abort :: fn() {
 		syscall(SYS_exit, 1);
 	}
+}
 
 	alloc :: fn(size: int) -> ?* {
 		myb_ctx := @?*AllocCtx syscall(SYS_mmap,

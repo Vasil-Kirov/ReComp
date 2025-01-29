@@ -40,6 +40,7 @@ syn match rcpSCompilerDir /#private/
 syn match rcpSCompilerDir /#public/
 syn match rcpSCompilerDir /#if/
 syn match rcpSCompilerDir /#elif/
+syn match rcpSCompilerDir /#else/
 syn match rcpSCompilerDir /#assert/
 syn match rcpSCompilerDir /#run/
 syn match rcpSCompilerDir /#embed_str/

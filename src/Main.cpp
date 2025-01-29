@@ -453,6 +453,12 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 	{
 		Files.Push(GetFilePath(Dir, "internal.rcp"));
 	}
+	else
+	{
+		// @Note: make sure it's null terminated
+		string Str = MakeString(Internals.Data, Internals.Count);
+		Files.Push(GetFilePath(Dir, Str.Data));
+	}
 }
 
 void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module*> *OutModules, b32 NoStdLib)
@@ -603,6 +609,11 @@ main(int ArgCount, char *Args[])
 			if(Info->Flags & CF_Standalone)
 			{
 				Info->Flags |= CF_NoStdLib;
+			}
+
+			if((Info->Flags & CF_NoStdLib) == 0)
+			{
+				ConfigIDs.Push(STR_LIT("LIBC"));
 			}
 
 			CompileFlags = Info->Flags;

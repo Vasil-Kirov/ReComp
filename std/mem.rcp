@@ -104,7 +104,7 @@ create_scratch :: fn(max_size: int) -> Allocator {
 }
 
 reset_scratch :: fn(a: *Allocator) {
-	#assert a.data;
+	if a.data == null return;
     ctx := @*ScratchContext ?a.data;
 	ctx.current = ctx.start;
 }

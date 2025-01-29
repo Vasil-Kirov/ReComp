@@ -10,7 +10,7 @@ f :: c"fstr";
 
 ff :: fn() -> i32 { return 10;}
 
-x: i32;
+x :: #run ff();
 
 puts: fn #foreign(str: *u8) -> i32;
 printf: fn #foreign(fmt: *u8, args: ...) -> i32;
@@ -19,12 +19,11 @@ sin: fn #foreign(arg: f64) -> f64;
 
 main :: fn() -> i32 {
 	//f2.init();
-	x := 0.5;
-	s1 := sin(0.5);
-	s2 := sinf(x);
-	printf(c"%f %f\n", s1, @f64 s2);
+	//x := 0.5;
+	//s1 := sin(0.5);
+	//s2 := sinf(x);
 	//io.println("% %", @f64 1.5, x);
-	//io.println("%s", f);
+	io.println("%", x);
 
 	os.abort();
     return 0;

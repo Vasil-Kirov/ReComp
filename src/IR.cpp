@@ -630,6 +630,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const symbol *Local = GetIRLocal(Builder, Node->ID.Name, true, &IsGlobal);
 			if(IsGlobal)
 			{
+				PushErrorInfo(Builder, Node);
 				instruction GlobalI = Instruction(OP_GLOBAL, (void *)Local, Local->Type, Builder, 0);
 
 				Result = PushInstruction(Builder, GlobalI);
@@ -1188,6 +1189,7 @@ SEARCH_TYPE_DONE:
 					const type *Type = GetType(Node->Selector.Type);
 					if(IsGlobal)
 					{
+						PushErrorInfo(Builder, Node);
 						instruction GlobalI = Instruction(OP_GLOBAL, (void *)Sym, Sym->Type, Builder, 0);
 
 						Result = PushInstruction(Builder, GlobalI);

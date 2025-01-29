@@ -131,11 +131,17 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	}
 
 	
-	LogCompilerError("\nError: %s%s (%d, %d):\n%s\n\n%s",
-			BonusErrorMessage.Data,
+	LogCompilerError("\nError: %s (%d, %d):\n%s\n\n%s",
 			ErrorInfo.FileName, ErrorInfo.Range.StartLine, ErrorInfo.Range.StartChar, FinalFormat, FirstPart.Data);
 	PlatformOutputString(Highlight, LOG_ERROR);
 	LogCompilerError("%s\n", AfterPart.Data);
+
+	if(BonusErrorMessage.Size > 0)
+	{
+		PlatformOutputString(STR_LIT("Note:\n"), LOG_INFO);
+		PlatformOutputString(BonusErrorMessage, LOG_INFO);
+		PlatformOutputString(STR_LIT("\n"), LOG_INFO);
+	}
 
 	VFree(FinalFormat);
 

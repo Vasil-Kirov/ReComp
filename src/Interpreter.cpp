@@ -1048,6 +1048,14 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				const symbol *s = (const symbol *)I.Ptr;
 
 				value *v = VM->Globals.GetValue(s->Register);
+				if((v->Flags & value_flag::Global) == 0)
+				{
+					const error_info *e = s->Node->ErrorInfo;
+					if(!VM->ErrorInfo.IsEmpty() && VM->ErrorInfo.Peek() != NULL)
+						e = VM->ErrorInfo.Peek();
+					RaiseError(false, *e, "Global value %s is not available", s->LinkName->Data);
+					return { INTERPRET_RUNTIME_ERROR };
+				}
 				Assert(v->Flags & value_flag::Global);
 				value NewVal = *v;
 				Assert(NewVal.ptr);
@@ -1259,6 +1267,35 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			{
 				LERROR("REACHED UNREACHABLE STATEMENT IN INTERPRETER!!!");
 				unreachable;
+			} break;
+			case OP_RUN:
+			{
+				basic_block *Found = NULL;
+				For(OptionalBlocks)
+				{
+					if(it->ID == I.Right)
+					{
+						Found = it;
+					}
+				}
+				if(Found == NULL)
+				{
+					RaiseError(false, *VM->ErrorInfo.Peek(), "Invalid context for #run");
+					return { INTERPRET_RUNTIME_ERROR };
+				}
+
+				auto WasExec = VM->Executing;
+				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
+				interpret_result Result = Run(VM, OptionalBlocks, OptionalArgs);
+				VM->Executing = WasExec;
+				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+					return Result;
+
+				// @Note: not sure about this one, if #run found a return maybe just return out of the function? idk
+				if(Result.Kind == INTERPRET_OK)
+					return Result;
+
+				VM->Registers.AddValue(I.Result, Result.Result);
 			} break;
 			case OP_ALLOC:
 			{
@@ -1782,6 +1819,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 
 	InitArenaMem(&VM.Arena, GB(64), MB(1));
 	VM.Globals.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
+	memset(VM.Globals.Registers, 0, MaxRegisters * sizeof(value));
 
 	ForArray(MIdx, Modules)
 	{
@@ -1826,12 +1864,12 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 					Value.ptr = s->Node->Fn.IR;
 					Value.ptr = (void *)((u64)Value.ptr | (1ull << 63));
 				}
+				VM.Globals.AddValue(s->Register, Value);
 			}
 			else
 			{
-				Value.ptr = ArenaAllocate(&VM.Arena, GetTypeSize(T));
+				//Value.ptr = ArenaAllocate(&VM.Arena, GetTypeSize(T));
 			}
-			VM.Globals.AddValue(s->Register, Value);
 		}
 	}
 
@@ -1989,7 +2027,13 @@ void DoGlobals(interpreter *VM, ir *IR)
 			continue;
 		}
 
+		auto se = it->s->Node->ErrorInfo;
+		auto b = MakeBuilder();
+		PushBuilderFormated(&b, "While evaluating initializer for global variable %s at %s(%d:%d)",
+				it->s->Name->Data, se->FileName, se->Range.StartLine, se->Range.StartChar);
+		SetBonusMessage(MakeString(b));
 		interpret_result Result = RunBlocks(VM, it->Init, SliceFromArray(it->Init.Blocks), {}, SliceFromArray(it->Init.Blocks[0].Code), true);
+		SetBonusMessage(STR_LIT(""));
 		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 		{
 			exit(1);

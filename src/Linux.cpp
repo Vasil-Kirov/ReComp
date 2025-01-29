@@ -100,16 +100,16 @@ void PlatformOutputString(string String, log_level Level)
 		out_fd = 2;
 
 	const char *Colors[] = {
-		"\u001b[35m ",
-		"\u001b[31m ",
-		"\u001b[33m ",
-		"\u001b[36m ",
-		"\u001b[32m ",
+		"\u001b[35m",
+		"\u001b[31m",
+		"\u001b[33m",
+		"\u001b[36m",
+		"\u001b[32m",
 	};
 	const char CLEAR[] = "\u001b[0m";
-	write(out_fd, Colors[Level], sizeof(Colors[Level])-1);
+	write(out_fd, Colors[Level], 5);
 	write(out_fd, String.Data, String.Size);
-	write(out_fd, CLEAR, sizeof(CLEAR)-1);
+	write(out_fd, CLEAR, 4);
 }
 
 void PlatformFreeMemory(void *Mem, size_t Size)

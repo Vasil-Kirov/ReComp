@@ -695,6 +695,8 @@ b32 IsConstant(checker *Checker, node *Expr)
 		return true;
 	if(Expr->Type == AST_EMBED)
 		return true;
+	if(Expr->Type == AST_RUN)
+		return true;
 
 	if(Expr->Type == AST_SELECTOR)
 	{
@@ -3565,7 +3567,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				node *FnNode = CopyASTNode(FnSym->Node);
 				FnNode->Fn.FnModule = FnSym->Checker->Module;
 				string_builder Builder = MakeBuilder();
-				PushBuilderFormated(&Builder, "Error while parsing generic call to %s at %s(%d:%d)\n",
+				PushBuilderFormated(&Builder, "While parsing generic call to %s at %s(%d:%d)\n",
 						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Range.StartLine, Expr->ErrorInfo->Range.StartChar);
 				SetBonusMessage(MakeString(Builder));
 

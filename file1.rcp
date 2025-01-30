@@ -24,7 +24,9 @@ error_out :: fn(msg: string) {
 }
 
 main :: fn() -> i32 {
-	foo := 10;
+	foo := #run fn() -> i32 {
+		return 5;
+	}();
 	io.println("%", y);
 	#run {
 		if type_of foo != int error_out("foo needs to be int");

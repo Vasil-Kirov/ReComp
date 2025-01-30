@@ -1325,7 +1325,7 @@ BUILD_SLICE_SELECTOR:
 			function fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
 
 			Result = PushInstruction(Builder,
-					Instruction(OP_FN, (u64)DupeType(fn, function), fn.Type, Builder));
+					Instruction(OP_FN, DupeType(fn, function), fn.Type, Builder, 0));
 			/*
 			   PushIRLocal(Builder->Function, fn.Name, Result,
 			   fn.Type, SymbolFlag_Function);
@@ -3296,7 +3296,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			} break;
 			case OP_FN:
 			{
-				function Fn = *(function *)Instr.BigRegister;
+				function Fn = *(function *)Instr.Ptr;
 				PushBuilderFormated(Builder, "%%%d = %s", Instr.Result, DissasembleFunction(Fn, 2).Data);
 			} break;
 			case OP_ADD:

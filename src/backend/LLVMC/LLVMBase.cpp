@@ -645,7 +645,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_FN:
 		{
-			function *Fn = (function *)I.BigRegister;
+			function *Fn = (function *)I.Ptr;
 			LLVMTypeRef FnType = LLVMCreateFunctionType(gen, Fn->Type);
 			LLVMValueRef LLVMFn = LLVMAddFunction(gen->mod, Fn->Name->Data, FnType);
 			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);

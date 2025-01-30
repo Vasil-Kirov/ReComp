@@ -1272,6 +1272,14 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					unreachable;
 				}
 			} break;
+			case OP_FN:
+			{
+				function *Fn = (function *)I.Ptr;
+				value V = {};
+				V.Type = Fn->Type;
+				V.ptr = (void *)((u64)Fn | (1ull << 63));
+				VM->Registers.AddValue(I.Result, V);
+			} break;
 			case OP_RUN:
 			{
 				basic_block *Found = NULL;

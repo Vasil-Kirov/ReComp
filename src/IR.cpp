@@ -599,13 +599,20 @@ u32 BuildIRMatch(block_builder *Builder, node *Node)
 u32 BuildRun(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_RUN);
+
 	basic_block RunBlock = AllocateBlock(Builder);
 	basic_block Save = Builder->CurrentBlock;
 	Builder->CurrentBlock = RunBlock;
-	Assert(Node->Run.Body.Count == 1);
 	For(Node->Run.Body)
 	{
 		BuildIRFunctionLevel(Builder, *it);
+	}
+	if(!Node->Run.IsExprRun)
+	{
+		instruction Unreachable = {};
+		Unreachable.Op = OP_UNREACHABLE;
+		Unreachable.Right = true;
+		PushInstruction(Builder, Unreachable);
 	}
 	Terminate(Builder, Save);
 	Builder->RunIndexes.Push(run_location{Save.ID, (uint)Save.Code.Count});

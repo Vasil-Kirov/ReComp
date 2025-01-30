@@ -33,6 +33,7 @@ node *MakeRun(const error_info *ErrorInfo, slice<node *> Body)
 	node *Result = AllocateNode(ErrorInfo, AST_RUN);
 	Result->Run.Body = Body;
 	Result->Run.TypeIdx = INVALID_TYPE;
+	Result->Run.IsExprRun = false;
 
 	return Result;
 }
@@ -2044,6 +2045,7 @@ node *CopyASTNode(node *N)
 		{
 			R->Run.Body = CopyNodeSlice(N->Run.Body);
 			R->Run.TypeIdx = N->Run.TypeIdx;
+			R->Run.IsExprRun = N->Run.IsExprRun;
 		} break;
 		case AST_YIELD:
 		{

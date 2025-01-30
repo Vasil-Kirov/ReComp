@@ -82,6 +82,7 @@ struct node
 		struct {
 			slice<node *> Body;
 			u32 TypeIdx;
+			b32 IsExprRun;
 		} Run;
 		struct {
 			node *Expr;

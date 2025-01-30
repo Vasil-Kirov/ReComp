@@ -18,22 +18,24 @@ printf: fn #foreign(fmt: *u8, args: ...) -> i32;
 sinf: fn #foreign(arg: f32) -> f32;
 sin: fn #foreign(arg: f64) -> f64;
 
+error_out :: fn(msg: string) {
+	io.println("Compile time error: %", msg);
+	os.abort();
+}
+
 main :: fn() -> i32 {
-	//f2.init();
-	//x := 0.5;
-	//s1 := sin(0.5);
-	//s2 := sinf(x);
-	//io.println("% %", @f64 1.5, x);
+	foo := 10;
 	io.println("%", y);
-	*x = 5;
-	io.println("%", y);
+	#run {
+		if type_of foo != int error_out("foo needs to be int");
+	}
 
     return 0;
 }
 
 
 
-#run main();
+//#run main();
 
 
 // do_foo :: fn(s: []$T) {

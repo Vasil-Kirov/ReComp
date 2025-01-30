@@ -41,6 +41,7 @@ struct scope
 struct checker
 {
 	stack<scope *> Scope;
+	stack<scope *> OutOfRun;
 	module *Module;
 	slice<import> Imported;
 	stack<u32 *> UntypedStack;

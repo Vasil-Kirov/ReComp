@@ -401,9 +401,21 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 		} break;
 		case AST_TYPEOF:
 		{
-			u32 T = AnalyzeExpression(Checker, TypeNode->TypeOf.Expression);
-			TypeNode->TypeOf.Type = T;
-			return T;
+			if(!Checker->OutOfRun.IsEmpty())
+			{
+				auto WasScope = Checker->Scope;
+				Checker->Scope = Checker->OutOfRun;
+				u32 T = AnalyzeExpression(Checker, TypeNode->TypeOf.Expression);
+				TypeNode->TypeOf.Type = T;
+				Checker->Scope = WasScope;
+				return T;
+			}
+			else
+			{
+				u32 T = AnalyzeExpression(Checker, TypeNode->TypeOf.Expression);
+				TypeNode->TypeOf.Type = T;
+				return T;
+			}
 		} break;
 		case AST_STRUCTDECL:
 		{
@@ -691,11 +703,31 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 
 b32 IsConstant(checker *Checker, node *Expr)
 {
+	if(Expr->Type == AST_ID)
+	{
+		if(Checker->Module->Globals[*Expr->ID.Name]) return true;
+
+		string NoNamespace = STR_LIT("*");
+		For(Checker->Imported)
+		{
+			if(it->As == NoNamespace)
+			{
+				if(it->M->Globals[*Expr->ID.Name]) return true;
+			}
+		}
+		return false;
+
+	}
+
+	if(Expr->Type == AST_RESERVED)
+		return true;
 	if(Expr->Type == AST_CONSTANT || Expr->Type == AST_CHARLIT)
 		return true;
 	if(Expr->Type == AST_EMBED)
 		return true;
 	if(Expr->Type == AST_RUN)
+		return true;
+	if(Expr->Type == AST_SIZE || Expr->Type == AST_TYPEOF)
 		return true;
 
 	if(Expr->Type == AST_SELECTOR)
@@ -716,7 +748,15 @@ b32 IsConstant(checker *Checker, node *Expr)
 	if(Expr->Type == AST_INDEX)
 		return IsConstant(Checker, Expr->Index.Operand) && IsConstant(Checker, Expr->Index.Expression);
 	if(Expr->Type == AST_TYPELIST)
+	{
+		For(Expr->TypeList.Items)
+		{
+			Assert((*it)->Type == AST_LISTITEM);
+			if(!IsConstant(Checker, (*it)->Item.Expression))
+				return false;
+		}
 		return true;
+	}
 
 	return false;
 }
@@ -805,8 +845,27 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				RaiseError(true, *Expr->ErrorInfo, "#run in expression expected a single expression as argument");
 			}
+			string WasBonus = BonusErrorMessage;
+			SetBonusMessage(STR_LIT("While evaluating compile time #run. Keep in mind that local variables and function arguments are not available."));
+
+			auto CurrentScope = Checker->Scope;
+			auto WasOutOfRun = Checker->OutOfRun;
+
+			Checker->Scope = {};
+			Checker->Scope.Push(AllocScope(Expr));
+
+			if(Checker->OutOfRun.IsEmpty())
+				Checker->OutOfRun = CurrentScope;
+
 			Result = AnalyzeExpression(Checker, Expr->Run.Body[0]);
+
+			Checker->Scope = CurrentScope;
+			Checker->OutOfRun = WasOutOfRun;
+
 			Expr->Run.TypeIdx = Result;
+			Expr->Run.IsExprRun = true;
+
+			SetBonusMessage(WasBonus);
 #if 0
 			if(Result != INVALID_TYPE)
 			{
@@ -1095,13 +1154,42 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_TYPEOF:
 		{
-			u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
-			Expr->TypeOf.Type = ExprType;
-			Result = Basic_type;
+			if(!Checker->OutOfRun.IsEmpty())
+			{
+				auto WasScope = Checker->Scope;
+				Checker->Scope = Checker->OutOfRun;
+
+				u32 T = AnalyzeExpression(Checker, Expr->TypeOf.Expression);
+				Expr->TypeOf.Type = T;
+				Result = Basic_type;
+
+				Checker->Scope = WasScope;
+			}
+			else
+			{
+				u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+				Expr->TypeOf.Type = ExprType;
+				Result = Basic_type;
+			}
 		} break;
 		case AST_SIZE:
 		{
-			u32 ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+			u32 ExprType;
+
+			if(!Checker->OutOfRun.IsEmpty())
+			{
+				auto WasScope = Checker->Scope;
+				Checker->Scope = Checker->OutOfRun;
+
+				ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+
+				Checker->Scope = WasScope;
+			}
+			else
+			{
+				ExprType = AnalyzeExpression(Checker, Expr->Size.Expression);
+			}
+
 			if(ExprType == Basic_type)
 			{
 				Expr->Size.Type = GetTypeFromTypeNode(Checker, Expr->Size.Expression);
@@ -2954,7 +3042,24 @@ RetErr:
 			}
 			else
 			{
+				string WasBonus = BonusErrorMessage;
+				SetBonusMessage(STR_LIT("While evaluating compile time #run. Keep in mind that local variables and function arguments are not available."));
+
+				auto CurrentScope = Checker->Scope;
+				auto WasOutOfRun = Checker->OutOfRun;
+
+				Checker->Scope = {};
+				Checker->Scope.Push(AllocScope(Node));
+
+				if(Checker->OutOfRun.IsEmpty())
+					Checker->OutOfRun = CurrentScope;
+
 				AnalyzeInnerBody(Checker, Node->Run.Body);
+
+				Checker->Scope = CurrentScope;
+				Checker->OutOfRun = WasOutOfRun;
+
+				SetBonusMessage(WasBonus);
 			}
 		} break;
 		default:

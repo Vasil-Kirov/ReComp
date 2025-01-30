@@ -1,5 +1,8 @@
 compile
 
+#import io
+#import os
+
 enum CompileFlag: u32 {
     Debug       = 0b00000000001,
     SanAddress  = 0b00000000010,
@@ -31,4 +34,10 @@ struct CompileInfo {
 	internals_file: string,
 }
 
+raise_error :: fn(fmt: string, args: ...) {
+	io.print("Compile time error:\n\t");
+	io.print("%", io.vsprint(fmt, args));
+	io.print("\n");
+	os.abort();
+}
 

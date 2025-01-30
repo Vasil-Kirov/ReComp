@@ -73,6 +73,7 @@ enum op
 	// Ptr = symbol*
 	OP_GLOBAL,
 
+	// Right = Ignore by interpreter bool
 	OP_UNREACHABLE,
 
 	OP_COUNT,

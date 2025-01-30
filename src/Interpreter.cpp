@@ -1266,8 +1266,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_UNREACHABLE:
 			{
-				LERROR("REACHED UNREACHABLE STATEMENT IN INTERPRETER!!!");
-				unreachable;
+				if(I.Right != true)
+				{
+					LERROR("REACHED UNREACHABLE STATEMENT IN INTERPRETER!!!");
+					unreachable;
+				}
 			} break;
 			case OP_RUN:
 			{
@@ -2124,9 +2127,6 @@ void DoRuns(interpreter *VM, ir *IR)
 			}
 			Assert(RunIndex != -1);
 			interpret_result Result = RunBlocks(VM, fn, SliceFromArray(fn.Blocks), {}, SliceFromArray(fn.Blocks[RunIndex].Code));
-			instruction Unreachable = {};
-			Unreachable.Op = OP_UNREACHABLE;
-			fn.Blocks.Data[RunIndex].Code.Push(Unreachable);
 
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 			{

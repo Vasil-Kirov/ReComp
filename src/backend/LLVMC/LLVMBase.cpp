@@ -469,7 +469,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			int CBlock = gen->CurrentBlock;
 			LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[I.Right].Block);
-			LLVMBuildUnreachable(gen->bld);
+			//LLVMBuildUnreachable(gen->bld);
 
 			LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[CBlock].Block);
 		} break;

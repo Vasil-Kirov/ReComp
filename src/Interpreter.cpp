@@ -17,6 +17,8 @@
 bool InterpreterTrace = false;
 dynamic<DLIB> DLs = {};
 
+#define MARK_BIT 63
+
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
 	void *Memory = ArenaAllocate(&VM->Arena, String->Size + 1, true);
@@ -1277,7 +1279,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				function *Fn = (function *)I.Ptr;
 				value V = {};
 				V.Type = Fn->Type;
-				V.ptr = (void *)((u64)Fn | (1ull << 63));
+				V.ptr = (void *)((u64)Fn | (1ull << MARK_BIT));
 				VM->Registers.AddValue(I.Result, V);
 			} break;
 			case OP_RUN:
@@ -1518,7 +1520,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 
-				if(((u64)Operand->ptr & (1ull << 63)) == 0)
+				if(((u64)Operand->ptr & (1ull << MARK_BIT)) == 0)
 				{
 					value Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
 					if(I.Type != INVALID_TYPE)
@@ -1528,7 +1530,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else
 				{
-					function *F = (function *)((u64)Operand->ptr & ~(1ull << 63));
+					function *F = (function *)((u64)Operand->ptr & ~(1ull << MARK_BIT));
 					dynamic<value> Args = {};
 					ForArray(Idx, CallInfo->Args)
 					{
@@ -1891,7 +1893,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 				else
 				{
 					Value.ptr = s->Node->Fn.IR;
-					Value.ptr = (void *)((u64)Value.ptr | (1ull << 63));
+					Value.ptr = (void *)((u64)Value.ptr | (1ull << MARK_BIT));
 				}
 				VM.Globals.AddValue(s->Register, Value);
 			}

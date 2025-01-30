@@ -1,5 +1,7 @@
 main
 
+foo := MyS { field = Foo.VALUE };
+
 #import io
 #import f2
 #import os
@@ -9,6 +11,12 @@ custom_t :: []i32;
 f :: c"fstr";
 
 ff :: fn() -> i32 { return 0;}
+
+enum Foo {
+	VALUE,
+}
+
+gl :: Foo.VALUE;
 
 y := 10;
 x := #run &y;
@@ -23,14 +31,13 @@ error_out :: fn(msg: string) {
 	os.abort();
 }
 
+struct MyS {
+	field: Foo,
+};
+
+
 main :: fn() -> i32 {
-	foo := #run fn() -> i32 {
-		return 5;
-	}();
-	io.println("%", y);
-	#run {
-		if type_of foo != int error_out("foo needs to be int");
-	}
+
 
     return 0;
 }

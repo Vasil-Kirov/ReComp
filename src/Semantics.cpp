@@ -743,6 +743,8 @@ b32 IsConstant(checker *Checker, node *Expr)
 		return IsConstant(Checker, Expr->Binary.Left) && IsConstant(Checker, Expr->Binary.Right);
 	}
 
+	if(Expr->Type == AST_CAST)
+		return IsConstant(Checker, Expr->Cast.Expression);
 	if(Expr->Type == AST_UNARY)
 		return IsConstant(Checker, Expr->Unary.Operand);
 	if(Expr->Type == AST_INDEX)
@@ -1555,7 +1557,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							{
 								if(T->Enum.Members[Idx].Name == *Expr->Selector.Member)
 								{
-									Expr->Selector.Operand = NULL;
+									//Expr->Selector.Operand = NULL;
 									Expr->Selector.Index = Idx;
 									Expr->Selector.Type = TIdx;
 									Result = TIdx;

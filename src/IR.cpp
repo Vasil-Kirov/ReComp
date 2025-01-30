@@ -1217,7 +1217,8 @@ SEARCH_TYPE_DONE:
 				const type *Type = GetType(Node->Selector.Type);
 				u32 TypeIdx = Node->Selector.Type;
 				u32 Operand = -1;
-				if(Node->Selector.Operand && Type->Kind != TypeKind_Pointer)
+				Assert(Node->Selector.Operand);
+				if(Type->Kind != TypeKind_Enum && Type->Kind != TypeKind_Pointer)
 					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
 				
 				switch(Type->Kind)

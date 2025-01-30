@@ -17,7 +17,22 @@
 bool InterpreterTrace = false;
 dynamic<DLIB> DLs = {};
 
-#define MARK_BIT 63
+#define MARK_BIT 62
+
+void *TagFnPointer(void *Ptr)
+{
+	return (void *)((u64)Ptr | (1ull << MARK_BIT));
+}
+
+void *UntagFnPointer(void *Ptr)
+{
+	return (void *)((u64)Ptr & ~(1ull << MARK_BIT));
+}
+
+b32 IsPointerTagged(void *Ptr)
+{
+	return ((u64)Ptr & (1ull << MARK_BIT)) != 0;
+}
 
 void *InterpreterAllocateString(interpreter *VM, const string *String)
 {
@@ -1279,7 +1294,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				function *Fn = (function *)I.Ptr;
 				value V = {};
 				V.Type = Fn->Type;
-				V.ptr = (void *)((u64)Fn | (1ull << MARK_BIT));
+				V.ptr = TagFnPointer(Fn);
 				VM->Registers.AddValue(I.Result, V);
 			} break;
 			case OP_RUN:
@@ -1520,11 +1535,17 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 
-				if(((u64)Operand->ptr & (1ull << MARK_BIT)) == 0)
+				if(!IsPointerTagged(Operand->ptr))
 				{
 					value Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
 					if(I.Type != INVALID_TYPE)
 					{
+						const type *T = GetType(I.Type);
+						if(IsFnOrPtr(T) && IsPointerTagged(Result.ptr))
+						{
+							RaiseError(false, *VM->ErrorInfo.Peek(), "The returned function pointer has its upper bits set, making it appear tagged to the interpreter. This is invalid.");
+							return { INTERPRET_RUNTIME_ERROR };
+						}
 						VM->Registers.AddValue(I.Result, Result);
 					}
 				}

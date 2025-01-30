@@ -1,7 +1,5 @@
 main
 
-foo := MyS { field = Foo.VALUE };
-
 #import io
 #import f2
 #import os
@@ -11,12 +9,6 @@ custom_t :: []i32;
 f :: c"fstr";
 
 ff :: fn() -> i32 { return 0;}
-
-enum Foo {
-	VALUE,
-}
-
-gl :: Foo.VALUE;
 
 y := 10;
 x := #run &y;
@@ -31,20 +23,16 @@ error_out :: fn(msg: string) {
 	os.abort();
 }
 
-struct MyS {
-	field: Foo,
-};
-
-
 main :: fn() -> i32 {
 
+	puts(c"Hello");
 
     return 0;
 }
 
 
 
-//#run main();
+#run main();
 
 
 // do_foo :: fn(s: []$T) {

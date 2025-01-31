@@ -301,6 +301,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon=true);
 node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser);
 node *ParseFunctionType(parser *Parser);
+node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags);
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags);

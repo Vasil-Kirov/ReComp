@@ -1985,9 +1985,22 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_BINARY)
 	{
-		u32 Left  = AnalyzeExpression(Checker, Expr->Binary.Left);
-		u32 Right = AnalyzeExpression(Checker, Expr->Binary.Right);
-		Expr->Binary.ExpressionType = Left;
+		u32 Left  = INVALID_TYPE;
+		u32 Right = INVALID_TYPE;
+		if(Expr->Binary.Op == T_LAND || Expr->Binary.Op == T_LOR)
+		{
+			Left = AnalyzeBooleanExpression(Checker, &Expr->Binary.Left);
+			Right = AnalyzeBooleanExpression(Checker, &Expr->Binary.Right);
+			Left = Basic_bool;
+			Right = Basic_bool;
+			Expr->Binary.ExpressionType = Basic_bool;
+		}
+		else
+		{
+			Left  = AnalyzeExpression(Checker, Expr->Binary.Left);
+			Right = AnalyzeExpression(Checker, Expr->Binary.Right);
+			Expr->Binary.ExpressionType = Left;
+		}
 
 		const type *LeftType = GetType(Left);
 		const type *RightType = GetType(Right);
@@ -2354,7 +2367,21 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 				GetTypeName(ExprType));
 		return Basic_bool;
 	}
-	if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
+	if(IsString(ExprType))
+	{
+		string CountMem = STR_LIT("count");
+		node *Selector = MakeSelector(Node->ErrorInfo, Node, DupeType(CountMem, string));
+		Selector->Selector.Index = 0;
+		Selector->Selector.Type = Basic_string;
+
+		const_value ZeroValue = {};
+		ZeroValue.Type = const_type::Integer;
+		node *Zero = MakeConstant(Node->ErrorInfo, ZeroValue);
+		Zero->Constant.Type = Basic_int;
+		*NodePtr = MakeBinary(Node->ErrorInfo, Selector, Zero, T_NEQ);
+
+	}
+	else if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
 	{
 		const_value ZeroValue = {};
 		ZeroValue.Type = const_type::Integer;

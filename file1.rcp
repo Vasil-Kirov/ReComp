@@ -25,7 +25,17 @@ error_out :: fn(msg: string) {
 
 main :: fn() -> i32 {
 
-	puts(c"Hello");
+	if "" {
+		puts(c"Hello");
+	} else {
+		puts(c"yes");
+	}
+
+	if "a" {
+		puts(c"and no");
+	} else {
+		puts(c"and yes");
+	}
 
     return 0;
 }

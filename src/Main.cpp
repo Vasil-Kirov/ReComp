@@ -129,12 +129,12 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeFillStructCaches(File->Checker, SliceFromArray(File->Nodes));
+		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
+		AnalyzeFillStructCaches(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
 	{

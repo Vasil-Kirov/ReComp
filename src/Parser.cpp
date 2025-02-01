@@ -171,7 +171,7 @@ node *MakeBreak(const error_info *ErrorInfo)
 	return Result;
 }
 
-node *MakeGeneric(const error_info *ErrorInfo, const string *T)
+node *MakeGenericNode(const error_info *ErrorInfo, const string *T)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_GENERIC);
 	Result->Generic.Name = T;
@@ -739,7 +739,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			string *Name = ID.ID;
 			if(Name == NULL)
 				Name = &ErrorID;
-			Result = MakeGeneric(ErrorInfo, ID.ID);
+			Result = MakeGenericNode(ErrorInfo, ID.ID);
 		} break;
 		case T_UNION:
 		{

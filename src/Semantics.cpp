@@ -393,6 +393,10 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 		} break;
 		case AST_GENERIC:
 		{
+			// @HACK
+			if(!Error)
+				return INVALID_TYPE;
+
 			if(!Checker->Scope.TryPeek() || (Checker->Scope.Peek()->ScopeNode->Type != AST_FN))
 			{
 				if(!Error)
@@ -592,6 +596,29 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	if(Function.ArgCount > 0)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
+	bool NeedToAddGeneric = false;
+	for(int I = 0; I < Function.ArgCount; ++I)
+	{
+		u32 T = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode, false);
+		if(T == INVALID_TYPE)
+		{
+			NeedToAddGeneric = true;
+			break;
+		}
+	}
+	if(!NeedToAddGeneric)
+	{
+		For(FnNode->Fn.ReturnTypes)
+		{
+			u32 T = GetTypeFromTypeNode(Checker, *it, false);
+			if(T == INVALID_TYPE)
+			{
+				NeedToAddGeneric = true;
+				break;
+			}
+		}
+	}
+
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode);
@@ -600,7 +627,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			Function.Args[I] = GetPointerTo(Function.Args[I]);
 		else if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
-			MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Var.Name);
+			if(NeedToAddGeneric)
+				MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Var.Name);
 		}
 		else if(IsGeneric(T))
 		{
@@ -2710,6 +2738,18 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	New.Struct.Name = *Node->StructDecl.Name;
 
 	array<struct_member> Members {Node->StructDecl.Members.Count};
+	bool NeedToAddGeneric = false;
+
+	For(Node->StructDecl.Members)
+	{
+		u32 Type = GetTypeFromTypeNode(Checker, (*it)->Var.TypeNode);
+		if(Type == INVALID_TYPE)
+		{
+			NeedToAddGeneric = true;
+			break;
+		}
+	}
+
 	ForArray(Idx, Node->StructDecl.Members)
 	{
 		node *Member = Node->StructDecl.Members[Idx];
@@ -2753,7 +2793,10 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 
 		if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
-			MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Var.Name);
+			if(NeedToAddGeneric)
+			{
+				MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Var.Name);
+			}
 		}
 		else if(IsGeneric(T))
 		{
@@ -3443,7 +3486,7 @@ string MakeNonGenericName(string GenericName)
 	return MakeString(Builder);
 }
 
-string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric, node *ErrorNode)
+string *MakeGenericName(checker *Checker, string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric, node *ErrorNode, slice<node *>Arguments)
 {
 	const type *FG = GetType(FnTypeGeneric);
 	const type *T = GetType(FnTypeNonGeneric);
@@ -3480,6 +3523,13 @@ string *MakeGenericName(string BaseName, u32 FnTypeNonGeneric, u32 FnTypeGeneric
 				Builder += "}";
 			}
 		}
+		else if(HasBasicFlag(GetType(FG->Function.Args[i]), BasicFlag_TypeID))
+		{
+			DontPrint = true;
+			u32 T = GetTypeFromTypeNode(Checker, Arguments[i]);
+			Builder += GetTypeNameAsString(T);
+		}
+
 		if(!DontPrint)
 			Builder += GetTypeNameAsString(T->Function.Args[i]);
 	}
@@ -3721,7 +3771,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 
 			const type *Old = GetType(FnSym->Node->Fn.TypeIdx);
 			u32 NewFnType = FunctionTypeGetNonGeneric(Old, ResolvedType, Expr, FnSym->Node);
-			string *GenericName = MakeGenericName(FnSym->Name ? *FnSym->Name : STR_LIT(""), NewFnType, FnSym->Node->Fn.TypeIdx, Expr);
+			string *GenericName = MakeGenericName(Checker, FnSym->Name ? *FnSym->Name : STR_LIT(""), NewFnType, FnSym->Node->Fn.TypeIdx, Expr, Expr->Call.Args);
 			string FnName = *GenericName;
 			if(Checker->Module->Name != FnSym->Checker->Module->Name)
 				*IDOut = StructToModuleName(FnName, FnSym->Checker->Module->Name);

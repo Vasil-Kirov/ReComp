@@ -1,38 +1,32 @@
 main
 
 #import io
-#import f2
-#import os
-#import mem as *
 
-custom_t :: []i32;
+struct v2 {
+	x: f32,
+	y: f32,
+}
 
-f :: c"fstr";
+enum EventType {
+	Draw,
+	Update,
+	Resize,
+	GetSize_X,
+	GetSize_Y,
+}
 
-ff :: fn() -> i32 { return 0;}
-
-y := 10;
-x := #run &y;
-
-struct S {
-	a: int,
-};
-
-struct Foo {
-	using S,
-	f: f32,
-};
-
-get_ptr :: fn(t: type) -> *t {
-	return ?make_type(t, &mem.temp_alloc);
+struct Event {
+	type: EventType,
+	data: union {
+		resize: struct {
+			size: v2,
+		},
+	},
 }
 
 main :: fn() -> i32 {
-	dummy := Foo {};
-	ptr := get_ptr(Foo);
-	ptr.f = 10;
 
-    return @i32 ptr.f;
+    return @i32 size_of Event;
 }
 
 

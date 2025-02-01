@@ -2784,6 +2784,8 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	{
 		if(Node->StructDecl.Members.Count == 0)
 			RaiseError(false, *Node->ErrorInfo, "Empty unions are not allowed");
+		if(SubTypes != INVALID_TYPE)
+			RaiseError(true, *Node->ErrorInfo, "Unions cannot use subtyping");
 		New.Struct.Flags |= StructFlag_Union;
 	}
 

@@ -13,6 +13,10 @@ ff :: fn() -> i32 { return 0;}
 y := 10;
 x := #run &y;
 
+struct S {
+	a: int,
+};
+
 puts: fn #foreign(str: *u8) -> i32;
 printf: fn #foreign(fmt: *u8, args: ...) -> i32;
 sinf: fn #foreign(arg: f32) -> f32;

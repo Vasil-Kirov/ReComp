@@ -337,6 +337,12 @@ int GetStructSize(const type *Type)
 
 	int Result = 0;
 	int BiggestMember = 0;
+	if(Type->Struct.SubType != INVALID_TYPE)
+	{
+		Result = GetTypeSize(Type->Struct.SubType);
+		BiggestMember = Result;
+	}
+
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
@@ -365,6 +371,11 @@ int GetStructMemberOffset(const type *Type, uint Member)
 		return 0;
 
 	int Result = 0;
+	if(Type->Struct.SubType != INVALID_TYPE)
+	{
+		Result = GetTypeSize(Type->Struct.SubType);
+	}
+
 	for(int Idx = 0; Idx <= Member; ++Idx)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
@@ -387,6 +398,13 @@ int GetStructAlignment(const type *Type)
 
 	int BiggestMember = 0;
 	int CurrentAlignment = 1;
+
+	if(Type->Struct.SubType != INVALID_TYPE)
+	{
+		BiggestMember = GetTypeSize(Type->Struct.SubType);
+		CurrentAlignment = GetTypeAlignment(Type->Struct.SubType);
+	}
+
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);

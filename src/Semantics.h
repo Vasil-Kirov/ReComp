@@ -34,7 +34,6 @@ struct scope
 {
 	node *ScopeNode;
 	scope *Parent;
-	uint LastGeneric;
 	dict<symbol> Symbols;
 };
 

@@ -483,7 +483,6 @@ int
 main(int ArgCount, char *Args[])
 {
 	InitVLib();
-	SetGenericReplacement(INVALID_TYPE);
 
 	InitializeLogger();
 	InitializeLexer();

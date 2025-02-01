@@ -100,11 +100,6 @@ b32 IsUntyped(u32 T)
 	return IsUntyped(GetType(T));
 }
 
-struct generic_replacement
-{
-	u32 TypeID;
-};
-
 u32 FindStruct(string Name)
 {
 	for(int i = 0; i < TypeCount; ++i)
@@ -131,18 +126,18 @@ u32 FindEnum(string Name)
 	unreachable;
 }
 
-generic_replacement GenericReplacement = {};
+dynamic<generic_replacement> GenericReplacements = {};
 
-void SetGenericReplacement(u32 ToReplace)
+size_t AddGenericReplacement(u32 Generic, u32 ToReplace)
 {
-	GenericReplacement.TypeID = ToReplace;
+	auto g = generic_replacement {.Generic = Generic, .TypeID = ToReplace};
+	GenericReplacements.Push(g);
+	return GenericReplacements.Count - 1;
 }
 
-u32 GetGenericReplacement() { return GenericReplacement.TypeID; }
-
-void ClearGenericReplacement()
+void ClearGenericReplacement(size_t To)
 {
-	GenericReplacement.TypeID = INVALID_TYPE;
+	GenericReplacements.Count = To;
 }
 
 inline const type *GetTypeRaw(u32 TypeIdx)
@@ -159,12 +154,15 @@ inline const type *GetType(u32 TypeIdx)
 	}
 
 	const type *Type = TypeTable[TypeIdx];
-	if(Type->Kind == TypeKind_Generic ||
-			(Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic))
+	if(Type->Kind == TypeKind_Generic || (Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic))
 	{
-		if(GenericReplacement.TypeID != INVALID_TYPE)
+		For(GenericReplacements)
 		{
-			Type = TypeTable[GenericReplacement.TypeID];
+			if(it->Generic == TypeIdx)
+			{
+				Type = TypeTable[it->TypeID];
+				break;
+			}
 		}
 	}
 	return Type;
@@ -463,7 +461,7 @@ int GetTypeSize(const type *Type)
 		} break;
 		default: {};
 	}
-	LDEBUG("%d", Type->Kind);
+	LDEBUG("%s", GetTypeName(Type));
 	unreachable;
 }
 
@@ -1157,8 +1155,7 @@ string GetTypeNameAsString(const type *Type)
 		case TypeKind_Generic:
 		{
 			string_builder Builder = MakeBuilder();
-			Builder += "$";
-			Builder += Type->Generic.Name;
+			PushBuilderFormated(&Builder, "$%s.%d", Type->Generic.Name.Data, Type->Generic.ID);
 			return MakeString(Builder);
 		} break;
 	}
@@ -1497,6 +1494,9 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 
 b32 IsGeneric(u32 Type)
 {
+	if(Type == INVALID_TYPE)
+		return false;
+
 	return IsGeneric(GetTypeRaw(Type));
 }
 
@@ -1649,8 +1649,9 @@ type *AllocType(type_kind Kind)
 
 u32 MakeGeneric(scope *Scope, string Name)
 {
+	static size_t Counter = 0;
 	type *T = AllocType(TypeKind_Generic);
-	T->Generic.ID = Scope->LastGeneric++;
+	T->Generic.ID = Counter++;//Scope->LastGeneric++;
 	T->Generic.Name = Name;
 	T->Generic.Scope = Scope;
 	return AddType(T);

@@ -276,10 +276,18 @@ uint GetPaddingForAlignment(uint Size, uint Align);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 
-void SetGenericReplacement(u32 ToReplace);
-u32 GetGenericReplacement();
+size_t AddGenericReplacement(u32 Generic, u32 ToReplace);
+void ClearGenericReplacement(size_t To);
+
 b32 IsStructAllFloats(const type *T);
 u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
 
+struct generic_replacement
+{
+	u32 Generic;
+	u32 TypeID;
+};
+
 extern platform_target PTarget;
+extern dynamic<generic_replacement> GenericReplacements;
 

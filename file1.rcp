@@ -3,6 +3,7 @@ main
 #import io
 #import f2
 #import os
+#import mem as *
 
 custom_t :: []i32;
 
@@ -17,31 +18,21 @@ struct S {
 	a: int,
 };
 
-puts: fn #foreign(str: *u8) -> i32;
-printf: fn #foreign(fmt: *u8, args: ...) -> i32;
-sinf: fn #foreign(arg: f32) -> f32;
-sin: fn #foreign(arg: f64) -> f64;
+struct Foo {
+	using S,
+	f: f32,
+};
 
-error_out :: fn(msg: string) {
-	io.println("Compile time error: %", msg);
-	os.abort();
+get_ptr :: fn(t: type) -> *t {
+	return ?make_type(t, &mem.temp_alloc);
 }
 
 main :: fn() -> i32 {
+	dummy := Foo {};
+	ptr := get_ptr(Foo);
+	ptr.f = 10;
 
-	if "" {
-		puts(c"Hello");
-	} else {
-		puts(c"yes");
-	}
-
-	if "a" {
-		puts(c"and no");
-	} else {
-		puts(c"and yes");
-	}
-
-    return 0;
+    return @i32 ptr.f;
 }
 
 

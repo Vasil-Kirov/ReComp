@@ -141,9 +141,11 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 				{
 					if(N == Type->Generic.Name)
 					{
-						u32 Replacement = GetGenericReplacement();
-						if(Replacement != INVALID_TYPE)
-							return Replacement;
+						For(GenericReplacements)
+						{
+							if(it->Generic == I)
+								return it->TypeID;
+						}
 						return I;
 					}
 				}
@@ -534,7 +536,6 @@ scope *AllocScope(node *Node, scope *Parent)
 	scope *S = NewType(scope);
 	S->ScopeNode = Node;
 	S->Parent = Parent;
-	S->LastGeneric = 0;
 	return S;
 }
 
@@ -2739,6 +2740,10 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 			{
 				RaiseError(true, *Member->ErrorInfo, "Cannot subtype multiple types! Trying to subtype %s while already subtyping %s", GetTypeName(T), GetTypeName(SubTypes));
 			}
+			if(IsGeneric(SubTypes))
+			{
+				RaiseError(true, *Member->ErrorInfo, "Cannot subtype a generic");
+			}
 
 			SubTypes = Type;
 			Members.Data[Idx].ID = STR_LIT("base");
@@ -3523,19 +3528,20 @@ u32 FunctionTypeGetNonGeneric(const type *Old, u32 ResolvedType, node *Call, nod
 }
 
 node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode, node *Call,
-		u32 NewFnType, string *GenericName)
+		u32 NewFnType, string *GenericName, u32 GenericType)
 {
+	Assert(GenericType != INVALID_TYPE);
+
 	node *Result = FnNode;
 	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
 	Result->Fn.Name = GenericName;
 	Result->Fn.TypeIdx = NewFnType;
 
-	u32 Save = GetGenericReplacement();
-	SetGenericReplacement(ResolvedType);
+	size_t Before = AddGenericReplacement(GenericType, ResolvedType);
 
 	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx, OriginalNode);
 
-	SetGenericReplacement(Save);
+	ClearGenericReplacement(Before);
 
 	return Result;
 }
@@ -3547,8 +3553,6 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 	{
 		case AST_CALL:
 		{
-			u32 SaveRepl = GetGenericReplacement();
-			SetGenericReplacement(INVALID_TYPE);
 			module *MaybeMod = NULL;
 			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
 			if(!FnSym)
@@ -3558,12 +3562,12 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 
 			const type *T = GetType(FnSym->Type);
 			u32 ResolvedType = INVALID_TYPE;
-			dynamic<u32> GenericTypes = {};
+			u32 GenericType = INVALID_TYPE;
 			string ResolvedName = {};
 			for(int i = 0; i < T->Function.ArgCount; ++i)
 			{
-				const type *ArgT = GetType(T->Function.Args[i]);
-				if(HasBasicFlag(ArgT, BasicFlag_TypeID))
+				const type *ParamT = GetType(T->Function.Args[i]);
+				if(HasBasicFlag(ParamT, BasicFlag_TypeID))
 				{
 					if(ResolvedType != INVALID_TYPE)
 					{
@@ -3591,7 +3595,24 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						ResolvedName = *FnSym->Node->Fn.Args[i]->Var.Name;
 
 						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
-						GenericTypes.Push(ResolvedType);
+						if(IsGeneric(ResolvedType))
+						{
+							b32 Found = false;
+							For(GenericReplacements)
+							{
+								if(it->Generic == ResolvedType)
+								{
+									ResolvedType = it->TypeID;
+									Found = true;
+									break;
+								}
+							}
+							if(!Found)
+							{
+								// ???
+								RaiseError(true, *Arg->ErrorInfo, "Got a generic type while trying to resolve other generic type");
+							}
+						}
 						if(ResolvedType == INVALID_TYPE)
 						{
 							RaiseError(true, *Arg->ErrorInfo,
@@ -3599,11 +3620,12 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						}
 					}
 				}
-				else if(IsGeneric(ArgT))
+				else if(IsGeneric(ParamT))
 				{
 					node *Arg = Expr->Call.Args[i];
 					u32 GenericID = GetGenericPart(T->Function.Args[i], T->Function.Args[i]);
 					const type *G = GetType(GenericID);
+					GenericType = GenericID;
 					if(ResolvedType != INVALID_TYPE)
 					{
 						if(ResolvedName.Data && ResolvedName != G->Generic.Name)
@@ -3634,6 +3656,19 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						RaiseError(true, *Expr->Call.Args[i]->ErrorInfo, "Call to generic expression doesn't resolve generic type before it's used");
 					Expr->Call.ArgTypes.Data[i] = ResolvedType;
 					FillUntypedStack(Checker, ResolvedType);
+				}
+			}
+
+			if(GenericType == INVALID_TYPE)
+			{
+				For(T->Function.Returns)
+				{
+					const type *T = GetType(*it);
+					if(IsGeneric(T))
+					{
+						GenericType = GetGenericPart(*it, *it);
+						break;
+					}
 				}
 			}
 
@@ -3682,9 +3717,6 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
 					}
 				}
-				else
-				{
-				}
 			}
 
 			const type *Old = GetType(FnSym->Node->Fn.TypeIdx);
@@ -3720,7 +3752,7 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 				}
 
 				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
-						NewFnType, GenericName);
+						NewFnType, GenericName, GenericType);
 
 				if(FnSym->Checker == Checker)
 				{
@@ -3736,9 +3768,6 @@ node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
 			}
 			Expr->Call.Fn = NewFnNode;
 			Expr->Call.Type = NewFnType;
-			Expr->Call.GenericTypes = SliceFromArray(GenericTypes);
-
-			SetGenericReplacement(SaveRepl);
 
 
 			return NewFnNode;

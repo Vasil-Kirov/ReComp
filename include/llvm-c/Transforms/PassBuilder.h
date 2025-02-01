@@ -14,9 +14,9 @@
 #ifndef LLVM_C_TRANSFORMS_PASSBUILDER_H
 #define LLVM_C_TRANSFORMS_PASSBUILDER_H
 
-#include "../Error.h"
-#include "../TargetMachine.h"
-#include "../Types.h"
+#include "llvm-c/Error.h"
+#include "llvm-c/TargetMachine.h"
+#include "llvm-c/Types.h"
 
 /**
  * @defgroup LLVMCCoreNewPM New Pass Manager

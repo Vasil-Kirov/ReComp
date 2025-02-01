@@ -14,8 +14,8 @@ temp_alloc := Allocator {
 		};
 
 struct Allocator {
-    alloc: fn(size: int, this: *Allocator) -> ?*,
-    free:  fn(ptr: *, this: *Allocator),
+    alloc: *fn(size: int, this: *Allocator) -> ?*,
+    free:  *fn(ptr: *, this: *Allocator),
     data: ?*,
 }
 

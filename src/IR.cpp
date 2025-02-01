@@ -2387,20 +2387,6 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 	Builder->CurrentBlock = Then;
 }
 
-void IRPushDebugArgInfo(block_builder *Builder, const error_info *ErrorInfo, int ArgNo, u32 Location, string Name, u32 TypeID)
-{
-	ir_debug_info *IRInfo = NewType(ir_debug_info);
-	IRInfo->type = IR_DBG_ARG;
-	IRInfo->arg.ArgNo = ArgNo;
-	IRInfo->arg.LineNo = ErrorInfo->Range.StartLine;
-	IRInfo->arg.Name = Name;
-	IRInfo->arg.Register = Location;
-	IRInfo->arg.TypeID = TypeID;
-
-	PushInstruction(Builder,
-			InstructionDebugInfo(IRInfo));
-}
-
 void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
 {
 	ir_debug_info *IRInfo = NewType(ir_debug_info);
@@ -3452,10 +3438,6 @@ INSIDE_EQ:
 				switch(Info->type)
 				{
 					case IR_DBG_INTERP_ERROR_INFO: {} break;
-					case IR_DBG_ARG:
-					{
-						PushBuilderFormated(Builder, "DEBUG_ARG_INFO %s #%d", Info->arg.Name.Data, Info->arg.ArgNo);
-					} break;
 					case IR_DBG_VAR:
 					{
 						PushBuilderFormated(Builder, "DEBUG_VAR_INFO %s Line=%d, Type=%s", Info->var.Name.Data, Info->var.LineNo, GetTypeName(Info->var.TypeID));

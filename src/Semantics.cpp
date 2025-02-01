@@ -2713,8 +2713,14 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	{
 		node *Member = Node->StructDecl.Members[Idx];
 		u32 Type = GetTypeFromTypeNode(Checker, Member->Var.TypeNode);
-		Type = FixPotentialFunctionPointer(Type);
+		//Type = FixPotentialFunctionPointer(Type);
 		const type *T = GetType(Type);
+		if(T->Kind == TypeKind_Function)
+		{
+			RaiseError(false, *Member->ErrorInfo, "Cannot put function as struct member, if you want a function pointer declare it as *fn(...)");
+			Type = GetPointerTo(Type);
+			T = GetType(Type);
+		}
 		if(Member->Var.Name == NULL)
 		{
 			if(Idx != 0)

@@ -95,7 +95,8 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 			LLVMValueRef LLVM = gen->map.Get(Info->var.Register);
 			auto m_info = LLVMDIBuilderCreateAutoVariable(gen->dbg, gen->CurrentScope, Info->var.Name.Data, Info->var.Name.Size, gen->f_dbg, Info->var.LineNo, ToDebugTypeLLVM(gen, Info->var.TypeID), false, LLVMDIFlagZero, 0);
 			LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(gen->dbg, NULL, 0);
-			LLVMDIBuilderInsertDeclareAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
+			LLVMDIBuilderInsertDeclareRecordAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
+			//LLVMDIBuilderInsertDeclareAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 		} break;
 		case IR_DBG_LOCATION:
 		{
@@ -107,19 +108,6 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 		case IR_DBG_SCOPE:
 		{
 			gen->CurrentScope = LLVMDIBuilderCreateLexicalBlock(gen->dbg, gen->CurrentScope, gen->f_dbg, Info->loc.LineNo, 0);
-		} break;
-		case IR_DBG_ARG:
-		{
-			LLVMMetadataRef Meta = LLVMDIBuilderCreateParameterVariable(
-					gen->dbg, gen->CurrentScope,
-					Info->arg.Name.Data, Info->arg.Name.Size,
-					Info->arg.ArgNo,
-					gen->f_dbg, Info->arg.LineNo,
-					ToDebugTypeLLVM(gen, Info->arg.TypeID),
-					false, LLVMDIFlagZero);
-			LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(gen->dbg, NULL, 0);
-			LLVMValueRef Value = gen->map.Get(Info->arg.Register);
-			LLVMDIBuilderInsertDbgValueAtEnd(gen->dbg, Value, Meta, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 		} break;
 	}
 }

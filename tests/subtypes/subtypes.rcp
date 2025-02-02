@@ -1,0 +1,35 @@
+main
+
+struct Parent {
+	foo: i32,
+	bar: i32,
+}
+
+struct Child {
+	using Parent,
+	ff: i32,
+}
+
+write_to_parent :: fn(p: *Parent) {
+	p := p;
+	p.foo = 1;
+	p.bar = 2;
+}
+
+make :: fn() -> Child {
+	return Child { ff = 3 };
+}
+
+main :: fn() -> i32 {
+	child1 := #run fn() -> Child {
+		result := make();
+		write_to_parent(&result.base);
+		return result;
+	}();
+	child2 := Child { ff = 3 };
+	write_to_parent(&child2.base);
+	// 1 + 2 + 3 + 12 = 18
+    sum1 := child1.foo + child1.bar + child1.ff + size_of child1;
+	sum2 := child2.foo + child2.bar + child2.ff + size_of Child;
+	return @i32 (36 - sum1 - sum2);
+}

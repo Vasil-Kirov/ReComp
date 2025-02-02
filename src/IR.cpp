@@ -1183,7 +1183,6 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 									goto SEARCH_TYPE_DONE;
 								}
-
 							} break;
 							default: continue;
 						}

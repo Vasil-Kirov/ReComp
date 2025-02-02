@@ -1,11 +1,11 @@
 #include "Type.h"
 #include "Semantics.h"
 #include "Memory.h"
-#include "Threading.h"
 #include "VString.h"
 #include "Basic.h"
 #include "Log.h"
 #include "Dict.h"
+#include <mutex>
 
 platform_target PTarget = platform_target::Windows;
 
@@ -335,11 +335,14 @@ int GetStructSize(const type *Type)
 
 	int Result = 0;
 	int BiggestMember = 0;
+
+#if 0
 	if(Type->Struct.SubType != INVALID_TYPE)
 	{
 		Result = GetTypeSize(Type->Struct.SubType);
 		BiggestMember = Result;
 	}
+#endif
 
 	ForArray(Idx, Type->Struct.Members)
 	{
@@ -369,10 +372,12 @@ int GetStructMemberOffset(const type *Type, uint Member)
 		return 0;
 
 	int Result = 0;
+#if 0
 	if(Type->Struct.SubType != INVALID_TYPE)
 	{
 		Result = GetTypeSize(Type->Struct.SubType);
 	}
+#endif
 
 	for(int Idx = 0; Idx <= Member; ++Idx)
 	{
@@ -397,11 +402,13 @@ int GetStructAlignment(const type *Type)
 	int BiggestMember = 0;
 	int CurrentAlignment = 1;
 
+#if 0
 	if(Type->Struct.SubType != INVALID_TYPE)
 	{
 		BiggestMember = GetTypeSize(Type->Struct.SubType);
 		CurrentAlignment = GetTypeAlignment(Type->Struct.SubType);
 	}
+#endif
 
 	ForArray(Idx, Type->Struct.Members)
 	{

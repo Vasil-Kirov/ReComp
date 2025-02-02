@@ -7,28 +7,21 @@ struct v2 {
 	y: f32,
 }
 
-enum EventType {
-	Draw,
-	Update,
-	Resize,
-	GetSize_X,
-	GetSize_Y,
+c :: v2 { 1.3, 4.4 };
+
+get :: fn () -> v2 {
+	return c;
 }
 
-struct Event {
-	type: EventType,
-	data: union {
-		resize: struct {
-			size: v2,
-		},
-	},
+print_v :: fn(c: v2) {
+	io.println("%", c);
 }
 
 main :: fn() -> i32 {
-
-    return @i32 size_of Event;
+	v := get();
+	print_v(v);
+    return 0;
 }
-
 
 
 #run main();

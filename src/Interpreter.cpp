@@ -974,7 +974,6 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						Value.ptr = ALLOC(Size);
 						VM->Registers.AddValue(it->Result, Value);
 					} break;
-					case TypeKind_Vector:
 					case TypeKind_Struct:
 					case TypeKind_Array:
 					{
@@ -1314,8 +1313,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 
 				auto WasExec = VM->Executing;
-				VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.BigRegister).Code);
+				//VM->Executing->Code = SliceFromArray(Found->Code);
+				code_chunk Chunk;
+				Chunk.Code = SliceFromArray(Found->Code);
+				VM->Executing = &Chunk;
+
 				interpret_result Result = Run(VM, OptionalBlocks, OptionalArgs);
+
 				VM->Executing = WasExec;
 				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 					return Result;
@@ -1416,10 +1420,18 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					} break;
 					case TypeKind_Vector:
 					{
-						NoResult = true;
-						uint Size = GetTypeSize(Type);
-						value *Result = VM->Registers.GetValue(I.Result);
-						memcpy(Result->ptr, Value->ptr, Size);
+						Assert(Type->Vector.ElementCount == 2);
+						switch(Type->Vector.Kind)
+						{
+							case Vector_Int:
+							{
+								Result.ivec2 = *(__m64 *)Value->ptr;
+							} break;
+							case Vector_Float:
+							{
+								Result.fvec2 = *(__m64 *)Value->ptr;
+							} break;
+						}
 					} break;
 					default: {
 						LDEBUG("%s", GetTypeName(Type));
@@ -1634,20 +1646,22 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						Assert(GetType(I.Type)->Kind == TypeKind_Struct);
 						int TypeSize = GetTypeSize(I.Type);
 						u8 *Memory = (u8 *)VM->Stack.Peek().Allocate(TypeSize);
-						memcpy(Memory, &OptionalArgs.Data[Loc.Start].u64, 8);
+						value Int1 = OptionalArgs[Loc.Start];
+						value Int2 = OptionalArgs[Loc.Start+1];
+						memcpy(Memory, &Int1.u64, 8);
 						switch(TypeSize-8)
 						{
 							case 8:
 							{
-								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 8);
+								memcpy(Memory+8, &Int2.u64, 8);
 							} break;
 							case 4:
 							{
-								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 4);
+								memcpy(Memory+8, &Int2.u64, 4);
 							} break;
 							case 2:
 							{
-								memcpy(Memory+8, &OptionalArgs.Data[Loc.Start+1].u64, 2);
+								memcpy(Memory+8, &Int2.u64, 2);
 							} break;
 							default :unreachable;
 						}
@@ -1664,29 +1678,35 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						int TypeSize = GetTypeSize(I.Type);
 						void *Memory = VM->Stack.Peek().Allocate(TypeSize);
 						u8 *Ptr = (u8 *)Memory;
-						int Passed = 0;
-						ForArray(Idx, T->Struct.Members)
+
+						int At = Loc.Start;
+						int i = 0;
+						for(; i+1 < T->Struct.Members.Count; ++i)
 						{
-							const type *MemT = GetType(OptionalArgs.Data[Loc.Start + Passed++].Type);
-							int MemSize = GetTypeSize(MemT);
-							if(MemT->Kind == TypeKind_Vector)
+							value V = OptionalArgs[At];
+							u32 First = T->Struct.Members[i].Type;
+							u32 Second = T->Struct.Members[i + 1].Type;
+							if(First == Basic_f32 && Second == Basic_f32)
 							{
-								memcpy(Ptr, OptionalArgs.Data[Loc.Start].ptr, GetTypeSize(MemT));
-								Idx++;
+								int Size = GetTypeSize(Basic_f32) * 2;
+								*(__m64 *)Ptr = V.fvec2;
+								++i;
+								Ptr += Size;
 							}
 							else
 							{
-								Assert(HasBasicFlag(MemT, BasicFlag_Float));
-								if(MemT->Basic.Kind == Basic_f32)
+								if(First == Basic_f32)
 								{
-									memcpy(Ptr, &OptionalArgs.Data[Loc.Start+Idx].f32, 4);
+									memcpy(Ptr, &V.f32, 4);
+									Ptr += 4;
 								}
 								else
 								{
-									memcpy(Ptr, &OptionalArgs.Data[Loc.Start+Idx].f64, 8);
+									memcpy(Ptr, &V.f64, 8);
+									Ptr += 8;
 								}
 							}
-							Ptr += MemSize;
+							++At;
 						}
 						value Value = {};
 						Value.Type = I.Type;
@@ -1970,7 +1990,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 
 }
 
-interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals=false)
+interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals = false)
 {
 	function WasFn = VM->CurrentFn;
 	VM->CurrentFn = Fn;
@@ -2018,8 +2038,17 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	b32 WasCurrentFnRetInPtr = VM->IsCurrentFnRetInPtr;
 
+	auto Blocks = SliceFromArray(Function.Blocks);
+	auto FindFirstBlock = [](slice<basic_block> Blocks) -> slice<instruction> {
+		For(Blocks) {
+			if(it->ID == 0)
+				return SliceFromArray(it->Code);
+		}
+		unreachable;
+	};
+
 	VM->IsCurrentFnRetInPtr = Function.ReturnPassedInPtr;
-	interpret_result Result = RunBlocks(VM, Function, SliceFromArray(Function.Blocks), Args, SliceFromArray(Function.Blocks[0].Code));
+	interpret_result Result = RunBlocks(VM, Function, Blocks, Args, FindFirstBlock(Blocks));
 
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 	VM->CurrentFnName = SaveCurrentFn;

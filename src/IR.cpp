@@ -149,12 +149,13 @@ basic_block AllocateBlock(block_builder *Builder)
 	return Block;
 }
 
-block_builder MakeBlockBuilder(function *Fn, module *Module)
+block_builder MakeBlockBuilder(function *Fn, module *Module, slice<import> Imported)
 {
 	block_builder Builder = {};
 	Builder.Scope.Push({});
 	Builder.Function = Fn;
 	Builder.CurrentBlock = AllocateBlock(&Builder);
+	Builder.Imported = Imported;
 	Builder.LastRegister = 0;
 	Builder.Module = Module;
 
@@ -2640,8 +2641,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 
 	if(Body.IsValid())
 	{
-		block_builder Builder = MakeBlockBuilder(&Function, Module);
-		Builder.Imported = Imported;
+		block_builder Builder = MakeBlockBuilder(&Function, Module, Imported);
 		Builder.Module = Module;
 
 		IRPushDebugLocation(&Builder, Node->ErrorInfo);
@@ -3038,7 +3038,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 			FakeFn.Type = VoidFnT;
 			FakeFn.LinkName = FakeFn.Name;
 			FakeFn.NoDebugInfo = true;
-			block_builder Builder = MakeBlockBuilder(&FakeFn, Module);
+			block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
 			BuildRun(&Builder, Node);
 			Terminate(&Builder, {});
 			FakeFn.LastRegister = Builder.LastRegister;
@@ -3054,7 +3054,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 				FakeFn.Type = VoidFnT;
 				FakeFn.LinkName = FakeFn.Name;
 				FakeFn.NoDebugInfo = true;
-				block_builder Builder = MakeBlockBuilder(&FakeFn, Module);
+				block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
 				PushErrorInfo(&Builder, Node);
 				BuildIRFromExpression(&Builder, Node->Decl.Expression);
 				Terminate(&Builder, {});
@@ -3092,7 +3092,7 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT)
 	TypeTableFn.LinkName = TypeTableFn.Name;
 	TypeTableFn.NoDebugInfo = true;
 
-	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module);
+	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module, {});
 
 	string TypeTableName = STR_LIT("type_table");
 	uint TypeCount = GetTypeCount();
@@ -3152,6 +3152,7 @@ extern type **TypeTable;
 
 void BuildEnumIR(slice<module *> Modules)
 {
+	// @LEAK
 	array<import> ImportArray{Modules.Count};
 	ForArray(Idx, Modules)
 	{
@@ -3175,8 +3176,7 @@ void BuildEnumIR(slice<module *> Modules)
 			Fn.LinkName = Fn.Name;
 			Fn.NoDebugInfo = true;
 
-			block_builder Builder = MakeBlockBuilder(&Fn, M);
-			Builder.Imported = Imports;
+			block_builder Builder = MakeBlockBuilder(&Fn, M, Imports);
 			For(T->Enum.Members)
 			{
 				Builder.CurrentBlock = AllocateBlock(&Builder);

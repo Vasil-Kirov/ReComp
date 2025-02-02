@@ -1,6 +1,7 @@
 #pragma once
 #include <IR.h>
 #include <Stack.h>
+#include <immintrin.h>
 #include "DynamicLib.h"
 #include "Memory.h"
 #include "StackAllocator.h"
@@ -57,6 +58,8 @@ struct value
 {
 	union
 	{
+		__m64 ivec2;
+		__m64 fvec2;
 		u64 u64;
 		i64 i64;
 		f64 f64;

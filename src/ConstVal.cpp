@@ -129,8 +129,8 @@ const_value MakeConstValue(const string *String)
 					val = c - '0';
 				}
 
-				int mul = pow(16, Position++);
-				Result.Int.Unsigned += val * mul;
+				u64 mul = (u64)pow(16, Position++);
+				Result.Int.Unsigned += (u64)val * mul;
 			}
 		} break;
 	}

@@ -4,7 +4,7 @@ DEFINES="-D_CRT_SECURE_NO_WARNINGS -DDEBUG -DCM_LINUX"
 LIBS=$(llvm-config --ldflags --libs)
 LIBS+=' -ldyncall_s'
 
-DO_ASAN='-fsanitize=address -fsanitize=undefined'
+DO_ASAN='-fsanitize=address,undefined'
 #DO_ASAN=''
 
 #export ASAN_OPTIONS=detect_leaks=0

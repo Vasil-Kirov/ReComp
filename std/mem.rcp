@@ -64,15 +64,22 @@ struct ScratchContext {
     max: *u8,
 }
 
+addr_align16 :: fn(addr: *) -> * {
+	addr := @*u8 addr;
+    return @*void (((@u64 addr) + 15) & 0xfffffffffffffff0);
+}
+
 arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 	if this.data == null {
 		this := this;
 		*this = create_scratch(mb(1));
 	}
+
     ctx := @*ScratchContext ?this.data;
     os.assert(ctx != null, "Invalid allocator for arena_alloc()");
     os.assert(ctx.max > ctx.current, "Calling arena_alloc() with an out of memory arena");
 
+	ctx.current = addr_align16(ctx.current);
     res := ctx.current;
     ctx.current = ctx.current + size;
 

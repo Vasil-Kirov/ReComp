@@ -52,5 +52,12 @@ void FreeArena(ap_memory *Arena);
 #define NewType(Type) (Type *)AllocatePermanent(sizeof(Type))
 #define DupeType(Data, Type) (Type *)ToArena((void *)&Data, sizeof(Type), PERM_INDEX)
 
+inline void *
+Align16(void *Address)
+{
+    return (void*)(((u64)(Address) + 15ull) & 0xfffffffffffffff0);
+}
+
+
 
 #endif //_MEMORY_H

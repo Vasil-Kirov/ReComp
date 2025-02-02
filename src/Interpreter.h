@@ -126,13 +126,16 @@ struct interpreter_scope
 struct binary_stack
 {
 	void *Memory;
-	uint Used;
+	u8 *At = NULL;
 
 	void *Allocate(uint Size)
 	{
-		void *Result = ((u8 *)Memory)+Used;
-		Used += Size;
-		if(Used >= MB(1))
+		if(At == NULL)
+			At = (u8 *)Memory;
+		At = (u8 *)Align16(At);
+		void *Result = At;
+		At += Size;
+		if(At - (u8 *)Memory >= MB(1))
 		{
 			LogCompilerError("Error: Interpreter stack ran out of memory\n");
 			abort();

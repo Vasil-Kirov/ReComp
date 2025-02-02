@@ -3,6 +3,6 @@ intrin
 
 
 // @TODO:
-compare_exchange :: fn(expect: *int, need: int) -> int;
+compare_exchange :: fn(expect: *int, need: int) -> int #intrinsic;
 
 

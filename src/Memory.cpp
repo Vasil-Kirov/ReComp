@@ -54,9 +54,16 @@ void *ToArena(void *Data, u64 Size, i8 Index)
 	return Result;
 }
 
+inline void *
+Align8(void *Address)
+{
+    return (void*)(((u64)(Address) + 0x7) & 0xfffffffffffffff8);
+}
+
 void *
 ArenaAllocate(ap_memory *Arena, u64 Size, b32 NoZeroOut)
 {
+	Arena->Current = Align8(Arena->Current);
 	void *Result = Arena->Current;
 	Arena->Current = (char *)Arena->Current + Size;
 	while((char *)Arena->Current >= (char *)Arena->End)

@@ -85,6 +85,11 @@ static b32 _MemoryInitializer = InitializeMemory();
 #error unsupported platform
 #endif
 
+#ifdef __cplusplus
+extern "C"
+#endif
+const char* __asan_default_options() { return "detect_leaks=0"; }
+
 struct timers
 {
 	timer_group Parse;

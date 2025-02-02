@@ -28,10 +28,11 @@ u32 GenerateVoidFnT()
 	return AddType(NT);
 }
 
-inline void PushResult(u32 Register, block_builder *Builder)
+inline void PushResult(u32 Register, u32 Type, block_builder *Builder)
 {
 	instruction Result;
 	Result.Op = OP_RESULT;
+	Result.Type = Type;
 	Result.Right = Register;
 	Result.Result = Register;
 	PushInstruction(Builder, Result);
@@ -608,13 +609,14 @@ u32 BuildRun(block_builder *Builder, node *Node)
 	{
 		BuildIRFunctionLevel(Builder, *it);
 	}
-	if(!Node->Run.IsExprRun)
+
 	{
 		instruction Unreachable = {};
 		Unreachable.Op = OP_UNREACHABLE;
 		Unreachable.Right = true;
 		PushInstruction(Builder, Unreachable);
 	}
+
 	Terminate(Builder, Save);
 	Builder->RunIndexes.Push(run_location{Save.ID, (uint)Save.Code.Count});
 	return PushInstruction(Builder, Instruction(OP_RUN, 0, RunBlock.ID, Node->Run.TypeIdx, Builder));
@@ -1099,8 +1101,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					}
 				} break;
 			}
-			PushResult(Alloc, Builder);
-		}break;
+			PushResult(Alloc, Node->TypeList.Type, Builder);
+		} break;
 		case AST_PTRDIFF:
 		{
 			u32 Left = BuildIRFromExpression(Builder, Node->PtrDiff.Left);
@@ -3536,6 +3538,17 @@ string Dissasemble(ir *IR)
 	{
 		Builder += DissasembleFunction(*it, 0);
 		Builder += '\n';
+	}
+	For(IR->GlobalRuns)
+	{
+		Builder += "#run {";
+		ForArray(Idx, it->Blocks)
+		{
+			if(Idx != 0)
+				Builder += "\n";
+			DissasembleBasicBlock(&Builder, it->Blocks.Data + Idx, 0);
+		}
+		Builder += "}\n";
 	}
 	return MakeString(Builder);
 }

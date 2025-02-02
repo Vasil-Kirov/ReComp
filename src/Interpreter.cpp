@@ -11,6 +11,7 @@
 #include <Type.h>
 #include <Log.h>
 #include <cstddef>
+#include <immintrin.h>
 #include <x64CodeWriter.h>
 #include <math.h>
 
@@ -826,10 +827,104 @@ value PerformCast(value *Value, const type *From, u32 ToIdx)
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 {
 	const type *Type = GetType(TypeIdx);
+	if(Type->Kind == TypeKind_Enum)
+	{
+		TypeIdx = Type->Enum.Type;
+		Type = GetType(TypeIdx);
+	}
 	int TypeSize = GetTypeSize(Type);
 	if(IsLoadableType(Type))
 	{
-		memcpy(Ptr->ptr, &Value->u64, TypeSize);
+		switch(Type->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				switch(Type->Basic.Kind)
+				{
+					case Basic_auto:
+					case Basic_module:
+					case Basic_string:
+					case Basic_UntypedFloat:
+					case Basic_UntypedInteger:
+					unreachable;
+					case Basic_type:
+					case Basic_int:
+					{
+						*(ssize_t *)Ptr->ptr = Value->i64;
+					} break;
+					case Basic_uint:
+					{
+						*(size_t *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_f32:
+					{
+						*(f32 *)Ptr->ptr = Value->f32;
+					} break;
+					case Basic_f64:
+					{
+						*(f64 *)Ptr->ptr = Value->f64;
+					} break;
+					case Basic_bool:
+					{
+						*(u8 *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_u8:
+					{
+						*(u8 *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_u16:
+					{
+						*(u16 *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_u32:
+					{
+						*(u32 *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_u64:
+					{
+						*(u64 *)Ptr->ptr = Value->u64;
+					} break;
+					case Basic_i8:
+					{
+						*(i8 *)Ptr->ptr = Value->i64;
+					} break;
+					case Basic_i16:
+					{
+						*(i16 *)Ptr->ptr = Value->i64;
+					} break;
+					case Basic_i32:
+					{
+						*(i32 *)Ptr->ptr = Value->i64;
+					} break;
+					case Basic_i64:
+					{
+						*(i64 *)Ptr->ptr = Value->i64;
+					} break;
+				}
+			} break;
+			case TypeKind_Pointer:
+			{
+				*(void **)Ptr->ptr = Value->ptr;
+			} break;
+			case TypeKind_Vector:
+			{
+				Assert(Type->Vector.ElementCount == 2);
+				if(Type->Vector.Kind == Vector_Int)
+				{
+					*(__m64 *)Ptr->ptr = Value->ivec2;
+				}
+				else if(Type->Vector.Kind == Vector_Float)
+				{
+					*(__m64 *)Ptr->ptr = Value->fvec2;
+				}
+				else unreachable;
+			} break;
+			default: 
+			{
+				LDEBUG("%s", GetTypeName(Type));
+				unreachable;
+			}
+		}
 	}
 	else
 	{
@@ -872,7 +967,16 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 			else
 			{
 				value *Index = VM->Registers.GetValue(Right);
-				Result = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+				const type *IT = GetType(Index->Type);
+				Assert(HasBasicFlag(IT, BasicFlag_Integer));
+				if(HasBasicFlag(IT, BasicFlag_Unsigned))
+				{
+					Result = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
+				}
+				else
+				{
+					Result = ((u8 *)Operand->ptr) + (TypeSize * Index->i64);
+				}
 			}
 		} break;
 		case TypeKind_Struct:
@@ -1499,6 +1603,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						VM->StoredGlobals[Left->ptr] = GlobalRegister;
 					}
 				}
+				VM->Registers.LastAdded = I.Result;
 			} break;
 			case OP_INDEX:
 			{

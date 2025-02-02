@@ -327,7 +327,10 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 		}
 	}
 	AdvanceC(String, ErrorInfo);
-	string Tokinized = MakeString(Builder);
+	string Tokinized = STR_LIT("");
+	if(Builder.Size > 0)
+		Tokinized = MakeString(Builder);
+
 	if(CString)
 		return MakeToken(T_CSTR, *ErrorInfo, MakeStringPointer(Tokinized));
 	else

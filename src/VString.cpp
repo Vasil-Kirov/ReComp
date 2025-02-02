@@ -81,6 +81,8 @@ string MakeStringSlice(const char *Ptr, size_t Size)
 
 string MakeString(const char *CString, size_t Size)
 {
+	Assert(CString);
+
 	string Result;
 
 	char *Data = AllocateString(Size + 1);

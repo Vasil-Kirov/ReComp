@@ -1,31 +1,28 @@
 main
 
-#import io
-
-struct v2 {
-	x: f32,
-	y: f32,
+struct SomeVals {
+	a: f32,
+	b: f32,
 }
 
-c :: v2 { 1.3, 4.4 };
-
-get :: fn () -> v2 {
-	return c;
+get_struct :: fn(val: int) -> SomeVals {
+	return SomeVals { @f32 val * 2, @f32 val };
 }
 
-print_v :: fn(c: v2) {
-	io.println("%", c);
+get_array :: fn(x: SomeVals) -> [10]i32 {
+	return [10]i32 { 1, 2, @i32 x.a, @i32 x.b, 5 };
 }
 
 main :: fn() -> i32 {
-	v := get();
-	print_v(v);
-    return 0;
+	arr := #run get_array( #run get_struct(10) );
+	sum := @i32 0;
+
+	for it in arr	sum += it;
+
+    return sum - 38;
 }
 
-
-#run main();
-
+#run get_array( #run get_struct(10) );
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

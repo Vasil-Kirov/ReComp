@@ -28,7 +28,7 @@ void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlig
 	string_builder Builder = MakeBuilder();
 	string Code = *ErrorInfo.Data;
 	i64 AtLine = 1;
-	while(AtLine != ErrorInfo.Range.StartLine)
+	while(AtLine < ErrorInfo.Range.StartLine)
 	{
 		if(Code.Data[0] == '\n')
 			AtLine++;
@@ -37,7 +37,7 @@ void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlig
 
 	char AtChar = 1;
 
-	while(AtChar != ErrorInfo.Range.StartChar)
+	while(AtChar < ErrorInfo.Range.StartChar)
 	{
 		char c = Code.Data[0];
 		Assert(c != '\n');
@@ -54,7 +54,7 @@ void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlig
 		Builder = MakeBuilder();
 	}
 
-	while(AtChar != ErrorInfo.Range.EndChar || AtLine != ErrorInfo.Range.EndLine)
+	while(AtChar < ErrorInfo.Range.EndChar || AtLine < ErrorInfo.Range.EndLine)
 	{
 		char c = Code.Data[0];
 		if(c == '\n')

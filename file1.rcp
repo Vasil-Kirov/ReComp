@@ -26,7 +26,9 @@ main :: fn() -> i32 {
 
 	for it in arr	sum += it;
 
-    return sum - 38;
+	res := @i32 (if sum == 37 1 else 2);
+
+    return res;
 }
 
 

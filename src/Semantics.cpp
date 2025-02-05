@@ -870,6 +870,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_IFX:
+		{
+			AnalyzeBooleanExpression(Checker, &Expr->IfX.Expr);
+			u32 IfTrue = AnalyzeExpression(Checker, Expr->IfX.True);
+			u32 IfFalse = AnalyzeExpression(Checker, Expr->IfX.False);
+			Result = TypeCheckAndPromote(Checker, Expr->IfX.True->ErrorInfo, IfTrue, IfFalse, &Expr->IfX.True, &Expr->IfX.False, "if expression left and right side are incompatible. Left: %s Right: %s.");
+			Expr->IfX.TypeIdx = Result;
+			if(IsUntyped(Result))
+				Checker->UntypedStack.Push(&Expr->IfX.TypeIdx);
+		} break;
 		case AST_RUN:
 		{
 			if(Expr->Run.Body.Count != 1)

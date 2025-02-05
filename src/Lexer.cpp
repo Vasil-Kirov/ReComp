@@ -485,6 +485,7 @@ void InitializeLexer()
 	AddKeyword("break", T_BREAK);
 	AddKeyword("if",  T_IF);
 	AddKeyword("else",T_ELSE);
+	AddKeyword("then", T_THEN);
 	AddKeyword("for", T_FOR);
 	AddKeyword("fn",  T_FN);
 	AddKeyword("as",  T_AS);

@@ -8,9 +8,11 @@ LIBS+=' -ldyncall_s'
 if [[ "$1" == "rel" ]]
 then
 	FLAGS='-O3'
-else
-
+elif [[ "$1" == "san" ]]
+then
 	FLAGS='-fsanitize=address,undefined --debug -O0'
+else
+	FLAGS='--debug -O0'
 fi
 
 #DO_ASAN=''

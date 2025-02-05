@@ -31,6 +31,7 @@ enum node_type
 	AST_BINARY,
 	AST_UNARY,
 	AST_IF,
+	AST_IFX,
 	AST_FOR,
 	AST_ID,
 	AST_DECL,
@@ -79,6 +80,12 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Expr;
+			node *True;
+			node *False;
+			u32 TypeIdx; // Set by semantic analyzer
+		} IfX;
 		struct {
 			slice<node *> Body;
 			u32 TypeIdx;

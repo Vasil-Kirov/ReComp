@@ -263,7 +263,17 @@ node *MakeCall(const error_info *ErrorInfo, node *Operand, slice<node *> Args)
 	return Result;
 }
 
-// @NOTE: The body is not initialized here and it's the job of the caller to do it
+node *MakeIfX(const error_info *ErrorInfo, node *IfExpr, node *TrueExpr, node *FalseExpr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_IFX);
+	Result->IfX.Expr = IfExpr;
+	Result->IfX.True = TrueExpr;
+	Result->IfX.False = FalseExpr;
+
+	return Result;
+}
+
+// @NOTE: The body is not initialized here and it is the job of the caller to do it
 node *MakeIf(const error_info *ErrorInfo, node *Expression)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_IF);
@@ -1174,6 +1184,20 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+		case T_IF:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			node *IfExpr = ParseExpression(Parser);
+			if(Parser->Current->Type == T_THEN)
+			{
+				GetToken(Parser);
+			}
+			node *IfTrue = ParseExpression(Parser);
+			EatToken(Parser, T_ELSE, true);
+			node *IfFalse = ParseExpression(Parser);
+			Result = MakeIfX(ErrorInfo, IfExpr, IfTrue, IfFalse);
+		} break;
 		case T_INFO:
 		{
 			ERROR_INFO;
@@ -2093,11 +2117,13 @@ node *CopyASTNode(node *N)
 			R->Run.TypeIdx = N->Run.TypeIdx;
 			R->Run.IsExprRun = N->Run.IsExprRun;
 		} break;
+
 		case AST_YIELD:
 		{
 			R->TypedExpr.Expr = CopyASTNode(N->TypedExpr.Expr);
 			R->TypedExpr.TypeIdx = N->TypedExpr.TypeIdx;
 		} break;
+
 		case AST_USING:
 		{
 			R->TypedExpr.Expr = CopyASTNode(N->TypedExpr.Expr);
@@ -2115,12 +2141,14 @@ node *CopyASTNode(node *N)
 			R->Var.Type = N->Var.Type;
 			R->Var.TypeNode = CopyASTNode(N->Var.TypeNode);
 		} break;
+
 		case AST_LIST:
 		{
 			R->List.Nodes = CopyNodeSlice(N->List.Nodes);
 			R->List.Types = CopyTypeSlice(N->List.Types);
 			R->List.WholeType = N->List.WholeType;
 		} break;
+
 		case AST_EMBED:
 		{
 			R->Embed.IsString = N->Embed.IsString;
@@ -2152,6 +2180,14 @@ node *CopyASTNode(node *N)
 			R->Unary.Operand = CopyASTNode(N->Unary.Operand);
 			R->Unary.Op = N->Unary.Op;
 			R->Unary.Type = N->Unary.Type;
+		} break;
+
+		case AST_IFX:
+		{
+			R->IfX.Expr = CopyASTNode(N->IfX.Expr);
+			R->IfX.True = CopyASTNode(N->IfX.True);
+			R->IfX.False = CopyASTNode(N->IfX.False);
+			R->IfX.TypeIdx = N->IfX.TypeIdx;
 		} break;
 
 		case AST_IF:

@@ -668,6 +668,36 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
 		} break;
+		case AST_IFX:
+		{
+			u32 Condition = BuildIRFromExpression(Builder, Node->IfX.Expr);
+		    basic_block ThenBlock = AllocateBlock(Builder);
+		    basic_block ElseBlock = AllocateBlock(Builder);
+		    basic_block EndBlock  = AllocateBlock(Builder);
+
+			Result = PushAlloc(Node->IfX.TypeIdx, Builder);
+		    PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, Condition, Basic_bool));
+			Terminate(Builder, ThenBlock);
+
+			u32 TrueExpr = BuildIRFromExpression(Builder, Node->IfX.True);
+			PushInstruction(Builder, InstructionStore(Result, TrueExpr, Node->IfX.TypeIdx));
+			PushInstruction(Builder, 
+					Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
+			Terminate(Builder, ElseBlock);
+
+			u32 FalseExpr = BuildIRFromExpression(Builder, Node->IfX.False);
+			PushInstruction(Builder, InstructionStore(Result, FalseExpr, Node->IfX.TypeIdx));
+			PushInstruction(Builder, 
+					Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
+
+			Terminate(Builder, EndBlock);
+
+			if(!IsLHS)
+			{
+				Result = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, Result, Node->IfX.TypeIdx, Builder));
+			}
+		} break;
 		case AST_RUN:
 		{
 			Result = BuildRun(Builder, Node);

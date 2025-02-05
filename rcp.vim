@@ -30,7 +30,7 @@ syn match rcpSBracket "[{}()\[\]]"
 syn match rcpSOperator "[-+=*/<>:&]"
 
 " Keywords
-syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_info type_of size_of as continue using yield
+syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_info type_of size_of as continue using yield then
 syn keyword rcpSConstant null true false
 syn match rcpSImport /#import/
 syn match rcpSCompilerDir /#foreign/

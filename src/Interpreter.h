@@ -56,19 +56,25 @@ inline value_flag& operator|=(value_flag &a, value_flag b)
 
 struct value
 {
+	// @TODO: maybe putting these in an anonymous struct would make it smaller?
+	value_flag Flags;
+	u32 Type;
 	union
 	{
 		__m64 ivec2;
 		__m64 fvec2;
+		u8 u8;
+		u16 u16;
+		u32 u32;
 		u64 u64;
+		i8 i8;
+		i16 i16;
+		i32 i32;
 		i64 i64;
 		f64 f64;
 		f32 f32;
 		void *ptr;
 	};
-	// @TODO: maybe putting these in an anonymous struct would make it smaller?
-	value_flag Flags;
-	u32 Type;
 };
 
 struct interpret_result
@@ -194,8 +200,17 @@ extern dynamic<DLIB> DLs;
 					{ \
 						case Basic_bool: \
 						case Basic_u8: \
+										 { \
+											 Result.u8 = Left->u8 o Right->u8; \
+										 } break; \
 						case Basic_u16: \
+										 { \
+											 Result.u16 = Left->u16 o Right->u16; \
+										 } break; \
 						case Basic_u32: \
+										 { \
+											 Result.u32 = Left->u32 o Right->u32; \
+										 } break; \
 						case Basic_u64: \
 						case Basic_uint: \
 						case Basic_type: \
@@ -203,8 +218,17 @@ extern dynamic<DLIB> DLs;
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \
 						case Basic_i8: \
+										 { \
+											 Result.i8 = Left->i8 o Right->i8; \
+										 } break; \
 						case Basic_i16: \
+										 { \
+											 Result.i16 = Left->i16 o Right->i16; \
+										 } break; \
 						case Basic_i32: \
+										 { \
+											 Result.i32 = Left->i32 o Right->i32; \
+										 } break; \
 						case Basic_i64: \
 						case Basic_int: \
 										{ \
@@ -243,8 +267,17 @@ extern dynamic<DLIB> DLs;
 					{ \
 						case Basic_bool: \
 						case Basic_u8: \
+										 { \
+											 Result.u8 = Left->u8 o Right->u8; \
+										 } break; \
 						case Basic_u16: \
+										 { \
+											 Result.u16 = Left->u16 o Right->u16; \
+										 } break; \
 						case Basic_u32: \
+										 { \
+											 Result.u32 = Left->u32 o Right->u32; \
+										 } break; \
 						case Basic_u64: \
 						case Basic_uint: \
 						case Basic_type: \
@@ -252,8 +285,17 @@ extern dynamic<DLIB> DLs;
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \
 						case Basic_i8: \
+										 { \
+											 Result.i8 = Left->i8 o Right->i8; \
+										 } break; \
 						case Basic_i16: \
+										 { \
+											 Result.i16 = Left->i16 o Right->i16; \
+										 } break; \
 						case Basic_i32: \
+										 { \
+											 Result.i32 = Left->i32 o Right->i32; \
+										 } break; \
 						case Basic_i64: \
 						case Basic_int: \
 										{ \
@@ -283,8 +325,17 @@ extern dynamic<DLIB> DLs;
 					{ \
 						case Basic_bool: \
 						case Basic_u8: \
+										 { \
+											 Result.u8 = Left->u8 o Right->u8; \
+										 } break; \
 						case Basic_u16: \
+										 { \
+											 Result.u16 = Left->u16 o Right->u16; \
+										 } break; \
 						case Basic_u32: \
+										 { \
+											 Result.u32 = Left->u32 o Right->u32; \
+										 } break; \
 						case Basic_u64: \
 						case Basic_uint: \
 						case Basic_type: \
@@ -292,8 +343,17 @@ extern dynamic<DLIB> DLs;
 											 Result.u64 = Left->u64 o Right->u64; \
 										 } break; \
 						case Basic_i8: \
+										 { \
+											 Result.i8 = Left->i8 o Right->i8; \
+										 } break; \
 						case Basic_i16: \
+										 { \
+											 Result.i16 = Left->i16 o Right->i16; \
+										 } break; \
 						case Basic_i32: \
+										 { \
+											 Result.i32 = Left->i32 o Right->i32; \
+										 } break; \
 						case Basic_i64: \
 						case Basic_int: \
 										{ \

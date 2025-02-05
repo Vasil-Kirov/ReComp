@@ -1263,9 +1263,11 @@ SEARCH_TYPE_DONE:
 				const type *Type = GetType(Node->Selector.Type);
 				u32 TypeIdx = Node->Selector.Type;
 				u32 Operand = -1;
-				Assert(Node->Selector.Operand);
 				if(Type->Kind != TypeKind_Enum && Type->Kind != TypeKind_Pointer)
+				{
+					Assert(Node->Selector.Operand);
 					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
+				}
 				
 				switch(Type->Kind)
 				{
@@ -1304,6 +1306,7 @@ BUILD_SLICE_SELECTOR:
 								Instruction(OP_ENUM_ACCESS, 0, Node->Selector.Index, TypeIdx, Builder));
 					} break;
 					case TypeKind_Pointer:
+					Assert(Node->Selector.Operand);
 					case TypeKind_Struct:
 					{
 						if(Type->Kind == TypeKind_Pointer)
@@ -3021,14 +3024,13 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 					u32 namePtr = PushInstruction(Builder, 
 							Instruction(OP_INDEX, MemberPtr, 0, EnumMemberType, Builder)
 							);
-				//	u32 valuePtr = PushInstruction(Builder, 
-				//			Instruction(OP_INDEX, MemberPtr, 1, EnumMemberType, Builder)
-				//			);
+					u32 valuePtr = PushInstruction(Builder, 
+							Instruction(OP_INDEX, MemberPtr, 1, EnumMemberType, Builder)
+							);
 
 					WriteString(Builder, namePtr, T->Enum.Members[Idx].Name);
-					// @TODO: FIX, compile function currently doesn't have enum values
-				//	u32 MemValue = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, i, Builder));
-				//	PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
+					u32 MemValue = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, i, Builder));
+					PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
 				}
 				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), SliceEnumMemberType, NULL, membersPtr);
 			} break;

@@ -43,6 +43,54 @@ void *InterpreterAllocateString(interpreter *VM, const string *String)
 	return Memory;
 }
 
+template<typename int_t>
+void IntForT(const type *T, int_t Value, value *V)
+{
+	if(T->Kind == TypeKind_Enum)
+		T = GetType(T->Enum.Type);
+
+	if(HasBasicFlag(T, BasicFlag_TypeID))
+	{
+		V->i64 = (size_t)Value;
+		return;
+	}
+	else if(HasBasicFlag(T, BasicFlag_Boolean))
+	{
+		V->u64 = (u8)Value;
+		return;
+	}
+
+	Assert(HasBasicFlag(T, BasicFlag_Integer));
+	switch(T->Basic.Kind)
+	{
+		case Basic_u8:
+		V->u8 = (u8)Value;
+		case Basic_u16:
+		V->u16 = (u16)Value;
+		case Basic_u32:
+		V->u32 = (u32)Value;
+		case Basic_u64:
+		V->u64 = (u64)Value;
+		case Basic_i8:
+		V->i8 = (i8)Value;
+		case Basic_i16:
+		V->i16 = (i16)Value;
+		case Basic_i32:
+		V->i32 = (i32)Value;
+		case Basic_i64:
+		V->i64 = (i64)Value;
+		case Basic_uint:
+		{
+			V->u64 = (size_t)Value;
+		} break;
+		case Basic_int:
+		{
+			V->i64 = (ssize_t)Value;
+		} break;
+		default: unreachable;
+	}
+}
+
 void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 {
 	memcpy(NewScope.Registers, VM->Registers.Registers, VM->Registers.LastRegister * sizeof(value));
@@ -285,37 +333,37 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 				{
 					case Basic_bool:
 					{
-						dcArgBool(dc, Arg->u64);
+						dcArgBool(dc, Arg->u8);
 					} break;
 					case Basic_u8:
 					{
-						dcArgChar(dc, Arg->u64);
+						dcArgChar(dc, Arg->u8);
 					} break;
 					case Basic_u16:
 					{
-						dcArgShort(dc, Arg->u64);
+						dcArgShort(dc, Arg->u16);
 					} break;
 					case Basic_u32:
 					{
 						// @TODO: might be wrong
-						dcArgInt(dc, Arg->u64);
+						dcArgInt(dc, Arg->u32);
 					} break;
 					case Basic_u64:
 					{
-						dcArgChar(dc, Arg->u64);
+						dcArgLongLong(dc, Arg->u64);
 					} break;
 					case Basic_i8:
 					{
-						dcArgChar(dc, Arg->i64);
+						dcArgChar(dc, Arg->i8);
 					} break;
 					case Basic_i16:
 					{
-						dcArgShort(dc, Arg->i64);
+						dcArgShort(dc, Arg->i16);
 					} break;
 					case Basic_i32:
 					{
 						// @TODO: might be wrong
-						dcArgInt(dc, Arg->i64);
+						dcArgInt(dc, Arg->i32);
 					} break;
 					case Basic_i64:
 					{
@@ -398,7 +446,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 			{
 				if(Ret->Basic.Kind == Basic_bool)
 				{
-					Result.u64 = dcCallBool(dc, Operand->ptr);
+					Result.u8 = dcCallBool(dc, Operand->ptr);
 				}
 				else if(Ret->Basic.Kind == Basic_f32)
 				{
@@ -422,12 +470,12 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 						switch(Size)
 						{
 							case 1:
-							Result.u64 = dcCallChar(dc, Operand->ptr); break;
+							Result.u8 = dcCallChar(dc, Operand->ptr); break;
 							case 2:
-							Result.u64 = dcCallShort(dc, Operand->ptr); break;
+							Result.u16 = dcCallShort(dc, Operand->ptr); break;
 							case 4:
 							// @TODO: might be wrong
-							Result.u64 = dcCallInt(dc, Operand->ptr); break;
+							Result.u32 = dcCallInt(dc, Operand->ptr); break;
 							case 8:
 							Result.u64 = dcCallLongLong(dc, Operand->ptr); break;
 						}
@@ -437,12 +485,12 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 						switch(Size)
 						{
 							case 1:
-							Result.i64 = dcCallChar(dc, Operand->ptr); break;
+							Result.i8 = dcCallChar(dc, Operand->ptr); break;
 							case 2:
-							Result.i64 = dcCallShort(dc, Operand->ptr); break;
+							Result.i16 = dcCallShort(dc, Operand->ptr); break;
 							case 4:
 							// @TODO: might be wrong
-							Result.i64 = dcCallInt(dc, Operand->ptr); break;
+							Result.i32 = dcCallInt(dc, Operand->ptr); break;
 							case 8:
 							Result.i64 = dcCallLongLong(dc, Operand->ptr); break;
 						}
@@ -1211,10 +1259,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_CONSTINT:
 			{
+				const type *T = GetType(I.Type);
 				u64 Val = I.BigRegister;
 				value Value = {};
 				Value.Type = I.Type;
-				Value.u64 = Val;
+				IntForT(T, Val, &Value);
 				VM->Registers.AddValue(I.Result, Value);
 			} break;
 			case OP_ENUM_ACCESS:
@@ -1225,6 +1274,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				V = T->Enum.Members[I.Right].Value;
 				if(T->Enum.Members[I.Right].Evaluate.IsValid())
 				{
+					LDEBUG("UNRESOLVED ENUM!");
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 				I.Op = OP_CONST;
@@ -1287,9 +1337,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							case const_type::Integer:
 							{
 								if(Val->Int.IsSigned)
-									VMValue.i64 = Val->Int.Signed;
+								{
+									IntForT(Type, Val->Int.Signed, &VMValue);
+								}
 								else
-									VMValue.u64 = Val->Int.Unsigned;
+								{
+									IntForT(Type, Val->Int.Unsigned, &VMValue);
+								}
 							} break;
 							case const_type::Float:
 							{
@@ -1332,7 +1386,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 
 						if(Val->Type == const_type::Integer)
 						{
-							VMValue.u64 = Val->Int.Unsigned;
+							VMValue.i64 = Val->Int.Signed;
 						}
 						else
 						{

@@ -45,6 +45,7 @@ struct checker
 	module *Module;
 	slice<import> Imported;
 	stack<u32 *> UntypedStack;
+	stack<u32> AutoEnum;
 	dynamic<node *> *Nodes;
 	slice<u32> CurrentFnReturnTypeIdx;
 	string File;

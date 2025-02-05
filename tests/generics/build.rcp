@@ -5,7 +5,7 @@ compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
         files = []string { "generics.rcp" },
         opt = 0,
-        flags = @u32 c.CompileFlag.SanAddress,
+        flags = .SanAddress,
     };
     return out;
 }

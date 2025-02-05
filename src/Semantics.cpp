@@ -184,6 +184,11 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 		} break;
 		case AST_SELECTOR:
 		{
+			if(Node->Selector.Operand == NULL)
+			{
+				RaiseError(true, *Node->ErrorInfo, "Invalid context for au");
+			}
+
 			Node->Selector.Index = -1;
 			if(Node->Selector.Operand->Type != AST_ID)
 			{
@@ -340,6 +345,12 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 		case AST_SELECTOR:
 		{
 			node *Operand = TypeNode->Selector.Operand;
+			if(Operand == NULL)
+			{
+				if(!Error)
+					return INVALID_TYPE;
+				RaiseError(true, *TypeNode->ErrorInfo, "Cannot infer type for `.` selector");
+			}
 			if(Operand->Type != AST_ID)
 			{
 				u32 Type = GetTypeFromTypeNode(Checker, Operand, Error);
@@ -483,6 +494,12 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		} break;
 		case AST_SELECTOR:
 		{
+			if(LHS->Selector.Operand == NULL)
+			{
+				RaiseError(false, *LHS->ErrorInfo, "Cannot infer type for `.` selector");
+				return false;
+			}
+
 			u32 TypeIdx = AnalyzeExpression(Checker, LHS->Selector.Operand);
 			if(TypeIdx == Basic_module)
 			{
@@ -761,6 +778,9 @@ b32 IsConstant(checker *Checker, node *Expr)
 
 	if(Expr->Type == AST_SELECTOR)
 	{
+		if(Expr->Selector.Operand == NULL)
+			return true;
+
 		u32 T = AnalyzeExpression(Checker, Expr->Selector.Operand);
 		if(T == Basic_type)
 			return true;
@@ -968,11 +988,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				ExprType = GetType(ExprTypeIdx);
 			}
 
-			IsTypeMatchable(ExprType);
+			if(!IsTypeMatchable(ExprType))
+			{
+				RaiseError(true, *Expr->ErrorInfo, "Type %s cannot be used for a match expression", GetTypeName(ExprType));
+			}
 			if(Expr->Match.Cases.Count == 0)
 			{
 				RaiseError(false, *Expr->ErrorInfo, "`match` expression has no cases");
 			}
+
+			Checker->AutoEnum.Push(ExprTypeIdx);
 
 			b32 FoundDefault = false;
 			ForArray(Idx, Expr->Match.Cases)
@@ -999,6 +1024,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
 				}
 			}
+
+			Checker->AutoEnum.Pop();
 
 			Result = INVALID_TYPE;
 
@@ -1388,23 +1415,20 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				node *Item = Expr->TypeList.Items[Idx];
 				const string *NamePtr = Item->Item.Name;
 				Assert(Item->Type == AST_LISTITEM);
-				u32 ItemType = AnalyzeExpression(Checker, Item->Item.Expression);
-				u32 PromotedUntyped = INVALID_TYPE;
+				u32 WantType = INVALID_TYPE;
+				int MemberIdx = Idx;
 				switch(Type->Kind)
 				{
-					case TypeKind_Array: 
+					case TypeKind_Array:
 					{
-						Filled[Idx] = Item;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Array.Type, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
+						WantType = Type->Array.Type;
 					} break;
 					case TypeKind_Slice:
 					{
-						Filled[Idx] = Item;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type->Slice.Type, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
+						WantType = Type->Slice.Type;
 					} break;
 					case TypeKind_Struct:
 					{
-						int MemberIdx = Idx;
 						if(NamePtr)
 						{
 							string Name = *NamePtr;
@@ -1427,17 +1451,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							MemberIdx = Found;
 						}
-						Filled[MemberIdx] = Item;
-						ExprTypes[MemberIdx] = ItemType;
-						struct_member Mem = Type->Struct.Members[MemberIdx];
-						PromotedUntyped = INVALID_TYPE;
-						if(!IsGeneric(Mem.Type))
-							PromotedUntyped = TypeCheckAndPromote(Checker, Item->ErrorInfo, Mem.Type, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
+						WantType = Type->Struct.Members[MemberIdx].Type;
 					} break;
 					case TypeKind_Basic:
 					{
 						Assert(HasBasicFlag(Type, BasicFlag_String));
-
 						int MemberIdx = Idx;
 						if(NamePtr)
 						{
@@ -1464,13 +1482,44 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						else
 							Type = Basic_int;
 
-						Filled[MemberIdx] = Item;
-						ExprTypes[MemberIdx] = ItemType;
-						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, Type, ItemType, NULL, &Item->Item.Expression, "string type list expected type %s but got %s");
+						WantType = Type;
 					} break;
 					default: unreachable;
 				}
 
+				Checker->AutoEnum.Push(WantType);
+				u32 ItemType = AnalyzeExpression(Checker, Item->Item.Expression);
+				Checker->AutoEnum.Pop();
+
+				u32 PromotedUntyped = INVALID_TYPE;
+				switch(Type->Kind)
+				{
+					case TypeKind_Slice:
+					case TypeKind_Array: 
+					{
+						Filled[Idx] = Item;
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
+					} break;
+					case TypeKind_Struct:
+					{
+						Filled[MemberIdx] = Item;
+						ExprTypes[MemberIdx] = ItemType;
+						PromotedUntyped = INVALID_TYPE;
+						if(!IsGeneric(WantType))
+							PromotedUntyped = TypeCheckAndPromote(Checker, Item->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
+					} break;
+					case TypeKind_Basic:
+					{
+						Assert(HasBasicFlag(Type, BasicFlag_String));
+
+						Filled[MemberIdx] = Item;
+						ExprTypes[MemberIdx] = ItemType;
+						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "string type list expected type %s but got %s");
+					} break;
+					default: unreachable;
+				}
+
+				// @Note: Is there a point to this check?
 				if(PromotedUntyped != INVALID_TYPE)
 					FillUntypedStack(Checker, PromotedUntyped);
 			}
@@ -1553,7 +1602,32 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_SELECTOR:
 		{
-			u32 TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
+			u32 TypeIdx = INVALID_TYPE;
+			if(Expr->Selector.Operand)
+			{
+				TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
+			}
+			else
+			{
+				u32 EnumT = INVALID_TYPE;
+				for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
+				{
+					const type *T = GetType(Checker->AutoEnum.Data[i]);
+					if(T->Kind == TypeKind_Enum)
+					{
+						EnumT = Checker->AutoEnum.Data[i];
+						break;
+					}
+				}
+
+				if(EnumT == INVALID_TYPE)
+				{
+					RaiseError(true, *Expr->ErrorInfo, "Cannot infer enum type from this expression");
+				}
+
+				TypeIdx = EnumT;
+			}
+
 			const type *Type = NULL;
 			Expr->Selector.SubIndex = -1;
 			if(TypeIdx == Basic_module)
@@ -2056,7 +2130,11 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		else
 		{
 			Left  = AnalyzeExpression(Checker, Expr->Binary.Left);
+
+			Checker->AutoEnum.Push(Left);
 			Right = AnalyzeExpression(Checker, Expr->Binary.Right);
+			Checker->AutoEnum.Pop();
+
 			Expr->Binary.ExpressionType = Left;
 		}
 
@@ -2293,7 +2371,14 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	u32 Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
 	if(Node->Decl.Expression)
 	{
+		if(Type != INVALID_TYPE)
+			Checker->AutoEnum.Push(Type);
+
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
+
+		if(Type != INVALID_TYPE)
+			Checker->AutoEnum.Pop();
+
 		if(ExprType == INVALID_TYPE)
 		{
 			RaiseError(true, *Node->ErrorInfo, "Expression does not give a value for the assignment");
@@ -2341,7 +2426,7 @@ const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 		// @TODO: This being signed integer could result in some problems
 		// like:
 		// Foo := 0xFF_FF_FF_FF;
-		// Bar := $i32 Foo;
+		// Bar := @i32 Foo;
 		// This also happens in the AST_MATCH type checking
 		Type = UntypedGetType(T);
 		FillUntypedStack(Checker, Type);

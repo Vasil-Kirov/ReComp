@@ -1184,6 +1184,12 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+		case T_DOT:
+		{
+			// Detect selector
+			// enum_var = .ENUM_MEMBER
+			Result = ParseSelectors(Parser, NULL);
+		} break;
 		case T_IF:
 		{
 			ERROR_INFO;

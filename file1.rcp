@@ -1,5 +1,12 @@
 main
 
+enum Vals {
+	A_VAL,
+	B_VAL,
+	C_VAL,
+	D_VAL,
+}
+
 struct SomeVals {
 	a: f32,
 	b: f32,
@@ -28,13 +35,28 @@ main :: fn() -> i32 {
 
 	res := @i32 (if sum == 37 1 else 2);
 
+{
+	x: Vals;
+	x = .A_VAL;
+	y: Vals = .B_VAL;
+	println("% %", x, y);
+	}
+
     return res;
 }
 
 #run {
-	x := 0;
-	for i in 10 x += if i % 2 == 0 1 else 0;
-	println("x: %", x);
+	x: Vals;
+	x = .A_VAL;
+	y: Vals = .B_VAL;
+	
+	match y {
+		.A_VAL: println("nope");
+		.B_VAL: println("yep");
+		_: {}
+	};
+
+	println("% %", x, y);
 }
 
 // do_foo :: fn(s: []$T) {

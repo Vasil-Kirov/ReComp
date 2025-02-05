@@ -154,6 +154,11 @@ struct TypeInfo {
 
 //global_initializers :: fn();
 
+get_register_bit_count :: fn() -> int {
+	// @TOOD: other platforms
+	return 64;
+}
+
 get_struct_alignment :: fn(st: type) -> int {
 	ti := type_info(st);
     t := ti.t.struct_;
@@ -206,7 +211,7 @@ get_type_alignment :: fn(t: type) -> int {
 get_basic_type_size :: fn(t: BasicType) -> int {
     if t.size != -1
         return @int t.size;
-    return 8;
+    return get_register_bit_count() / 8;
 }
 
 get_struct_size :: fn(st: type) -> int {
@@ -239,16 +244,16 @@ get_type_size :: fn(t: type) -> int {
             yield get_basic_type_size(ti.t.basic);
         }
         TypeKind.Function: {
-            yield 8;
+            yield get_register_bit_count();
         }
         TypeKind.Pointer: {
-            yield 8;
+            yield get_register_bit_count();
         }
         TypeKind.Array: {
             yield get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
         }
         TypeKind.Slice: {
-            yield 16;
+            yield get_register_bit_count() / 4;
         }
         TypeKind.Enum: {
             yield get_type_size(ti.t.enum_.t);

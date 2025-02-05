@@ -27,7 +27,7 @@ enum Arch: u32 {
 struct CompileInfo {
     files: []string,
     opt: int,
-    flags: u32,
+    flags: CompileFlag,
     target_triple: string,
     arch: Arch,
 	link: string,

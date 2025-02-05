@@ -31,6 +31,11 @@ main :: fn() -> i32 {
     return res;
 }
 
+#run {
+	x := 0;
+	for i in 10 x += if i % 2 == 0 1 else 0;
+	println("x: %", x);
+}
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

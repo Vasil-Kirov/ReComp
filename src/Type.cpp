@@ -960,7 +960,16 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		case TypeKind_Invalid:
 		return false;
 		case TypeKind_Enum:
-		return CanTypePerformBinExpression(GetType(T->Enum.Type), Op);
+		{
+			// Allowed enum ops:
+			// |, &, ==, !=, =
+			if(Op == '|' || Op == '&')
+				return true;
+			if(Op == T_EQEQ || Op == T_NEQ || Op == T_EQ)
+				return true;
+
+			return false;
+		}
 
 		default: return false;
 	}

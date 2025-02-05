@@ -21,9 +21,8 @@ memset :: fn #foreign(dst: *, val: i32, num: int) -> * {
 
 _fltused :: fn #foreign() {}
 
-#if Windows
-(
+#if Windows {
     __chkstk :: fn #foreign() {}
-)
+}
 
 

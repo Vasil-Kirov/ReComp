@@ -438,7 +438,6 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 		GetFilePath(Dir, "array.rcp"),
 		GetFilePath(Dir, "compile.rcp"),
 		GetFilePath(Dir, "math.rcp"),
-		GetFilePath(Dir, "intrin.rcp"),
 	};
 
 	if((Flags & CF_Standalone) == 0)
@@ -449,6 +448,8 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 			Files.Push(StdFiles[i]);
 		}
 	}
+
+	Files.Push(GetFilePath(Dir, "intrin.rcp"));
 
 	if(Flags & CF_NoStdLib)
 	{

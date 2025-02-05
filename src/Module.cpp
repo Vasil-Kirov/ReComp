@@ -1,6 +1,8 @@
 #include "Module.h"
+#include "CommandLine.h"
 #include "Dynamic.h"
 #include "Errors.h"
+#include "Globals.h"
 #include "Log.h"
 #include "Memory.h"
 #include "Parser.h"
@@ -90,7 +92,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 		Imports.Push(import{.M = InternalMod, .As = STR_LIT("")});
 	}
-	if(!HasBase)
+	if(!HasBase && (CompileFlags & CF_Standalone) == 0)
 	{
 		module *BaseMod = NULL;
 		For(Modules)

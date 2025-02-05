@@ -496,6 +496,36 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	return Result;
 }
 
+void ParseImport(parser *Parser)
+{
+	ERROR_INFO;
+	GetToken(Parser);
+	token T = EatToken(Parser, T_ID, true);
+	string *As = NULL;
+	if(Parser->Current->Type == T_AS)
+	{
+		GetToken(Parser);
+		if(Parser->Current->Type == T_PTR)
+		{
+			GetToken(Parser);
+			string Any = STR_LIT("*");
+			As = DupeType(Any, string);
+		}
+		else
+		{
+			As = EatToken(Parser, T_ID, true).ID;
+		}
+	}
+
+	needs_resolving_import Imported = {
+		.Name = *T.ID,
+		.As = As ? *As : STR_LIT(""),
+		.ErrorInfo = ErrorInfo,
+	};
+
+	Parser->Imported.Push(Imported);
+}
+
 node *ParseNumber(parser *Parser)
 {
 	ERROR_INFO;
@@ -1499,6 +1529,11 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 	node *Result = NULL;
 	switch(Token.Type)
 	{
+		case T_IMPORT:
+		{
+			ParseImport(Parser);
+			ExpectSemicolon = false;
+		} break;
 		case T_RUN:
 		{
 			ERROR_INFO;
@@ -1933,32 +1968,7 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_IMPORT:
 		{
-			ERROR_INFO;
-			GetToken(Parser);
-			token T = EatToken(Parser, T_ID, true);
-			string *As = NULL;
-			if(Parser->Current->Type == T_AS)
-			{
-				GetToken(Parser);
-				if(Parser->Current->Type == T_PTR)
-				{
-					GetToken(Parser);
-					string Any = STR_LIT("*");
-					As = DupeType(Any, string);
-				}
-				else
-				{
-					As = EatToken(Parser, T_ID, true).ID;
-				}
-			}
-
-			needs_resolving_import Imported = {
-				.Name = *T.ID,
-				.As = As ? *As : STR_LIT(""),
-				.ErrorInfo = ErrorInfo,
-			};
-
-			Parser->Imported.Push(Imported);
+			ParseImport(Parser);
 			Result = (node *)0x1;
 		} break;
 		case T_ENUM:

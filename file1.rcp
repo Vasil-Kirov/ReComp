@@ -1,8 +1,5 @@
 main
 
-#import intrin as *
-#import io as *
-
 struct SomeVals {
 	a: f32,
 	b: f32,
@@ -17,6 +14,9 @@ get_array :: fn(x: SomeVals) -> [10]i32 {
 }
 
 main :: fn() -> i32 {
+	#import intrin as *
+	#import io as *
+
 	arr := #run get_array( #run get_struct(10) );
 	sum := @i32 0;
 

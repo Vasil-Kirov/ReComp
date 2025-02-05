@@ -88,7 +88,7 @@ void LogCompilerError(const char *Format, ...)
 	//string Print = MakeString(PrintBuilder);
 
 	LogMutex.lock();
-	PlatformOutputString(MakeString(FinalFormat), (log_level)-1);
+	PlatformOutputString(MakeString(FinalFormat), LOG_CLEAN);
 	LogMutex.unlock();
 
 	VFree(FinalFormat);

@@ -10,6 +10,7 @@ typedef enum _log_level
 	LOG_WARN,
 	LOG_INFO,
 	LOG_DEBUG,
+	LOG_CLEAN,
 } log_level;
 
 #define LOG_BUFFER_SIZE KB(512)

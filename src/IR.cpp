@@ -815,8 +815,22 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(Found) break;
 			}
 #endif
-
-			CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
+			op Op = OP_CALL;
+			if(Node->Call.SymName.Data != NULL)
+			{
+				if(Node->Call.SymName == "compare_exchange")
+				{
+					Op = OP_CMPXCHG;
+				}
+				else if(Node->Call.SymName == "debug_break")
+				{
+					Op = OP_DEBUG_BREAK;
+				}
+			}
+			else
+			{
+				CallInfo->Operand = BuildIRFromExpression(Builder, Node->Call.Fn, IsLHS);
+			}
 
 			const type *Type = GetType(Node->Call.Type);
 			if(Type->Kind == TypeKind_Pointer)
@@ -826,7 +840,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			u32 ResultPtr = -1;
 			u32 ReturnedWrongType = -1;
-			if(Type->Function.Returns.Count != 0)
+			if(Type->Function.Returns.Count != 0 && Op != OP_CMPXCHG)
 			{
 				u32 RTID = ReturnsToType(Type->Function.Returns);
 				const type *RT = GetType(RTID);
@@ -953,7 +967,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				CallType = AddType(NT);
 			}
 
-			Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, CallType, Builder));
+			Result = PushInstruction(Builder, Instruction(Op, (u64)CallInfo, CallType, Builder));
 			if(ResultPtr != -1)
 				Result = ResultPtr;
 			else if(ReturnedWrongType != -1)
@@ -3213,6 +3227,15 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			{
 				PushBuilder(Builder, "NOP");
 			} break;
+			case OP_DEBUG_BREAK:
+			{
+				*Builder += "debug_break()";
+			} break;
+			case OP_CMPXCHG:
+			{
+				call_info *ci = (call_info *)Instr.BigRegister;
+				PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
+			} break;
 			case OP_GLOBAL:
 			{
 				const symbol *s = (const symbol *)Instr.Ptr;
@@ -3229,7 +3252,7 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			} break;
 			case OP_TYPEINFO:
 			{
-				PushBuilderFormated(Builder, "%%%d = #info %%%d", Instr.Result, Instr.Right);
+				PushBuilderFormated(Builder, "%%%d = type_info %%%d", Instr.Result, Instr.Right);
 			} break;
 			case OP_RDTSC:
 			{

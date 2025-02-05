@@ -1,5 +1,8 @@
 main
 
+#import intrin as *
+#import io as *
+
 struct SomeVals {
 	a: f32,
 	b: f32,
@@ -17,12 +20,15 @@ main :: fn() -> i32 {
 	arr := #run get_array( #run get_struct(10) );
 	sum := @i32 0;
 
+	x := 10;
+	old, success := compare_exchange(&x, 10, 11);
+	println("got: % succes: % x: %", old, success, x);
+
 	for it in arr	sum += it;
 
     return sum - 38;
 }
 
-#run get_array( #run get_struct(10) );
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

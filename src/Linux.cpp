@@ -90,7 +90,7 @@ void PlatformAllocateReserved(void *Memory, size_t Size)
 
 void PlatformOutputString(string String, log_level Level)
 {
-	if((int)Level == -1)
+	if(Level == LOG_CLEAN)
 	{
 		write(2, String.Data, String.Size);
 		return;

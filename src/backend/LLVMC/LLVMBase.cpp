@@ -79,6 +79,12 @@ void RCGenerateIntrins(generator *gen)
 				MemCmpArgs, 3, false);
 	LLVMValueRef MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
 	gen->Intrinsics.Add(MemCmp, llvm_intrin { MemCmpLLVM, MemCmpType } );
+
+	string Trap = STR_LIT("llvm.debugtrap");
+	LLVMTypeRef TrapType = LLVMFunctionType(
+			LLVMVoidTypeInContext(gen->ctx), NULL, 0, false);
+	LLVMValueRef TrapLLVM = LLVMAddFunction(gen->mod, Trap.Data, TrapType);
+	gen->Intrinsics.Add(Trap, llvm_intrin { TrapLLVM, TrapType } );
 }
 
 void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
@@ -472,6 +478,40 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			//LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent,
 			//		0, "");
 			gen->map.Add(I.Result, Time);
+		} break;
+		case OP_DEBUG_BREAK:
+		{
+			llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.debugtrap")];
+			Assert(Intrin.Fn);
+			LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "");
+		} break;
+		case OP_CMPXCHG:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			Assert(ci->Args.Count == 3);
+
+			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+			LLVMValueRef Cmp = gen->map.Get(ci->Args[1]);
+			LLVMValueRef New = gen->map.Get(ci->Args[2]);
+			LLVMValueRef Result = LLVMBuildAtomicCmpXchg(gen->bld, Ptr, Cmp, New, LLVMAtomicOrderingSequentiallyConsistent, LLVMAtomicOrderingSequentiallyConsistent, false);
+
+			LLVMValueRef Alloc = gen->map.Get(I.Result);
+			LLVMValueRef Val = LLVMBuildExtractValue(gen->bld, Result, 0, "");
+			LLVMValueRef Success = LLVMBuildExtractValue(gen->bld, Result, 1, "");
+
+
+			LLVMTypeRef Types[] = {
+				LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
+				LLVMIntTypeInContext(gen->ctx, 1)
+			};
+
+			LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
+
+			LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 0, "");
+			LLVMValueRef SuccessPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 1, "");
+			LLVMBuildStore(gen->bld, Val, ValPtr);
+			LLVMBuildStore(gen->bld, Success, SuccessPtr);
+
 		} break;
 		case OP_TYPEINFO:
 		{
@@ -1153,11 +1193,20 @@ void RCGenerateFunction(generator *gen, function fn)
 						gen->map.Add(I.Result, Val);
 					}
 				} break;
+				case OP_CMPXCHG:
+				{
+					LLVMTypeRef Types[] = {
+						LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
+						LLVMIntTypeInContext(gen->ctx, 1)
+					};
+
+					LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
+					LLVMValueRef Alloc = LLVMBuildAlloca(gen->bld, ResTy, "");
+					gen->map.Add(I.Result, Alloc);
+				} break;
 				default: break;
 			}
 		}
-
-		
 	}
 
 	if(fn.Type == INVALID_TYPE || fn.NoDebugInfo)
@@ -1414,7 +1463,7 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 		ForArray(GIdx, m->Globals.Data)
 		{
 			symbol *s = m->Globals.Data[GIdx];
-			if(s->Flags & SymbolFlag_Generic) {
+			if(s->Flags & SymbolFlag_Generic || s->Flags & SymbolFlag_Intrinsic) {
 				continue;
 			}
 

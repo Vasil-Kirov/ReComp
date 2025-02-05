@@ -1140,9 +1140,6 @@ string GetTypeNameAsString(const type *Type)
 		{
 			string_builder Builder = MakeBuilder();
 
-			// @HACK
-			if(Type->Function.Flags & SymbolFlag_VarFunc)
-				PushBuilder(&Builder, "v");
 
 			PushBuilder(&Builder, "fn(");
 			for(int i = 0; i < Type->Function.ArgCount; ++i)
@@ -1157,6 +1154,13 @@ string GetTypeNameAsString(const type *Type)
 				PushBuilderFormated(&Builder, " -> ");
 				WriteFunctionReturnType(&Builder, Type->Function.Returns);
 			}
+			if(Type->Function.Flags & SymbolFlag_Intrinsic)
+				Builder += " #intrinsic";
+			if(Type->Function.Flags & SymbolFlag_VarFunc)
+				Builder += " #var_arg";
+			if(Type->Function.Flags & SymbolFlag_Foreign)
+				Builder += " #foreign";
+
 			return MakeString(Builder);
 		} break;
 		case TypeKind_Generic:

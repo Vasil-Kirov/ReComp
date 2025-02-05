@@ -101,7 +101,7 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
             builder_append(b, "fn(");
             args := info.t.function.args_t;
             for i, arg in args {
-                print_typetype(b, #info arg);
+                print_typetype(b, type_info(arg));
                 if i + 1 != args.count {
                     builder_append(b, ", ");
                 }
@@ -112,7 +112,7 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
                 for i, t in info.t.function.returns {
                     if i != 0
                         builder_append(b, ", ");
-                    print_typetype(b, #info t);
+                    print_typetype(b, type_info(t));
                 }
             }
         }
@@ -121,17 +121,17 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
         }
         TypeKind.Pointer: {
             builder_append(b, "*");
-            print_typetype(b, #info info.t.pointer.pointee);
+            print_typetype(b, type_info(info.t.pointer.pointee));
         }
         TypeKind.Array: {
             builder_append_u32(b, '[');
             format_uint(b, info.t.array.member_count);
             builder_append_u32(b, ']');
-            print_typetype(b, #info info.t.array.t);
+            print_typetype(b, type_info(info.t.array.t));
         }
         TypeKind.Slice: {
             builder_append(b, "[]");
-            print_typetype(b, #info info.t.slice.t);
+            print_typetype(b, type_info(info.t.slice.t));
         }
         TypeKind.Vector: {
             builder_append(b, "<>");
@@ -177,7 +177,7 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
 }
 
 print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
-    t := #info arg.t;
+    t := type_info(arg.t);
     if c == 's' && t.kind == TypeKind.Pointer && t.t.pointer.pointee == u8 {
         str: *u8 = *@**u8 arg.val;
         for i := 0; str[i] != '\0'; i += 1 {
@@ -200,7 +200,7 @@ print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
 }
 
 print_type :: fn(b: *Builder, arg: base.Arg) {
-    t := #info arg.t;
+    t := type_info(arg.t);
     match t.kind {
         base.TypeKind.Invalid: {
         }
@@ -274,7 +274,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             }
             else if basic.kind == BasicKind.Type {
                 pt := *@*type arg.val;
-                info := #info pt;
+                info := type_info(pt);
                 print_typetype(b, info);
             }
             else {

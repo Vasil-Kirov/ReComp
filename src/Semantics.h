@@ -8,6 +8,7 @@
 
 enum SymbolFlag
 {
+	SymbolFlag_None = 0,
 	SymbolFlag_Public  = BIT(0),
 	SymbolFlag_Const   = BIT(1),
 	SymbolFlag_Shadow  = BIT(2),
@@ -76,5 +77,6 @@ void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
 void AnalyzeStructDeclaration(checker *Checker, node *Node);
 void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
+bool CheckIntrinsic(string Name);
 
 

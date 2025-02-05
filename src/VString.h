@@ -4,11 +4,21 @@
 #include <stddef.h>
 #include <stdarg.h>
 
+size_t CStrLen(const char *CString);
+
 struct string
 {
 	const char *Data;
 	size_t Size;
 
+	bool operator==(const char *B) const
+	{
+		auto BLen = CStrLen(B);
+		if(this->Size != BLen)
+			return false;
+
+		return memcmp(this->Data, B, BLen) == 0;
+	}
 	bool operator==(const string& B) const
 	{
 		if(this->Size != B.Size)
@@ -64,5 +74,4 @@ void PushBuilderFormated(string_builder *Builder, const char *Format, ...);
 
 string MakeStringSlice(const char *Ptr, size_t Size);
 
-size_t CStrLen(const char *CString);
 

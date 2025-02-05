@@ -76,6 +76,10 @@ enum op
 	// Right = Ignore by interpreter bool
 	OP_UNREACHABLE,
 
+	OP_DEBUG_BREAK,
+
+	OP_CMPXCHG,
+
 	OP_COUNT,
 };
 

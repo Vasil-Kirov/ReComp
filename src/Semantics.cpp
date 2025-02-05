@@ -929,16 +929,18 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_TYPEINFO:
 		{
+#if 0
 			if(CompileFlags & CF_Standalone)
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Cannot use #info in a standalone build");
+				RaiseError(true, *Expr->ErrorInfo, "Cannot use type_info in a standalone build");
 			}
+#endif
 
 			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->TypeInfoLookup.Expression);
 			const type *ExprType = GetType(ExprTypeIdx);
 			if(!HasBasicFlag(ExprType, BasicFlag_TypeID))
 			{
-				RaiseError(false, *Expr->ErrorInfo, "#info expected an expression with a type of `type`, got: %s",
+				RaiseError(false, *Expr->ErrorInfo, "type_info expected an expression with a type of `type`, got: %s",
 						GetTypeName(ExprType));
 			}
 			u32 TypeInfoType = FindStruct(STR_LIT("base.TypeInfo"));
@@ -1072,6 +1074,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			if(CallType->Kind == TypeKind_Pointer)
 				CallType = GetType(CallType->Pointer.Pointed);
+			Assert(CallType->Kind == TypeKind_Function);
+
+			if(CallType->Function.Flags & SymbolFlag_Intrinsic)
+			{
+				if(Expr->Call.Fn->Type != AST_ID)
+				{
+					RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Indirect call to intrinsic is not allowed");
+				}
+				else if(!CheckIntrinsic(*Expr->Call.Fn->ID.Name))
+				{
+					RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Unknown intrinsic %s. Are you taking a function pointer to an intrinsic? That is not allowed.", Expr->Call.Fn->ID.Name->Data);
+				}
+				else
+				{
+					Expr->Call.SymName = *Expr->Call.Fn->ID.Name;
+				}
+			}
 
 			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
 			{
@@ -3212,8 +3231,33 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 	return Sym;
 }
 
+bool CheckIntrinsic(string Name)
+{
+	string Intrinsics[] = {
+		STR_LIT("compare_exchange"),
+		STR_LIT("debug_break"),
+	};
+	size_t Len = ARR_LEN(Intrinsics);
+	for(int i = 0; i < Len; ++i)
+	{
+		if(Intrinsics[i] == Name)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 {
+	Assert(Node->Type == AST_FN);
+	if(Node->Fn.Flags & SymbolFlag_Intrinsic)
+	{
+		if(!CheckIntrinsic(*Node->Fn.Name))
+		{
+			RaiseError(false, *Node->ErrorInfo, "Declaration for an unknown intrinsic: %s", Node->Fn.Name->Data);
+		}
+	}
 	u32 FnType = CreateFunctionType(Checker, Node);
 	Node->Fn.TypeIdx = FnType;
 	return CreateFunctionSymbol(Checker, Node);

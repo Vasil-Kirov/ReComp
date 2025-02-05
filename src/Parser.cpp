@@ -840,6 +840,49 @@ node *ParseFunctionArgument(parser *Parser)
 	return MakeVar(ErrorInfo, ID.ID, Type);
 }
 
+u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
+{
+	struct {
+		token_type T;
+		SymbolFlag F;
+	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None} };
+
+	u32 Result = 0;
+	size_t Len = ARR_LEN(FlagTokens);
+	bool ParsingFlags = true;
+	while(ParsingFlags)
+	{
+		// Quit parsing at the end of the loop if no flag is found
+		ParsingFlags = false;
+		for(int i = 0; i < Len; ++i)
+		{
+			auto Check = FlagTokens[i];
+			if(Parser->Current->Type == Check.T)
+			{
+				if(Check.T == T_LINK)
+				{
+					GetToken(Parser);
+					EatToken(Parser, T_EQ, false);
+					token Name = EatToken(Parser, T_STR, false);
+					if(Name.ID)
+						*LinkName = Name.ID;
+					else
+						*LinkName = &ErrorID;
+				}
+				else
+				{
+					Result |= Check.F;
+					GetToken(Parser);
+
+					// Continue parsing
+					ParsingFlags = true;
+				}
+			}
+		}
+	}
+	return Result;
+}
+
 node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
@@ -847,20 +890,8 @@ node *ParseFunctionType(parser *Parser)
 	EatToken(Parser, T_FN, true);
 
 	const string *LinkName = NULL;
-	while(Parser->Current->Type == T_FOREIGN || Parser->Current->Type == T_INTR || Parser->Current->Type == T_LINK)
-	{
-		token T = GetToken(Parser);
-		if(T.Type == T_FOREIGN)
-			Flags |= SymbolFlag_Foreign;
-		else if(T.Type == T_INTR)
-			Flags |= SymbolFlag_Intrinsic;
-		else if(T.Type == T_LINK)
-		{
-			EatToken(Parser, T_EQ, false);
-			token Name = EatToken(Parser, T_STR, false);
-			LinkName = Name.ID;
-		}
-	}
+	Flags |= ParseFunctionFlags(Parser, &LinkName);
+
 	EatToken(Parser, '(', true);
 	slice<node *> Args{};
 	if(PeekToken(Parser).Type != T_CLOSEPAREN)
@@ -884,6 +915,8 @@ node *ParseFunctionType(parser *Parser)
 			ReturnTypes.Push(ParseType(Parser));
 		}
 	}
+
+	Flags |= ParseFunctionFlags(Parser, &LinkName);
 
 	return MakeFunction(ErrorInfo, LinkName, Args, SliceFromArray(ReturnTypes), Flags);
 }
@@ -1116,7 +1149,10 @@ node *ParseOperand(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 
-			node *Expr = ParseExpression(Parser);
+			node *Expr = ParseOperand(Parser);
+			if(Expr == NULL) {
+				RaiseError(true, *ErrorInfo, "Expected type operand after type_info");
+			}
 			Result = MakeTypeInfo(ErrorInfo, Expr);
 		} break;
 		case T_AUTOCAST:
@@ -2146,7 +2182,8 @@ node *CopyASTNode(node *N)
 		{
 			R->Call.Fn = CopyASTNode(N->Call.Fn);
 			R->Call.Args = CopyNodeSlice(N->Call.Args);
-			R->Call.SymName = N->Call.SymName;
+			if(N->Call.SymName.Data)
+				R->Call.SymName = MakeString(N->Call.SymName.Data, N->Call.SymName.Size);
 			R->Call.Type = N->Call.Type;
 			R->Call.ArgTypes = N->Call.ArgTypes; // Shallow-copied
 		} break;

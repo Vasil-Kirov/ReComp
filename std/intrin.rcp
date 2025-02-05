@@ -2,7 +2,7 @@ intrin
 
 
 
-// @TODO:
-compare_exchange :: fn(expect: *int, need: int) -> int #intrinsic;
+compare_exchange :: fn(dst: *int, compare: int, new: int) -> (int, bool) #intrinsic;
+debug_break :: fn() #intrinsic;
 
 

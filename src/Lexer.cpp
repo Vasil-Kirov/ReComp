@@ -517,7 +517,7 @@ void InitializeLexer()
 	AddKeyword("#import", T_IMPORT);
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("#link", T_LINK);
-	AddKeyword("#intr",  T_INTR);
+	AddKeyword("#intrinsic",  T_INTR);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
 	AddKeyword("#embed_bin", T_EMBED_BIN);
@@ -525,7 +525,7 @@ void InitializeLexer()
 	AddKeyword("#if",      T_PWDIF);
 	AddKeyword("#elif",    T_PWDELIF);
 	AddKeyword("#else",    T_PWDELSE);
-	AddKeyword("#info",    T_INFO);
+	AddKeyword("type_info", T_INFO);
 	AddKeyword("#assert",  T_ASSERT);
 	AddKeyword("#load_dl",  T_LOAD_DL);
 	AddKeyword("#load_system_dl",  T_LOAD_SYSTEM_DL);

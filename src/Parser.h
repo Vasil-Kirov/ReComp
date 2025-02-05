@@ -246,7 +246,7 @@ struct node
 		struct {
 			node *Fn;
 			slice<node *> Args;
-			const string *SymName; // Set by semantic analyzer if not calling a function pointer
+			string SymName; // Set by semantic analyzer if calling an intrinsic
 			u32 Type; // Set by semantic analyzer
 			slice<u32> ArgTypes; // Set by semantic analyzer
 		} Call;

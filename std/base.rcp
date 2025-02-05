@@ -155,7 +155,8 @@ struct TypeInfo {
 //global_initializers :: fn();
 
 get_struct_alignment :: fn(st: type) -> int {
-    t := (#info st).t.struct_;
+	ti := type_info(st);
+    t := ti.t.struct_;
     if t.members.count == 0
         return 1;
     
@@ -173,7 +174,7 @@ get_struct_alignment :: fn(st: type) -> int {
 }
 
 get_type_alignment :: fn(t: type) -> int {
-    ti := #info t;
+    ti := type_info(t);
     result := match ti.kind {
         TypeKind.Basic: {
             if t == string
@@ -209,7 +210,7 @@ get_basic_type_size :: fn(t: BasicType) -> int {
 }
 
 get_struct_size :: fn(st: type) -> int {
-    t := (#info st).t.struct_;
+    t := type_info(st).t.struct_;
     if t.members.count == 0
         return 0;
 
@@ -232,7 +233,7 @@ get_struct_size :: fn(st: type) -> int {
 }
 
 get_type_size :: fn(t: type) -> int {
-    ti := #info t;
+    ti := type_info(t);
     result := match ti.kind {
         TypeKind.Basic: {
             yield get_basic_type_size(ti.t.basic);

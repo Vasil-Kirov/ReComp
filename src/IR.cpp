@@ -1852,7 +1852,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	basic_block Incr  = AllocateBlock(Builder);
 	basic_block End   = AllocateBlock(Builder);
 
-	u32 IAlloc, ItAlloc, Size, One, Array, StringPtr;
+	u32 IAlloc, ItAlloc, Size, One, Array, StringPtr, StartString;
 	u32 IType = Basic_int;
 
 	const type *T = GetType(Node->For.ArrayType);
@@ -1885,13 +1885,13 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			StringPtr = PushInstruction(Builder, 
 					Instruction(OP_ALLOC, -1, DataPtrT, Builder));
 
-			u32 Data = PushInstruction(Builder, 
+			StartString = PushInstruction(Builder, 
 					Instruction(OP_INDEX, Array, 1, Node->For.ArrayType, Builder));
-			Data = PushInstruction(Builder, 
-					Instruction(OP_LOAD, 0, Data, DataPtrT, Builder));
+			StartString = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, StartString, DataPtrT, Builder));
 
 			PushInstruction(Builder, 
-					InstructionStore(StringPtr, Data, DataPtrT));
+					InstructionStore(StringPtr, StartString, DataPtrT));
 
 		}
 		else if(HasBasicFlag(T, BasicFlag_Integer))
@@ -1919,11 +1919,25 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	
 	// Condition
 	{
-		u32 I = PushInstruction(Builder, 
-				Instruction(OP_LOAD, 0, IAlloc, IType, Builder));
-		u32 Condition = PushInstruction(Builder,
-				Instruction(OP_LESS, I, Size, Basic_bool, Builder));
-		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
+		if(HasBasicFlag(T, BasicFlag_String))
+		{
+			u32 u8P = GetPointerTo(Basic_u8);
+			u32 At = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, StringPtr, u8P, Builder));
+			u32 Passed = PushInstruction(Builder,
+					Instruction(OP_PTRDIFF, At, StartString, u8P, Builder));
+			u32 Condition = PushInstruction(Builder,
+					Instruction(OP_LESS, Passed, Size, Basic_bool, Builder));
+			PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
+		}
+		else
+		{
+			u32 I = PushInstruction(Builder, 
+					Instruction(OP_LOAD, 0, IAlloc, IType, Builder));
+			u32 Condition = PushInstruction(Builder,
+					Instruction(OP_LESS, I, Size, Basic_bool, Builder));
+			PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
+		}
 	}
 	Terminate(Builder, Then);
 

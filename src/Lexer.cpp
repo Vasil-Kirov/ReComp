@@ -337,13 +337,51 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 		return MakeToken(T_STR, *ErrorInfo,  MakeStringPointer(Tokinized));
 }
 
+u32 ExtractCodepoint(const char *P, uint Size)
+{
+	u32 res = 0;
+	switch(Size)
+	{
+		case 1:
+		{
+			res = *P;
+			if(res == '\\')
+				res = GetEscapedChar(*(P+1));
+		}
+		break;
+		case 2:
+		{
+			u8 First = *P & 0b0001'1111;
+			u8 Second = *(P+1) & 0b0011'1111;
+			res = (u32)First << 6 | (u32)Second;
+		} break;
+		case 3:
+		{
+			u8 First = *P & 0b0000'1111;
+			u8 Second = *(P+1) & 0b0011'1111;
+			u8 Third = *(P+2) & 0b0011'1111;
+			res = (u32)First << 12 | (u32)Second << 6 | (u32)Third;
+		} break;
+		case 4:
+		{
+			u8 First = *P & 0b0000'0111;
+			u8 Second = *(P+1) & 0b0011'1111;
+			u8 Third = *(P+2) & 0b0011'1111;
+			u8 Forth = *(P+3) & 0b0011'1111;
+			res = (u32)First << 18 | (u32)Second << 12 | (u32)Third << 6 | (u32)Forth;
+		} break;
+	}
+	return res;
+}
+
 token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 {
 	//error_info StartErrorInfo = *ErrorInfo;
 	char c = AdvanceC(String, ErrorInfo);
 	Assert(c == '\'');
-	u32 result = 0;
+	u64 result = 0;
 	uint i = 0;
+	const char *Start = String->Data;
 	while(String->Data[0] != '\'')
 	{
 		if (i >= 4)
@@ -357,13 +395,15 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 			c = GetEscapedChar(escaped);
 		}
 
-		u32 zero_ext = (c & 0xFF);
-		result <<= 8;
-		result = result | zero_ext;
-
 		i++;
 	}
-	
+	if (i > 4)
+	{
+		RaiseError(true, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+	}
+
+	result = ExtractCodepoint(Start, i);
+
 	char end = AdvanceC(String, ErrorInfo);
 	Assert(end == '\'')
 	return MakeToken(T_CHAR, *ErrorInfo, (string *)(u64)result);

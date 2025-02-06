@@ -2530,6 +2530,10 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 		ZeroValue.Type = const_type::Integer;
 		node *Zero = MakeConstant(Node->ErrorInfo, ZeroValue);
 		Zero->Constant.Type = ExprTypeIdx;
+		if(IsUntyped(ExprTypeIdx))
+		{
+			Checker->UntypedStack.Push(&Zero->Constant.Type);
+		}
 		*NodePtr = MakeBinary(Node->ErrorInfo, Node, Zero, T_NEQ);
 	}
 	else if(ExprType->Kind == TypeKind_Pointer)

@@ -6,16 +6,18 @@ enum Vals {
 	C_VAL,
 	D_VAL,
 }
+printf :: fn(fmt: *u8, args: ...) -> int #foreign;
 
 utf8_test :: fn() {
 	#import io as *
 	#import os
-	utf8 := "木\n";
-	other := "き";
-	println("utf8: %\ncount: %\neqt: %\neqf: %",
-		utf8, utf8.count, utf8 == utf8, utf8 == other);
 
-	os.write(os.stdout(), utf8.data, utf8.count);
+	printf(c"tree: %x\n", '木');
+	utf8 := "木\n";
+	for c in utf8 {
+		print("%c ", c);
+	}
+	println("");
 
 }
 

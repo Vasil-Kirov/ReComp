@@ -44,27 +44,49 @@ create_builder :: fn (alloc: *mem.Allocator) -> Builder {
     };
 }
 
-printf :: fn(fmt: *u8, args: ...) -> int #foreign;
 
 builder_append :: fn(b: *Builder, str: string) {
     b := b;
     for i in str.count {
         array.add(&b.data, str.data[i]);
-		//printf(c"char: 0x%X\n", c);
     }
 }
 
 builder_append_u32 :: fn(b: *Builder, c: u32) {
 	b := b;
 	c := c;
-	scan := @*u8 &c;
-	for *scan & CONTINUE_BIT {
-		array.add(&b.data, *scan);
-		scan += 1;
+	if c <= 0x7F {
+		array.add(&b.data, @u8 c);
+	} else if c <= 0x7FF { 
+		second := @u8 c & 0b0011_1111;
+		c >>= 6;
+		first  := @u8 c & 0b0001_1111;
+		
+		array.add(&b.data, @u8 (0b1100_0000 | first));
+		array.add(&b.data, @u8 (0b1000_0000 | second));
+	} else if c <= 0xFFFF {
+		third  := @u8 c & 0b0011_1111;
+		c >>= 6;
+		second := @u8 c & 0b0011_1111;
+		c >>= 6;
+		first  := @u8 c & 0b0000_1111;
+
+		array.add(&b.data, @u8 (0b1110_0000 | first));
+		array.add(&b.data, @u8 (0b1000_0000 | second));
+		array.add(&b.data, @u8 (0b1000_0000 | third));
+	} else {
+		forth  := @u8 c & 0b0011_1111;
+		c >>= 6;
+		third  := @u8 c & 0b0011_1111;
+		c >>= 6;
+		second := @u8 c & 0b0011_1111;
+		c >>= 6;
+		first  := @u8 c & 0b0000_0111;
+		array.add(&b.data, @u8 (0b1111_0000 | first));
+		array.add(&b.data, @u8 (0b1000_0000 | second));
+		array.add(&b.data, @u8 (0b1000_0000 | third));
+		array.add(&b.data, @u8 (0b1000_0000 | forth));
 	}
-	array.add(&b.data, *scan);
-    //b := b;
-    //array.add(&b.data, c);
 }
 
 builder_append_u8 :: fn(b: *Builder, c: u8) {
@@ -72,7 +94,6 @@ builder_append_u8 :: fn(b: *Builder, c: u8) {
     array.add(&b.data, c);
 }
 
-// @TODO: proper utf8-handling
 from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
     b := b;
     data_ := alloc.alloc(b.data.count+1, alloc);
@@ -102,15 +123,13 @@ substr :: fn(original: string, from: int, to_excl: int) -> string {
 
 get_codepoint_size :: fn(codepoint: *u8) -> int {
     p := codepoint;
-    if (*p & CONTINUE_BIT) == 0 {
-        return 1;
-    }
-
-    size := 1;
-    for i := 1; @u32 *p & (@u32 CONTINUE_BIT >> @u32 i); i += 1 {
-        size += 1;
-    }
-    return size;
+	SIZE4 :: @u8 0b1111_0000;
+	SIZE3 :: @u8 0b1110_0000;
+	SIZE2 :: @u8 0b1100_0000;
+	if *p & SIZE4 == SIZE4 return 4;
+	if *p & SIZE3 == SIZE3 return 3;
+	if *p & SIZE2 == SIZE2 return 2;
+	return 1;
 }
 
 advance :: fn(pos: *u8) -> *u8 {
@@ -119,16 +138,37 @@ advance :: fn(pos: *u8) -> *u8 {
     return &p[size];
 }
 
+extract_codepoint :: fn (p: *u8, size: int) -> u32 {
+    res := match size {
+		1: {
+			yield @u32 *p;
+		}
+		2: {
+			First := *p & 0b0001_1111;
+			Second := *(p+1) & 0b0011_1111;
+			yield (@u32 First) << 6 | @u32 Second;
+		}
+		3: {
+			First := *p & 0b0000_1111;
+			Second := *(p+1) & 0b0011_1111;
+			Third := *(p+2) & 0b0011_1111;
+			yield (@u32 First) << 12 | (@u32 Second) << 6 | @u32 Third;
+		}
+		4: {
+			First := *p & 0b0000_0111;
+			Second := *(p+1) & 0b0011_1111;
+			Third := *(p+2) & 0b0011_1111;
+			Forth := *(p+3) & 0b0011_1111;
+			yield (@u32 First) << 18 | (@u32 Second) << 12 | (@u32 Third) << 6 | @u32 Forth;
+		}
+	};
+	return res;
+}
+
 deref :: fn(pos: *u8) -> u32 {
     p := pos;
     size := get_codepoint_size(p);
-    res: u32;
-    for i in size {
-        res <<= 8;
-        res |= p[i];
-    }
-
-    return res;
+    return extract_codepoint(p, size);
 }
 
 index :: fn(s: string, idx: int) -> u32 {

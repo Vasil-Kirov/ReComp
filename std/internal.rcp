@@ -5,7 +5,6 @@ internal
 // This file implements the internals needed for different compiler features
 // You can implement this file yourself by setting "internals_file" in CompileInfo
 
-
 advance :: fn(pos: *u8) -> *u8 {
 	return str.advance(pos);
 }

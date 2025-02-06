@@ -4,7 +4,7 @@ str
 #import array
 
 struct Builder {
-    data: []u32,
+    data: []u8,
 }
 
 to_int :: fn (str: string) -> int {
@@ -40,40 +40,48 @@ to_int :: fn (str: string) -> int {
 
 create_builder :: fn (alloc: *mem.Allocator) -> Builder {
     return Builder {
-        data = array.create(u32, alloc)
+        data = array.create(u8, alloc)
     };
 }
 
+printf :: fn(fmt: *u8, args: ...) -> int #foreign;
+
 builder_append :: fn(b: *Builder, str: string) {
     b := b;
-    for c in str {
-        array.add(&b.data, c);
+    for i in str.count {
+        array.add(&b.data, str.data[i]);
+		//printf(c"char: 0x%X\n", c);
     }
 }
 
 builder_append_u32 :: fn(b: *Builder, c: u32) {
-    b := b;
-    array.add(&b.data, c);
+	b := b;
+	c := c;
+	scan := @*u8 &c;
+	for *scan & CONTINUE_BIT {
+		array.add(&b.data, *scan);
+		scan += 1;
+	}
+	array.add(&b.data, *scan);
+    //b := b;
+    //array.add(&b.data, c);
 }
 
 builder_append_u8 :: fn(b: *Builder, c: u8) {
     b := b;
-    array.add(&b.data, @u32 c);
+    array.add(&b.data, c);
 }
 
 // @TODO: proper utf8-handling
 from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
     b := b;
-    data_ := alloc.alloc((b.data.count*4)+1, alloc);
+    data_ := alloc.alloc(b.data.count+1, alloc);
 	if data_ == null return "";
 	data := @*u8 ?data_;
-    len := 0;
-    as_u8 := @*u8 b.data.data;
-    for i := 0; i < b.data.count*4; i += 1 {
-        if as_u8[i] == 0 continue;
-
-        data[len] = as_u8[i];
-        len += 1;
+    scan := b.data.data;
+	len := b.data.count;
+    for i := 0; i < len; i += 1 {
+        data[i] = scan[i];
     }
 	data[len] = 0;
 

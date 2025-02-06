@@ -36,11 +36,11 @@ foo :: fn() -> i32 {
 
 compile :: fn() -> c.CompileInfo {
 	out := c.CompileInfo {
-		 //files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
-		 files = []string { "../file1.rcp" },
+		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
+		 //files = []string { "../file1.rcp" },
 		 opt = 0,
-		 //flags = .DebugInfo,
-		 flags = (.SanAddress | .Standalone | .NoLink),
+		 flags = .DebugInfo,
+		 //flags = (.SanAddress | .Standalone | .NoLink),
 		 //link = "/SUBSYSTEM:windows",
 	 };
 

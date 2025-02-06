@@ -2161,7 +2161,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 		if(X)
 		{
 			token_type T = Expr->Binary.Op;
-			if(T != '+' && T != '-')
+			if(T != '+' && T != '-' && T != T_PEQ && T != T_MEQ)
 			{
 				RaiseError(true, *Expr->ErrorInfo, "Invalid operator between pointer and basic type");
 			}

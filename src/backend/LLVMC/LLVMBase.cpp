@@ -346,7 +346,7 @@ LLVMValueRef FromConstVal(generator *gen, const_value *Val, u32 TypeIdx, b32 Str
 	{
 		LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
 		LLVMValueRef DataPtr = RCGetStringConstPtr(gen, Val->String.Data);
-		LLVMValueRef Size    = LLVMConstInt(IntType, GetUTF8Count(Val->String.Data), false);
+		LLVMValueRef Size    = LLVMConstInt(IntType, Val->String.Data->Size, true);
 		LLVMValueRef ConstantVals[2] = { Size, DataPtr };
 		Value = LLVMConstNamedStruct(LLVMType, ConstantVals, 2);
 		if(StructAsPointer)

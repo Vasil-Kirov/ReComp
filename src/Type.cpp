@@ -939,18 +939,17 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		{
 			// Allowed pointer ops:
 			// ?, +, -, !=, ==, >=, <=, >, <, +, -, =
-			if(Op == T_QMARK)
-				return true;
+			slice<token_type> Allowed = SliceFromConst({
+				T_QMARK, T_PLUS, T_MIN, T_PEQ, T_MEQ, T_NEQ, T_EQEQ, T_LESS, T_GREAT, T_LEQ, T_GEQ, T_EQ
+			});
 
-			if(Op != T_PLUS && Op != T_MIN)
+			For(Allowed)
 			{
-				if(Op > T_NEQ || Op < T_EQEQ)
-				{
-					if(Op != T_LESS & Op != T_GREAT && Op != T_EQ)
-						return false;
-				}
+				if(*it == Op)
+					return true;
 			}
-			return true;
+
+			return false;
 		} break;
 		case TypeKind_Struct:
 		case TypeKind_Array:
@@ -963,10 +962,15 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		{
 			// Allowed enum ops:
 			// |, &, ==, !=, =
-			if(Op == '|' || Op == '&')
-				return true;
-			if(Op == T_EQEQ || Op == T_NEQ || Op == T_EQ)
-				return true;
+			slice<token_type> Allowed = SliceFromConst({
+				T_OR, T_AND, T_OREQ, T_ANDEQ, T_EQEQ, T_NEQ, T_EQ
+			});
+
+			For(Allowed)
+			{
+				if(*it == Op)
+					return true;
+			}
 
 			return false;
 		}

@@ -1162,7 +1162,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 					const_value *Val = (const_value *)it->BigRegister;
 					void *Memory = ALLOC(sizeof(size_t)*2);
 
-					*(size_t *)Memory = GetUTF8Count(Val->String.Data);
+					*(size_t *)Memory = Val->String.Data->Size;
 
 					void *StringData = InterpreterAllocateString(VM, Val->String.Data);
 					void **MemoryLocation = (void **)Memory + 1;

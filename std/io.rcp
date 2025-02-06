@@ -14,7 +14,7 @@ print :: fn(str: string, args: ...) {
 
 println :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
-    builder_append_u32(&builder, '\n');
+    builder_append_u8(&builder, @u8 '\n');
     os.print(@*u8 &builder.data[0], @u32 builder.data.count*4);
     array.free(&builder.data);
 }
@@ -124,9 +124,9 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
             print_typetype(b, type_info(info.t.pointer.pointee));
         }
         TypeKind.Array: {
-            builder_append_u32(b, '[');
+            builder_append_u8(b, @u8 '[');
             format_uint(b, info.t.array.member_count);
-            builder_append_u32(b, ']');
+            builder_append_u8(b, @u8 ']');
             print_typetype(b, type_info(info.t.array.t));
         }
         TypeKind.Slice: {

@@ -7,20 +7,34 @@ enum Vals {
 	D_VAL,
 }
 
+utf8_test :: fn() {
+	#import io as *
+	#import os
+	utf8 := "木\n";
+	other := "き";
+	println("utf8: %\ncount: %\neqt: %\neqf: %",
+		utf8, utf8.count, utf8 == utf8, utf8 == other);
+
+	os.write(os.stdout(), utf8.data, utf8.count);
+
+}
 
 main :: fn() -> i32 {
 	#import intrin as *
+	utf8_test();
 
-	x := 10;
-	old, success := compare_exchange(&x, 10, 11);
+	//x := 10;
+	//old, success := compare_exchange(&x, 10, 11);
 
-	for it in arr	sum += it;
+	//for it in arr	sum += it;
 
-	res := @i32 (if sum == 37 1 else 2);
+	//res := @i32 (if sum == 37 1 else 2);
 
 
-    return res;
+    return 0;
 }
+
+#run utf8_test();
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

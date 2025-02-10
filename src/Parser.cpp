@@ -1306,6 +1306,8 @@ node *ParseOperand(parser *Parser)
 				STR_LIT("null"),
 				STR_LIT("true"),
 				STR_LIT("false"),
+				STR_LIT("inf"),
+				STR_LIT("nan"),
 			};
 			int Found = -1;
 			for(int i = 0; i < ARR_LEN(ReservedIDs); ++i) {

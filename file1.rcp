@@ -36,12 +36,11 @@ main :: fn() -> i32 {
 }
 
 #run {
-	p0 := @* 0x7055ea3fe200;
-	for n in 100_000_000_000 {
-		#assert p0;
-		println("in");
+	f := 0.1;
+	for n in 100_000_000 {
+		f *= 1.1;
 	}
-	println("good");
+	println("%", f);
 };
 
 // do_foo :: fn(s: []$T) {

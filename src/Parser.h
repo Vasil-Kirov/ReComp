@@ -12,6 +12,8 @@ enum class reserved
 	Null,
 	True,
 	False,
+	Inf,
+	NaN,
 };
 
 enum class for_type

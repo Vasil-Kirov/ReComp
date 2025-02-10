@@ -1096,6 +1096,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					Result = Basic_bool;
 				} break;
+				case rs::Inf:
+				case rs::NaN:
+				{
+					Result = Basic_UntypedFloat;
+					Checker->UntypedStack.Push(&Expr->Reserved.Type);
+				} break;
 				default: unreachable;
 			}
 			Expr->Reserved.Type = Result;
@@ -1933,6 +1939,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 	{
 		case AST_UNARY:
 		{
+			u32 Result = INVALID_TYPE;
 			switch(Expr->Unary.Op)
 			{
 				case T_MINUS:
@@ -1949,15 +1956,14 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						RaiseError(false, *Expr->ErrorInfo, "Cannot use a unary `-` on an unsigned type %s", GetTypeName(T));
 					}
 					Expr->Unary.Type = TypeIdx;
-					if(IsUntyped(T))
-						Checker->UntypedStack.Push(&Expr->Unary.Type);
 
-					return TypeIdx;
+					Result = TypeIdx;
 				} break;
 				case T_BANG:
 				{
 					AnalyzeBooleanExpression(Checker, &Expr->Unary.Operand);
-					return Basic_bool;
+					Expr->Unary.Type = Basic_bool;
+					Result = Basic_bool;
 				} break;
 				case T_QMARK:
 				{
@@ -1976,18 +1982,20 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						Expr->Unary.Operand->PointerType.Analyzed = GetOptional(GetType(Expr->Unary.Operand->PointerType.Analyzed));
 						Expr->Unary.Operand->PointerType.Flags |= PointerFlag_Optional;
 						*Expr = *Expr->Unary.Operand;
+						// @Note: Early return
 						return Basic_type;
 					}
 					if(Pointer->Kind != TypeKind_Pointer)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Cannot use ? operator on non pointer type %s", GetTypeName(Pointer));
-						return PointerIdx;
+						Result = PointerIdx;
 					}
 					if((Pointer->Pointer.Flags & PointerFlag_Optional) == 0)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Pointer is not optional, remove the ? operator");
 					}
-					return GetNonOptional(Pointer);
+					if(Result == INVALID_TYPE)
+						Result = GetNonOptional(Pointer);
 				} break;
 				case T_PTR:
 				{
@@ -1997,13 +2005,14 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					{
 						*Expr = *MakePointerType(Expr->ErrorInfo, Expr->Unary.Operand);
 						Expr->PointerType.Analyzed = GetTypeFromTypeNode(Checker, Expr);
+						// @Note: Early return
 						return Basic_type;
 					}
 
 					if(Pointer->Kind != TypeKind_Pointer)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
-						return PointerIdx;
+						Result = PointerIdx;
 					}
 					if(Pointer->Pointer.Flags & PointerFlag_Optional)
 					{
@@ -2014,7 +2023,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						RaiseError(true, *Expr->ErrorInfo, "Cannot derefrence opaque pointer");
 					}
 					Expr->Unary.Type = Pointer->Pointer.Pointed;
-					return Pointer->Pointer.Pointed;
+					Result = Pointer->Pointer.Pointed;
 				} break;
 				case T_ADDROF:
 				{
@@ -2024,10 +2033,13 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						RaiseError(false, *Expr->ErrorInfo, "Cannot take address of operand");
 					}
 					Expr->Unary.Type = GetPointerTo(Pointed);
-					return Expr->Unary.Type;
+					Result = Expr->Unary.Type;
 				} break;
 				default: unreachable;
 			}
+			if(IsUntyped(Expr->Unary.Type))
+				Checker->UntypedStack.Push(&Expr->Unary.Type);
+			return Result;
 		} break;
 		default:
 		{

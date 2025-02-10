@@ -10,6 +10,7 @@
 #include "VString.h"
 #include "vlib.h"
 #include "Log.h"
+#include <cmath>
 
 void Terminate(block_builder *Builder, basic_block GoTo)
 {
@@ -776,6 +777,16 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Val->Int.IsSigned = false;
 					Val->Int.Unsigned = 1;
 				} break;
+				case rs::Inf:
+				{
+					Val->Type = const_type::Float;
+					Val->Float = INFINITY;
+				} break;
+				case rs::NaN:
+				{
+					Val->Type = const_type::Float;
+					Val->Float = NAN;
+				} break;
 				default: unreachable;
 			}
 			Result = PushInstruction(Builder, 
@@ -1415,7 +1426,18 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 				case T_MINUS:
 				{
 					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
-					u32 Zero = PushInt(0, Builder, Node->Unary.Type);
+					u32 Zero;
+					const type *T = GetType(Node->Unary.Type);
+					if(HasBasicFlag(T, BasicFlag_Integer) || HasBasicFlag(T, BasicFlag_TypeID))
+						Zero = PushInt(0, Builder, Node->Unary.Type);
+					else
+					{
+						Assert(HasBasicFlag(T, BasicFlag_Float));
+						const_value *Val = NewType(const_value);
+						Val->Type = const_type::Float;
+						Val->Float = 0;
+						Zero = PushInstruction(Builder, Instruction(OP_CONST, (u64)Val, Node->Unary.Type, Builder));
+					}
 					instruction I = Instruction(OP_SUB, Zero, Expr, Node->Unary.Type, Builder);
 					Result = PushInstruction(Builder, I);
 				} break;

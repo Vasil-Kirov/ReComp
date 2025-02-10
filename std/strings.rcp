@@ -236,6 +236,19 @@ format_int :: fn(b: *Builder, num_in: int) {
 }
 
 format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
+	if num_in == inf {
+		builder_append(b, "INF");
+		return;
+	}
+	if num_in == -inf {
+		builder_append(b, "-INF");
+		return;
+	}
+	if num_in == nan {
+		builder_append(b, "NaN");
+		return;
+	}
+
     temp := [256]u32{};
     count := 0;
     num := num_in;

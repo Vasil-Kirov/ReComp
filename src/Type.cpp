@@ -637,6 +637,9 @@ b32 IsCastValid(const type *From, const type *To)
 
 	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Pointer)
 	{
+		if(IsUntyped(From) && HasBasicFlag(From, BasicFlag_Integer))
+			return true;
+
 		return GetTypeSize(From) == GetRegisterTypeSize() / 8;
 	}
 

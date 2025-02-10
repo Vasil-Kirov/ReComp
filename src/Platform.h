@@ -14,6 +14,7 @@ typedef sem_t *t_semaphore;
 #endif
 
 typedef unsigned long (*t_proc)(void *);
+typedef void (*sig_proc)(void *Context);
 
 void PlatformWriteFile(const char *Path, u8 *Data, u32 Size); 
 string ReadEntireFile(string Path);
@@ -26,5 +27,7 @@ t_handle PlatformCreateThread(t_proc Proc, void *PassValue);
 t_semaphore PlatformCreateSemaphore(uint MaxCount);
 void PlatformSleepOnSemaphore(t_semaphore);
 void PlatformSignalSemaphore(t_semaphore);
+void PlatformSetSignalHandler(sig_proc Proc, void *Data);
+void PlatformClearSignalHandler();
 
 

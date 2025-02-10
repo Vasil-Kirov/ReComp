@@ -102,9 +102,8 @@ struct ir_switchint
 enum ir_debug_type
 {
 	IR_DBG_VAR,
-	IR_DBG_LOCATION,
 	IR_DBG_SCOPE,
-	IR_DBG_INTERP_ERROR_INFO,
+	IR_DBG_ERROR_INFO,
 };
 
 struct ir_debug_info
@@ -255,8 +254,6 @@ struct ir
 };
 
 ir BuildIR(file *File);
-//string Dissasemble(slice<function> Fn);
-string DissasembleFunction(function Fn, int indent);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);
@@ -264,10 +261,14 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false,
 function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported);
 b32 CanGetPointerAfterSize(const type *T, int Size);
-void IRPushDebugLocation(block_builder *Builder, const error_info *Info);
+void PushErrorInfo(block_builder *Builder, node *Node);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
 int GetPointerPassIdx(u32 TypeIdx, uint Size);
 
 void GetUsedRegisters(instruction I, dynamic<u32> &out);
 u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr);
+
+//string Dissasemble(slice<function> Fn);
+string DissasembleFunction(function Fn, int indent);
+void DissasembleInstruction(string_builder *Builder, instruction Instr);

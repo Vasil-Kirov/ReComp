@@ -93,7 +93,6 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 		return;
 	switch(Info->type)
 	{
-		case IR_DBG_INTERP_ERROR_INFO: {} break;
 		case IR_DBG_VAR:
 		{
 			if(gen->CurrentScope == NULL)
@@ -104,11 +103,12 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 			LLVMDIBuilderInsertDeclareRecordAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 			//LLVMDIBuilderInsertDeclareAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 		} break;
-		case IR_DBG_LOCATION:
+		case IR_DBG_ERROR_INFO:
 		{
 			if(gen->CurrentScope == NULL)
 				return;
-			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, Info->loc.LineNo, 0, gen->CurrentScope, NULL);
+			auto err_i = Info->err_i.ErrorInfo;
+			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, err_i->Range.StartLine, 0, gen->CurrentScope, NULL);
 			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
 		} break;
 		case IR_DBG_SCOPE:

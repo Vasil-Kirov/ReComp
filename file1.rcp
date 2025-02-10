@@ -6,13 +6,12 @@ enum Vals {
 	C_VAL,
 	D_VAL,
 }
-printf :: fn(fmt: *u8, args: ...) -> int #foreign;
 
 utf8_test :: fn() {
 	#import io as *
 	#import os
 
-	printf(c"tree: %x\n", '木');
+	//printf(c"tree: %x\n", '木');
 	utf8 := "木\n";
 	for c in utf8 {
 		print("%c ", c);
@@ -36,7 +35,14 @@ main :: fn() -> i32 {
     return 0;
 }
 
-#run utf8_test();
+#run {
+	p0 := @* 0x7055ea3fe200;
+	for n in 100_000_000_000 {
+		#assert p0;
+		println("in");
+	}
+	println("good");
+};
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

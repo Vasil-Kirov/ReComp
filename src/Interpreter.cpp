@@ -3,7 +3,9 @@
 #include "DynamicLib.h"
 #include "Errors.h"
 #include "IR.h"
+#include "InterpDebugger.h"
 #include "Memory.h"
+#include "Platform.h"
 #include "VString.h"
 #include "vlib.h"
 #include "Semantics.h"
@@ -96,6 +98,37 @@ void CopyRegisters(interpreter *VM, interpreter_scope NewScope)
 	memcpy(NewScope.Registers, VM->Registers.Registers, VM->Registers.LastRegister * sizeof(value));
 	NewScope.LastAdded = VM->Registers.LastAdded;
 	NewScope.LastRegister = VM->Registers.LastRegister;
+}
+
+void InterpSegFault(void *VMPtr)
+{
+	interpreter *VM = (interpreter *)VMPtr;
+	auto b = MakeBuilder();
+	b += "Segmantation Fault in interpreter.";
+	if(!VM->ErrorInfo.IsEmpty())
+	{
+		auto err_i = VM->ErrorInfo.Peek();
+		b.printf("\nLast known location: %s(%d:%d)", err_i->FileName, err_i->Range.StartLine, err_i->Range.StartChar);
+	}
+	if(!VM->FunctionStack.IsEmpty())
+	{
+		b += " Function Stack:\n";
+		for(int i = VM->FunctionStack.Data.Count-1; i >= 0; --i)
+		{
+			string Name = VM->FunctionStack.Data[i];
+			b.printf("\t%.*s\n", Name.Size, Name.Data);
+		}
+	}
+	else b += '\n';
+
+
+	string msg = MakeString(b);
+	LogCompilerError("%.*s", msg.Size, msg.Data);
+
+	DoDebugPrompt(VM, VM->Executing->Code, VM->AtInstructionIndex);
+
+	printf("Exiting...\n");
+	exit(1);
 }
 
 #include <dyncall.h>
@@ -872,6 +905,138 @@ value PerformCast(value *Value, const type *From, u32 ToIdx)
 	return Result;
 }
 
+value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 ResultReg)
+{
+	value R = {};
+	R.Type = TypeIdx;
+	const type *T = GetType(TypeIdx);
+	if(T->Kind == TypeKind_Enum)
+	{
+		T = GetType(T->Enum.Type);
+	}
+	switch(T->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			switch(T->Basic.Kind)
+			{
+				case Basic_bool:
+				case Basic_u8:
+				{
+					R.u8 = *(u8 *)Value->ptr;
+				} break;
+				case Basic_u16:
+				{
+					R.u16 = *(u16 *)Value->ptr;
+				} break;
+				case Basic_u32:
+				{
+					R.u32 = *(u32 *)Value->ptr;
+				} break;
+				case Basic_u64:
+				{
+					R.u64 = *(u64 *)Value->ptr;
+				} break;
+
+				case Basic_i8:
+				{
+					R.i8 = *(i8 *)Value->ptr;
+				} break;
+				case Basic_i16:
+				{
+					R.i16 = *(i16 *)Value->ptr;
+				} break;
+				case Basic_i32:
+				{
+					R.i32 = *(i32 *)Value->ptr;
+				} break;
+				case Basic_i64:
+				{
+					R.i64 = *(i64 *)Value->ptr;
+				} break;
+
+				case Basic_type:
+				case Basic_int:
+				{
+					R.i64 = *(ssize_t *)Value->ptr;
+				} break;
+				case Basic_uint:
+				{
+					R.u64 = *(size_t *)Value->ptr;
+				} break;
+
+				case Basic_f32:
+				{
+					R.f32 = *(f32 *)Value->ptr;
+				} break;
+				case Basic_f64:
+				{
+					R.f64 = *(f64 *)Value->ptr;
+				} break;
+
+				case Basic_string:
+				{
+					*NoResult = true;
+					// @Note: Done before execution
+					//Result.ptr = VM->Stack.Peek().Allocate(Size);
+					uint Size = sizeof(size_t) * 2;
+					value *Result = VM->Registers.GetValue(ResultReg);
+					memcpy(Result->ptr, Value->ptr, Size);
+				} break;
+
+				default: 
+				{
+					LERROR("%s", GetTypeName(T));
+					Assert(false);
+				} break;
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			R.ptr = *(void **)Value->ptr;
+		} break;
+		case TypeKind_Struct:
+		case TypeKind_Array:
+		{
+			*NoResult = true;
+			// @Note: Done before execution
+			uint Size = GetTypeSize(T);
+			value *Result = VM->Registers.GetValue(ResultReg);
+			memcpy(Result->ptr, Value->ptr, Size);
+		} break;
+		case TypeKind_Slice:
+		{
+			*NoResult = true;
+			// @Note: Done before execution
+			uint Size = sizeof(size_t) * 2;
+			value *Result = VM->Registers.GetValue(ResultReg);
+			memcpy(Result->ptr, Value->ptr, Size);
+		} break;
+		case TypeKind_Vector:
+		{
+			Assert(T->Vector.ElementCount == 2);
+			switch(T->Vector.Kind)
+			{
+				case Vector_Int:
+				{
+					R.ivec2 = *(__m64 *)Value->ptr;
+				} break;
+				case Vector_Float:
+				{
+					R.fvec2 = *(__m64 *)Value->ptr;
+				} break;
+			}
+		} break;
+		default:
+		{
+			LDEBUG("%s", GetTypeName(T));
+
+			unreachable;
+		} break;
+	}
+	return R;
+}
+
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 {
 	const type *Type = GetType(TypeIdx);
@@ -914,19 +1079,19 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 					} break;
 					case Basic_bool:
 					{
-						*(u8 *)Ptr->ptr = Value->u64;
+						*(u8 *)Ptr->ptr = Value->u8;
 					} break;
 					case Basic_u8:
 					{
-						*(u8 *)Ptr->ptr = Value->u64;
+						*(u8 *)Ptr->ptr = Value->u8;
 					} break;
 					case Basic_u16:
 					{
-						*(u16 *)Ptr->ptr = Value->u64;
+						*(u16 *)Ptr->ptr = Value->u16;
 					} break;
 					case Basic_u32:
 					{
-						*(u32 *)Ptr->ptr = Value->u64;
+						*(u32 *)Ptr->ptr = Value->u32;
 					} break;
 					case Basic_u64:
 					{
@@ -934,15 +1099,15 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 					} break;
 					case Basic_i8:
 					{
-						*(i8 *)Ptr->ptr = Value->i64;
+						*(i8 *)Ptr->ptr = Value->i8;
 					} break;
 					case Basic_i16:
 					{
-						*(i16 *)Ptr->ptr = Value->i64;
+						*(i16 *)Ptr->ptr = Value->i16;
 					} break;
 					case Basic_i32:
 					{
-						*(i32 *)Ptr->ptr = Value->i64;
+						*(i32 *)Ptr->ptr = Value->i32;
 					} break;
 					case Basic_i64:
 					{
@@ -1073,7 +1238,7 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 			Result = ((u8 *)Operand->ptr) + Offset;
 
 			if(Right == 1)
-				*OutType = GetPointerTo(INVALID_TYPE);
+				*OutType = GetPointerTo(Type->Slice.Type);
 			else
 				*OutType = Basic_int;
 		} break;
@@ -1198,15 +1363,72 @@ void DoAllocationForBlocks(interpreter *VM, slice<basic_block> Blocks, b32 Globa
 	}
 }
 
+int Clamp(int x, int From, int To)
+{
+	if(x < From) return From;
+	if(x > To) return To;
+	return x;
+}
+
+void PrintLocation(slice<instruction> Instructions, int InstrIdx, int BackOffset, int FrontOffset)
+{
+	int From = Clamp(InstrIdx-BackOffset, 0, Instructions.Count-1);
+	int To = Clamp(InstrIdx+FrontOffset, 0, Instructions.Count-1);
+	string_builder b = MakeBuilder();
+	for(int i = From; i < To; ++i)
+	{
+		if(i == InstrIdx) b += " >>> ";
+		DissasembleInstruction(&b, Instructions[i]);
+		b += '\n';
+	}
+	b += '\n';
+	string List = MakeString(b);
+	printf("%.*s", (int)List.Size, List.Data);
+}
+
+void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrIdx)
+{
+	b32 ShowLine = true;
+	DebugAction Action;
+	do {
+		Action = DebugPrompt(VM, Instructions[InstrIdx], ShowLine);
+		ShowLine = false;
+		if(Action == DebugAction_list_instructions && Instructions.Count > 0)
+		{
+			PrintLocation(Instructions, InstrIdx, 10, 10);
+			Action = DebugAction_prompt_again;
+		}
+	} while(Action == DebugAction_prompt_again);
+	if(Action == DebugAction_quit)
+		exit(0);
+	VM->PerformingDebugAction = Action;
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
 	{
+		VM->AtInstructionIndex = InstrIdx;
+
 		instruction I = VM->Executing->Code[InstrIdx];
+		if(VM->PerformingDebugAction == DebugAction_break)
+		{
+			DoDebugPrompt(VM, VM->Executing->Code, InstrIdx);
+		}
+		if(VM->PerformingDebugAction == DebugAction_step_instruction)
+		{
+			VM->PerformingDebugAction = DebugAction_break;
+			//PrintLocation(VM->Executing->Code, InstrIdx+1, 1, 2);
+		}
+
 		switch(I.Op)
 		{
 			case OP_NOP:
 			{
+			} break;
+			case OP_DEBUG_BREAK:
+			{
+				VM->PerformingDebugAction = DebugAction_break;
 			} break;
 			case OP_GLOBAL:
 			{
@@ -1500,103 +1722,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_LOAD:
 			{
-#define LOAD_T(T, size) case Basic_##T: \
-						{ \
-							Result.u64 = *(u##size *)Value->ptr; \
-						} break
-
 				b32 NoResult = false;
 				value *Value = VM->Registers.GetValue(I.Right);
-				//Value->Type = I.Type;
-				value Result = {};
-				Result.Type = I.Type;
+				value Result = Load(VM, Value, I.Type, &NoResult, I.Result);
 
-				const type *Type = GetType(I.Type);
-				if(Type->Kind == TypeKind_Enum)
-				{
-					Type = GetType(Type->Enum.Type);
-				}
-
-				switch(Type->Kind)
-				{
-					case TypeKind_Basic:
-					{
-						switch(Type->Basic.Kind)
-						{
-							LOAD_T(bool, 8);
-
-							LOAD_T(u8, 8);
-							LOAD_T(u16, 16);
-							LOAD_T(u32, 32);
-							LOAD_T(u64, 64);
-
-							LOAD_T(i8, 8);
-							LOAD_T(i16, 16);
-							LOAD_T(i32, 32);
-							LOAD_T(i64, 64);
-
-							LOAD_T(f32, 32);
-							LOAD_T(f64, 64);
-
-							LOAD_T(int, 64);
-							LOAD_T(uint, 64);
-
-							LOAD_T(type, 64);
-
-							case Basic_string:
-							{
-								NoResult = true;
-								// @Note: Done before execution
-								//Result.ptr = VM->Stack.Peek().Allocate(Size);
-								uint Size = sizeof(size_t) * 2;
-								value *Result = VM->Registers.GetValue(I.Result);
-								memcpy(Result->ptr, Value->ptr, Size);
-							} break;
-							default: unreachable;
-						}
-					} break;
-					case TypeKind_Pointer:
-					{
-						Result.ptr = *(void **)Value->ptr;
-					} break;
-					case TypeKind_Struct:
-					case TypeKind_Array:
-					{
-						NoResult = true;
-						// @Note: Done before execution
-						uint Size = GetTypeSize(Type);
-						value *Result = VM->Registers.GetValue(I.Result);
-						memcpy(Result->ptr, Value->ptr, Size);
-					} break;
-					case TypeKind_Slice:
-					{
-						NoResult = true;
-						// @Note: Done before execution
-						uint Size = sizeof(size_t) * 2;
-						value *Result = VM->Registers.GetValue(I.Result);
-						memcpy(Result->ptr, Value->ptr, Size);
-					} break;
-					case TypeKind_Vector:
-					{
-						Assert(Type->Vector.ElementCount == 2);
-						switch(Type->Vector.Kind)
-						{
-							case Vector_Int:
-							{
-								Result.ivec2 = *(__m64 *)Value->ptr;
-							} break;
-							case Vector_Float:
-							{
-								Result.fvec2 = *(__m64 *)Value->ptr;
-							} break;
-						}
-					} break;
-					default: {
-						LDEBUG("%s", GetTypeName(Type));
-
-						unreachable;
-					} break;
-				}
 				if(!NoResult)
 					VM->Registers.AddValue(I.Result, Result);
 			} break;
@@ -1883,7 +2012,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 
 				value *Cond = VM->Registers.GetValue(I.Result);
-				if(Cond->u64)
+				if(Cond->u8)
 					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Left).Code);
 				else
 					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, I.Right).Code);
@@ -1992,13 +2121,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_DEBUGINFO:
 			{
 				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
-				if(Info->type == IR_DBG_INTERP_ERROR_INFO)
-					VM->ErrorInfo.Peek() = Info->err_i.ErrorInfo;
-
-				if(InterpreterTrace)
+				if(Info->type == IR_DBG_ERROR_INFO)
 				{
-					if(Info->type == IR_DBG_LOCATION)
-						LINFO("%s at line: %d", VM->CurrentFnName.Data, Info->loc.LineNo);
+					VM->ErrorInfo.Peek() = Info->err_i.ErrorInfo;
+					if(VM->PerformingDebugAction == DebugAction_next_stmt)
+						VM->PerformingDebugAction = DebugAction_break;
 				}
 			} break;
 			case OP_RESULT:
@@ -2151,6 +2278,12 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 
 interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Blocks, slice<value>Args, slice<instruction> Start, b32 Globals = false)
 {
+	if(!VM->HasSetSigHandler)
+	{
+		VM->HasSetSigHandler = true;
+		PlatformSetSignalHandler(InterpSegFault, VM);
+	}
+
 	function WasFn = VM->CurrentFn;
 	VM->CurrentFn = Fn;
 	void *StackMemory = VM->StackAllocator.Push(MB(1));
@@ -2183,6 +2316,8 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args)
 {
+	VM->FunctionStack.Push(*Function.Name);
+
 	string SaveCurrentFn = VM->CurrentFnName;
 
 	if(InterpreterTrace && Function.Name)
@@ -2212,6 +2347,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 	VM->IsCurrentFnRetInPtr = WasCurrentFnRetInPtr;
 	VM->CurrentFnName = SaveCurrentFn;
 
+	VM->FunctionStack.Pop();
 	return Result;
 }
 

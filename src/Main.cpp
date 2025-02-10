@@ -24,6 +24,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 //#include "Linearize.h"
 #include "StackAllocator.h"
 #include "Globals.h"
+#include "InterpDebugger.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -60,6 +61,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "DumpInfo.cpp"
 //#include "Linearize.cpp"
 #include "StackAllocator.cpp"
+#include "InterpDebugger.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -604,6 +606,8 @@ main(int ArgCount, char *Args[])
 			if(InterpreterTrace)
 				LINFO("Interpreting compile function");
 			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
+			PlatformClearSignalHandler();
+
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 			{
 				LogCompilerError("Error: Failed to evaluate build.compile\n");
@@ -681,6 +685,7 @@ main(int ArgCount, char *Args[])
 				VMBuildTimer2 = VLibStartTimer("VM");
 				interpreter ComptimeVM = {};
 				MakeInterpreter(ComptimeVM, ModuleArray, 0);
+				PlatformClearSignalHandler();
 				if(HasErroredOut())
 					exit(1);
 				VLibStopTimer(&VMBuildTimer2);

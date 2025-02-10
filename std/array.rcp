@@ -29,11 +29,7 @@ add :: fn(arg_arr: *[]$T, item: T) {
     if arr.count >= header.capacity {
         new_capacity := header.capacity * 2;
         maybe_ptr: ?*Header = header.allocator.alloc(new_capacity * size_of T + size_of Header, &header.allocator);
-        if !maybe_ptr {
-            arr.data = ?null;
-            arr.count = 0;
-            return;
-        }
+		#assert maybe_ptr && "Failed to allocate memory for dynamic array";
 
         ptr := ?maybe_ptr;
         ptr.capacity = new_capacity;

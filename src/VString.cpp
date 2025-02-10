@@ -125,6 +125,18 @@ string MakeString(const char *CString)
 	return MakeString(CString, CStrLen(CString));
 }
 
+void string_builder::printf(const char *fmt, ...)
+{
+	char ToPush[4096] = {0};
+	va_list Args;
+	va_start(Args, fmt);
+	
+	vsnprintf(ToPush, 4096, fmt, Args);
+	
+	va_end(Args);
+	*this += ToPush;
+}
+
 void string_builder::operator+=(const string& B)
 {
 	for(int I = 0; I < B.Size; ++I)

@@ -9,6 +9,17 @@
 
 #define mmax(a, b) (a > b) ? a : b
 
+enum DebugAction
+{
+	DebugAction_continue,
+	DebugAction_step_instruction,
+	DebugAction_next_stmt,
+	DebugAction_list_instructions,
+	DebugAction_quit,
+	DebugAction_prompt_again,
+	DebugAction_break,
+};
+
 struct interp_string
 {
 	size_t Count;
@@ -165,13 +176,17 @@ struct interpreter
 	ap_memory Arena;
 	stack_alloc StackAllocator;
 	stack<binary_stack> Stack;
+	stack<string> FunctionStack;
 	stack<const error_info *> ErrorInfo;
 	slice<function> Imported;
 	std::unordered_map<void *, uint> StoredGlobals;
 	function CurrentFn;
 	string CurrentFnName;
+	DebugAction PerformingDebugAction;
+	int AtInstructionIndex;
 	b32 IsCurrentFnRetInPtr;
 	b32 KeepTrackOfStoredGlobals;
+	b32 HasSetSigHandler;
 };
 
 #include <dyncall.h>
@@ -183,6 +198,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters);
 void DoRuns(interpreter *VM, ir *IR);
 void EvaluateEnums(interpreter *VM);
 void DoGlobals(interpreter *VM, ir *IR);
+void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrIdx);
 
 extern dynamic<DLIB> DLs;
 
@@ -313,12 +329,12 @@ extern dynamic<DLIB> DLs;
 
 #define BIN_COMP_OP(OP, o) case OP_##OP: \
 			{\
-				const type *Type = GetType(I.Type); \
-				if(Type->Kind == TypeKind_Enum) { I.Type = Type->Enum.Type; Type = GetType(I.Type);  } \
 				value Result = {}; \
 				Result.Type = Basic_bool; \
 				value *Left  = VM->Registers.GetValue(I.Left); \
 				value *Right = VM->Registers.GetValue(I.Right); \
+				const type *Type = GetType(Left->Type); \
+				if(Type->Kind == TypeKind_Enum) { I.Type = Type->Enum.Type; Type = GetType(I.Type);  } \
 				if(Type->Kind == TypeKind_Basic) \
 				{ \
 					switch(Type->Basic.Kind) \
@@ -330,49 +346,49 @@ extern dynamic<DLIB> DLs;
 										 } break; \
 						case Basic_u16: \
 										 { \
-											 Result.u16 = Left->u16 o Right->u16; \
+											 Result.u8 = Left->u16 o Right->u16; \
 										 } break; \
 						case Basic_u32: \
 										 { \
-											 Result.u32 = Left->u32 o Right->u32; \
+											 Result.u8 = Left->u32 o Right->u32; \
 										 } break; \
 						case Basic_u64: \
 						case Basic_uint: \
-						case Basic_type: \
 										 { \
-											 Result.u64 = Left->u64 o Right->u64; \
+											 Result.u8 = Left->u64 o Right->u64; \
 										 } break; \
 						case Basic_i8: \
 										 { \
-											 Result.i8 = Left->i8 o Right->i8; \
+											 Result.u8 = Left->i8 o Right->i8; \
 										 } break; \
 						case Basic_i16: \
 										 { \
-											 Result.i16 = Left->i16 o Right->i16; \
+											 Result.u8 = Left->i16 o Right->i16; \
 										 } break; \
 						case Basic_i32: \
 										 { \
-											 Result.i32 = Left->i32 o Right->i32; \
+											 Result.u8 = Left->i32 o Right->i32; \
 										 } break; \
 						case Basic_i64: \
+						case Basic_type: \
 						case Basic_int: \
 										{ \
-											Result.i64 = Left->i64 o Right->i64; \
+											Result.u8 = Left->i64 o Right->i64; \
 										} break; \
 						case Basic_f32: \
 										{ \
-											Result.f32 = Left->f32 o Right->f32; \
+											Result.u8 = Left->f32 o Right->f32; \
 										} break; \
 						case Basic_f64: \
 										{ \
-											Result.f64 = Left->f64 o Right->f64; \
+											Result.u8 = Left->f64 o Right->f64; \
 										} break; \
 						default: unreachable; \
 					} \
 				} \
 				else if(Type->Kind == TypeKind_Pointer) \
 				{ \
-					Result.ptr = (void *)((u8 *)Left->ptr o (u8 *)Right->ptr); \
+					Result.u8 = Left->ptr o Right->ptr; \
 				} \
 				else \
 				{\

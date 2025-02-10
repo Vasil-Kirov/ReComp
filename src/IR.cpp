@@ -28,6 +28,13 @@ u32 GenerateVoidFnT()
 	return AddType(NT);
 }
 
+inline void PushDebugBreak(block_builder *Builder)
+{
+	instruction Result = {};
+	Result.Op = OP_DEBUG_BREAK;
+	PushInstruction(Builder, Result);
+}
+
 inline void PushResult(u32 Register, u32 Type, block_builder *Builder)
 {
 	instruction Result;
@@ -243,8 +250,11 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 
 void PushErrorInfo(block_builder *Builder, node *Node)
 {
+	if(Node->ErrorInfo == NULL)
+		return;
+
 	ir_debug_info *Info = NewType(ir_debug_info);
-	Info->type = IR_DBG_INTERP_ERROR_INFO;
+	Info->type = IR_DBG_ERROR_INFO;
 	Info->err_i.ErrorInfo = Node->ErrorInfo;
 	instruction DbgErrI = InstructionDebugInfo(Info);
 	PushInstruction(Builder, DbgErrI);
@@ -640,7 +650,6 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const symbol *Local = GetIRLocal(Builder, Node->ID.Name, true, &IsGlobal);
 			if(IsGlobal)
 			{
-				PushErrorInfo(Builder, Node);
 				instruction GlobalI = Instruction(OP_GLOBAL, (void *)Local, Local->Type, Builder, 0);
 
 				Result = PushInstruction(Builder, GlobalI);
@@ -798,8 +807,6 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_CALL:
 		{
-			PushErrorInfo(Builder, Node);
-
 			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
 
@@ -1242,7 +1249,6 @@ SEARCH_TYPE_DONE:
 					const type *Type = GetType(Node->Selector.Type);
 					if(IsGlobal)
 					{
-						PushErrorInfo(Builder, Node);
 						instruction GlobalI = Instruction(OP_GLOBAL, (void *)Sym, Sym->Type, Builder, 0);
 
 						Result = PushInstruction(Builder, GlobalI);
@@ -2177,6 +2183,8 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	Call->Args = SliceFromConst({Handle, Data, Count});
 	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
 
+	PushDebugBreak(Builder);
+
 	u32 Abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
 	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 	Call = NewType(call_info);
@@ -2190,7 +2198,9 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
 	if(Node->Type != AST_SCOPE)
-		IRPushDebugLocation(Builder, Node->ErrorInfo);
+	{
+		PushErrorInfo(Builder, Node);
+	}
 
 	switch(Node->Type)
 	{
@@ -2450,16 +2460,6 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 	Builder->CurrentBlock = Then;
 }
 
-void IRPushDebugLocation(block_builder *Builder, const error_info *Info)
-{
-	ir_debug_info *IRInfo = NewType(ir_debug_info);
-	IRInfo->type = IR_DBG_LOCATION;
-	IRInfo->loc.LineNo = Info->Range.StartLine;
-
-	PushInstruction(Builder,
-			InstructionDebugInfo(IRInfo));
-}
-
 b32 CanGetPointerAfterSize(const type *T, int Size)
 {
 	ForArray(Idx, T->Struct.Members)
@@ -2707,7 +2707,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 		block_builder Builder = MakeBlockBuilder(&Function, Module, Imported);
 		Builder.Module = Module;
 
-		IRPushDebugLocation(&Builder, Node->ErrorInfo);
+		PushErrorInfo(&Builder, Node);
 
 		ForArray(Idx, Args)
 		{
@@ -3251,240 +3251,229 @@ void BuildEnumIR(slice<module *> Modules)
 	}
 }
 
-void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int indent)
+void DissasembleInstruction(string_builder *Builder, instruction Instr)
 {
-	ForArray(I, Block->Code)
+	const type *Type = NULL;
+	if(Instr.Type != INVALID_TYPE)
+		Type = GetType(Instr.Type);
+
+	switch(Instr.Op)
 	{
-		instruction Instr = Block->Code[I];
-		if(Instr.Op == OP_DEBUGINFO)
-			continue;
-
-		const type *Type = NULL;
-		if(Instr.Type != INVALID_TYPE)
-			Type = GetType(Instr.Type);
-
-		PushBuilder(Builder, '\t');
-		PushBuilder(Builder, '\t');
-		for(int i = 0; i < indent; ++i)
-			PushBuilder(Builder, '\t');
-		switch(Instr.Op)
+		case OP_NOP:
 		{
-			case OP_NOP:
+			PushBuilder(Builder, "NOP");
+		} break;
+		case OP_DEBUG_BREAK:
+		{
+			*Builder += "debug_break()";
+		} break;
+		case OP_CMPXCHG:
+		{
+			call_info *ci = (call_info *)Instr.BigRegister;
+			PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
+		} break;
+		case OP_GLOBAL:
+		{
+			const symbol *s = (const symbol *)Instr.Ptr;
+			PushBuilderFormated(Builder, "%%%d = GLOBAL %s", Instr.Result, s->LinkName->Data);
+		} break;
+		case OP_RESULT:
+		{
+			PushBuilderFormated(Builder, "%%%d = EXPR RESULT", Instr.Result);
+		} break;
+		case OP_ENUM_ACCESS:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s.%s", Instr.Result, GetTypeName(Type), Type->Enum.Members[Instr.Right].Name.Data);
+		} break;
+		case OP_TYPEINFO:
+		{
+			PushBuilderFormated(Builder, "%%%d = type_info %%%d", Instr.Result, Instr.Right);
+		} break;
+		case OP_RDTSC:
+		{
+			PushBuilderFormated(Builder, "%%%d = TIME", Instr.Result);
+		} break;
+		case OP_MEMCMP:
+		{
+			ir_memcmp *Info = (ir_memcmp *)Instr.BigRegister;
+			PushBuilderFormated(Builder, "%%%d = MEMCMP (PTR %%%d, PTR %%%d, COUNT %%%d)", Instr.Result, Info->LeftPtr, Info->RightPtr, Info->Count);
+		} break;
+		case OP_ZEROUT:
+		{
+			PushBuilderFormated(Builder, "ZEROUT %%%d %s", Instr.Right, GetTypeName(Type));
+		} break;
+		case OP_CONSTINT:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type), Instr.BigRegister);
+		} break;
+		case OP_CONST:
+		{
+			const_value *Val = (const_value *)Instr.BigRegister;
+			using ct = const_type;
+			switch(Val->Type)
 			{
-				PushBuilder(Builder, "NOP");
-			} break;
-			case OP_DEBUG_BREAK:
-			{
-				*Builder += "debug_break()";
-			} break;
-			case OP_CMPXCHG:
-			{
-				call_info *ci = (call_info *)Instr.BigRegister;
-				PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
-			} break;
-			case OP_GLOBAL:
-			{
-				const symbol *s = (const symbol *)Instr.Ptr;
-				PushBuilderFormated(Builder, "%%%d = GLOBAL %s", Instr.Result, s->LinkName->Data);
-			} break;
-			case OP_RESULT:
-			{
-				PushBuilderFormated(Builder, "%%%d = EXPR RESULT", Instr.Result);
-			} break;
-			case OP_ENUM_ACCESS:
-			{
-				const type *T = GetType(Instr.Type);
-				PushBuilderFormated(Builder, "%%%d = %s.%s", Instr.Result, GetTypeName(T), T->Enum.Members[Instr.Right].Name.Data);
-			} break;
-			case OP_TYPEINFO:
-			{
-				PushBuilderFormated(Builder, "%%%d = type_info %%%d", Instr.Result, Instr.Right);
-			} break;
-			case OP_RDTSC:
-			{
-				PushBuilderFormated(Builder, "%%%d = TIME", Instr.Result);
-			} break;
-			case OP_MEMCMP:
-			{
-				ir_memcmp *Info = (ir_memcmp *)Instr.BigRegister;
-				PushBuilderFormated(Builder, "%%%d = MEMCMP (PTR %%%d, PTR %%%d, COUNT %%%d)", Instr.Result, Info->LeftPtr, Info->RightPtr, Info->Count);
-			} break;
-			case OP_ZEROUT:
-			{
-				PushBuilderFormated(Builder, "ZEROUT %%%d %s", Instr.Right, GetTypeName(Type));
-			} break;
-			case OP_CONSTINT:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type), Instr.BigRegister);
-			} break;
-			case OP_CONST:
-			{
-				const_value *Val = (const_value *)Instr.BigRegister;
-				using ct = const_type;
-				switch(Val->Type)
+				case ct::String:
 				{
-					case ct::String:
-					{
-						PushBuilderFormated(Builder, "%%%d = %s \"%.*s\"", Instr.Result, GetTypeName(Type),
-								Val->String.Data->Size, Val->String.Data->Data);
-					} break;
-					case ct::Integer:
-					{
-						if(Val->Int.IsSigned)
-						{
-							PushBuilderFormated(Builder, "%%%d = %s %lld", Instr.Result, GetTypeName(Type),
-									Val->Int.Signed);
-						}
-						else
-						{
-							PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type),
-									Val->Int.Unsigned);
-						}
-					} break;
-					case ct::Float:
-					{
-						PushBuilderFormated(Builder, "%%%d = %s %f", Instr.Result, GetTypeName(Type), Val->Float);
-					} break;
-					case ct::Aggr:
-					{
-						PushBuilderFormated(Builder, "%%%d = %s {...}", Instr.Result, GetTypeName(Type));
-					} break;
-				}
-			} break;
-			case OP_FN:
-			{
-				function Fn = *(function *)Instr.Ptr;
-				PushBuilderFormated(Builder, "%%%d = %s", Instr.Result, DissasembleFunction(Fn, 2).Data);
-			} break;
-			case OP_ADD:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d + %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Left, Instr.Right);
-			} break;
-			case OP_SUB:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d - %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Left, Instr.Right);
-			} break;
-			case OP_MUL:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d * %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Left, Instr.Right);
-			} break;
-			case OP_DIV:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d / %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Left, Instr.Right);
-			} break;
-			case OP_MOD:
-			{
-				PushBuilderFormated(Builder, "%%%d = %s %%%d %% %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Left, Instr.Right);
-			} break;
-			case OP_LOAD:
-			{
-				PushBuilderFormated(Builder, "%%%d = LOAD %s %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Right);
-			} break;
-			case OP_STORE:
-			{
-				PushBuilderFormated(Builder, "%%%d = STORE %s %%%d", Instr.Result, GetTypeName(Type),
-						Instr.Right);
-			} break;
-			case OP_UNREACHABLE:
-			{
-				PushBuilderFormated(Builder, "UNREACHABLE");
-			} break;
-			case OP_CAST:
-			{
-				const type *FromType = GetType(Instr.Right);
-				PushBuilderFormated(Builder, "%%%d = CAST %s to %s %%%d", Instr.Result, GetTypeName(FromType), GetTypeName(Type), Instr.Left);
-			} break;
-			case OP_ALLOC:
-			{
-				PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
-			} break;
-			case OP_ALLOCGLOBAL:
-			{
-				PushBuilderFormated(Builder, "%%%d = GLOBALALLOC %d %s", Instr.Result, Instr.BigRegister, GetTypeName(Type));
-			} break;
-			case OP_RET:
-			{
-				if(Instr.Left != -1)
-					PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
-				else
-					PushBuilderFormated(Builder, "RET");
-			} break;
-			case OP_CALL:
-			{
-				call_info *CallInfo = (call_info *)Instr.BigRegister;
-				//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
-				PushBuilderFormated(Builder, "%%%d = CALL %%%d(", Instr.Result, CallInfo->Operand);
-				ForArray(AIdx, CallInfo->Args)
+					PushBuilderFormated(Builder, "%%%d = %s \"%.*s\"", Instr.Result, GetTypeName(Type),
+							Val->String.Data->Size, Val->String.Data->Data);
+				} break;
+				case ct::Integer:
 				{
-					if(AIdx != 0)
-						*Builder += ", ";
-					PushBuilderFormated(Builder, "%%%d", CallInfo->Args[AIdx]);
-				}
-				*Builder += ")";
-			} break;
-			case OP_SWITCHINT:
-			{
-				ir_switchint *Info = (ir_switchint *)Instr.BigRegister;
-				PushBuilderFormated(Builder, "%%%d = switch %%%d [", Instr.Result, Info->Matcher);
-				ForArray(Idx, Info->Cases)
-				{
-					u32 Case = Info->Cases[Idx];
-					u32 Val  = Info->OnValues[Idx];
-					PushBuilderFormated(Builder, "%%%d block_%d", Val, Case);
-					if(Idx + 1 != Info->Cases.Count)
+					if(Val->Int.IsSigned)
 					{
-						*Builder += ", ";
+						PushBuilderFormated(Builder, "%%%d = %s %lld", Instr.Result, GetTypeName(Type),
+								Val->Int.Signed);
 					}
+					else
+					{
+						PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type),
+								Val->Int.Unsigned);
+					}
+				} break;
+				case ct::Float:
+				{
+					PushBuilderFormated(Builder, "%%%d = %s %f", Instr.Result, GetTypeName(Type), Val->Float);
+				} break;
+				case ct::Aggr:
+				{
+					PushBuilderFormated(Builder, "%%%d = %s {...}", Instr.Result, GetTypeName(Type));
+				} break;
+			}
+		} break;
+		case OP_FN:
+		{
+			function Fn = *(function *)Instr.Ptr;
+			PushBuilderFormated(Builder, "%%%d = %s", Instr.Result, DissasembleFunction(Fn, 2).Data);
+		} break;
+		case OP_ADD:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %%%d + %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Left, Instr.Right);
+		} break;
+		case OP_SUB:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %%%d - %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Left, Instr.Right);
+		} break;
+		case OP_MUL:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %%%d * %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Left, Instr.Right);
+		} break;
+		case OP_DIV:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %%%d / %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Left, Instr.Right);
+		} break;
+		case OP_MOD:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s %%%d %% %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Left, Instr.Right);
+		} break;
+		case OP_LOAD:
+		{
+			PushBuilderFormated(Builder, "%%%d = LOAD %s %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Right);
+		} break;
+		case OP_STORE:
+		{
+			PushBuilderFormated(Builder, "%%%d = STORE %s %%%d", Instr.Result, GetTypeName(Type),
+					Instr.Right);
+		} break;
+		case OP_UNREACHABLE:
+		{
+			PushBuilderFormated(Builder, "UNREACHABLE");
+		} break;
+		case OP_CAST:
+		{
+			const type *FromType = GetType(Instr.Right);
+			PushBuilderFormated(Builder, "%%%d = CAST %s to %s %%%d", Instr.Result, GetTypeName(FromType), GetTypeName(Type), Instr.Left);
+		} break;
+		case OP_ALLOC:
+		{
+			PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
+		} break;
+		case OP_ALLOCGLOBAL:
+		{
+			PushBuilderFormated(Builder, "%%%d = GLOBALALLOC %d %s", Instr.Result, Instr.BigRegister, GetTypeName(Type));
+		} break;
+		case OP_RET:
+		{
+			if(Instr.Left != -1)
+				PushBuilderFormated(Builder, "RET %s %%%d", GetTypeName(Type), Instr.Left);
+			else
+				PushBuilderFormated(Builder, "RET");
+		} break;
+		case OP_CALL:
+		{
+			call_info *CallInfo = (call_info *)Instr.BigRegister;
+			//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
+			PushBuilderFormated(Builder, "%%%d = CALL %%%d(", Instr.Result, CallInfo->Operand);
+			ForArray(AIdx, CallInfo->Args)
+			{
+				if(AIdx != 0)
+					*Builder += ", ";
+				PushBuilderFormated(Builder, "%%%d", CallInfo->Args[AIdx]);
+			}
+			*Builder += ")";
+		} break;
+		case OP_SWITCHINT:
+		{
+			ir_switchint *Info = (ir_switchint *)Instr.BigRegister;
+			PushBuilderFormated(Builder, "%%%d = switch %%%d [", Instr.Result, Info->Matcher);
+			ForArray(Idx, Info->Cases)
+			{
+				u32 Case = Info->Cases[Idx];
+				u32 Val  = Info->OnValues[Idx];
+				PushBuilderFormated(Builder, "%%%d block_%d", Val, Case);
+				if(Idx + 1 != Info->Cases.Count)
+				{
+					*Builder += ", ";
 				}
-				*Builder += ']';
-			} break;
-			case OP_RUN:
-			{
-				PushBuilderFormated(Builder, "%%%d = compile_time block_%d", Instr.Result, Instr.Right);
-			} break;
-			case OP_IF:
-			{
-				PushBuilderFormated(Builder, "IF %%%d goto block_%d, else goto block_%d", Instr.Result, Instr.Left, Instr.Right);
-			} break;
-			case OP_JMP:
-			{
-				PushBuilderFormated(Builder, "JMP block_%d", Instr.BigRegister);
-			} break;
-			case OP_INDEX:
-			{
-				PushBuilderFormated(Builder, "%%%d = %%%d[%%%d] %s", Instr.Result, Instr.Left, Instr.Right,
-						GetTypeName(Instr.Type));
-			} break;
-			case OP_ARRAYLIST:
-			{
-				PushBuilderFormated(Builder, "%%%d = ARRAYLIST (cba)", Instr.Result);
-			} break;
-			case OP_MEMSET:
-			{
-				PushBuilderFormated(Builder, "MEMSET %%%d", Instr.Right);
-			} break;
-			case OP_PTRDIFF:
-			{
-				PushBuilderFormated(Builder, "%%%d = PTR DIFF %%%d, %%%d", Instr.Result, Instr.Left, Instr.Right);
-			} break;
-			case OP_ARG:
-			{
-				PushBuilderFormated(Builder, "%%%d = ARG #%d", Instr.Result, Instr.BigRegister);
-			} break;
+			}
+			*Builder += ']';
+		} break;
+		case OP_RUN:
+		{
+			PushBuilderFormated(Builder, "%%%d = compile_time block_%d", Instr.Result, Instr.Right);
+		} break;
+		case OP_IF:
+		{
+			PushBuilderFormated(Builder, "IF %%%d goto block_%d, else goto block_%d", Instr.Result, Instr.Left, Instr.Right);
+		} break;
+		case OP_JMP:
+		{
+			PushBuilderFormated(Builder, "JMP block_%d", Instr.BigRegister);
+		} break;
+		case OP_INDEX:
+		{
+			PushBuilderFormated(Builder, "%%%d = %%%d[%%%d] %s", Instr.Result, Instr.Left, Instr.Right,
+					GetTypeName(Instr.Type));
+		} break;
+		case OP_ARRAYLIST:
+		{
+			PushBuilderFormated(Builder, "%%%d = ARRAYLIST (cba)", Instr.Result);
+		} break;
+		case OP_MEMSET:
+		{
+			PushBuilderFormated(Builder, "MEMSET %%%d", Instr.Right);
+		} break;
+		case OP_PTRDIFF:
+		{
+			PushBuilderFormated(Builder, "%%%d = PTR DIFF %%%d, %%%d", Instr.Result, Instr.Left, Instr.Right);
+		} break;
+		case OP_ARG:
+		{
+			PushBuilderFormated(Builder, "%%%d = ARG #%d", Instr.Result, Instr.BigRegister);
+		} break;
 
 #define CASE_OP(op, str) \
-			case op: \
-			op_str = str; \
-			goto INSIDE_EQ; \
+		case op: \
+				 op_str = str; \
+		goto INSIDE_EQ; \
 
-			const char *op_str;
-			CASE_OP(OP_NEQ,   "!=")
+		const char *op_str;
+		CASE_OP(OP_NEQ,   "!=")
 			CASE_OP(OP_GREAT, ">")
 			CASE_OP(OP_GEQ,   ">=")
 			CASE_OP(OP_LESS,  "<")
@@ -3496,47 +3485,64 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 			CASE_OP(OP_OR,    "|")
 			CASE_OP(OP_XOR,   "^")
 			goto INSIDE_EQ;
-			{
+		{
 INSIDE_EQ:
-				PushBuilderFormated(Builder, "%%%d = %%%d %s %%%d", Instr.Result, Instr.Left, op_str, Instr.Right);
+			PushBuilderFormated(Builder, "%%%d = %%%d %s %%%d", Instr.Result, Instr.Left, op_str, Instr.Right);
 
-			} break;
+		} break;
 #undef CASE_OP
-			case OP_DEBUGINFO:
+		case OP_DEBUGINFO:
+		{
+			ir_debug_info *Info = (ir_debug_info *)Instr.BigRegister;
+			switch(Info->type)
 			{
-				ir_debug_info *Info = (ir_debug_info *)Instr.BigRegister;
-				switch(Info->type)
+				case IR_DBG_VAR:
 				{
-					case IR_DBG_INTERP_ERROR_INFO: {} break;
-					case IR_DBG_VAR:
-					{
-						PushBuilderFormated(Builder, "DEBUG_VAR_INFO %s Line=%d, Type=%s", Info->var.Name.Data, Info->var.LineNo, GetTypeName(Info->var.TypeID));
-					} break;
-					case IR_DBG_LOCATION:
-					{
-						PushBuilderFormated(Builder, "DEBUG_LOC_INFO Line=%d", Info->loc.LineNo);
-					} break;
-					case IR_DBG_SCOPE:
-					{
-						*Builder += "SCOPE";
-					} break;
-				}
-				
-			} break;
-			case OP_SPILL:
-			{
-				PushBuilderFormated(Builder, "SPILL %%%d", Instr.Right);
-			} break;
-			case OP_TOPHYSICAL:
-			{
-				const char *Names[] = {"rax", "rbx", "rcx", "rdx"};
-				const char *Name = "unknown";
-				if(Instr.Result < ARR_LEN(Names))
-					Name = Names[Instr.Result];
-				PushBuilderFormated(Builder, "%s = TOPHY %%%d", Name, Instr.Right);
-			} break;
-			case OP_COUNT: unreachable;
-		}
+					PushBuilderFormated(Builder, "DEBUG_VAR_INFO %s Line=%d, Type=%s", Info->var.Name.Data, Info->var.LineNo, GetTypeName(Info->var.TypeID));
+				} break;
+				case IR_DBG_ERROR_INFO:
+				{
+					auto err_i = Info->err_i.ErrorInfo;
+					PushBuilderFormated(Builder, "DEBUG_LOC_INFO Line=%d", err_i->Range.StartLine);
+				} break;
+				case IR_DBG_SCOPE:
+				{
+					*Builder += "SCOPE";
+				} break;
+			}
+
+		} break;
+		case OP_SPILL:
+		{
+			PushBuilderFormated(Builder, "SPILL %%%d", Instr.Right);
+		} break;
+		case OP_TOPHYSICAL:
+		{
+			const char *Names[] = {"rax", "rbx", "rcx", "rdx"};
+			const char *Name = "unknown";
+			if(Instr.Result < ARR_LEN(Names))
+				Name = Names[Instr.Result];
+			PushBuilderFormated(Builder, "%s = TOPHY %%%d", Name, Instr.Right);
+		} break;
+		case OP_COUNT: unreachable;
+	}
+}
+
+void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int indent)
+{
+	ForArray(I, Block->Code)
+	{
+		instruction Instr = Block->Code[I];
+		if(Instr.Op == OP_DEBUGINFO)
+			continue;
+
+		PushBuilder(Builder, '\t');
+		PushBuilder(Builder, '\t');
+		for(int i = 0; i < indent; ++i)
+			PushBuilder(Builder, '\t');
+
+		DissasembleInstruction(Builder, Instr);
+
 		PushBuilder(Builder, '\n');
 	}
 	PushBuilder(Builder, '\n');

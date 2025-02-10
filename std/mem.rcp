@@ -1,5 +1,6 @@
 mem
 #import os
+#import intrin as *
 
 kb :: fn(b: int) -> int { return b << 10; }
 mb :: fn(b: int) -> int { return b << 20; }
@@ -66,7 +67,8 @@ struct ScratchContext {
 
 addr_align16 :: fn(addr: *) -> * {
 	addr := @*u8 addr;
-    return @*void (((@u64 addr) + 15) & 0xfffffffffffffff0);
+    val := ((@u64 addr) + 15) & 0xfffffffffffffff0;
+	return @*void val;
 }
 
 arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
@@ -76,12 +78,14 @@ arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 	}
 
     ctx := @*ScratchContext ?this.data;
-    os.assert(ctx != null, "Invalid allocator for arena_alloc()");
-    os.assert(ctx.max > ctx.current, "Calling arena_alloc() with an out of memory arena");
 
-	ctx.current = addr_align16(ctx.current);
-    res := ctx.current;
-    ctx.current = ctx.current + size;
+    #assert ctx && "Invalid allocator for arena_alloc()";
+    #assert ctx.max > ctx.current && "Calling arena_alloc() with an out of memory arena";
+	#assert ctx.current && "Arena is not properly initialized";
+
+	
+	res := addr_align16(ctx.current);
+    ctx.current = (@*u8 res) + size;
 
 	set(res, 0, size);
     
@@ -94,7 +98,7 @@ no_free :: fn(p: *, this: *Allocator) {
 
 create_scratch :: fn(max_size: int) -> Allocator {
 	mem := os.alloc(max_size + size_of ScratchContext);
-	#assert mem;
+	#assert mem && "Couldn't allocate memory";
     ctx := @*ScratchContext ?mem;
 
 	ctx.start   = @*u8 (ctx + 1);

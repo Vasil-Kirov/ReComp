@@ -44,6 +44,7 @@ struct string_builder
 	void operator+=(const string& B);
 	void operator+=(const char *String);
 	void operator+=(char C);
+	void printf(const char *fmt, ...);
 };
 
 struct split

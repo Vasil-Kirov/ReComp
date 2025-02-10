@@ -2,6 +2,7 @@
 #include "Log.h"
 #include "Platform.h"
 #include "VString.h"
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <semaphore.h>
@@ -13,6 +14,35 @@
 #include <sys/syscall.h>
 
 typedef void *(*linux_start_thread)(void*);
+
+struct linux_signal_handler
+{
+	sig_proc UserProc;
+	void *UserData;
+};
+
+thread_local linux_signal_handler HandleContext = {};
+
+void SigHandler(int Sig)
+{
+	if(Sig == SIGSEGV)
+		HandleContext.UserProc(HandleContext.UserData);
+}
+
+void PlatformSetSignalHandler(sig_proc Proc, void *Data)
+{
+	HandleContext = linux_signal_handler { .UserProc = Proc, .UserData = Data };
+	struct sigaction Action = {};
+	Action.sa_handler = SigHandler;
+	sigaction(SIGSEGV, &Action, NULL);
+}
+
+void PlatformClearSignalHandler()
+{
+	struct sigaction Action = {};
+	Action.sa_handler = SIG_DFL;
+	sigaction(SIGSEGV, &Action, NULL);
+}
 
 t_handle PlatformCreateThread(t_proc Proc, void *PassValue)
 {

@@ -315,7 +315,9 @@ LLVMValueRef FromConstVal(generator *gen, const_value *Val, u32 TypeIdx, b32 Str
 			{
 				return gen->global.Get(f->second);
 			}
-			Value = LLVMConstInt(LLVMType, Val->Int.Unsigned, false);
+			auto IntTy = ConvertToLLVMType(gen, Basic_uint);
+			Value = LLVMConstInt(IntTy, Val->Int.Unsigned, false);
+			Value = LLVMConstIntToPtr(Value, LLVMType);
 		}
 	}
 	else if(HasBasicFlag(Type, BasicFlag_Float))
@@ -1701,12 +1703,20 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	{
 		features = "";
 	}
+	LLVMInitializeX86TargetInfo();
+	LLVMInitializeX86Target();
+	LLVMInitializeX86TargetMC();
+	LLVMInitializeX86AsmParser();
+	LLVMInitializeX86AsmPrinter();
+	LLVMInitializeX86Disassembler();
+#if 0
     LLVMInitializeAllTargetInfos();
     LLVMInitializeAllTargets();
     LLVMInitializeAllTargetMCs();
     LLVMInitializeAllAsmParsers();
     LLVMInitializeAllAsmPrinters();
 	LLVMInitializeAllDisassemblers();
+#endif
 
 	LLVMTargetRef Target;
 	LLVMTargetMachineRef Machine;

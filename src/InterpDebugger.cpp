@@ -21,6 +21,30 @@ clear -- clears the screen
 
 )raw";
 
+#if _WIN32
+#include <iostream>
+#include <string>
+
+int getline(char **OutLine, size_t *OutSize, FILE *s)
+{
+	Assert(s == stdin);
+	std::string out;
+    std::getline(std::cin, out);
+
+	char *Data = (char *)malloc(out.size()+1);
+	if(Data == NULL)
+		return -1;
+
+	Data[out.size()] = 0;
+	memcpy(Data, out.c_str(), out.size());
+
+	*OutLine = Data;
+	*OutSize = out.size();
+
+	return 0;
+}
+#endif
+
 void PrintRegisterValue(interpreter *VM, long long Register)
 {
 	value *V = VM->Registers.GetValue(Register);

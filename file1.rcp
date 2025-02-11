@@ -35,13 +35,6 @@ main :: fn() -> i32 {
     return 0;
 }
 
-#run {
-	f := 0.1;
-	for n in 100_000_000 {
-		f *= 1.1;
-	}
-	println("%", f);
-};
 
 // do_foo :: fn(s: []$T) {
 //     x := s;

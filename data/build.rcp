@@ -7,7 +7,7 @@ build
 #import mem
 #import str as *
 
-#load_system_dl "libSDL3.so"
+//#load_system_dl "libSDL3.so"
 
 puts :: fn #foreign(str: *u8);
 

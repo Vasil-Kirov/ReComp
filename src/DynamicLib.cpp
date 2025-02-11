@@ -18,7 +18,13 @@ DLIB OpenLibrary(const char *Name)
 const char *DLGetLastError()
 {
 #if _WIN32
-#error IMPLEMENT
+	DWORD Error = GetLastError();
+	char *Message = NULL;
+	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, Error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&Message, 0, NULL);
+
+	// @LEAK: Message, LocalFree
+	return Message;
 #else
 	return dlerror();
 #endif

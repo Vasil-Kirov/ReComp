@@ -1,0 +1,41 @@
+#include "DynamicLib.h"
+#if _WIN32
+#include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
+
+DLIB OpenLibrary(const char *Name)
+{
+#if _WIN32
+	return LoadLibrary(Name);
+#else
+	return dlopen(Name, RTLD_NOW | RTLD_GLOBAL);
+#endif
+}
+
+const char *DLGetLastError()
+{
+#if _WIN32
+	DWORD Error = GetLastError();
+	char *Message = NULL;
+	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+			NULL, Error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&Message, 0, NULL);
+
+	// @LEAK:
+	return Message;
+#else
+	return dlerror();
+#endif
+}
+
+void *GetSymLibrary(DLIB Lib, const char *FnName)
+{
+#if _WIN32
+	return (void *)GetProcAddress((HMODULE)Lib, FnName);
+#else
+	return dlsym(Lib, FnName);
+#endif
+}
+

@@ -1,7 +1,31 @@
+#include <signal.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include "Platform.h"
 
+struct windows_signal_handler
+{
+	sig_proc UserProc;
+	void *UserData;
+};
+
+thread_local windows_signal_handler SignalHandlerGlobal = {};
+
+void SignalHandler(int Sig)
+{
+	if(Sig == SIGSEGV && SignalHandlerGlobal.UserProc)
+		SignalHandlerGlobal.UserProc(SignalHandlerGlobal.UserData);
+}
+
+void PlatformSetSignalHandler(sig_proc Proc, void *Data)
+{
+	SignalHandlerGlobal = windows_signal_handler { .UserProc = Proc, .UserData = Data };
+	signal(SIGSEGV, SignalHandler);
+}
+
+void PlatformClearSignalHandler()
+{
+}
 
 b32 PlatformDeleteFile(const char *Path)
 {

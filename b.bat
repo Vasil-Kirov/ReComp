@@ -1,10 +1,20 @@
 @ECHO OFF
 
-set LIBS=-l..\libs\LLVM-C.lib -lDbghelp 
+set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp 
 
 REM set ASAN=-fsanitize=address
 REM set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS
 set ASAN=
+
+set FLAGS=
+
+if "%1" == "rel" (
+	echo "foo"
+) else if "%1" == "san" (
+	echo "ss"
+) else (
+	echo "bar"
+)
 
 pushd bin
 cl.exe /nologo /LD ../testdll.c

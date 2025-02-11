@@ -498,6 +498,7 @@ main(int ArgCount, char *Args[])
 
 	SetLogLevel(LOG_INFO);
 	SetBonusMessage(STR_LIT(""));
+	AddVectorTypes();
 
 	if(ArgCount < 2)
 	{

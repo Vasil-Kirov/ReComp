@@ -146,6 +146,7 @@ enum vector_kind
 {
 	Vector_Float,
 	Vector_Int,
+	Vector_UInt,
 };
 
 struct vector_type
@@ -198,6 +199,7 @@ struct type
 };
 
 u32 AddType(type *Type);
+u32 AddTypeWithName(type *Type, string Name);
 void FillOpaqueStruct(u32 TypeIdx, type T);
 
 const type *GetType(u32 TypeIdx);
@@ -282,6 +284,10 @@ void ClearGenericReplacement(size_t To);
 b32 IsStructAllFloats(const type *T);
 u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
 b32 IsSigned(const type *T);
+void AddVectorTypes();
+
+u32 GetVecElemType(u32 TIdx);
+u32 GetVecElemType(const type *T);
 
 struct generic_replacement
 {
@@ -295,5 +301,10 @@ extern dynamic<generic_replacement> GenericReplacements;
 inline bool IsUnix()
 {
 	return PTarget == platform_target::UnixBased;
+}
+
+inline bool IsFloatOrVec(const type *T)
+{
+	return HasBasicFlag(T, BasicFlag_Float) || (T->Kind == TypeKind_Vector && T->Vector.Kind == Vector_Float);
 }
 

@@ -122,6 +122,7 @@ struct EnumType {
 enum VectorKind {
     Float,
     Int,
+    UInt,
 }
 
 struct VectorType {

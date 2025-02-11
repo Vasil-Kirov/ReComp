@@ -63,7 +63,56 @@ type **InitializeTypeTable()
 	{
 		Types[TypeCount++] = &BasicTypes[I];
 	}
+
 	return Types;
+}
+
+void AddVectorTypes()
+{
+	type *FloatV2 = AllocType(TypeKind_Vector);
+	FloatV2->Vector.Kind = Vector_Float;
+	FloatV2->Vector.ElementCount = 2;
+	AddTypeWithName(FloatV2, STR_LIT("v2"));
+
+	type *FloatV3 = AllocType(TypeKind_Vector);
+	FloatV3->Vector.Kind = Vector_Float;
+	FloatV3->Vector.ElementCount = 3;
+	AddTypeWithName(FloatV3, STR_LIT("v3"));
+
+	type *FloatV4 = AllocType(TypeKind_Vector);
+	FloatV4->Vector.Kind = Vector_Float;
+	FloatV4->Vector.ElementCount = 4;
+	AddTypeWithName(FloatV4, STR_LIT("v4"));
+
+	type *IntV2 = AllocType(TypeKind_Vector);
+	IntV2->Vector.Kind = Vector_Int;
+	IntV2->Vector.ElementCount = 2;
+	AddTypeWithName(IntV2, STR_LIT("iv2"));
+
+	type *IntV3 = AllocType(TypeKind_Vector);
+	IntV3->Vector.Kind = Vector_Int;
+	IntV3->Vector.ElementCount = 3;
+	AddTypeWithName(IntV3, STR_LIT("iv3"));
+
+	type *IntV4 = AllocType(TypeKind_Vector);
+	IntV4->Vector.Kind = Vector_Int;
+	IntV4->Vector.ElementCount = 4;
+	AddTypeWithName(IntV4, STR_LIT("iv4"));
+
+	type *UIntV2 = AllocType(TypeKind_Vector);
+	UIntV2->Vector.Kind = Vector_UInt;
+	UIntV2->Vector.ElementCount = 2;
+	AddTypeWithName(UIntV2, STR_LIT("uv2"));
+
+	type *UIntV3 = AllocType(TypeKind_Vector);
+	UIntV3->Vector.Kind = Vector_UInt;
+	UIntV3->Vector.ElementCount = 3;
+	AddTypeWithName(UIntV3, STR_LIT("uv3"));
+
+	type *UIntV4 = AllocType(TypeKind_Vector);
+	UIntV4->Vector.Kind = Vector_UInt;
+	UIntV4->Vector.ElementCount = 4;
+	AddTypeWithName(UIntV4, STR_LIT("uv4"));
 }
 
 type **TypeTable = InitializeTypeTable();
@@ -225,6 +274,27 @@ u32 GetTypeForMultiReturn(slice<u32> Returns)
 	NewT->Struct.Flags = StructFlag_FnReturn;
 
 	return AddType(NewT);
+}
+
+u32 GetVecElemType(u32 TIdx)
+{
+	return GetVecElemType(GetType(TIdx));
+}
+
+u32 GetVecElemType(const type *T)
+{
+	Assert(T->Kind == TypeKind_Vector);
+	switch(T->Vector.Kind)
+	{
+		case Vector_Float:
+		return Basic_f32;
+		case Vector_Int:
+		return Basic_i32;
+		case Vector_UInt:
+		return Basic_u32;
+	}
+
+	Assert(false);
 }
 
 u32 ReturnsToType(slice<u32> Returns)
@@ -530,6 +600,13 @@ b32 HasBasicFlag(const type *Type, u32 FlagMask)
 
 b32 IsSigned(const type *T)
 {
+	if(T->Kind == TypeKind_Vector)
+	{
+		if(T->Vector.Kind == Vector_UInt)
+			return false;
+		return true;
+	}
+	Assert(HasBasicFlag(T, BasicFlag_Integer));
 	return !HasBasicFlag(T, BasicFlag_Unsigned);
 }
 
@@ -754,11 +831,7 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 		} break;
 		case TypeKind_Vector:
 		{
-			if(Left->Vector.Kind != Right->Vector.Kind)
-				return false;
-			if(Left->Vector.ElementCount != Right->Vector.ElementCount)
-				return false;
-			return true;
+			return Left->Vector.Kind == Right->Vector.Kind && Left->Vector.ElementCount == Right->Vector.ElementCount;
 		} break;
 		case TypeKind_Invalid:
 		case TypeKind_Generic:
@@ -916,6 +989,10 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 			}
 			return true;
 		} break;
+		case TypeKind_Vector:
+		{
+			return TypesMustMatch(Left, Right);
+		} break;
 		default:
 		{
 			Assert(false);
@@ -956,7 +1033,19 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 				if(*it == Op)
 					return true;
 			}
+			return false;
+		} break;
+		case TypeKind_Vector:
+		{
+			slice<token_type> Allowed = SliceFromConst({
+				T_PLUS, T_MIN, T_PTR /* times */, T_DIV,
+			});
 
+			For(Allowed)
+			{
+				if(*it == Op)
+					return true;
+			}
 			return false;
 		} break;
 		case TypeKind_Struct:
@@ -1120,6 +1209,10 @@ string GetTypeNameAsString(const type *Type)
 				{
 					TypeString = STR_LIT("i32");
 				} break;
+				case Vector_UInt:
+				{
+					TypeString = STR_LIT("u32");
+				}
 			}
 			string_builder Builder = MakeBuilder();
 			PushBuilderFormated(&Builder, "<%d x %s>", Type->Vector.ElementCount, TypeString.Data);

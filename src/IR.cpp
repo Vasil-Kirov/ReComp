@@ -665,6 +665,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				ShouldLoad = false;
 
 			const type *Type = GetType(Local->Type);
+#if 0
 			if(Type->Kind != TypeKind_Basic && Type->Kind != TypeKind_Pointer && Type->Kind != TypeKind_Enum)
 			{
 				ShouldLoad = false;
@@ -674,6 +675,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(Type->Kind == TypeKind_Basic && Type->Basic.Kind == Basic_string)
 					ShouldLoad = false;
 			}
+#endif
 			
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
@@ -1029,19 +1031,44 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_TYPELIST:
 		{
-			u32 Alloc = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->TypeList.Type, Builder));
-			PushInstruction(Builder, InstructionMemset(Alloc, Node->TypeList.Type));
-			Result = Alloc;
-			if(Node->TypeList.Items.Count == 0)
-			{
-				break;
-			}
+			u32 TypeIdx = Node->TypeList.Type;
 			const type *Type = GetType(Node->TypeList.Type);
+			if(Type->Kind == TypeKind_Vector)
+			{
+				// Zero vector
+				Result = PushInstruction(Builder, Instruction(OP_INSERT, NULL, TypeIdx, Builder, 0));
+			}
+			else
+			{
+				u32 Alloc = PushInstruction(Builder, Instruction(OP_ALLOC, -1, Node->TypeList.Type, Builder));
+				PushInstruction(Builder, InstructionMemset(Alloc, Node->TypeList.Type));
+				Result = Alloc;
+				if(Node->TypeList.Items.Count == 0)
+				{
+					break;
+				}
+			}
 			switch(Type->Kind)
 			{
 				default: unreachable;
+				case TypeKind_Vector:
+				{
+					ForArray(Idx, Node->TypeList.Items)
+					{
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+
+						ir_insert *Ins = NewType(ir_insert);
+						Ins->Idx = Idx;
+						Ins->Register = Result;
+						Ins->ValueRegister = Register;
+
+						Result = PushInstruction(Builder, Instruction(OP_INSERT, Ins, TypeIdx, Builder, 0));
+					}
+				} break;
 				case TypeKind_Array:
 				{
+					u32 Alloc = Result;
+
 					array_list_info *Info = NewType(array_list_info);
 					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
 					ForArray(Idx, Node->TypeList.Items)
@@ -1057,6 +1084,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case TypeKind_Slice:
 				{
+					u32 Alloc = Result;
+
 					array_list_info *Info = NewType(array_list_info);
 					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
 					ForArray(Idx, Node->TypeList.Items)
@@ -1088,6 +1117,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case TypeKind_Struct:
 				{
+					u32 Alloc = Result;
+
 					ForArray(Idx, Node->TypeList.Items)
 					{
 						node *Item = Node->TypeList.Items[Idx];
@@ -1128,6 +1159,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case TypeKind_Basic:
 				{
+					u32 Alloc = Result;
+
 					Assert(IsString(Type));
 					ForArray(Idx, Node->TypeList.Items)
 					{
@@ -1163,7 +1196,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					}
 				} break;
 			}
-			PushResult(Alloc, Node->TypeList.Type, Builder);
+			PushResult(Result, Node->TypeList.Type, Builder);
 		} break;
 		case AST_PTRDIFF:
 		{

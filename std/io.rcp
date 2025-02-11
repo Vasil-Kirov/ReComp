@@ -134,7 +134,21 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
             print_typetype(b, type_info(info.t.slice.t));
         }
         TypeKind.Vector: {
-            builder_append(b, "<>");
+            vect := info.t.vector;
+            builder_append_u8(b, @u8 '<');
+            match vect.kind {
+                .Float: {
+                    builder_append(b, "f32x");
+                }
+                .Int: {
+                    builder_append(b, "i32x");
+                }
+                .UInt: {
+                    builder_append(b, "u32x");
+                }
+            };
+            format_uint(b, vect.elem_count);
+            builder_append_u8(b, @u8 '>');
         }
         TypeKind.Enum: {
             builder_append(b, info.t.enum_.name);
@@ -315,6 +329,28 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
         TypeKind.Slice: {
         }
         TypeKind.Vector: {
+            vect := t.t.vector;
+            at := @*u8 arg.val;
+            builder_append(b, "{ ");
+            for i in vect.elem_count {
+                if i != 0 builder_append(b, ", ");
+                match vect.kind {
+                    .Float: {
+                        num := *@*f32 at;
+                        format_float(f32, b, num, 100);
+                    }
+                    .Int: {
+                        num := *@*i32 at;
+                        format_int(b, num);
+                    }
+                    .UInt: {
+                        num := *@*u32 at;
+                        format_uint(b, num);
+                    }
+                };
+                at += 4;
+            }
+            builder_append(b, " }");
         }
         TypeKind.Enum: {
             e := t.t.enum_;

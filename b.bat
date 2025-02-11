@@ -11,12 +11,10 @@ set FLAGS=
 if "%1" == "rel" (
 	set FLAGS=-O3
 ) else if "%1" == "san" (
-	set FLAGS=-fsanitize=address,undefined -g -O0
+	set FLAGS=-fsanitize=address -g -O0
 ) else (
 	set FLAGS=-O0 -g
 )
-
-set ASAN_OPTIONS=asan_dynamic=1
 
 echo %FLAGS%
 

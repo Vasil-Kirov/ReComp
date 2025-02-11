@@ -80,7 +80,19 @@ enum op
 
 	OP_CMPXCHG,
 
+	// SIMD
+	// Ptr = ir_insert
+	OP_INSERT,
+	//OP_EXTRACT,
+
 	OP_COUNT,
+};
+
+struct ir_insert
+{
+	u32 Register;
+	u32 Idx;
+	u32 ValueRegister;
 };
 
 struct ir_memcmp

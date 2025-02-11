@@ -30,6 +30,7 @@ enum token_type
 	T_MIN   = '-',
 	T_OR	= '|',
 	T_AND	= '&',
+	T_DIV	= '/',
 	T_EOF   = -1,
 	T_ID    = -2,
 	T_IF    = -3,

@@ -162,6 +162,7 @@ LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID) {
 				{
 					return LLVMVectorType(LLVMFloatTypeInContext(Context), CustomType->Vector.ElementCount);
 				} break;
+				case Vector_UInt:
 				case Vector_Int:
 				{
 					return LLVMVectorType(LLVMInt32TypeInContext(Context), CustomType->Vector.ElementCount);
@@ -332,6 +333,10 @@ LLVMMetadataRef ToDebugTypeLLVM(generator *gen, u32 TypeID)
 				case Vector_Int:
 				{
 					Type = ToDebugTypeLLVM(gen, Basic_i32);
+				} break;
+				case Vector_UInt:
+				{
+					Type = ToDebugTypeLLVM(gen, Basic_u32);
 				} break;
 			}
 			LLVMMetadataRef Subrange = LLVMDIBuilderGetOrCreateSubrange(gen->dbg, 0, CustomType->Vector.ElementCount);

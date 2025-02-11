@@ -414,7 +414,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		LLVMValueRef RHS = gen->map.Get(I.Right); \
 		const type *Type = GetType(I.Type); \
 		LLVMValueRef Val; \
-		if(Type->Basic.Flags & BasicFlag_Float) \
+		if(IsFloatOrVec(Type)) \
 		{ \
 			Val = LLVMBuildF##Op(gen->bld, LHS, RHS, ""); \
 		} \
@@ -599,6 +599,30 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			LLVMBuildUnreachable(gen->bld);
 		} break;
+		case OP_INSERT:
+		{
+			LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());
+			if(I.Ptr == NULL)
+			{
+				u32 VecElem = GetVecElemType(I.Type);
+				LLVMTypeRef VecTy = ConvertToLLVMType(gen, I.Type);
+				LLVMTypeRef ElemTy = ConvertToLLVMType(gen, VecElem);
+				LLVMValueRef Zero = LLVMConstInt(IntTy, 0, false);
+				LLVMValueRef ElemNull = LLVMConstNull(ElemTy);
+				LLVMValueRef Vec = LLVMGetUndef(VecTy);
+				LLVMValueRef Out = LLVMBuildInsertElement(gen->bld, Vec, ElemNull, Zero, "");
+				gen->map.Add(I.Result, Out);
+			}
+			else
+			{
+				ir_insert *Ins = (ir_insert *)I.Ptr;
+				LLVMValueRef Vec = gen->map.Get(Ins->Register);
+				LLVMValueRef Val = gen->map.Get(Ins->ValueRegister);
+				LLVMValueRef Idx = LLVMConstInt(IntTy, Ins->Idx, false);
+				LLVMValueRef Out = LLVMBuildInsertElement(gen->bld, Vec, Val, Idx, "");
+				gen->map.Add(I.Result, Out);
+			}
+		} break;
 		case OP_PTRDIFF:
 		{
 			LLVMValueRef LHS = gen->map.Get(I.Left);
@@ -618,13 +642,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef RHS = gen->map.Get(I.Right);
 			const type *Type = GetType(I.Type);
 			LLVMValueRef Val;
-			if(Type->Basic.Flags & BasicFlag_Float)
+			if(IsFloatOrVec(Type))
 			{
 				Val = LLVMBuildFDiv(gen->bld, LHS, RHS, "");
 			}
 			else
 			{
-				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				if(!IsSigned(Type))
 					Val = LLVMBuildUDiv(gen->bld, LHS, RHS, "");
 				else
 					Val = LLVMBuildSDiv(gen->bld, LHS, RHS, "");
@@ -637,13 +661,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef RHS = gen->map.Get(I.Right);
 			const type *Type = GetType(I.Type);
 			LLVMValueRef Val;
-			if(Type->Basic.Flags & BasicFlag_Float)
+			if(IsFloatOrVec(Type))
 			{
 				Val = LLVMBuildFRem(gen->bld, LHS, RHS, "");
 			}
 			else
 			{
-				if(Type->Basic.Flags & BasicFlag_Unsigned)
+				if(!IsSigned(Type))
 					Val = LLVMBuildURem(gen->bld, LHS, RHS, "");
 				else
 					Val = LLVMBuildSRem(gen->bld, LHS, RHS, "");

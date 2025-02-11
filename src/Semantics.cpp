@@ -81,6 +81,10 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	if(FoundOnMap != INVALID_TYPE)
 		return FoundOnMap;
 
+	FoundOnMap = LookupNameOnTypeMap(Name);
+	if(FoundOnMap != INVALID_TYPE)
+		return FoundOnMap;
+
 	for(int I = 0; I < TypeCount; ++I)
 	{
 		const type *Type = GetTypeRaw(I);
@@ -1335,11 +1339,20 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Assert(TypeIdx != INVALID_TYPE);
 			const type *Type = GetType(TypeIdx);
 			bool Failed = false;
+			u64 MaxElements = 0;
 			switch(Type->Kind)
 			{
 				case TypeKind_Array: 
+				MaxElements = Type->Array.MemberCount;
+				break;
 				case TypeKind_Slice:
+				MaxElements = UINT64_MAX;
+				break;
 				case TypeKind_Struct:
+				MaxElements = Type->Struct.Members.Count;
+				break;
+				case TypeKind_Vector:
+				MaxElements = Type->Vector.ElementCount;
 				break;
 
 				default:
@@ -1349,6 +1362,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						RaiseError(false, *Expr->ErrorInfo, "Cannot create a list of type %s, not a struct, array, slice or string", GetTypeName(Type));
 						Result = TypeIdx;
 						Failed = true;
+					}
+					else
+					{
+						MaxElements = 2;
 					}
 				} break;
 			}
@@ -1433,6 +1450,43 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						WantType = Type->Slice.Type;
 					} break;
+					case TypeKind_Vector:
+					{
+						if(NamePtr)
+						{
+							string Names[] = {
+								STR_LIT("x"),
+								STR_LIT("y"),
+								STR_LIT("z"),
+								STR_LIT("w"),
+							};
+
+							int Found = -1;
+							auto len = ARR_LEN(Names);
+							for(int i = 0; i < len; ++i)
+							{
+								if (Names[i] == *NamePtr)
+								{
+									Found = i;
+									break;
+								}
+							}
+
+							if(Found == -1 || Found >= Type->Vector.ElementCount)
+							{
+								RaiseError(false, *Item->ErrorInfo, "%s is not a member of %s", NamePtr->Data, GetTypeName(Type));
+								Failed = true;
+								continue;
+							}
+							MemberIdx = Found;
+						}
+						switch(Type->Vector.Kind)
+						{
+							case Vector_Float: WantType = Basic_f32; break;
+							case Vector_Int: WantType = Basic_i32; break;
+							case Vector_UInt: WantType = Basic_u32; break;
+						}
+					} break;
 					case TypeKind_Struct:
 					{
 						if(NamePtr)
@@ -1493,6 +1547,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					default: unreachable;
 				}
 
+				if(MemberIdx >= MaxElements)
+				{
+					RaiseError(false, *Item->ErrorInfo, "item at index %d but type only accept %d elements", MemberIdx, MaxElements);
+					Failed = true;
+					break;
+				}
+
 				Checker->AutoEnum.Push(WantType);
 				u32 ItemType = AnalyzeExpression(Checker, Item->Item.Expression);
 				Checker->AutoEnum.Pop();
@@ -1500,6 +1561,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				u32 PromotedUntyped = INVALID_TYPE;
 				switch(Type->Kind)
 				{
+					case TypeKind_Vector:
 					case TypeKind_Slice:
 					case TypeKind_Array: 
 					{

@@ -528,6 +528,11 @@ b32 HasBasicFlag(const type *Type, u32 FlagMask)
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & FlagMask);
 }
 
+b32 IsSigned(const type *T)
+{
+	return !HasBasicFlag(T, BasicFlag_Unsigned);
+}
+
 b32 IsCallable(const type *Type)
 {
 	if(Type->Kind == TypeKind_Function)

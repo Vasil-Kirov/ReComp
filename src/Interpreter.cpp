@@ -1924,8 +1924,57 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						value Value = {};
 						Value.Type = I.Type;
 						Value.ptr = Memory;
-						// @TODO: Undefined behavior
-						Store(VM, &Value, &OptionalArgs.Data[Loc.Start], I.Type);
+
+						auto Arg = OptionalArgs[Loc.Start];
+						const type *ArgT = GetType(Arg.Type);
+						switch(TypeSize)
+						{
+							case 1:
+							{
+								if(IsSigned(ArgT))
+								{
+									memcpy(Memory, &Arg.i8, 1);
+								}
+								else
+								{
+									memcpy(Memory, &Arg.u8, 1);
+								}
+							} break;
+							case 2:
+							{
+								if(IsSigned(ArgT))
+								{
+									memcpy(Memory, &Arg.i16, 2);
+								}
+								else
+								{
+									memcpy(Memory, &Arg.u16, 2);
+								}
+							} break;
+							case 4:
+							{
+								if(IsSigned(ArgT))
+								{
+									memcpy(Memory, &Arg.i32, 4);
+								}
+								else
+								{
+									memcpy(Memory, &Arg.u32, 4);
+								}
+							} break;
+							case 8:
+							{
+								if(IsSigned(ArgT))
+								{
+									memcpy(Memory, &Arg.i64, 8);
+								}
+								else
+								{
+									memcpy(Memory, &Arg.u64, 8);
+								}
+							} break;
+							default: unreachable;
+						}
 						VM->Registers.AddValue(I.Result, Value);
 					} break;
 					case LoadAs_MultiInt:

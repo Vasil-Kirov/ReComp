@@ -281,6 +281,7 @@ void ClearGenericReplacement(size_t To);
 
 b32 IsStructAllFloats(const type *T);
 u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
+b32 IsSigned(const type *T);
 
 struct generic_replacement
 {
@@ -290,4 +291,9 @@ struct generic_replacement
 
 extern platform_target PTarget;
 extern dynamic<generic_replacement> GenericReplacements;
+
+inline bool IsUnix()
+{
+	return PTarget == platform_target::UnixBased;
+}
 

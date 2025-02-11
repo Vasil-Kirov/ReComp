@@ -372,7 +372,7 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	}
 
 	b32 AllFloats = IsStructAllFloats(ArgType);
-	if(AllFloats && PTarget != platform_target::Windows)
+	if(AllFloats && IsUnix())
 	{
 		type *Type = AllocType(TypeKind_Vector);
 		Type->Vector.Kind = Vector_Float;
@@ -900,7 +900,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 				else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 				{
-					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
 						ReturnedWrongType = AllFloatsStructToReturnType(RT);
 					else
 						ReturnedWrongType = ComplexTypeToSizeType(RT);
@@ -2338,7 +2338,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  		  Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
 		  	  if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
 		  	  {
-		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT))
+		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
 		  		  {
 		  			  Type = AllFloatsStructToReturnType(RT);
 		  			  Expression = PushInstruction(Builder,
@@ -2521,7 +2521,7 @@ void FixFunctionComplexParameter(u32 TIdx, const type *T, dynamic<u32>& Args, lo
 	// }
 	// should be passes as call(int64, <2 x float>)
 	b32 AllFloats = IsStructAllFloats(T);
-	if(AllFloats && PTarget != platform_target::Windows)
+	if(AllFloats && IsUnix())
 	{
 		type *Type = AllocType(TypeKind_Vector);
 		Type->Vector.Kind = Vector_Float;

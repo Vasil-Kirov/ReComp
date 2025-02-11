@@ -1,125 +1,27 @@
 main
 
-enum Vals {
-	A_VAL,
-	B_VAL,
-	C_VAL,
-	D_VAL,
+#import intrin as *
+
+struct SomeVals {
+	a: f32,
+	b: f32,
 }
 
-utf8_test :: fn() {
-	#import io as *
-	#import os
+get_struct :: fn(val: int) -> SomeVals {
+	return SomeVals { @f32 val * 2, @f32 val };
+}
 
-	//printf(c"tree: %x\n", '木');
-	utf8 := "木\n";
-	for c in utf8 {
-		print("%c ", c);
-	}
-	println("");
-
+get_array :: fn(x: SomeVals) -> [10]i32 {
+    debug_break();
+	return [10]i32 { 1, 2, @i32 x.a, @i32 x.b, 5 };
 }
 
 main :: fn() -> i32 {
-	#import intrin as *
-	utf8_test();
+	arr := #run get_array( #run get_struct(10) );
+	sum := @i32 0;
 
-	//x := 10;
-	//old, success := compare_exchange(&x, 10, 11);
+	for it in arr	sum += it;
 
-	//for it in arr	sum += it;
-
-	//res := @i32 (if sum == 37 1 else 2);
-
-
-    return 0;
+    return sum - 38;
 }
-
-
-// do_foo :: fn(s: []$T) {
-//     x := s;
-//     x[5] = 5;
-// }
-// 
-// main :: fn() -> i32 {
-//     alloc := m.Allocator {
-//         alloc = allocator_alloc,
-//     };
-//     // x := m.make_slice(&alloc, i32, 10);
-//     // x[1] = 4;
-// 
-//     fo := Opaque {};
-// 
-//     x := foo { F = int, a = m.make_slice(&alloc, int, 10) };
-//     x.a[5] = 10;
-//     do_foo(x.a);
-//     // do_foo(x.a);
-//     // do_foo(x.a);
-// 
-//     // defer puts(c"1");
-//     // defer puts(c"2");
-//     // defer puts(c"3");
-//     // {
-//     //     defer puts(c"33");
-//     //     defer puts(c"22");
-//     //     defer puts(c"11");
-//     // }
-// 
-// 
-//     return @i32 x.a.count;
-// }
-
-
-// #import stuff as f2
-// 
-// struct BigStruct {
-// 	bar: f2.x,
-//     foo: [100]i32,
-// }
-// 
-// struct SmallStruct {
-//     num1: i16,
-//     num2: i16,
-// }
-// 
-// make_bs :: fn(num: i32) -> BigStruct {
-//     res := BigStruct { foo = {}, bar = f2.x { y = 10 } };
-//     for i := 0; i < 100;  i += 1 {
-//         res.foo[i] = num;
-//     }
-// 
-//     return res;
-// }
-// 
-// make_ss :: fn(num: i32) -> SmallStruct {
-//     res := SmallStruct { num1 = @i16 num, num2 = @i16 num };
-//     return res;
-// }
-// 
-// make_array :: fn(num: i32) -> [100]i32 {
-//     arr:[100]i32 = {};
-//     for i := 0; i < 50; i += 1 {
-//         arr[i] = num;
-//     }
-//     for i := 50; i < 100; i += 1 {
-//         arr[i] = num * 2;
-//     }
-//     return arr;
-// }
-// 
-// get_fn :: fn() -> fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
-// 	return fn(foo1: BigStruct, foo2: SmallStruct, foo3: [100]i32) -> i32 {
-// 		return foo1.foo[50] - foo2.num2 - foo3[0] - foo3[50] + 1;
-// 	};
-// }
-// 
-// main :: fn() -> i32 {
-//     foo1 := make_bs(100);
-//     foo2 := make_ss(25);
-//     foo3 := make_array(25);
-// 	my_arr :: {1, 2, 3};
-//     //     100 - 25 - 25 - 50
-// 	return get_fn()(foo1, foo2, foo3);
-// }
-
 

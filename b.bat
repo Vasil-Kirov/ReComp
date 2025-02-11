@@ -2,22 +2,26 @@
 
 set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp 
 
-REM set ASAN=-fsanitize=address
-REM set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS
+:: set ASAN=-fsanitize=address
+:: set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS
 set ASAN=
 
 set FLAGS=
 
 if "%1" == "rel" (
-	echo "foo"
+	set FLAGS=-O3
 ) else if "%1" == "san" (
-	echo "ss"
+	set FLAGS=-fsanitize=address,undefined -g -O0
 ) else (
-	echo "bar"
+	set FLAGS=-O0 -g
 )
 
+set ASAN_OPTIONS=asan_dynamic=1
+
+echo %FLAGS%
+
 pushd bin
-cl.exe /nologo /LD ../testdll.c
-clang++ -O0 -g -orcp.exe %ASAN% ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -DDEBUG -mavx -Wall
+:: cl.exe /nologo /LD ../testdll.c
+clang++ %FLAGS% -orcp.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -DDEBUG -mavx -Wall
 popd
 

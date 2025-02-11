@@ -31,15 +31,17 @@ int getline(char **OutLine, size_t *OutSize, FILE *s)
 	std::string out;
     std::getline(std::cin, out);
 
-	char *Data = (char *)malloc(out.size()+1);
+	char *Data = (char *)malloc(out.size()+2);
 	if(Data == NULL)
 		return -1;
 
-	Data[out.size()] = 0;
+	Data[out.size()]   = '\n';
+	Data[out.size()+1] = '\0';
+
 	memcpy(Data, out.c_str(), out.size());
 
 	*OutLine = Data;
-	*OutSize = out.size();
+	*OutSize = out.size()+1;
 
 	return 0;
 }

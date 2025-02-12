@@ -1499,11 +1499,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							MemberIdx = Found;
 						}
+						WantType = GetVecElemType(Type);
 						switch(Type->Vector.Kind)
 						{
 							case Vector_Float: WantType = Basic_f32; break;
 							case Vector_Int: WantType = Basic_i32; break;
-							case Vector_UInt: WantType = Basic_u32; break;
 						}
 					} break;
 					case TypeKind_Struct:

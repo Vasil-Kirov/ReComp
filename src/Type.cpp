@@ -290,8 +290,6 @@ u32 GetVecElemType(const type *T)
 		return Basic_f32;
 		case Vector_Int:
 		return Basic_i32;
-		case Vector_UInt:
-		return Basic_u32;
 	}
 
 	Assert(false);
@@ -606,8 +604,6 @@ b32 IsSigned(const type *T)
 {
 	if(T->Kind == TypeKind_Vector)
 	{
-		if(T->Vector.Kind == Vector_UInt)
-			return false;
 		return true;
 	}
 	Assert(HasBasicFlag(T, BasicFlag_Integer));
@@ -1213,10 +1209,6 @@ string GetTypeNameAsString(const type *Type)
 				{
 					TypeString = STR_LIT("i32");
 				} break;
-				case Vector_UInt:
-				{
-					TypeString = STR_LIT("u32");
-				}
 			}
 			string_builder Builder = MakeBuilder();
 			PushBuilderFormated(&Builder, "<%d x %s>", Type->Vector.ElementCount, TypeString.Data);

@@ -3114,7 +3114,7 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 						Instruction(OP_INDEX, tPtr, 0, VectorTypeType, Builder)
 						);
 				u32 elem_countPtr = PushInstruction(Builder, 
-						Instruction(OP_INDEX, tPtr, 0, VectorTypeType, Builder)
+						Instruction(OP_INDEX, tPtr, 1, VectorTypeType, Builder)
 						);
 				PushInstruction(Builder, 
 						InstructionStore(kindPtr, PushInt(T->Vector.Kind, Builder, VectorKindType), VectorKindType)

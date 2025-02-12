@@ -8,8 +8,18 @@
 #include <execinfo.h>
 #endif
 
-
+#include <xmmintrin.h>
 #include <stdint.h>
+
+union IVEC4 {
+    __m128i v;
+    int32_t e[4];
+};
+
+union VEC4 {
+    __m128 v;
+    float e[4];
+};
 
 typedef uint8_t u8;
 typedef uint16_t u16;

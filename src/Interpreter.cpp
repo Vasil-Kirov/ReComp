@@ -18,6 +18,7 @@
 #include <x64CodeWriter.h>
 #include <math.h>
 #include <xmmintrin.h>
+#include <smmintrin.h>
 #include "InterpBinaryOps.h"
 
 bool InterpreterTrace = false;
@@ -1020,7 +1021,6 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 			Assert(T->Vector.ElementCount == 2);
 			switch(T->Vector.Kind)
 			{
-				case Vector_UInt:
 				case Vector_Int:
 				{
 					R.ivec = _mm_load_si128((__m128i *)Value->ptr);
@@ -1128,7 +1128,6 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 				Assert(Type->Vector.ElementCount == 2);
 				switch(Type->Vector.Kind)
 				{
-					case Vector_UInt:
 					case Vector_Int:
 					{
 						_mm_store_si128((__m128i *)Ptr->ptr, Value->ivec);
@@ -1335,6 +1334,7 @@ void OpCallTemplateFunction(value *Result, value *Left, value *Right, const type
 			{ \
 				Fn(&Result.u32, Left->u32, Right->u32, Type); \
 			} break; \
+			case Basic_uint: \
 			case Basic_u64: \
 			{ \
 				Fn(&Result.u64, Left->u64, Right->u64, Type); \
@@ -1351,6 +1351,7 @@ void OpCallTemplateFunction(value *Result, value *Left, value *Right, const type
 			{ \
 				Fn(&Result.i32, Left->i32, Right->i32, Type); \
 			} break; \
+			case Basic_int: \
 			case Basic_type: \
 			case Basic_i64: \
 			{ \
@@ -1372,11 +1373,13 @@ void OpCallTemplateFunction(value *Result, value *Left, value *Right, const type
 		Fn(&Result.fvec, Left->fvec, Right->fvec, Type); \
 	}
 
-value DoOp(value *Left, value *Right, u32 TIdx, char op)
+void DoOp(interpreter *VM, instruction I, char op)
 {
+	value *Left  = VM->Registers.GetValue(I.Left);
+	value *Right = VM->Registers.GetValue(I.Right);
 	value R = {};
-	R.Type = TIdx;
-	const type *T = GetType(TIdx);
+	R.Type = I.Type;
+	const type *T = GetType(I.Type);
 	switch(op)
 	{
 		case '+':
@@ -1400,7 +1403,7 @@ value DoOp(value *Left, value *Right, u32 TIdx, char op)
 			OpTempFn(R, Left, Right, T, DoMod);
 		} break;
 	}
-	return R;
+	VM->Registers.AddValue(I.Result, R);
 }
 
 basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
@@ -1587,9 +1590,64 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_INSERT:
 			{
+				const type *T = GetType(I.Type);
+				Assert(T->Kind == TypeKind_Vector);
+				if(I.Ptr)
+				{
+					ir_insert *Ins = (ir_insert *)I.Ptr;
+					value *Val = VM->Registers.GetValue(Ins->ValueRegister);
+					value *Vec = VM->Registers.GetValue(Ins->Register);
+					const type *VT = GetType(Val->Type);
+					value R = {};
+					R.Type = I.Type;
+					switch(T->Vector.Kind)
+					{
+						case Vector_Int:
+						{
+							Assert(HasBasicFlag(VT, BasicFlag_Integer) && VT->Basic.Kind == Basic_i32);
+							IVEC4 v = {.v = Vec->ivec};
+							v.e[Ins->Idx] = Val->i32;
+							R.ivec = v.v;
+						} break;
+						case Vector_Float:
+						{
+							Assert(HasBasicFlag(VT, BasicFlag_Float) && VT->Basic.Kind == Basic_f32);
+							VEC4 v = {.v = Vec->fvec};
+							v.e[Ins->Idx] = Val->f32;
+							R.fvec = v.v;
+						} break;
+					}
+					VM->Registers.AddValue(I.Result, R);
+				}
+				else
+				{
+					value V = {};
+					V.Type = I.Type;
+					VM->Registers.AddValue(I.Result, V);
+				}
 			} break;
 			case OP_EXTRACT:
 			{
+				const type *T = GetType(I.Type);
+				Assert(T->Kind == TypeKind_Vector);
+				value *Vec = VM->Registers.GetValue(I.Left);
+				value R = {};
+				switch(T->Vector.Kind)
+				{
+					case Vector_Int:
+					{
+						IVEC4 v = {.v = Vec->ivec};
+						R.Type = Basic_i32;
+						R.i32 = v.e[I.Right];
+					} break;
+					case Vector_Float:
+					{
+						VEC4 v = {.v = Vec->fvec};
+						R.Type = Basic_f32;
+						R.f32 = v.e[I.Right];
+					} break;
+				}
+				VM->Registers.AddValue(I.Result, R);
 			} break;
 			case OP_GLOBAL:
 			{
@@ -2253,54 +2311,25 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					Store(VM, &Ptr, Member, OutType);
 				}
 			} break;
-			BIN_OP(ADD, +);
-			BIN_OP(SUB, -);
-			BIN_OP(MUL, *);
-			BIN_OP(DIV, /);
+			case OP_ADD:
+			{
+				DoOp(VM, I, '+');
+			} break;
+			case OP_SUB:
+			{
+				DoOp(VM, I, '-');
+			} break;
+			case OP_MUL:
+			{
+				DoOp(VM, I, '*');
+			} break;
+			case OP_DIV:
+			{
+				DoOp(VM, I, '/');
+			} break;
 			case OP_MOD:
 			{
-				const type *Type = GetType(I.Type); 
-				value Result = {};
-				Result.Type = I.Type;
-				value *Left  = VM->Registers.GetValue(I.Left);
-				value *Right = VM->Registers.GetValue(I.Right);
-				if(Type->Kind == TypeKind_Basic)
-				{
-					switch(Type->Basic.Kind)
-					{
-						case Basic_bool:
-						case Basic_u8:
-						case Basic_u16:
-						case Basic_u32:
-						case Basic_u64:
-						case Basic_uint:
-						{
-							Result.u64 = Left->u64 % Right->u64;
-						} break;
-						case Basic_i8:
-						case Basic_i16:
-						case Basic_i32:
-						case Basic_i64:
-						case Basic_int:
-						{
-							Result.i64 = Left->i64 % Right->i64;
-						} break;
-						case Basic_f32:
-						{
-							Result.f32 = fmod(Left->f32, Right->f32);
-						} break;
-						case Basic_f64:
-						{
-							Result.f64 = fmod(Left->f64, Right->f64);
-						} break;
-						default: unreachable;
-					}
-				}
-				else
-				{
-					Assert(false);
-				}
-				VM->Registers.AddValue(I.Result, Result);
+				DoOp(VM, I, '%');
 			} break;
 			case OP_MEMCMP:
 			{

@@ -3,4 +3,5 @@
 -Isrc
 -DDEBUG
 -DCM_LINUX
+-std=c++17
 

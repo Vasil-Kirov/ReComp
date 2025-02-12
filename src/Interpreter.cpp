@@ -13,9 +13,12 @@
 #include <Type.h>
 #include <Log.h>
 #include <cstddef>
+#include <emmintrin.h>
 #include <immintrin.h>
 #include <x64CodeWriter.h>
 #include <math.h>
+#include <xmmintrin.h>
+#include "InterpBinaryOps.h"
 
 bool InterpreterTrace = false;
 dynamic<DLIB> DLs = {};
@@ -1017,13 +1020,14 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 			Assert(T->Vector.ElementCount == 2);
 			switch(T->Vector.Kind)
 			{
+				case Vector_UInt:
 				case Vector_Int:
 				{
-					R.ivec2 = *(__m64 *)Value->ptr;
+					R.ivec = _mm_load_si128((__m128i *)Value->ptr);
 				} break;
 				case Vector_Float:
 				{
-					R.fvec2 = *(__m64 *)Value->ptr;
+					R.fvec = _mm_load_ps((float *)Value->ptr);
 				} break;
 			}
 		} break;
@@ -1122,15 +1126,18 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 			case TypeKind_Vector:
 			{
 				Assert(Type->Vector.ElementCount == 2);
-				if(Type->Vector.Kind == Vector_Int)
+				switch(Type->Vector.Kind)
 				{
-					*(__m64 *)Ptr->ptr = Value->ivec2;
+					case Vector_UInt:
+					case Vector_Int:
+					{
+						_mm_store_si128((__m128i *)Ptr->ptr, Value->ivec);
+					} break;
+					case Vector_Float:
+					{
+						_mm_store_ps((float *)Ptr->ptr, Value->fvec);
+					} break;
 				}
-				else if(Type->Vector.Kind == Vector_Float)
-				{
-					*(__m64 *)Ptr->ptr = Value->fvec2;
-				}
-				else unreachable;
 			} break;
 			default: 
 			{
@@ -1246,6 +1253,154 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 	}
 
 	return Result;
+}
+
+template<typename T>
+void OpCallTemplateFunction(value *Result, value *Left, value *Right, const type *Type, T Fn)
+{
+	if(Type->Kind == TypeKind_Basic)
+	{
+		switch(Type->Basic.Kind)
+		{
+			default: unreachable;
+			case Basic_bool:
+			case Basic_u8:
+			{
+				Fn(&Result->u8, Left->u8, Right->u8, Type);
+			} break;
+			case Basic_u16:
+			{
+				Fn(&Result->u16, Left->u16, Right->u16, Type);
+			} break;
+			case Basic_u32:
+			{
+				Fn(&Result->u32, Left->u32, Right->u32, Type);
+			} break;
+			case Basic_u64:
+			{
+				Fn(&Result->u64, Left->u64, Right->u64, Type);
+			} break;
+			case Basic_i8:
+			{
+				Fn(&Result->i8, Left->i8, Right->i8, Type);
+			} break;
+			case Basic_i16:
+			{
+				Fn(&Result->i16, Left->i16, Right->i16, Type);
+			} break;
+			case Basic_i32:
+			{
+				Fn(&Result->i32, Left->i32, Right->i32, Type);
+			} break;
+			case Basic_type:
+			case Basic_i64:
+			{
+				Fn(&Result->i64, Left->i64, Right->i64, Type);
+			} break;
+			case Basic_f32:
+			{
+				Fn(&Result->f32, Left->f32, Right->f32, Type);
+			} break;
+			case Basic_f64:
+			{
+				Fn(&Result->f64, Left->f64, Right->f64, Type);
+			} break;
+		}
+	}
+	else
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		Fn(&Result->fvec, Left->fvec, Right->fvec, Type);
+	}
+}
+
+
+
+#define OpTempFn(Result, Left, Right, Type, Fn) \
+	if(Type->Kind == TypeKind_Basic) \
+	{ \
+		switch(Type->Basic.Kind) \
+		{ \
+			default: unreachable; \
+			case Basic_bool: \
+			case Basic_u8: \
+			{ \
+				Fn(&Result.u8, Left->u8, Right->u8, Type); \
+			} break; \
+			case Basic_u16: \
+			{ \
+				Fn(&Result.u16, Left->u16, Right->u16, Type); \
+			} break; \
+			case Basic_u32: \
+			{ \
+				Fn(&Result.u32, Left->u32, Right->u32, Type); \
+			} break; \
+			case Basic_u64: \
+			{ \
+				Fn(&Result.u64, Left->u64, Right->u64, Type); \
+			} break; \
+			case Basic_i8: \
+			{ \
+				Fn(&Result.i8, Left->i8, Right->i8, Type); \
+			} break; \
+			case Basic_i16: \
+			{ \
+				Fn(&Result.i16, Left->i16, Right->i16, Type); \
+			} break; \
+			case Basic_i32: \
+			{ \
+				Fn(&Result.i32, Left->i32, Right->i32, Type); \
+			} break; \
+			case Basic_type: \
+			case Basic_i64: \
+			{ \
+				Fn(&Result.i64, Left->i64, Right->i64, Type); \
+			} break; \
+			case Basic_f32: \
+			{ \
+				Fn(&Result.f32, Left->f32, Right->f32, Type); \
+			} break; \
+			case Basic_f64: \
+			{ \
+				Fn(&Result.f64, Left->f64, Right->f64, Type); \
+			} break; \
+		} \
+	} \
+	else \
+	{ \
+		Assert(Type->Kind == TypeKind_Vector); \
+		Fn(&Result.fvec, Left->fvec, Right->fvec, Type); \
+	}
+
+value DoOp(value *Left, value *Right, u32 TIdx, char op)
+{
+	value R = {};
+	R.Type = TIdx;
+	const type *T = GetType(TIdx);
+	switch(op)
+	{
+		case '+':
+		{
+			OpTempFn(R, Left, Right, T, DoAdd);
+		} break;
+		case '-':
+		{
+			OpTempFn(R, Left, Right, T, DoSub);
+		} break;
+		case '*':
+		{
+			OpTempFn(R, Left, Right, T, DoMul);
+		} break;
+		case '/':
+		{
+			OpTempFn(R, Left, Right, T, DoDiv);
+		} break;
+		case '%':
+		{
+			OpTempFn(R, Left, Right, T, DoMod);
+		} break;
+	}
+	return R;
 }
 
 basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
@@ -1429,6 +1584,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_DEBUG_BREAK:
 			{
 				VM->PerformingDebugAction = DebugAction_break;
+			} break;
+			case OP_INSERT:
+			{
+			} break;
+			case OP_EXTRACT:
+			{
 			} break;
 			case OP_GLOBAL:
 			{
@@ -2026,7 +2187,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							if(First == Basic_f32 && Second == Basic_f32)
 							{
 								int Size = GetTypeSize(Basic_f32) * 2;
-								*(__m64 *)Ptr = V.fvec2;
+								_mm_store_ps((float *)Ptr, V.fvec);
 								++i;
 								Ptr += Size;
 							}

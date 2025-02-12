@@ -146,7 +146,6 @@ enum vector_kind
 {
 	Vector_Float,
 	Vector_Int,
-	Vector_UInt,
 };
 
 struct vector_type

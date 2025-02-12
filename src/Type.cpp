@@ -99,20 +99,20 @@ void AddVectorTypes()
 	IntV4->Vector.ElementCount = 4;
 	AddTypeWithName(IntV4, STR_LIT("iv4"));
 
-	type *UIntV2 = AllocType(TypeKind_Vector);
-	UIntV2->Vector.Kind = Vector_UInt;
-	UIntV2->Vector.ElementCount = 2;
-	AddTypeWithName(UIntV2, STR_LIT("uv2"));
+	// type *UIntV2 = AllocType(TypeKind_Vector);
+	// UIntV2->Vector.Kind = Vector_UInt;
+	// UIntV2->Vector.ElementCount = 2;
+	// AddTypeWithName(UIntV2, STR_LIT("uv2"));
 
-	type *UIntV3 = AllocType(TypeKind_Vector);
-	UIntV3->Vector.Kind = Vector_UInt;
-	UIntV3->Vector.ElementCount = 3;
-	AddTypeWithName(UIntV3, STR_LIT("uv3"));
+	// type *UIntV3 = AllocType(TypeKind_Vector);
+	// UIntV3->Vector.Kind = Vector_UInt;
+	// UIntV3->Vector.ElementCount = 3;
+	// AddTypeWithName(UIntV3, STR_LIT("uv3"));
 
-	type *UIntV4 = AllocType(TypeKind_Vector);
-	UIntV4->Vector.Kind = Vector_UInt;
-	UIntV4->Vector.ElementCount = 4;
-	AddTypeWithName(UIntV4, STR_LIT("uv4"));
+	// type *UIntV4 = AllocType(TypeKind_Vector);
+	// UIntV4->Vector.Kind = Vector_UInt;
+	// UIntV4->Vector.ElementCount = 4;
+	// AddTypeWithName(UIntV4, STR_LIT("uv4"));
 }
 
 type **TypeTable = InitializeTypeTable();
@@ -534,7 +534,11 @@ int GetTypeSize(const type *Type)
 		} break;
 		case TypeKind_Vector:
 		{
-			return Type->Vector.ElementCount * 4;
+			int ElemCount = Type->Vector.ElementCount;
+			if(ElemCount < 4)
+				ElemCount = 4;
+
+			return ElemCount * 4;
 		} break;
 		default: {};
 	}

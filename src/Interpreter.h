@@ -65,6 +65,7 @@ inline value_flag& operator|=(value_flag &a, value_flag b)
 	return a = a | b;
 }
 
+
 struct value
 {
 	// @TODO: maybe putting these in an anonymous struct would make it smaller?
@@ -72,8 +73,8 @@ struct value
 	u32 Type;
 	union
 	{
-		__m64 ivec2;
-		__m64 fvec2;
+		__m128i ivec;
+		__m128  fvec;
 		u8 u8;
 		u16 u16;
 		u32 u32;

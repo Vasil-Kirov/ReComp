@@ -29,6 +29,7 @@ typedef double f64;
 typedef unsigned int uint;
 
 #if _WIN32
+typedef SSIZE_T ssize_t;
 #define BREAK __debugbreak()
 #else
 #define BREAK raise(SIGTRAP)

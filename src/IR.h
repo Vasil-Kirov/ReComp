@@ -83,7 +83,10 @@ enum op
 	// SIMD
 	// Ptr = ir_insert
 	OP_INSERT,
-	//OP_EXTRACT,
+
+	// Left = Vec Register
+	// Right = Idx (u64)
+	OP_EXTRACT,
 
 	OP_COUNT,
 };

@@ -599,6 +599,14 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			LLVMBuildUnreachable(gen->bld);
 		} break;
+		case OP_EXTRACT:
+		{
+			LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());
+			LLVMValueRef Vec = gen->map.Get(I.Left);
+			LLVMValueRef Idx = LLVMConstInt(IntTy, I.Right, false);
+			LLVMValueRef Res = LLVMBuildExtractElement(gen->bld, Vec, Idx, "");
+			gen->map.Add(I.Result, Res);
+		} break;
 		case OP_INSERT:
 		{
 			LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());

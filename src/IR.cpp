@@ -1313,7 +1313,7 @@ SEARCH_TYPE_DONE:
 				const type *Type = GetType(Node->Selector.Type);
 				u32 TypeIdx = Node->Selector.Type;
 				u32 Operand = -1;
-				if(Type->Kind != TypeKind_Enum && Type->Kind != TypeKind_Pointer)
+				if(Type->Kind != TypeKind_Enum && Type->Kind != TypeKind_Pointer && Type->Kind != TypeKind_Vector)
 				{
 					Assert(Node->Selector.Operand);
 					Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
@@ -1321,6 +1321,11 @@ SEARCH_TYPE_DONE:
 				
 				switch(Type->Kind)
 				{
+					case TypeKind_Vector:
+					{
+						Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, false);
+						Result = PushInstruction(Builder, Instruction(OP_EXTRACT, Operand, Node->Selector.Index, TypeIdx, Builder));
+					} break;
 					case TypeKind_Basic:
 					{
 						Assert(IsString(Type));
@@ -3317,6 +3322,23 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		case OP_NOP:
 		{
 			PushBuilder(Builder, "NOP");
+		} break;
+		case OP_INSERT:
+		{
+			if(Instr.Ptr)
+			{
+				ir_insert *Ins = (ir_insert *)Instr.Ptr;
+				PushBuilderFormated(Builder, "%%%d = insert %s %%%d in %%%d at %d",
+						Instr.Result, GetTypeName(Instr.Type), Ins->ValueRegister, Ins->Register, Ins->Idx);
+			}
+			else
+			{
+				PushBuilderFormated(Builder, "%%%d = %s {}", Instr.Result, GetTypeName(Instr.Type));
+			}
+		} break;
+		case OP_EXTRACT:
+		{
+			PushBuilderFormated(Builder, "%%%d = extract %%%d at %d", Instr.Result, Instr.Left, Instr.Right);
 		} break;
 		case OP_DEBUG_BREAK:
 		{

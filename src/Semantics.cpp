@@ -190,7 +190,7 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NU
 		{
 			if(Node->Selector.Operand == NULL)
 			{
-				RaiseError(true, *Node->ErrorInfo, "Invalid context for au");
+				RaiseError(true, *Node->ErrorInfo, "Invalid context for automatic enum selector");
 			}
 
 			Node->Selector.Index = -1;
@@ -751,6 +751,34 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	Checker->CurrentFnReturnTypeIdx = Save;
 }
 
+int FindVectorAccessor(string Name, const type *T, const error_info *ErrorInfo)
+{
+	string Names[] = {
+		STR_LIT("x"),
+		STR_LIT("y"),
+		STR_LIT("z"),
+		STR_LIT("w"),
+	};
+
+	int Found = -1;
+	auto len = ARR_LEN(Names);
+	for(int i = 0; i < len; ++i)
+	{
+		if (Names[i] == Name)
+		{
+			Found = i;
+			break;
+		}
+	}
+
+	if(Found == -1 || Found >= T->Vector.ElementCount)
+	{
+		RaiseError(false, *ErrorInfo, "%s is not a member of %s", Name.Data, GetTypeName(T));
+		Found = -1;
+	}
+	return Found;
+}
+
 b32 IsConstant(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_ID)
@@ -1156,9 +1184,18 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				dynamic<u32> ArgTypes = {};
 				ForArray(Idx, Expr->Call.Args)
 				{
-
+					if(CallType->Function.ArgCount > Idx)
+					{
+						Checker->AutoEnum.Push(CallType->Function.Args[Idx]);
+					}
 					u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
 					const type *ExprType = GetType(ExprTypeIdx);
+
+					if(CallType->Function.ArgCount > Idx)
+					{
+						Checker->AutoEnum.Pop();
+					}
+
 					if(CallType->Function.ArgCount <= Idx)
 					{
 						if(IsUntyped(ExprType))
@@ -1454,27 +1491,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						if(NamePtr)
 						{
-							string Names[] = {
-								STR_LIT("x"),
-								STR_LIT("y"),
-								STR_LIT("z"),
-								STR_LIT("w"),
-							};
-
-							int Found = -1;
-							auto len = ARR_LEN(Names);
-							for(int i = 0; i < len; ++i)
+							int Found = FindVectorAccessor(*NamePtr, Type, Item->ErrorInfo);
+							if(Found == -1)
 							{
-								if (Names[i] == *NamePtr)
-								{
-									Found = i;
-									break;
-								}
-							}
-
-							if(Found == -1 || Found >= Type->Vector.ElementCount)
-							{
-								RaiseError(false, *Item->ErrorInfo, "%s is not a member of %s", NamePtr->Data, GetTypeName(Type));
 								Failed = true;
 								continue;
 							}
@@ -1727,6 +1746,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				Type = GetType(TypeIdx);
 				switch(Type->Kind)
 				{
+					case TypeKind_Vector:
+					{
+						int Found = FindVectorAccessor(*Expr->Selector.Member, Type, Expr->ErrorInfo);
+						if(Found == -1)
+						{
+							Result = GetVecElemType(Type);
+							break;
+						}
+						Expr->Selector.Index = Found;
+						Result = GetVecElemType(Type);
+					} break;
 					case TypeKind_Basic:
 					{
 						if(HasBasicFlag(Type, BasicFlag_TypeID))

@@ -12,6 +12,11 @@ void SetBonusMessage(string S)
 	BonusErrorMessage = S;
 }
 
+string GetBonusMessage()
+{
+	return BonusErrorMessage;
+}
+
 void AdvanceString(string *String)
 {
 	String->Data++;

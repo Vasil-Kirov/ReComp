@@ -177,7 +177,7 @@ u32 FindEnum(string Name)
 
 dynamic<generic_replacement> GenericReplacements = {};
 
-size_t AddGenericReplacement(u32 Generic, u32 ToReplace)
+size_t AddGenericReplacement(string Generic, u32 ToReplace)
 {
 	auto g = generic_replacement {.Generic = Generic, .TypeID = ToReplace};
 	GenericReplacements.Push(g);
@@ -205,11 +205,17 @@ inline const type *GetType(u32 TypeIdx)
 	const type *Type = TypeTable[TypeIdx];
 	if(Type->Kind == TypeKind_Generic || (Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic))
 	{
-		For(GenericReplacements)
+		string Name;
+		if(Type->Kind == TypeKind_Generic)
+			Name = Type->Generic.Name;
+		else
+			Name = GetTypeNameAsString(Type);
+
+		for(int i = GenericReplacements.Count-1; i >= 0; --i)
 		{
-			if(it->Generic == TypeIdx)
+			if(GenericReplacements[i].Generic == Name)
 			{
-				Type = TypeTable[it->TypeID];
+				Type = TypeTable[GenericReplacements[i].TypeID];
 				break;
 			}
 		}
@@ -1934,6 +1940,11 @@ b32 IsTypeIterable(const type *T)
 	return T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice ||
 		HasBasicFlag(T, BasicFlag_Integer) || 
 		HasBasicFlag(T, BasicFlag_String);
+}
+
+u32 UntypedGetType(u32 TIdx)
+{
+	return UntypedGetType(GetType(TIdx));
 }
 
 u32 UntypedGetType(const type *T)

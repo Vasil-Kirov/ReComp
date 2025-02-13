@@ -3,6 +3,9 @@ main
 #import intrin as *
 #import io as *
 
+cast :: fn(t: type, val: $y) -> t {
+    return @t val;
+}
 
 main :: fn() -> i32 {
 
@@ -11,8 +14,7 @@ main :: fn() -> i32 {
 
     println("%", x + y);
 
-
-    return 0;
+    return cast(i32, x.y);
 }
 
 #run main();

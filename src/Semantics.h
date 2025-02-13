@@ -20,12 +20,19 @@ enum SymbolFlag
 	SymbolFlag_Extern  = BIT(8),
 };
 
+struct generic_generated
+{
+	u32 T;
+	symbol *S;
+};
+
 struct symbol
 {
 	const string *Name;
 	const string *LinkName;
 	node *Node;
 	checker *Checker;
+	dynamic<generic_generated> Generated;
 	u32 Type;
 	u32 Flags;
 	u32 Register;
@@ -71,7 +78,6 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 scope *AllocScope(node *Node, scope *Parent = NULL);
 b32 ScopesMatch(scope *A, scope *B);
 void CheckBodyForUnreachableCode(slice<node *> Body);
-node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut);
 b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
 string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
@@ -79,5 +85,10 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
 void AnalyzeStructDeclaration(checker *Checker, node *Node);
 void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 bool CheckIntrinsic(string Name);
+symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NULL);
+u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true, b32 *OutIsAutoDefineGeneric=NULL);
+void FillUntypedStack(checker *Checker, u32 Type);
+void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL);
+symbol *CreateFunctionSymbol(checker *Checker, node *Node);
 
 

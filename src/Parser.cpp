@@ -601,7 +601,7 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 }
 
 
-string MakeLambdaName(error_info *Info)
+string MakeLambdaName(const error_info *Info)
 {
 	string_builder Builder = MakeBuilder();
 	PushBuilderFormated(&Builder, "__lambda_%s%d%d", Info->FileName, Info->Range.StartLine, Info->Range.StartChar);
@@ -2147,6 +2147,7 @@ node *CopyASTNode(node *N)
 		{
 			R->Var.Name = N->Var.Name;
 			R->Var.Type = N->Var.Type;
+			R->Var.IsAutoDefineGeneric = N->Var.IsAutoDefineGeneric;
 			R->Var.TypeNode = CopyASTNode(N->Var.TypeNode);
 		} break;
 

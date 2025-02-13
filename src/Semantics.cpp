@@ -12,6 +12,7 @@
 #include "Type.h"
 #include "Memory.h"
 #include "VString.h"
+#include "Polymorph.h"
 extern u32 TypeCount;
 
 void FillUntypedStack(checker *Checker, u32 Type)
@@ -145,10 +146,12 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 				{
 					if(N == Type->Generic.Name)
 					{
-						For(GenericReplacements)
+						for(int i = GenericReplacements.Count-1; i >= 0; --i)
 						{
-							if(it->Generic == I)
-								return it->TypeID;
+							if(GenericReplacements[i].Generic == N)
+							{
+								return GenericReplacements[i].TypeID;
+							}
 						}
 						return I;
 					}
@@ -162,7 +165,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	return INVALID_TYPE;
 }
 
-symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NULL)
+symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule)
 {
 	switch(Node->Type)
 	{
@@ -247,7 +250,7 @@ u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
 	return INVALID_TYPE;
 }
 
-u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
+u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAutoDef)
 {
 	if(TypeNode == NULL)
 		return INVALID_TYPE;
@@ -274,7 +277,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 		} break;
 		case AST_PTRTYPE:
 		{
-			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error);
+			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error, OutAutoDef);
 			if(TypeNode->PointerType.Pointed != NULL && Pointed == INVALID_TYPE && !Error)
 				return INVALID_TYPE;
 			return GetPointerTo(Pointed, TypeNode->PointerType.Flags);
@@ -282,7 +285,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 		case AST_ARRAYTYPE:
 		{
 			uint Size = 0;
-			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type, Error);
+			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type, Error, OutAutoDef);
 			if(MemberType == INVALID_TYPE)
 				return INVALID_TYPE;
 			if(TypeNode->ArrayType.Expression)
@@ -323,7 +326,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 				array<u32> Returns = array<u32>(TypeNode->Fn.ReturnTypes.Count);
 				ForArray(Idx, TypeNode->Fn.ReturnTypes)
 				{
-					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx], Error);
+					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx], Error, OutAutoDef);
 					if(Returns[Idx] == INVALID_TYPE)
 						return INVALID_TYPE;
 				}
@@ -339,7 +342,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
-				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode, Error);
+				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode, Error, OutAutoDef);
 				if(FnType->Function.Args[Idx] == INVALID_TYPE)
 					return INVALID_TYPE;
 			}
@@ -357,7 +360,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 			}
 			if(Operand->Type != AST_ID)
 			{
-				u32 Type = GetTypeFromTypeNode(Checker, Operand, Error);
+				u32 Type = GetTypeFromTypeNode(Checker, Operand, Error, OutAutoDef);
 				if(Type != INVALID_TYPE)
 				{
 					if(GetType(Type)->Kind != TypeKind_Enum)
@@ -418,6 +421,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true)
 					return INVALID_TYPE;
 				RaiseError(false, *TypeNode->ErrorInfo, "Declaring generic type outside of function arguments is not allowed");
 			}
+			if(OutAutoDef)
+				*OutAutoDef = true;
 			return MakeGeneric(Checker->Scope.Peek(), *TypeNode->Generic.Name);
 		} break;
 		case AST_TYPEOF:
@@ -642,7 +647,9 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
-		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode);
+		b32 IsAutoDefine = false;
+		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode, true, &IsAutoDefine);
+		FnNode->Fn.Args[I]->Var.IsAutoDefineGeneric = IsAutoDefine;
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
 			Function.Args[I] = GetPointerTo(Function.Args[I]);
@@ -691,7 +698,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	return AddType(NewType);
 }
 
-void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL)
+void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode)
 {
 	if(FnNode->Fn.AlreadyAnalyzed)
 		return;
@@ -1255,11 +1262,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(CallType->Function.Flags & SymbolFlag_Generic)
 			{
-				string IDOut = {};
-				node *Node = AnalyzeGenericExpression(Checker, Expr, &IDOut);
+				symbol *s = GenerateFunctionFromPolymorphicCall(Checker, Expr);
+				const string *FnName = s->Name;
 
-				Expr->Call.Fn = MakeID(Expr->ErrorInfo, DupeType(IDOut, string));
-				Expr->Call.Type = Node->Fn.TypeIdx;
+				if(Checker->Module->Name != s->Checker->Module->Name)
+				{
+					string Name = *FnName;
+					FnName = StructToModuleNamePtr(Name, s->Checker->Module->Name);
+				}
+
+				Expr->Call.Fn = MakeID(Expr->ErrorInfo, FnName);
+				Expr->Call.Type = s->Type;
 				CallType = GetType(Expr->Call.Type);
 			}
 
@@ -3790,287 +3803,6 @@ string *MakeGenericName(checker *Checker, string BaseName, u32 FnTypeNonGeneric,
 	}
 	string Result = MakeString(Builder);
 	return DupeType(Result, string);
-}
-
-u32 FunctionTypeGetNonGeneric(const type *Old, u32 ResolvedType, node *Call, node *FnError)
-{
-	type *NewFT = AllocType(TypeKind_Function);
-	NewFT->Function.Flags = Old->Function.Flags & ~SymbolFlag_Generic;
-	NewFT->Function.ArgCount = Old->Function.ArgCount;
-	NewFT->Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Old->Function.ArgCount);
-	for(int i = 0; i < Old->Function.ArgCount; ++i)
-	{
-		u32 TypeIdx = Old->Function.Args[i];
-		const type *T = GetType(TypeIdx);
-		if(IsGeneric(T))
-		{
-			TypeIdx = ToNonGeneric(TypeIdx, ResolvedType, Call->Call.ArgTypes[i]);
-		}
-		NewFT->Function.Args[i] = TypeIdx;
-	}
-	array<u32> Returns(Old->Function.Returns.Count);
-	uint At = 0;
-	For(Old->Function.Returns)
-	{
-		Returns[At++] = ToNonGeneric(*it, ResolvedType, *it);
-		if(Returns[At-1] == INVALID_TYPE || IsGeneric(GetType(Returns[At-1])))
-		{
-			RaiseError(true, *FnError->ErrorInfo, "Couldn't resolve the generic return type of the function: %s",
-					GetTypeName(*it));
-		}
-	}
-	NewFT->Function.Returns = SliceFromArray(Returns);
-
-	return AddType(NewFT);
-}
-
-node *AnalyzeGenericFunction(checker *Checker, node *FnNode, u32 ResolvedType, node *OriginalNode, node *Call,
-		u32 NewFnType, string *GenericName, u32 GenericType)
-{
-	Assert(GenericType != INVALID_TYPE);
-
-	node *Result = FnNode;
-	Result->Fn.Flags = Result->Fn.Flags & ~SymbolFlag_Generic;
-	Result->Fn.Name = GenericName;
-	Result->Fn.TypeIdx = NewFnType;
-
-	size_t Before = AddGenericReplacement(GenericType, ResolvedType);
-
-	AnalyzeFunctionBody(Checker, Result->Fn.Body, Result, FnNode->Fn.TypeIdx, OriginalNode);
-
-	ClearGenericReplacement(Before);
-
-	return Result;
-}
-
-node *AnalyzeGenericExpression(checker *Checker, node *Generic, string *IDOut)
-{
-	node *Expr = Generic;
-	switch(Expr->Type)
-	{
-		case AST_CALL:
-		{
-			module *MaybeMod = NULL;
-			symbol *FnSym = FindSymbolFromNode(Checker, Expr->Call.Fn, &MaybeMod);
-			if(!FnSym)
-			{
-				RaiseError(true, *Expr->ErrorInfo, "Couldn't find generic function symbol");
-			}
-
-			const type *T = GetType(FnSym->Type);
-			u32 ResolvedType = INVALID_TYPE;
-			u32 GenericType = INVALID_TYPE;
-			string ResolvedName = {};
-			for(int i = 0; i < T->Function.ArgCount; ++i)
-			{
-				const type *ParamT = GetType(T->Function.Args[i]);
-				if(HasBasicFlag(ParamT, BasicFlag_TypeID))
-				{
-					if(ResolvedType != INVALID_TYPE)
-					{
-						RaiseError(true, *Expr->ErrorInfo, "Cannot pass more than 1 generic argument");
-#if 0
-						const type *L = GetType(ResolvedType);
-						const type *R = GetType(Expr->Call.ArgTypes[i]);
-						if(!TypesMustMatch(L, R))
-						{
-							RaiseError(*Expr->ErrorInfo,
-									"Passing parameters of different types for generic expression %s and %s", GetTypeName(L), GetTypeName(R));
-						}
-						GenericID = T->Function.Args[i];
-						ResolvedType = Expr->Call.ArgTypes[i];
-#endif
-					}
-					else
-					{
-						node *Arg = Expr->Call.Args[i];
-						if(ResolvedType != INVALID_TYPE)
-						{
-							if(ResolvedName.Data && ResolvedName != *FnSym->Node->Fn.Args[i]->Var.Name)
-								RaiseError(true, *Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
-						}
-						ResolvedName = *FnSym->Node->Fn.Args[i]->Var.Name;
-
-						ResolvedType = GetTypeFromTypeNode(Checker, Arg);
-						if(IsGeneric(ResolvedType))
-						{
-							b32 Found = false;
-							For(GenericReplacements)
-							{
-								if(it->Generic == ResolvedType)
-								{
-									ResolvedType = it->TypeID;
-									Found = true;
-									break;
-								}
-							}
-							if(!Found)
-							{
-								// ???
-								RaiseError(true, *Arg->ErrorInfo, "Got a generic type while trying to resolve other generic type");
-							}
-						}
-						if(ResolvedType == INVALID_TYPE)
-						{
-							RaiseError(true, *Arg->ErrorInfo,
-									"Couldn't resolve generic call with type from argument #%d", i);
-						}
-					}
-				}
-				else if(IsGeneric(ParamT))
-				{
-					node *Arg = Expr->Call.Args[i];
-					u32 GenericID = GetGenericPart(T->Function.Args[i], T->Function.Args[i]);
-					const type *G = GetType(GenericID);
-					GenericType = GenericID;
-					if(ResolvedType != INVALID_TYPE)
-					{
-						if(ResolvedName.Data && ResolvedName != G->Generic.Name)
-							RaiseError(true, *Arg->ErrorInfo, "Currently multiple generic arguments are not supported");
-					}
-					else
-					{
-						if(G->Kind == TypeKind_Generic)
-							ResolvedName = G->Generic.Name;
-						else
-							ResolvedName = GetTypeNameAsString(G);
-
-						ResolvedType = Expr->Call.ArgTypes[i];
-						const type *CallArgT = GetType(Expr->Call.ArgTypes[i]);
-						if(IsUntyped(CallArgT))
-						{
-							ResolvedType = UntypedGetType(CallArgT);
-						}
-
-						ResolvedType = GetGenericPart(ResolvedType, T->Function.Args[i]);
-					}
-				}
-
-				if(IsUntyped(GetType(Expr->Call.ArgTypes[i])))
-				{
-					if(ResolvedType == INVALID_TYPE)
-						// This should be caught previously
-						RaiseError(true, *Expr->Call.Args[i]->ErrorInfo, "Call to generic expression doesn't resolve generic type before it's used");
-					Expr->Call.ArgTypes.Data[i] = ResolvedType;
-					FillUntypedStack(Checker, ResolvedType);
-				}
-			}
-
-			if(GenericType == INVALID_TYPE)
-			{
-				For(T->Function.Returns)
-				{
-					const type *T = GetType(*it);
-					if(IsGeneric(T))
-					{
-						GenericType = GetGenericPart(*it, *it);
-						break;
-					}
-				}
-			}
-
-			if(ResolvedType != INVALID_TYPE)
-			{
-				const type *RT = GetType(ResolvedType);
-#if 0
-				if(IsGeneric(RT))
-				{
-					RaiseError(*Expr->ErrorInfo,
-							"Cannot resolve generic type with another generic type %s", GetTypeName(RT));
-				}
-#endif
-				if(IsUntyped(RT))
-				{
-					ResolvedType = UntypedGetType(RT);
-				}
-			}
-			else
-			{
-				RaiseError(true, *Expr->ErrorInfo, "Call doesn't resolve generic type");
-			}
-
-			for(int i = 0; i < T->Function.ArgCount; ++i)
-			{
-				if(IsGeneric(T->Function.Args[i]))
-				{
-					u32 ArgTIdx = ToNonGeneric(T->Function.Args[i], ResolvedType, T->Function.Args[i]);
-					const type *ArgT = GetType(ArgTIdx);
-					const type *ExprT = GetType(Expr->Call.ArgTypes[i]);
-					const type *PromotionType = NULL;
-					if(!IsTypeCompatible(ArgT, ExprT, &PromotionType, true))
-					{
-						RaiseError(false, *Expr->ErrorInfo, "Argument #%d is of incompatible type %s, tried to pass: %s",
-								i, GetTypeName(ArgT), GetTypeName(ExprT));
-					}
-					if(IsUntyped(ExprT))
-					{
-						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
-					}
-					else if(Expr->Call.ArgTypes[i] != ArgTIdx)
-					{
-						node *Arg = Expr->Call.Args[i];
-						Expr->Call.Args.Data[i] = MakeCast(Arg->ErrorInfo, Arg, NULL,
-								Expr->Call.ArgTypes[i], ArgTIdx);
-						Expr->Call.ArgTypes.Data[i] = ArgTIdx;
-					}
-				}
-			}
-
-			const type *Old = GetType(FnSym->Node->Fn.TypeIdx);
-			u32 NewFnType = FunctionTypeGetNonGeneric(Old, ResolvedType, Expr, FnSym->Node);
-			string *GenericName = MakeGenericName(Checker, FnSym->Name ? *FnSym->Name : STR_LIT(""), NewFnType, FnSym->Node->Fn.TypeIdx, Expr, Expr->Call.Args);
-			string FnName = *GenericName;
-			if(Checker->Module->Name != FnSym->Checker->Module->Name)
-				*IDOut = StructToModuleName(FnName, FnSym->Checker->Module->Name);
-			else
-				*IDOut = FnName;
-
-			//LDEBUG("Generating generic function from module %s\n\tID: %s\n", Checker->Module->Name.Data, IDOut->Data);
-			symbol *Found = FnSym->Checker->Module->Globals[*GenericName];
-			node *NewFnNode = NULL;
-			if(Found)
-			{
-				NewFnNode = Found->Node;
-			}
-			else
-			{
-				// @THREADING: NOT THREAD SAFE
-				node *FnNode = CopyASTNode(FnSym->Node);
-				FnNode->Fn.FnModule = FnSym->Checker->Module;
-				string_builder Builder = MakeBuilder();
-				PushBuilderFormated(&Builder, "While parsing generic call to %s at %s(%d:%d)\n",
-						FnSym->Name->Data, Expr->ErrorInfo->FileName, Expr->ErrorInfo->Range.StartLine, Expr->ErrorInfo->Range.StartChar);
-				SetBonusMessage(MakeString(Builder));
-
-				stack<scope*> SaveScopes = Checker->Scope;
-				if(FnSym->Checker == Checker)
-				{
-					Checker->Scope = {};
-				}
-
-				NewFnNode = AnalyzeGenericFunction(FnSym->Checker, FnNode, ResolvedType, FnSym->Node, Expr,
-						NewFnType, GenericName, GenericType);
-
-				if(FnSym->Checker == Checker)
-				{
-					Checker->Scope = SaveScopes;
-				}
-
-				SetBonusMessage(STR_LIT(""));
-
-				NewFnNode->Fn.AlreadyAnalyzed = true;
-				bool Success = FnSym->Checker->Module->Globals.Add(*NewFnNode->Fn.Name, CreateFunctionSymbol(FnSym->Checker, NewFnNode));
-				Assert(Success);
-				FnSym->Checker->Nodes->Push(NewFnNode);
-			}
-			Expr->Call.Fn = NewFnNode;
-			Expr->Call.Type = NewFnType;
-
-
-			return NewFnNode;
-		} break;
-		default: unreachable;
-	}
 }
 
 b32 IsFunctionCorrectProfileCallback(const type *T)

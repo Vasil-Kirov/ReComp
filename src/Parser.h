@@ -104,6 +104,7 @@ struct node
 			const string *Name;
 			node *TypeNode;
 			u32 Type; // Set by semantic analyzer
+			b32 IsAutoDefineGeneric; // Set by semantic analyzer
 		} Var;
 		struct {
 			slice<node *> Nodes;
@@ -328,6 +329,7 @@ node *CopyASTNode(node *N);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
 bool IsOpAssignment(token_type Op);
+string MakeLambdaName(const error_info *Info);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

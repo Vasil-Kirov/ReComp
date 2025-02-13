@@ -34,6 +34,9 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...);
 void
 SetBonusMessage(string S);
 
+string
+GetBonusMessage();
+
 void
 GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird);
 

@@ -74,10 +74,10 @@ void AddVectorTypes()
 	FloatV2->Vector.ElementCount = 2;
 	AddTypeWithName(FloatV2, STR_LIT("v2"));
 
-	type *FloatV3 = AllocType(TypeKind_Vector);
-	FloatV3->Vector.Kind = Vector_Float;
-	FloatV3->Vector.ElementCount = 3;
-	AddTypeWithName(FloatV3, STR_LIT("v3"));
+	//type *FloatV3 = AllocType(TypeKind_Vector);
+	//FloatV3->Vector.Kind = Vector_Float;
+	//FloatV3->Vector.ElementCount = 3;
+	//AddTypeWithName(FloatV3, STR_LIT("v3"));
 
 	type *FloatV4 = AllocType(TypeKind_Vector);
 	FloatV4->Vector.Kind = Vector_Float;
@@ -89,10 +89,10 @@ void AddVectorTypes()
 	IntV2->Vector.ElementCount = 2;
 	AddTypeWithName(IntV2, STR_LIT("iv2"));
 
-	type *IntV3 = AllocType(TypeKind_Vector);
-	IntV3->Vector.Kind = Vector_Int;
-	IntV3->Vector.ElementCount = 3;
-	AddTypeWithName(IntV3, STR_LIT("iv3"));
+	//type *IntV3 = AllocType(TypeKind_Vector);
+	//IntV3->Vector.Kind = Vector_Int;
+	//IntV3->Vector.ElementCount = 3;
+	//AddTypeWithName(IntV3, STR_LIT("iv3"));
 
 	type *IntV4 = AllocType(TypeKind_Vector);
 	IntV4->Vector.Kind = Vector_Int;
@@ -538,11 +538,7 @@ int GetTypeSize(const type *Type)
 		} break;
 		case TypeKind_Vector:
 		{
-			int ElemCount = Type->Vector.ElementCount;
-			if(ElemCount < 4)
-				ElemCount = 4;
-
-			return ElemCount * 4;
+			return Type->Vector.ElementCount * 4;
 		} break;
 		default: {};
 	}

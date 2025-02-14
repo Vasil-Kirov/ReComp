@@ -49,7 +49,7 @@ syn match rcpSCompilerDir /#load_dl/
 syn match rcpSCompilerDir /#intrinsic/
 
 " Types
-syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void v2 v3 v4 iv2 iv3 iv4
+syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void v2 v4 iv2 iv4
 syn match rcpSPtrStar /\*/
 syn match rcpSTypeCast /@/ nextgroup=rcpSType,rcpSPtrStar skipwhite
 

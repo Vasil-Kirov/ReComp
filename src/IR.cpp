@@ -3650,7 +3650,7 @@ string DissasembleFunction(function Fn, int indent)
 	for(int I = 0; I < FnType->Function.ArgCount; ++I)
 	{
 		const type *ArgType = GetType(FnType->Function.Args[I]);
-		PushBuilderFormated(&Builder, "%s %%%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
+		PushBuilderFormated(&Builder, "%s #%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
 		if(I + 1 != FnType->Function.ArgCount)
 			PushBuilder(&Builder, ", ");
 	}

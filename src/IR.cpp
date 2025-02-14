@@ -1323,8 +1323,19 @@ SEARCH_TYPE_DONE:
 				{
 					case TypeKind_Vector:
 					{
-						Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, false);
-						Result = PushInstruction(Builder, Instruction(OP_EXTRACT, Operand, Node->Selector.Index, TypeIdx, Builder));
+						if(IsLHS)
+						{
+							Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, true);
+							u32 Index = PushInt(Node->Selector.Index, Builder);
+							u32 ElemT = GetVecElemType(Type);
+							Result = PushInstruction(Builder, 
+									Instruction(OP_INDEX, Operand, Index, GetPointerTo(ElemT), Builder));
+						}
+						else
+						{
+							Operand = BuildIRFromExpression(Builder, Node->Selector.Operand, false);
+							Result = PushInstruction(Builder, Instruction(OP_EXTRACT, Operand, Node->Selector.Index, TypeIdx, Builder));
+						}
 					} break;
 					case TypeKind_Basic:
 					{
@@ -3414,6 +3425,10 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 				case ct::Aggr:
 				{
 					PushBuilderFormated(Builder, "%%%d = %s {...}", Instr.Result, GetTypeName(Type));
+				} break;
+				case ct::Vector:
+				{
+					PushBuilderFormated(Builder, "%%%d = <>", Instr.Result);
 				} break;
 			}
 		} break;

@@ -135,7 +135,6 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 	LLVMTypeRef lt = ConvertToLLVMType(gen, TIdx);
 	switch(T->Kind)
 	{
-		case TypeKind_Vector:
 		case TypeKind_Generic:
 		case TypeKind_Function:
 		case TypeKind_Invalid:
@@ -233,6 +232,63 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				Assert(false);
 			}
 		} break;
+		case TypeKind_Vector:
+		{
+			Assert(T->Vector.ElementCount <= 4);
+			switch(T->Vector.Kind)
+			{
+				case Vector_Float:
+				{
+					if(T->Vector.ElementCount == 2)
+					{
+						LLVMValueRef Elems[2] = {};
+
+						float *es = (float *)Ptr;
+						for(int i = 0; i < T->Vector.ElementCount; ++i)
+						{
+							Elems[i] = LLVMConstReal(LLVMFloatTypeInContext(gen->ctx), es[i]);
+						}
+						return LLVMConstVector(Elems, T->Vector.ElementCount);
+					}
+					else
+					{
+						LLVMValueRef Elems[4] = {};
+
+						VEC4 v = {.v = _mm_load_ps((float *)Ptr)};
+						for(int i = 0; i < T->Vector.ElementCount; ++i)
+						{
+							Elems[i] = LLVMConstReal(LLVMFloatTypeInContext(gen->ctx), v.e[i]);
+						}
+						return LLVMConstVector(Elems, T->Vector.ElementCount);
+					}
+				} break;
+				case Vector_Int:
+				{
+					if(T->Vector.ElementCount == 2)
+					{
+						LLVMValueRef Elems[2] = {};
+
+						i32 *es = (i32 *)Ptr;
+						for(int i = 0; i < T->Vector.ElementCount; ++i)
+						{
+							Elems[i] = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), es[i], true);
+						}
+						return LLVMConstVector(Elems, T->Vector.ElementCount);
+					}
+					else
+					{
+						LLVMValueRef Elems[4] = {};
+
+						IVEC4 v = {.v = _mm_load_si128((__m128i *)Ptr)};
+						for(int i = 0; i < T->Vector.ElementCount; ++i)
+						{
+							Elems[i] = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), v.e[i], true);
+						}
+						return LLVMConstVector(Elems, T->Vector.ElementCount);
+					}
+				} break;
+			}
+		} break;
 		case TypeKind_Pointer:
 		{
 			void *Val = *(void **)Ptr;
@@ -245,13 +301,13 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 		} break;
 		case TypeKind_Struct:
 		{
-			u8 *At = (u8 *)Ptr;
+			u8 *Start = (u8 *)Ptr;
 			auto Values = array<LLVMValueRef>(T->Struct.Members.Count);
 			int Count = 0;
-			For(T->Struct.Members)
+			ForArray(Idx, T->Struct.Members)
 			{
-				Values[Count++] = FromPtr(gen, it->Type, At);
-				At += GetTypeSize(it->Type);
+				u8 *At = Start + GetStructMemberOffset(T, Idx);
+				Values[Count++] = FromPtr(gen, T->Struct.Members[Idx].Type, At);
 			}
 			return LLVMConstNamedStruct(lt, Values.Data, Count);
 		} break;
@@ -318,6 +374,34 @@ LLVMValueRef FromConstVal(generator *gen, const_value *Val, u32 TypeIdx, b32 Str
 			auto IntTy = ConvertToLLVMType(gen, Basic_uint);
 			Value = LLVMConstInt(IntTy, Val->Int.Unsigned, false);
 			Value = LLVMConstIntToPtr(Value, LLVMType);
+		}
+	}
+	else if(Type->Kind == TypeKind_Vector)
+	{
+		switch(Type->Vector.Kind)
+		{
+			case Vector_Float:
+			{
+				VEC4 v = {.v = Val->Vector.F};
+				LLVMValueRef Values[16] = {};
+				Assert(Type->Vector.ElementCount <= 4);
+				for(int i = 0; i < Type->Vector.ElementCount; ++i)
+				{
+					Values[i] = LLVMConstReal(LLVMFloatTypeInContext(gen->ctx), v.e[i]);
+				}
+				Value = LLVMConstVector(Values, Type->Vector.ElementCount);
+			} break;
+			case Vector_Int:
+			{
+				IVEC4 v = {.v = Val->Vector.I};
+				LLVMValueRef Values[16] = {};
+				Assert(Type->Vector.ElementCount <= 4);
+				for(int i = 0; i < Type->Vector.ElementCount; ++i)
+				{
+					Values[i] = LLVMConstInt(LLVMInt32TypeInContext(gen->ctx), v.e[i], true);
+				}
+				Value = LLVMConstVector(Values, Type->Vector.ElementCount);
+			} break;
 		}
 	}
 	else if(HasBasicFlag(Type, BasicFlag_Float))

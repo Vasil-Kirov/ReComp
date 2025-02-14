@@ -169,7 +169,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 		AddGenericReplacement(Key, T);
 	}
 
-	string GenericName = MakeLambdaName(Call->ErrorInfo);;
+	auto b = MakeBuilder();
+	b.printf("%s<%s>", FnSym->Name->Data, GetTypeName(NonGeneric));
+	string GenericName = MakeString(b);
 	NewFnNode->Fn.Flags = NewFnNode->Fn.Flags & ~SymbolFlag_Generic;
 	NewFnNode->Fn.Name = DupeType(GenericName, string);
 	NewFnNode->Fn.TypeIdx = NonGeneric;
@@ -188,6 +190,11 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	symbol *NewSym = CreateFunctionSymbol(FnSym->Checker, NewFnNode);
 	FnSym->Generated.Push(generic_generated{.T = NonGeneric, .S = NewSym});
 	bool Success = FnSym->Checker->Module->Globals.Add(*NewFnNode->Fn.Name, NewSym);
+	if(!Success)
+	{
+		symbol *s = FnSym->Checker->Module->Globals[*NewFnNode->Fn.Name];
+		RaiseError(true, *Call->ErrorInfo, "--- COMPILER BUG ---\nCouldn't add generic function %s.\nTypes %s | %s", NewFnNode->Fn.Name->Data, GetTypeName(NonGeneric), GetTypeName(s->Type));
+	}
 	Assert(Success);
 	// @THREADING
 	FnSym->Checker->Nodes->Push(NewFnNode);

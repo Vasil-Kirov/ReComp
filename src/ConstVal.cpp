@@ -225,7 +225,6 @@ const_value FromInterp(value &Value)
 	switch(T->Kind)
 	{
 		case TypeKind_Invalid:
-		case TypeKind_Vector:
 		case TypeKind_Enum:
 		case TypeKind_Generic:
 		case TypeKind_Function:
@@ -283,6 +282,21 @@ const_value FromInterp(value &Value)
 			{
 				V.Type = const_type::Integer;
 				V.Int.Unsigned = (u64)Value.ptr;
+			}
+		} break;
+		case TypeKind_Vector:
+		{
+			V.Type = const_type::Vector;
+			switch(T->Vector.Kind)
+			{
+				case Vector_Int:
+				{
+					V.Vector.I = Value.ivec;
+				} break;
+				case Vector_Float:
+				{
+					V.Vector.F = Value.fvec;
+				} break;
 			}
 		} break;
 		case TypeKind_Array:

@@ -25,6 +25,7 @@ void PlatformSetSignalHandler(sig_proc Proc, void *Data)
 
 void PlatformClearSignalHandler()
 {
+	signal(SIGSEGV, SIG_DFL);
 }
 
 b32 PlatformDeleteFile(const char *Path)
@@ -137,7 +138,7 @@ void PlatformOutputString(string String, log_level Level)
 		13,
 		4,
 		6,
-		FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE,
+		FOREGROUND_GREEN | FOREGROUND_BLUE,
 		FOREGROUND_GREEN | FOREGROUND_INTENSITY
 	};
 	HANDLE STDOUT;

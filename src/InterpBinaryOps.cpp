@@ -31,6 +31,13 @@ void DoAdd(T *Result, T Left, T Right, const type *Type)
 			} break;
 		}
 	}
+	else if constexpr (std::is_pointer_v<T>)
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		using Base = std::remove_pointer_t<T>;
+		Base r[2] = { Left[0] + Right[0], Left[1] + Right[1] };
+		memcpy(*Result, r, 8);
+	}
 	else
 	{
 		*Result = Left + Right;
@@ -54,6 +61,13 @@ void DoSub(T *Result, T Left, T Right, const type *Type)
 				_mm_store_ps((float *)Result, _mm_sub_ps(Left, Right));
 			} break;
 		}
+	}
+	else if constexpr (std::is_pointer_v<T>)
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		using Base = std::remove_pointer_t<T>;
+		Base r[2] = { Left[0] - Right[0], Left[1] - Right[1] };
+		memcpy(*Result, r, 8);
 	}
 	else
 	{
@@ -82,6 +96,13 @@ void DoDiv(T *Result, T Left, T Right, const type *Type)
 			} break;
 		}
 	}
+	else if constexpr (std::is_pointer_v<T>)
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		using Base = std::remove_pointer_t<T>;
+		Base r[2] = { Left[0] / Right[0], Left[1] / Right[1] };
+		memcpy(*Result, r, 8);
+	}
 	else
 	{
 		*Result = Left / Right;
@@ -105,6 +126,13 @@ void DoMul(T *Result, T Left, T Right, const type *Type)
 				_mm_store_ps((float *)Result, _mm_mul_ps(Left, Right));
 			} break;
 		}
+	}
+	else if constexpr (std::is_pointer_v<T>)
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		using Base = std::remove_pointer_t<T>;
+		Base r[2] = { Left[0] * Right[0], Left[1] * Right[1] };
+		memcpy(*Result, r, 8);
 	}
 	else
 	{
@@ -140,6 +168,21 @@ void DoMod(T *Result, T Left, T Right, const type *Type)
 			{
 				_mm_store_ps((float *)Result, rem_ps(Left, Right));
 			} break;
+		}
+	}
+	else if constexpr (std::is_pointer_v<T>)
+	{
+		Assert(Type->Kind == TypeKind_Vector);
+		using Base = std::remove_pointer_t<T>;
+		if constexpr (std::is_floating_point_v<Base>)
+		{
+			Base r[2] = { fmodf(Left[0], Right[0]), fmodf(Left[1], Right[1]) };
+			memcpy(*Result, r, 8);
+		}
+		else
+		{
+			Base r[2] = { Left[0] % Right[0], Left[1] % Right[1] };
+			memcpy(*Result, r, 8);
 		}
 	}
 	else if constexpr (std::is_floating_point<T>::value)

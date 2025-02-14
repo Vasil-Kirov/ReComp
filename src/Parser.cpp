@@ -604,7 +604,7 @@ slice<node *> Delimited(parser *Parser, char Deliminator, node *(*Fn)(parser *))
 string MakeLambdaName(const error_info *Info)
 {
 	string_builder Builder = MakeBuilder();
-	PushBuilderFormated(&Builder, "__lambda_%s%d%d", Info->FileName, Info->Range.StartLine, Info->Range.StartChar);
+	PushBuilderFormated(&Builder, "__lambda_%s(%d:%d)", Info->FileName, Info->Range.StartLine, Info->Range.StartChar);
 	return MakeString(Builder);
 }
 

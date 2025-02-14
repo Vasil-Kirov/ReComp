@@ -73,6 +73,8 @@ struct value
 	u32 Type;
 	union
 	{
+		i32 ivec2[2];
+		f32 fvec2[2];
 		__m128i ivec;
 		__m128  fvec;
 		u8 u8;

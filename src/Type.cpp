@@ -581,8 +581,18 @@ int GetTypeAlignment(const type *Type)
 		} break;
 		case TypeKind_Vector:
 		{
-			// @TODO: check this
-			return Type->Vector.ElementCount * 8;
+			switch(Type->Vector.ElementCount)
+			{
+				case 2:
+				{
+					return 8;
+				} break;
+				case 3:
+				case 4:
+				{
+					return 16;
+				} break;
+			}
 		} break;
 		default: {};
 	}
@@ -716,6 +726,9 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 b32 IsCastValid(const type *From, const type *To)
 {
 	if(EitherIsReservedType(From, To))
+		return false;
+
+	if(From->Kind == TypeKind_Vector || To->Kind == TypeKind_Vector)
 		return false;
 
 	if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
@@ -1044,7 +1057,7 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		case TypeKind_Vector:
 		{
 			slice<token_type> Allowed = SliceFromConst({
-				T_PLUS, T_MIN, T_PTR /* times */, T_DIV,
+				T_PLUS, T_MIN, T_PTR /* times */, T_DIV, T_EQ,
 			});
 
 			For(Allowed)
@@ -1111,6 +1124,10 @@ b32 IsCastRedundant(const type *From, const type *To)
 			case TypeKind_Struct:
 			{
 				return From->Struct.Name == To->Struct.Name;
+			} break;
+			case TypeKind_Vector:
+			{
+				return false;
 			} break;
 			default:
 			{

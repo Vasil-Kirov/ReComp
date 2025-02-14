@@ -8,6 +8,7 @@ enum class const_type
 	Float,
 	String,
 	Aggr,
+	Vector,
 };
 
 enum const_string_flags
@@ -35,6 +36,12 @@ struct const_struct
 	void *Ptr;
 };
 
+union const_vector
+{
+	__m128 F;
+	__m128i I;
+};
+
 struct const_value
 {
 	const_type Type;
@@ -43,6 +50,7 @@ struct const_value
 		f64 Float;
 		const_string String;
 		const_struct Struct;
+		const_vector Vector;
 	};
 };
 

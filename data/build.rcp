@@ -38,7 +38,7 @@ compile :: fn() -> c.CompileInfo {
 	out := c.CompileInfo {
 		 files = []string { "../file1.rcp", "../file2.rcp", "../file3.rcp" },
 		 //files = []string { "../file1.rcp" },
-		 opt = 0,
+		 opt = 1,
 		 flags = .DebugInfo,
 		 //flags = (.SanAddress | .Standalone | .NoLink),
 		 //link = "/SUBSYSTEM:windows",

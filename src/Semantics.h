@@ -18,6 +18,7 @@ enum SymbolFlag
 	SymbolFlag_Generic = BIT(6),
 	SymbolFlag_Intrinsic = BIT(7),
 	SymbolFlag_Extern  = BIT(8),
+	SymbolFlag_Inline  = BIT(9),
 };
 
 struct generic_generated

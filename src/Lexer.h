@@ -97,8 +97,9 @@ enum token_type
 	T_RUN = -74,
 	T_LOAD_DL = -75,
 	T_LOAD_SYSTEM_DL = -76,
-	T_PWDELSE= -77,
-	T_THEN = - 78,
+	T_PWDELSE = -77,
+	T_THEN    = -78,
+	T_INLINE  = -79,
 };
 
 struct token

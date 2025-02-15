@@ -1717,6 +1717,13 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 				Assert(Gen.fn);
 
 				RCGenerateFunction(&Gen, IR->Functions[Idx]);
+				Assert(GetType(IR->Functions[Idx].Type)->Kind == TypeKind_Function);
+				if(GetType(IR->Functions[Idx].Type)->Function.Flags & SymbolFlag_Inline)
+				{
+					string InlineStr = STR_LIT("alwaysinline");
+					unsigned LLVMInline = LLVMGetEnumAttributeKindForName(InlineStr.Data, InlineStr.Size);
+					LLVMAddAttributeAtIndex(Gen.fn, LLVMAttributeFunctionIndex, LLVMCreateEnumAttribute(Gen.ctx, LLVMInline, 0));
+				}
 				Gen.map.Clear();
 				Gen.fn = NULL;
 			}

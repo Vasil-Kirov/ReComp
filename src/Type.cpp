@@ -1289,6 +1289,8 @@ string GetTypeNameAsString(const type *Type)
 				Builder += " #var_arg";
 			if(Type->Function.Flags & SymbolFlag_Foreign)
 				Builder += " #foreign";
+			if(Type->Function.Flags & SymbolFlag_Inline)
+				Builder += " #inline";
 
 			return MakeString(Builder);
 		} break;

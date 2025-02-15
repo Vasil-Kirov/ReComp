@@ -25,7 +25,7 @@ pass :: fn(this: *F) {
     print_vec(this.v);
 }
 
-call_foo :: fn(this: *F)  {
+call_foo :: fn(this: *F) #inline {
     pass(this);
 }
 

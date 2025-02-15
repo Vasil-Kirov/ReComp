@@ -48,13 +48,14 @@ typedef SSIZE_T ssize_t;
 #if defined(DEBUG)
 #define Assert(expression) if(!(expression)) { LERROR("--- INTERNAL COMPILER ERROR ---\nFile: %s\nFunction %s\nLine: %d",\
 		__FILE__, __FUNCTION__, __LINE__); PrintStacktrace(); BREAK; __builtin_trap(); }
+#define unreachable { Assert(false); __builtin_unreachable(); }
 #else 
 #define Assert(expression) {}
+#define unreachable { __builtin_unreachable(); }
 #endif
 
 #define HAS_FLAG(x, f) (((x) & f) != 0)
 
-#define unreachable { Assert(false); __builtin_unreachable(); }
 
 #define BIT(x) (1 << (x))
 

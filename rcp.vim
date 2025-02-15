@@ -34,6 +34,7 @@ syn keyword rcpSKeyword union enum struct fn return for in if else match break d
 syn keyword rcpSConstant null true false inf nan
 syn match rcpSImport /#import/
 syn match rcpSCompilerDir /#foreign/
+syn match rcpSCompilerDir /#inline/
 syn match rcpSCompilerDir /#link/
 syn match rcpSCompilerDir /#private/
 syn match rcpSCompilerDir /#public/

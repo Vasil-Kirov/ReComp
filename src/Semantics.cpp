@@ -2621,7 +2621,7 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 	node *Node = *NodePtr;
 	u32 ExprTypeIdx = AnalyzeExpression(Checker, Node);
 	const type *ExprType = GetType(ExprTypeIdx);
-	if(ExprType->Kind != TypeKind_Basic && ExprType->Kind != TypeKind_Pointer)
+	if(ExprType->Kind != TypeKind_Basic && ExprType->Kind != TypeKind_Pointer && ExprType->Kind != TypeKind_Enum)
 	{
 		RaiseError(false, *Node->ErrorInfo, "Expected boolean type for condition expression, got %s.",
 				GetTypeName(ExprType));
@@ -2640,6 +2640,14 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 		Zero->Constant.Type = Basic_int;
 		*NodePtr = MakeBinary(Node->ErrorInfo, Selector, Zero, T_NEQ);
 
+	}
+	else if(ExprType->Kind == TypeKind_Enum)
+	{
+		const_value ZeroValue = {};
+		ZeroValue.Type = const_type::Integer;
+		node *Zero = MakeConstant(Node->ErrorInfo, ZeroValue);
+		Zero->Constant.Type = ExprTypeIdx;
+		*NodePtr = MakeBinary(Node->ErrorInfo, Node, Zero, T_NEQ);
 	}
 	else if(ExprType->Kind == TypeKind_Basic && ((ExprType->Basic.Flags & BasicFlag_Boolean) == 0))
 	{

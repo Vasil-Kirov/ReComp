@@ -72,7 +72,7 @@ typedef struct
 #define MB(N) (((unsigned long long)(N)) << 20)
 #define GB(N) (((unsigned long long)(N)) << 30)
 
-#define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {0}; return __EMPTY_S__; }
+#define RET_EMPTY(TYPE) { TYPE __EMPTY_S__ = {}; return __EMPTY_S__; }
 
 static b32 IsVLibInit = false;
 

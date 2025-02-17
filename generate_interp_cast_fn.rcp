@@ -1,0 +1,357 @@
+main
+
+#import str as *
+#import io as *
+#import mem as *
+
+
+fopen :: fn(file_name: *u8, mode: *u8) -> ?* #foreign;
+fwrite :: fn(buffer: *, size: uint, count: uint, f: *) -> uint #foreign;
+fclose :: fn(f: *) -> i32 #foreign;
+
+vec_type_to_c_type :: fn(vt: string) -> string {
+    if vt == "ivec2" return "i32 *";
+    if vt == "ivec" return "__m128i";
+    if vt == "fvec2" return "f32 *";
+    if vt == "fvec" return "__m128";
+    return "";
+}
+
+main :: fn() -> i32 {
+
+    types := []string{
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+
+        "f32",
+        "f64",
+
+        //"type",
+        //"int",
+        //"uint",
+
+        "ptr",
+
+        "ivec2",
+        "ivec",
+        "fvec2",
+        "fvec",
+    };
+
+    scratch := create_scratch(mb(4));
+    b := create_builder(&scratch);
+
+    builder_append(&b, ```#include "Interpreter.h"
+#include "Type.h"
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+```);
+
+
+    vec_types := []string{"ivec2", "ivec", "fvec2", "fvec"};
+
+    for t in types {
+        is_vec_type := false;
+        for vt in vec_types {
+            if vt == t is_vec_type = true;
+        }
+
+        if !is_vec_type {
+            fn_signature := sprint("void %_cast_fn(value *R, value *V) {", t);
+            builder_append(&b, fn_signature);
+
+            arg1 := t;
+            template := non_bit_cast_template;
+            if t == "ptr" {
+                arg1 = "void *";
+                template = non_bit_cast_template_for_ptr;
+            }
+
+            builder_append(&b, sprint(template, t, arg1));
+
+            builder_append(&b, "\n}\n");
+        }
+        
+
+        {
+            arg0 := sprint("&R->%", t);
+            arg1 := t;
+            if t == "ptr" {
+                arg0 = "R->ptr";
+                arg1 = "void *";
+            }
+            if is_vec_type {
+                arg1 = vec_type_to_c_type(t);
+            }
+
+            fn_signature := sprint("void %_bit_cast_fn(value *R, value *V) {", t);
+            builder_append(&b, fn_signature);
+
+            builder_append(&b, sprint(bit_cast_template, arg0, arg1));
+
+            builder_append(&b, "\n}\n");
+        }
+    }
+
+    builder_append(&b, "#pragma clang diagnostic pop\n");
+
+    content := from_builder(&b, &scratch);
+    f := fopen(c"src/InterpCasts.cpp", c"w");
+    #assert f;
+    fwrite(content.data, 1, cast(uint, content.count), ?f);
+    fclose(?f);
+
+    b = create_builder(&scratch);
+
+    builder_append(&b, ```#include "Interpreter.h"
+```);
+
+    for t in types {
+        fn_signature := sprint("void %_cast_fn(value *R, value *V);\n", t);
+        builder_append(&b, fn_signature);
+
+
+        {
+            fn_signature := sprint("void %_bit_cast_fn(value *R, value *V);\n", t);
+            builder_append(&b, fn_signature);
+        }
+    }
+
+    content = from_builder(&b, &scratch);
+    f = fopen(c"src/InterpCasts.h", c"w");
+    #assert f;
+    fwrite(content.data, 1, cast(uint, content.count), ?f);
+    fclose(?f);
+
+    return 0;
+}
+
+//#run main();
+
+non_bit_cast_template :: ```
+	const type *TYPE = GetType(V->Type);
+    if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
+	switch (TYPE->Kind)
+	{
+        case TypeKind_Basic:
+		{
+			switch(TYPE->Basic.Kind)
+			{
+				case Basic_u8:
+				{
+					R->%0 = (%1)V->u8;
+				} break;
+				case Basic_u16:
+				{
+					R->%0 = (%1)V->u16;
+				} break;
+				case Basic_u32:
+				{
+					R->%0 = (%1)V->u32;
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					R->%0 = (%1)V->u64;
+				} break;
+				case Basic_i8:
+				{
+					R->%0 = (%1)V->i8;
+				} break;
+				case Basic_i16:
+				{
+					R->%0 = (%1)V->i16;
+				} break;
+				case Basic_i32:
+				{
+					R->%0 = (%1)V->i32;
+				} break;
+				case Basic_i64:
+				{
+					R->%0 = (%1)V->i64;
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					R->%0 = (%1)V->i64;
+				} break;
+                case Basic_f32:
+                {
+					R->%0 = (%1)V->f32;
+                } break;
+                case Basic_f64:
+                {
+					R->%0 = (%1)V->f64;
+                } break;
+				default: unreachable;
+			}
+		} break;
+        case TypeKind_Pointer:
+        {
+            R->%0 = (%1)(u64)V->ptr;
+        } break;
+        default: unreachable;
+	}```;
+
+non_bit_cast_template_for_ptr :: ```
+	const type *TYPE = GetType(V->Type);
+    if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
+	switch (TYPE->Kind)
+	{
+        case TypeKind_Basic:
+		{
+			switch(TYPE->Basic.Kind)
+			{
+				case Basic_u8:
+				{
+					R->%0 = (%1)V->u8;
+				} break;
+				case Basic_u16:
+				{
+					R->%0 = (%1)V->u16;
+				} break;
+				case Basic_u32:
+				{
+					R->%0 = (%1)V->u32;
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					R->%0 = (%1)V->u64;
+				} break;
+				case Basic_i8:
+				{
+					R->%0 = (%1)V->i8;
+				} break;
+				case Basic_i16:
+				{
+					R->%0 = (%1)V->i16;
+				} break;
+				case Basic_i32:
+				{
+					R->%0 = (%1)V->i32;
+				} break;
+				case Basic_i64:
+				{
+					R->%0 = (%1)V->i64;
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					R->%0 = (%1)V->i64;
+				} break;
+				default: unreachable;
+			}
+		} break;
+        // @NOTE: pointer to pointer casts are handled seperately
+        default: unreachable;
+	}```;
+
+bit_cast_template :: ```
+	const type *TYPE = GetType(V->Type);
+    if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
+    auto Size = GetTypeSize(TYPE);
+	switch (TYPE->Kind)
+	{
+        case TypeKind_Basic:
+		{
+			switch(TYPE->Basic.Kind)
+			{
+				case Basic_u8:
+				{
+					memcpy(%0, (%1 *)&V->u8, Size);
+				} break;
+				case Basic_u16:
+				{
+					memcpy(%0, (%1 *)&V->u16, Size);
+				} break;
+				case Basic_u32:
+				{
+					memcpy(%0, (%1 *)&V->u32, Size);
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					memcpy(%0, (%1 *)&V->u64, Size);
+				} break;
+				case Basic_i8:
+				{
+					memcpy(%0, (%1 *)&V->i8, Size);
+				} break;
+				case Basic_i16:
+				{
+					memcpy(%0, (%1 *)&V->i16, Size);
+				} break;
+				case Basic_i32:
+				{
+					memcpy(%0, (%1 *)&V->i32, Size);
+				} break;
+				case Basic_i64:
+				{
+					memcpy(%0, (%1 *)&V->i64, Size);
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					memcpy(%0, (%1 *)&V->i64, Size);
+				} break;
+                case Basic_f32:
+                {
+					memcpy(%0, (%1 *)&V->f32, Size);
+                } break;
+                case Basic_f64:
+                {
+					memcpy(%0, (%1 *)&V->f64, Size);
+                } break;
+                case Basic_string:
+                {
+					memcpy(%0, V->ptr, Size);
+                } break;
+				default: unreachable;
+			}
+		} break;
+		case TypeKind_Vector:
+		{
+			switch(TYPE->Vector.Kind)
+            {
+                case Vector_Int:
+				{
+					if(TYPE->Vector.ElementCount == 2)
+					{
+						memcpy(%0, V->ivec2, Size);
+					}
+					else
+					{
+						memcpy(%0, &V->ivec, Size);
+					}
+				} break;
+                case Vector_Float:
+                {
+                    if(TYPE->Vector.ElementCount == 2)
+                    {
+                        memcpy(%0, V->fvec2, Size);
+                    }
+                    else
+                    {
+                        memcpy(%0, &V->fvec, Size);
+                    }
+                } break;
+            }
+        } break;
+        case TypeKind_Pointer:
+        {
+            memcpy(%0, &V->ptr, Size);
+        } break;
+        default:
+        {
+			memcpy(%0, V->ptr, Size);
+        } break;
+	}```;
+

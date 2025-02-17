@@ -100,6 +100,9 @@ enum token_type
 	T_PWDELSE = -77,
 	T_THEN    = -78,
 	T_INLINE  = -79,
+	T_NEWCAST = -80,
+	T_BITCAST = -81,
+	T_RAWSTRING = -82,
 };
 
 struct token

@@ -42,7 +42,7 @@ type BasicTypes[] = {
 	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
 };
 
-//#pragma clang diagnostic pop
+#pragma clang diagnostic pop
 
 const int BasicTypesCount = (sizeof(BasicTypes) / sizeof(BasicTypes[0]));
 

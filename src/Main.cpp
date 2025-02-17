@@ -27,6 +27,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Globals.h"
 #include "InterpDebugger.h"
 #include "InterpBinaryOps.h"
+#include "InterpCasts.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -66,6 +67,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "StackAllocator.cpp"
 #include "InterpDebugger.cpp"
 #include "InterpBinaryOps.cpp"
+#include "InterpCasts.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"

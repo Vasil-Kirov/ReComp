@@ -222,6 +222,7 @@ struct node
 		struct {
 			node *Expression;
 			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser
+			b32 IsBitCast;
 			u32 FromType;
 			u32 ToType;
 		} Cast;

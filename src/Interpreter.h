@@ -6,6 +6,7 @@
 #include "Memory.h"
 #include "StackAllocator.h"
 #include <unordered_map>
+#include "InterpCasts.h"
 
 #define mmax(a, b) (a > b) ? a : b
 

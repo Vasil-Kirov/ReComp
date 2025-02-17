@@ -14,7 +14,7 @@ assembler MakeAssembler(uint MemorySize)
 
 operand RegisterOperand(register_ Reg)
 {
-	return {operand_register, Reg};
+	return {operand_register, {.Register = Reg}};
 }
 
 operand OffsetOperand(register_ Reg, u8 Offset)

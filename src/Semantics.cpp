@@ -1359,27 +1359,52 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Assert(To != INVALID_TYPE && From != INVALID_TYPE);
 			const type *ToType = GetType(To);
 			const type *FromType = GetType(From);
-			if(!IsCastValid(FromType, ToType))
+			if(Expr->Cast.IsBitCast)
 			{
-				RaiseError(false, *Expr->ErrorInfo, "Cannot cast %s to %s", GetTypeName(FromType), GetTypeName(ToType));
-				Failed = true;
-			}
+				if(IsUntyped(FromType))
+				{
+					FillUntypedStack(Checker, To);
+					FromType = GetType(To);
+				}
+				auto FromSize = GetTypeSize(FromType);
+				auto ToSize = GetTypeSize(ToType);
+				if(FromSize != ToSize)
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Cannot bitcast from type %s with size %d to type %s with size %d, both types must have the same size!", GetTypeName(FromType), FromSize, GetTypeName(ToType), ToSize);
+				}
+				if(IsCastRedundant(FromType, ToType))
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Redundant bit_cast is invalid, trying to cast from %s to %s", GetTypeName(FromType), GetTypeName(ToType));
+				}
 
-			if(!Failed && IsCastRedundant(FromType, ToType))
-			{
-				*Expr = *Expr->Cast.Expression;
-				Result = From;
-			}
-			else
-			{
 				Expr->Cast.FromType = From;
 				Expr->Cast.ToType = To;
 				Result = To;
-
-				if(!Failed && IsUntyped(FromType))
+			}
+			else
+			{
+				if(!IsCastValid(FromType, ToType))
 				{
-					FillUntypedStack(Checker, To);
-					memcpy(Expr, Expr->Cast.Expression, sizeof(node));
+					RaiseError(false, *Expr->ErrorInfo, "Cannot cast %s to %s", GetTypeName(FromType), GetTypeName(ToType));
+					Failed = true;
+				}
+
+				if(!Failed && IsCastRedundant(FromType, ToType))
+				{
+					*Expr = *Expr->Cast.Expression;
+					Result = From;
+				}
+				else
+				{
+					Expr->Cast.FromType = From;
+					Expr->Cast.ToType = To;
+					Result = To;
+
+					if(!Failed && IsUntyped(FromType))
+					{
+						FillUntypedStack(Checker, To);
+						memcpy(Expr, Expr->Cast.Expression, sizeof(node));
+					}
 				}
 			}
 		} break;
@@ -3325,6 +3350,10 @@ RetErr:
 			if(Node->TypedExpr.Expr)
 			{
 				T = AnalyzeExpression(Checker, Node->TypedExpr.Expr);
+				if(IsUntyped(T))
+				{
+					Checker->UntypedStack.Push(&Node->TypedExpr.TypeIdx);
+				}
 			}
 			Node->TypedExpr.TypeIdx = T;
 			Checker->YieldT = T;

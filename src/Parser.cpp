@@ -301,6 +301,7 @@ node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u3
 	Result->Cast.TypeNode = TypeNode;
 	Result->Cast.FromType = FromType;
 	Result->Cast.ToType = ToType;
+	Result->Cast.IsBitCast = false;
 
 	return Result;
 }
@@ -1215,6 +1216,7 @@ node *ParseOperand(parser *Parser)
 			}
 			Result = MakeTypeInfo(ErrorInfo, Expr);
 		} break;
+#if 0
 		case T_AUTOCAST:
 		{
 			ERROR_INFO;
@@ -1222,13 +1224,32 @@ node *ParseOperand(parser *Parser)
 			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, NULL, 0, 0);
 		} break;
+#endif
 		case T_CAST:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
 			node *Type = ParseType(Parser);
 			node *Expr = ParseUnary(Parser);
-			Result = MakeCast(ErrorInfo, Expr, Type, 0, 0);
+			Result = MakeCast(ErrorInfo, Expr, Type, INVALID_TYPE, INVALID_TYPE);
+		} break;
+		case T_BITCAST:
+		case T_NEWCAST:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			EatToken(Parser, '(', true);
+			auto WasNoItemLists = Parser->NoItemLists;
+			Parser->NoItemLists = true;
+
+			node *Type = ParseType(Parser);
+			EatToken(Parser, ',', true);
+			node *Expr = ParseExpression(Parser);
+			EatToken(Parser, ')', true);
+
+			Parser->NoItemLists = WasNoItemLists;
+			Result = MakeCast(ErrorInfo, Expr, Type, INVALID_TYPE, INVALID_TYPE);
+			Result->Cast.IsBitCast = Token.Type == T_BITCAST;
 		} break;
 		case T_EMBED_BIN:
 		{

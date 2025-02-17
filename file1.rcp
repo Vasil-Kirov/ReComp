@@ -3,42 +3,27 @@ main
 #import intrin as *
 #import io as *
 
-struct F {
-    x: i16,
-    v: v2,
+struct OtherThingy {
+    x: *,
+    y: int,
 };
 
-v2_sub :: fn(vec0: v2, vec1: v2) -> v2 {
-    return v2 { vec0.x - vec1.x, vec0.y - vec1.y };
-}
-
-print_vec :: fn(x: v2) -> v2 {
-    println("v: %", x);
-    return x;
-}
-
-cast :: fn(t: type, val: $y) -> t {
-    return @t val;
-}
-
-pass :: fn(this: *F) {
-    print_vec(this.v);
-}
-
-call_foo :: fn(this: *F) #inline {
-    pass(this);
-}
-
 main :: fn() -> i32 {
-    foo := F {};
-    foo.v = v2 {4, 4};
+    x := ```
+    int main() {
+        return 0;
+    }
+    ```;
 
-    x := v2 { 1.3, 4.3 };
-    y := v2 { 1, 2 };
+    fv := v2 { 1.3, 1.0 };
 
-    call_foo(&foo);
+    v := bit_cast(iv2, fv);
 
-    return cast(i32, x.y);
+    io.println("%", v);
+    back_to_str := bit_cast(v2, v);
+    io.println("%", back_to_str);
+
+    return 0;
 }
 
 #run main();

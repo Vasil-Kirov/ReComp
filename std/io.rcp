@@ -161,6 +161,10 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
 }
 
 
+is_digit :: fn(c: u32) -> bool {
+    return c >= '0' && c <= '9';
+}
+
 internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
     builder := create_builder(&mem.temp_alloc);
     arg_count := 0;
@@ -170,8 +174,14 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
             need_to_print_arg = true;
         } else {
             if need_to_print_arg {
-                arg := args[arg_count];
-                arg_count += 1;
+                arg: Arg;
+                if is_digit(c) {
+                    arg = args[c - '0'];
+                }
+                else {
+                    arg = args[arg_count];
+                    arg_count += 1;
+                }
                 print_type_with_formatter(&builder, c, arg);
                 need_to_print_arg = false;
             } else {
@@ -208,7 +218,7 @@ print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
             builder_append_u32(b, c);
     } else {
         print_type(b, arg);
-		if c != 0
+		if c != 0 && !is_digit(c)
 			builder_append_u32(b, c);
     }
 }

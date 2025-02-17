@@ -20,6 +20,7 @@
 #include <xmmintrin.h>
 #include <smmintrin.h>
 #include "InterpBinaryOps.h"
+#include "InterpCasts.h"
 
 bool InterpreterTrace = false;
 dynamic<DLIB> DLs = {};
@@ -716,6 +717,14 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 #endif
 }
 
+b32 IsBitCastPreAllocated(const type *T)
+{
+	if(T->Kind == TypeKind_Vector)
+		return false;
+
+	return T->Kind != TypeKind_Basic || IsString(T);
+}
+
 void CopyInt(value *Result, value *Value, const type *From, const type *To)
 {
 	if(HasBasicFlag(From, BasicFlag_Unsigned))
@@ -760,7 +769,7 @@ void CastTrunc(value *Result, value *Value, const type *From, const type *To)
 {
 	if(To->Basic.Flags & BasicFlag_Float)
 	{
-		Result->f32 = Value->f64;
+			Result->f32 = Value->f64;
 	}
 	else
 	{
@@ -827,7 +836,7 @@ void CastFloatInt(value *Result, value *Value, const type *From, const type *To)
 	}
 }
 
-value PerformCast(value *Value, const type *From, u32 ToIdx)
+value PerformCast(value *Value, const type *From, u32 ToIdx, b32 IsBitCast, void *PreallocatedMemory=NULL)
 {
 	const type *To = GetType(ToIdx);
 	if(From->Kind == TypeKind_Enum)
@@ -839,72 +848,154 @@ value PerformCast(value *Value, const type *From, u32 ToIdx)
 		To = GetType(To->Enum.Type);
 	}
 
-
 	value Result = {};
 	Result.Type = ToIdx;
-	if(From->Kind == TypeKind_Basic && To->Kind == TypeKind_Basic)
+	if(PreallocatedMemory != NULL)
+		Result.ptr = PreallocatedMemory;
+
+	switch(To->Kind)
 	{
-		int FromSize = GetTypeSize(From);
-		int ToSize   = GetTypeSize(To);
-		if(HasBasicFlag(From, BasicFlag_Float) != HasBasicFlag(To, BasicFlag_Float))
+		case TypeKind_Invalid:
 		{
-			CastFloatInt(&Result, Value, From, To);
-			return Result;
-		}
-		else if(ToSize < FromSize)
+			unreachable;
+		} break;
+		case TypeKind_Basic:
 		{
-			CastTrunc(&Result, Value, From, To);
-		}
-		else if(ToSize > FromSize)
-		{
-			CastExt(&Result, Value, From, To);
-		}
-		else if(HasBasicFlag(From, BasicFlag_Float))
-		{
-			if(From->Basic.Kind == Basic_f32)
+			switch(To->Basic.Kind)
 			{
-				Result.f32 = Value->f32;
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_auto:
+				case Basic_module:
+				unreachable;
+				case Basic_bool:
+				case Basic_u8:
+				{
+					if(IsBitCast)
+						u8_bit_cast_fn(&Result, Value);
+					else
+						u8_cast_fn(&Result, Value);
+				} break;
+				case Basic_u16:
+				{
+					if(IsBitCast)
+						u16_bit_cast_fn(&Result, Value);
+					else
+						u16_cast_fn(&Result, Value);
+				} break;
+				case Basic_u32:
+				{
+					if(IsBitCast)
+						u32_bit_cast_fn(&Result, Value);
+					else
+						u32_cast_fn(&Result, Value);
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					if(IsBitCast)
+						u64_bit_cast_fn(&Result, Value);
+					else
+						u64_cast_fn(&Result, Value);
+				} break;
+				case Basic_i8:
+				{
+					if(IsBitCast)
+						i8_bit_cast_fn(&Result, Value);
+					else
+						i8_cast_fn(&Result, Value);
+				} break;
+				case Basic_i16:
+				{
+					if(IsBitCast)
+						i16_bit_cast_fn(&Result, Value);
+					else
+						i16_cast_fn(&Result, Value);
+				} break;
+				case Basic_i32:
+				{
+					if(IsBitCast)
+						i32_bit_cast_fn(&Result, Value);
+					else
+						i32_cast_fn(&Result, Value);
+				} break;
+				case Basic_type:
+				case Basic_int:
+				case Basic_i64:
+				{
+					if(IsBitCast)
+						i64_bit_cast_fn(&Result, Value);
+					else
+						i64_cast_fn(&Result, Value);
+				} break;
+				case Basic_f32:
+				{
+					if(IsBitCast)
+						f32_bit_cast_fn(&Result, Value);
+					else
+						f32_cast_fn(&Result, Value);
+				} break;
+				case Basic_f64:
+				{
+					if(IsBitCast)
+						f64_bit_cast_fn(&Result, Value);
+					else
+						f64_cast_fn(&Result, Value);
+				} break;
+				case Basic_string:
+				{
+					Assert(IsBitCast);
+					ptr_bit_cast_fn(&Result, Value);
+				} break;
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			if(IsBitCast)
+			{
+				ptr_bit_cast_fn(&Result, Value);
 			}
 			else
 			{
-				Result.f64 = Value->f64;
+				ptr_cast_fn(&Result, Value);
 			}
-		}
-		else
+		} break;
+		case TypeKind_Vector:
 		{
-			CopyInt(&Result, Value, From, To);
-		}
-	}
-	else if(From->Kind == TypeKind_Pointer || To->Kind == TypeKind_Pointer)
-	{
-		if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Basic)
+			Assert(IsBitCast);
+			switch(To->Vector.Kind)
+			{
+				case Vector_Int:
+				{
+					if(To->Vector.ElementCount == 2)
+					{
+						ivec2_bit_cast_fn(&Result, Value);
+					}
+					else
+					{
+						ivec_bit_cast_fn(&Result, Value);
+					}
+				} break;
+				case Vector_Float:
+				{
+					if(To->Vector.ElementCount == 2)
+					{
+						fvec2_bit_cast_fn(&Result, Value);
+					}
+					else
+					{
+						fvec_bit_cast_fn(&Result, Value);
+					}
+				} break;
+			}
+		} break;
+		default:
 		{
-			if(HasBasicFlag(To, BasicFlag_Unsigned))
-			{
-				Result.u64 = (u64)Value->ptr;
-			}
-			else
-			{
-				Result.i64 = (i64)Value->ptr;
-			}
-		}
-		else if(To->Kind == TypeKind_Pointer && From->Kind == TypeKind_Basic)
-		{
-			if(HasBasicFlag(From, BasicFlag_Unsigned))
-			{
-				Result.ptr = (void *)Value->u64;
-			}
-			else
-			{
-				Result.ptr = (void *)Value->i64;
-			}
-		}
+			Assert(IsBitCast);
+			ptr_bit_cast_fn(&Result, Value);
+		} break;
 	}
-	else
-	{
-		LDEBUG("from %s to %s", GetTypeName(From), GetTypeName(To));
-		unreachable;
-	}
+
 
 	return Result;
 }
@@ -1286,85 +1377,85 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 
 #define OpTempFn(Result, Left, Right, Type, Fn) \
 	if(Type->Kind == TypeKind_Basic) \
+{ \
+	switch(Type->Basic.Kind) \
 	{ \
-		switch(Type->Basic.Kind) \
-		{ \
-			default: unreachable; \
-			case Basic_bool: \
-			case Basic_u8: \
-			{ \
-				Fn(&Result.u8, Left->u8, Right->u8, Type); \
-			} break; \
-			case Basic_u16: \
-			{ \
-				Fn(&Result.u16, Left->u16, Right->u16, Type); \
-			} break; \
-			case Basic_u32: \
-			{ \
-				Fn(&Result.u32, Left->u32, Right->u32, Type); \
-			} break; \
-			case Basic_uint: \
-			case Basic_u64: \
-			{ \
-				Fn(&Result.u64, Left->u64, Right->u64, Type); \
-			} break; \
-			case Basic_i8: \
-			{ \
-				Fn(&Result.i8, Left->i8, Right->i8, Type); \
-			} break; \
-			case Basic_i16: \
-			{ \
-				Fn(&Result.i16, Left->i16, Right->i16, Type); \
-			} break; \
-			case Basic_i32: \
-			{ \
-				Fn(&Result.i32, Left->i32, Right->i32, Type); \
-			} break; \
-			case Basic_int: \
-			case Basic_type: \
-			case Basic_i64: \
-			{ \
-				Fn(&Result.i64, Left->i64, Right->i64, Type); \
-			} break; \
-			case Basic_f32: \
-			{ \
-				Fn(&Result.f32, Left->f32, Right->f32, Type); \
-			} break; \
-			case Basic_f64: \
-			{ \
-				Fn(&Result.f64, Left->f64, Right->f64, Type); \
-			} break; \
-		} \
+		default: unreachable; \
+		case Basic_bool: \
+		case Basic_u8: \
+					   { \
+						   Fn(&Result.u8, Left->u8, Right->u8, Type); \
+					   } break; \
+		case Basic_u16: \
+						{ \
+							Fn(&Result.u16, Left->u16, Right->u16, Type); \
+						} break; \
+		case Basic_u32: \
+						{ \
+							Fn(&Result.u32, Left->u32, Right->u32, Type); \
+						} break; \
+		case Basic_uint: \
+		case Basic_u64: \
+						{ \
+							Fn(&Result.u64, Left->u64, Right->u64, Type); \
+						} break; \
+		case Basic_i8: \
+					   { \
+						   Fn(&Result.i8, Left->i8, Right->i8, Type); \
+					   } break; \
+		case Basic_i16: \
+						{ \
+							Fn(&Result.i16, Left->i16, Right->i16, Type); \
+						} break; \
+		case Basic_i32: \
+						{ \
+							Fn(&Result.i32, Left->i32, Right->i32, Type); \
+						} break; \
+		case Basic_int: \
+		case Basic_type: \
+		case Basic_i64: \
+						{ \
+							Fn(&Result.i64, Left->i64, Right->i64, Type); \
+						} break; \
+		case Basic_f32: \
+						{ \
+							Fn(&Result.f32, Left->f32, Right->f32, Type); \
+						} break; \
+		case Basic_f64: \
+						{ \
+							Fn(&Result.f64, Left->f64, Right->f64, Type); \
+						} break; \
 	} \
-	else \
+} \
+else \
+{ \
+	Assert(Type->Kind == TypeKind_Vector); \
+	switch(Type->Vector.Kind) \
 	{ \
-		Assert(Type->Kind == TypeKind_Vector); \
-		switch(Type->Vector.Kind) \
-		{ \
-			case Vector_Int: \
-			{ \
-				if(Type->Vector.ElementCount == 2) \
-				{ \
-					Fn((i32 **)&Result.ivec2, Left->ivec2, Right->ivec2, Type); \
-				} \
-				else \
-				{ \
-					Fn(&Result.ivec, Left->ivec, Right->ivec, Type); \
-				} \
-			} break; \
-			case Vector_Float: \
-			{ \
-				if(Type->Vector.ElementCount == 2) \
-				{ \
-					Fn((f32 **)&Result.fvec2, Left->fvec2, Right->fvec2, Type); \
-				} \
-				else \
-				{ \
-					Fn(&Result.fvec, Left->fvec, Right->fvec, Type); \
-				} \
-			} break; \
-		} \
-	}
+		case Vector_Int: \
+						 { \
+							 if(Type->Vector.ElementCount == 2) \
+							 { \
+								 Fn((i32 **)&Result.ivec2, Left->ivec2, Right->ivec2, Type); \
+							 } \
+							 else \
+							 { \
+								 Fn(&Result.ivec, Left->ivec, Right->ivec, Type); \
+							 } \
+						 } break; \
+		case Vector_Float: \
+						   { \
+							   if(Type->Vector.ElementCount == 2) \
+							   { \
+								   Fn((f32 **)&Result.fvec2, Left->fvec2, Right->fvec2, Type); \
+							   } \
+							   else \
+							   { \
+								   Fn(&Result.fvec, Left->fvec, Right->fvec, Type); \
+							   } \
+						   } break; \
+	} \
+}
 
 void DoOp(interpreter *VM, instruction I, char op)
 {
@@ -1425,6 +1516,17 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 				Value.Type = GetPointerTo(it->Type);
 				Value.ptr = ALLOC(Size);
 				VM->Registers.AddValue(it->Result, Value);
+			} break;
+			case OP_BITCAST:
+			{
+				const type *T = GetType(it->Type);
+				if(IsBitCastPreAllocated(T))
+				{
+					value Value;
+					Value.Type = it->Type;
+					Value.ptr = ALLOC(GetTypeSize(it->Type));
+					VM->Registers.AddValue(it->Result, Value);
+				}
 			} break;
 			case OP_LOAD:
 			{
@@ -2029,13 +2131,47 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					}
 				}
 			} break;
+			case OP_PTRCAST:
+			{
+				value Result = {};
+				Result.Type = I.Type;
+				Result.ptr = VM->Registers.GetValue(I.Right)->ptr;
+				VM->Registers.AddValue(I.Result, Result);
+			} break;
+			case OP_BITCAST:
+			{
+				u32 ToType = I.Type;
+				value *Val_ = VM->Registers.GetValue(I.Right);
+				value FixType = *Val_;
+				FixType.Type = I.Left;
+
+				const type *From = GetType(I.Left);
+				if(IsBitCastPreAllocated(GetType(ToType)))
+				{
+					value *PreAlloc = VM->Registers.GetValue(I.Result);
+					PerformCast(&FixType, From, ToType, true, PreAlloc->ptr);
+				}
+				else
+				{
+					value Result = PerformCast(&FixType, From, ToType, true, NULL);
+					VM->Registers.AddValue(I.Result, Result);
+				}
+			} break;
+			case OP_MEMCPY:
+			{
+				value *Dst = VM->Registers.GetValue(I.Left);
+				value *Src = VM->Registers.GetValue(I.Right);
+				memcpy(Dst->ptr, Src->ptr, GetTypeSize(I.Type));
+			} break;
 			case OP_CAST:
 			{
-				//u32 FromType = I.Right;
 				u32 ToType = I.Type;
-				value *Val = VM->Registers.GetValue(I.Left);
-				const type *From = GetType(Val->Type);
-				value Result = PerformCast(Val, From, ToType);
+				value *Val_ = VM->Registers.GetValue(I.Left);
+				value FixType = *Val_;
+				FixType.Type = I.Right;
+
+				const type *From = GetType(I.Right);
+				value Result = PerformCast(&FixType, From, ToType, false);
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
 			case OP_CALL:

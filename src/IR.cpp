@@ -1421,19 +1421,38 @@ BUILD_SLICE_SELECTOR:
 		} break;
 		case AST_CAST:
 		{
-			u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
 
 			const type *To = GetType(Node->Cast.ToType);
 			const type *From = GetType(Node->Cast.FromType);
 
 			if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
 			{
-				Result = Expression;
+				u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+				Result = PushInstruction(Builder, Instruction(OP_PTRCAST, 0, Expression, Node->Cast.ToType, Builder));
 			}
 			else
 			{
-				instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
-				Result = PushInstruction(Builder, I);
+				if(Node->Cast.IsBitCast)
+				{
+					if(!IsLoadableType(Node->Cast.FromType))
+					{
+						Result = PushAlloc(Node->Cast.ToType, Builder);
+						u32 Ptr = BuildIRFromExpression(Builder, Node->Cast.Expression, true);
+						PushInstruction(Builder, Instruction(OP_MEMCPY, Result, Ptr, Result, Node->Cast.FromType));
+					}
+					else
+					{
+						u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+						instruction I = Instruction(OP_BITCAST, Node->Cast.FromType, Expression, Node->Cast.ToType, Builder);
+						Result = PushInstruction(Builder, I);
+					}
+				}
+				else
+				{
+					u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+					instruction I = Instruction(OP_CAST, Expression, Node->Cast.FromType, Node->Cast.ToType, Builder);
+					Result = PushInstruction(Builder, I);
+				}
 			}
 		} break;
 		case AST_FN:
@@ -3330,6 +3349,10 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 
 	switch(Instr.Op)
 	{
+		default:
+		{
+			LERROR("UNKNOWN OP: %d", Instr.Op);
+		} break;
 		case OP_NOP:
 		{
 			PushBuilder(Builder, "NOP");
@@ -3475,6 +3498,18 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		case OP_UNREACHABLE:
 		{
 			PushBuilderFormated(Builder, "UNREACHABLE");
+		} break;
+		case OP_PTRCAST:
+		{
+			PushBuilderFormated(Builder, "%%%d = ptr_cast %%%d to %s ", Instr.Result, Instr.Right, GetTypeName(Instr.Type));
+		} break;
+		case OP_MEMCPY:
+		{
+			PushBuilderFormated(Builder, "memcpy(%%%d, %%%d, %s)", Instr.Left, Instr.Right, GetTypeName(Instr.Type));
+		} break;
+		case OP_BITCAST:
+		{
+			PushBuilderFormated(Builder, "%%%d = bit_cast %%%d to %s ", Instr.Result, Instr.Right, GetTypeName(Instr.Type));
 		} break;
 		case OP_CAST:
 		{

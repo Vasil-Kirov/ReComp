@@ -23,7 +23,11 @@ enum op
 	OP_LOAD,
 	OP_ALLOC,
 	OP_STORE,
+
+	// Left = Target Register
+	// Right = Source Type
 	OP_CAST,
+
 	OP_FN,
 	OP_RET,
 	OP_IF,
@@ -54,6 +58,10 @@ enum op
 	// BigRegister = ir_memcmp *
 	// Result = true if success, false otherwise
 	OP_MEMCMP,
+
+	// Left = dst
+	// Right = src,
+	OP_MEMCPY,
 
 	// Left = type_table_reg
 	// Right = idx
@@ -87,6 +95,14 @@ enum op
 	// Left = Vec Register
 	// Right = Idx (u64)
 	OP_EXTRACT,
+
+	// Left = Source Type
+	// Right = Target Register
+	OP_BITCAST,
+
+	// Right = Target Register
+	OP_PTRCAST,
+
 
 	OP_COUNT,
 };

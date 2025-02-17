@@ -816,6 +816,20 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			NewGen.LLVMTypeMap.Free();
 			NewGen.LLVMDebugTypeMap.Free();
 		} break;
+		case OP_PTRCAST:
+		{
+			LLVMValueRef Target = gen->map.Get(I.Right);
+			LLVMTypeRef DestTy = ConvertToLLVMType(gen, I.Type);
+			LLVMValueRef Val = LLVMBuildPointerCast(gen->bld, Target, DestTy, "");
+			gen->map.Add(I.Result, Val);
+		} break;
+		case OP_BITCAST:
+		{
+			LLVMValueRef Target = gen->map.Get(I.Right);
+			LLVMTypeRef DestTy = ConvertToLLVMType(gen, I.Type);
+			LLVMValueRef Val = LLVMBuildBitCast(gen->bld, Target, DestTy, "");
+			gen->map.Add(I.Result, Val);
+		} break;
 		case OP_CAST:
 		{
 			u32 FromType = I.Right;
@@ -974,6 +988,16 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMValueRef LLVMSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 				LLVMBuildMemCpy(gen->bld, Value, Align, Pointer, Align, LLVMSize);
 			}
+		} break;
+		case OP_MEMCPY:
+		{
+			LLVMValueRef Dst = gen->map.Get(I.Left);
+			LLVMValueRef Src = gen->map.Get(I.Right);
+			uint Size = GetTypeSize(I.Type);
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+			LLVMValueRef LLVMSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
+			uint Align = LLVMPreferredAlignmentOfType(gen->data, LLVMType);
+			LLVMBuildMemCpy(gen->bld, Dst, Align, Src, Align, LLVMSize);
 		} break;
 		case OP_ARG:
 		{

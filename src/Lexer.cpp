@@ -87,6 +87,18 @@ char PeekC(string *String)
 	return *String->Data;
 }
 
+void SkipWhiteSpace(string *String, error_info *ErrorInfo)
+{
+	while(isspace(PeekC(String)))
+	{
+		AdvanceC(String, ErrorInfo);
+		if(String->Size == 0)
+		{
+			return;
+		}
+	}
+}
+
 file *StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
 {
 	file Result = {};
@@ -236,6 +248,47 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 	}
 }
 
+token TokinizeRawStringAndText(string *String, error_info *ErrorInfo)
+{
+	error_info Start = *ErrorInfo;
+
+	const char *StringStart = String->Data;
+	while(true)
+	{
+		SkipWhiteSpace(String, ErrorInfo);
+		if(String->Data[0] == '`')
+		{
+			if(String->Size >= 3)
+			{
+				if(memcmp(String->Data, "```", 3) == 0)
+				{
+					AdvanceC(String, ErrorInfo);
+					AdvanceC(String, ErrorInfo);
+					AdvanceC(String, ErrorInfo);
+					break;
+				}
+			}
+		}
+
+		AdvanceC(String, ErrorInfo);
+	}
+	const char *StringEnd = String->Data-3;
+	string S = {};
+	S.Data = StringStart;
+	S.Size = StringEnd - StringStart;
+
+	auto b = MakeBuilder();
+	for(int i = 0; i < S.Size; ++i)
+	{
+		if(S.Data[i] != '\r') PushBuilder(&b, S.Data[i]);
+	}
+
+	S = MakeString(b);
+
+
+	return MakeToken(T_STR, Start, MakeStringPointer(S));
+}
+
 token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 {
 	const char *Start = String->Data;
@@ -254,6 +307,10 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 		{
 			AdvanceC(String, ErrorInfo);
 			AdvanceC(String, ErrorInfo);
+			if(PotentialKeyword == T_RAWSTRING)
+			{
+				return TokinizeRawStringAndText(String, ErrorInfo);
+			}
 			return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
 		}
 	}
@@ -278,6 +335,10 @@ token TokinizeSpecialCharacter(string *String, error_info *ErrorInfo)
 			for(int j = i; j >= 0; j--)
 			{
 				AdvanceC(String, ErrorInfo);
+			}
+			if(PotentialKeyword == T_RAWSTRING)
+			{
+				return TokinizeRawStringAndText(String, ErrorInfo);
 			}
 			return MakeToken(PotentialKeyword, *ErrorInfo, NULL);
 		}
@@ -409,19 +470,6 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	return MakeToken(T_CHAR, *ErrorInfo, (string *)(u64)result);
 }
 
-void SkipWhiteSpace(string *String, error_info *ErrorInfo)
-{
-	while(isspace(PeekC(String)))
-	{
-		AdvanceC(String, ErrorInfo);
-		if(String->Size == 0)
-		{
-			return;
-		}
-	}
-
-}
-
 token EatCommentAndNext(string *String, error_info *ErrorInfo)
 {
 	if(PeekCAhead(String, 1) == '/')
@@ -521,6 +569,8 @@ void AddKeyword(const char *TokenName, token_type Type)
 void InitializeLexer()
 {
 	KeywordTable = ArrCreate(keyword);
+	AddKeyword("cast", T_NEWCAST);
+	AddKeyword("bit_cast", T_BITCAST);
 	AddKeyword("continue", T_CONTINUE);
 	AddKeyword("break", T_BREAK);
 	AddKeyword("if",  T_IF);
@@ -530,7 +580,6 @@ void InitializeLexer()
 	AddKeyword("fn",  T_FN);
 	AddKeyword("as",  T_AS);
 	AddKeyword("in",  T_IN);
-	AddKeyword("@@",  T_AUTOCAST);
 	AddKeyword("::",  T_CONST);
 	AddKeyword(">=",  T_GEQ);
 	AddKeyword("<=",  T_LEQ);
@@ -553,6 +602,7 @@ void InitializeLexer()
 	AddKeyword("|=",  T_OREQ);
 	AddKeyword("<<=",  T_SLEQ);
 	AddKeyword(">>=",  T_SREQ);
+	AddKeyword("```",  T_RAWSTRING);
 	AddKeyword("...",  T_VARARG);
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#import", T_IMPORT);

@@ -1,4 +1,4 @@
-main
+module main
 
 my_32_fn :: fn(x: i32) -> i32 {
 	return 32;

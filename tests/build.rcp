@@ -1,4 +1,4 @@
-build
+module build
 
 
 compile :: fn(out: *CompileInfo) {

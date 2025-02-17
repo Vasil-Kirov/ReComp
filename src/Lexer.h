@@ -103,6 +103,7 @@ enum token_type
 	T_NEWCAST = -80,
 	T_BITCAST = -81,
 	T_RAWSTRING = -82,
+	T_MODULE = -83,
 };
 
 struct token

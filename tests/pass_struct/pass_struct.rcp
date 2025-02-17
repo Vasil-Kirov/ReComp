@@ -1,4 +1,4 @@
-main
+module main
 
 struct Foo {
 	arr: [1024]i8,

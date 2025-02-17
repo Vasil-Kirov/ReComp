@@ -1,4 +1,4 @@
-mem
+module mem
 #import os
 #import intrin as *
 

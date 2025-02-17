@@ -455,7 +455,6 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	Parser.Tokens = F->Tokens;
 	Parser.TokenIndex = 0;
 	Parser.Current = F->Tokens;
-	Parser.ModuleName = F->Module->Name;
 	Parser.CurrentlyPublic = true;
 	Parser.NoItemLists = true;
 
@@ -476,6 +475,17 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	{
 		Parser.ConfigIDs.Push(ConfigIDs[Idx]);
 	}
+
+	if(Parser.Current->Type != T_MODULE)
+	{
+		RaiseError(true, Parser.Current->ErrorInfo, "Expected module keyword at the start of file");
+	}
+	EatToken(&Parser, T_MODULE, true);
+	if(Parser.Current->Type != T_ID)
+	{
+		RaiseError(true, Parser.Current->ErrorInfo, "Expected module name at the start of file");
+	}
+	Parser.ModuleName = *EatToken(&Parser, T_ID, true).ID;
 
 	size_t TokenCount = ArrLen(F->Tokens);
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
@@ -503,6 +513,7 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	parse_result Result = {};
 	Result.Nodes = Nodes;
 	Result.Imports = SliceFromArray(Parser.Imported);
+	Result.ModuleName = Parser.ModuleName;
 
 	return Result;
 }

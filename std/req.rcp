@@ -1,4 +1,4 @@
-nostdlib
+module nostdlib
 
 memcpy :: fn #foreign(dst: *, src: *, size: int) -> * {
 	d: *u8 = dst;

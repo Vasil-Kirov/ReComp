@@ -1,4 +1,4 @@
-main
+module main
 
 make_stack :: fn() -> stack<T> {
     result := stack<T> { items = {}, top = 0 };

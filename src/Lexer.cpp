@@ -99,15 +99,17 @@ void SkipWhiteSpace(string *String, error_info *ErrorInfo)
 	}
 }
 
-file *StringToTokens(string String, error_info ErrorInfo, string *OutModuleName)
+file *StringToTokens(string String, error_info ErrorInfo)
 {
 	file Result = {};
+#if 0
 	token ModuleName = GetNextToken(&String, &ErrorInfo);
 	if(ModuleName.Type != T_ID)
 	{
 		RaiseError(true, ModuleName.ErrorInfo, "Expected module name at the start of file"); 
 	}
 	*OutModuleName = *ModuleName.ID;
+#endif
 	token *Tokens = ArrCreate(token);
 	while(String.Size > 0)
 	{
@@ -634,5 +636,6 @@ void InitializeLexer()
 	AddKeyword("@profile", T_PROFILE);
 	AddKeyword("using",  T_USING);
 	AddKeyword("yield",  T_YIELD);
+	AddKeyword("module",  T_MODULE);
 }
 

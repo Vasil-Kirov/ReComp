@@ -192,7 +192,7 @@ void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
 	}
 }
 
-file *LexFile(string File, string *OutModuleName)
+file *LexFile(string File)
 {
 	string FileData = ReadEntireFile(File);
 
@@ -209,23 +209,12 @@ file *LexFile(string File, string *OutModuleName)
 	ErrorInfo.Range.EndLine = 1;
 	ErrorInfo.Range.EndChar = 1;
 
-	file *Result = StringToTokens(FileData, ErrorInfo, OutModuleName);
+	file *Result = StringToTokens(FileData, ErrorInfo);
 	Result->Name = File;
 	return Result;
 }
 
 dynamic<string> ConfigIDs = {};
-
-void ParseFile(file *File, dynamic<module*> Modules)
-{
-	parse_result Parse = ParseTokens(File, SliceFromArray(ConfigIDs));
-	File->Nodes = Parse.Nodes;
-	File->Imported = ResolveImports(Parse.Imports, Modules);
-	File->Checker = NewType(checker);
-	File->Checker->Module = File->Module;
-	File->Checker->Imported = File->Imported;
-	File->Checker->File = File->Name;
-}
 
 void AnalyzeFile(file *File)
 {
@@ -250,14 +239,11 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 {
 	dynamic<module*> Modules = {};
 	dynamic<file*> FileDyn = {};
-	dynamic<string> ModuleNames = {};
 
 	Timers->Parse = VLibStartTimer("Parse");
 	ForArray(Idx, FileNames)
 	{
-		string ModuleName = {};
-		file *File = LexFile(FileNames[Idx], &ModuleName);
-		ModuleNames.Push(ModuleName);
+		file *File = LexFile(FileNames[Idx]);
 		Assert(Idx == FileDyn.Count);
 		FileDyn.Push(File);
 	}
@@ -266,15 +252,28 @@ slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_l
 		exit(1);
 
 	slice<file*> Files = SliceFromArray(FileDyn);
+
+	array<parse_result> ParseResults = {FileNames.Count};
 	ForArray(Idx, Files)
 	{
-		file *F = Files[Idx];
-		AddModule(Modules, F, ModuleNames[Idx]);
+		auto it = Files[Idx];
+
+		parse_result Parse = ParseTokens(it, SliceFromArray(ConfigIDs));
+		ParseResults[Idx] = Parse;
+
+		AddModule(Modules, it, Parse.ModuleName);
 	}
-	ForArray(Idx, FileNames)
+	ForArray(Idx, ParseResults)
 	{
-		file *F = Files[Idx];
-		ParseFile(F, Modules);
+		parse_result pr = ParseResults[Idx];
+
+		file *File = Files[Idx];
+		File->Nodes = pr.Nodes;
+		File->Imported = ResolveImports(pr.Imports, Modules);
+		File->Checker = NewType(checker);
+		File->Checker->Module	= File->Module;
+		File->Checker->Imported	= File->Imported;
+		File->Checker->File		= File->Name;
 	}
 	VLibStopTimer(&Timers->Parse);
 

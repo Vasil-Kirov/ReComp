@@ -1,4 +1,4 @@
-mat
+module mat
 
 struct m4 {
 	row1: [4]f32,

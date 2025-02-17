@@ -1,4 +1,4 @@
-main
+module main
 
 #import intrin as *
 #import io as *

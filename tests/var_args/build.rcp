@@ -1,4 +1,4 @@
-build
+module build
 #import compile as c
 
 compile :: fn() -> c.CompileInfo {

@@ -1,4 +1,4 @@
-internal
+module internal
 #import str
 #import os
 

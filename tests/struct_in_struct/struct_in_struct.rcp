@@ -1,4 +1,4 @@
-main
+module main
 
 struct v2 {
 	x: f32,

@@ -1,4 +1,4 @@
-sdl
+module sdl
 
 INIT_AUDIO    :: @u32 0x00000010;
 INIT_VIDEO    :: @u32 0x00000020;

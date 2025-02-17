@@ -1,4 +1,4 @@
-main
+module main
 
 struct Foo {
 	x: i32,

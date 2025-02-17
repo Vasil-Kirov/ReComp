@@ -1,4 +1,4 @@
-main
+module main
 
 foo :: fn(list: ...) -> i32 {
     sum := 0;

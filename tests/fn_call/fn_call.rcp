@@ -1,4 +1,4 @@
-main
+module main
 
 get_x_minus_one :: fn(x: i32) -> i32 {
 	return x - 1;

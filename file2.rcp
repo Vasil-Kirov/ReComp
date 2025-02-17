@@ -1,4 +1,4 @@
-f2
+module f2
 
 
 fn_ptr: *fn(str: *u8) -> i32;

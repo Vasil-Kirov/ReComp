@@ -1,4 +1,4 @@
-main
+module main
 
 main :: fn() -> i32 {
 

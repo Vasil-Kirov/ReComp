@@ -1,4 +1,4 @@
-main
+module main
 
 
 // @NOTE: This shouldn't segfault cuz the short circuit evaluation should stop

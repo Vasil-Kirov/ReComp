@@ -1,4 +1,4 @@
-main
+module main
 #import array
 #import mem
 

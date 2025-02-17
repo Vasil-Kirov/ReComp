@@ -302,7 +302,8 @@ struct parser
 
 struct parse_result
 {
-	dynamic<node *>Nodes;
+	string ModuleName;
+	dynamic<node *> Nodes;
 	slice<needs_resolving_import> Imports;
 };
 

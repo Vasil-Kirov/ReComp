@@ -2,6 +2,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include "Platform.h"
+#include "shlwapi.h"
+
+#pragma comment(lib, "shlwapi.lib")
 
 struct windows_signal_handler
 {
@@ -10,6 +13,11 @@ struct windows_signal_handler
 };
 
 thread_local windows_signal_handler SignalHandlerGlobal = {};
+
+bool PlatformIsPathValid(const char *Path)
+{
+	return PathFileExistsA(Path);
+}
 
 void SignalHandler(int Sig)
 {

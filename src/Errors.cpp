@@ -2,10 +2,11 @@
 #include "Basic.h"
 #include "Log.h"
 #include "Platform.h"
+#include <atomic>
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
-int Errors = 0;
+std::atomic<uint> Errors = {};
 
 void SetBonusMessage(string S)
 {
@@ -26,6 +27,12 @@ void AdvanceString(string *String)
 b32 IsBetween(i64 A, i64 L, i64 R)
 {
 	return A > L && A < R;
+}
+
+void
+CountError()
+{
+	++Errors;
 }
 
 void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird)
@@ -111,7 +118,8 @@ HasErroredOut()
 void
 RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 {
-	++Errors;
+	CountError();
+
 	string ErrorMessage = MakeString(_ErrorMessage);
 	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
 

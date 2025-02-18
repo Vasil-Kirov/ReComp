@@ -6,6 +6,13 @@ struct symbol;
 struct checker;
 struct file;
 
+struct needs_resolving_import
+{
+	string Name;
+	string As;
+	struct error_info *ErrorInfo;
+};
+
 struct module
 {
 	string Name;
@@ -33,6 +40,9 @@ struct file
 
 b32 FindImportedModule(slice<import> Imports, string &ModuleName, import *Out);
 int GetFileIndex(module *m, file *f);
+void AddModule(dynamic<module*> &Modules, file *File, string Name);
+slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules);
+u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules);
 
 extern slice<module*> CurrentModules;
 

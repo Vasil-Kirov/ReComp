@@ -23,9 +23,9 @@ bool IsQueueDone(work_queue *Queue)
 	return Queue->JobsCompleted == Queue->JobCount;
 }
 
-unsigned long ThreadProc(void *_Queue)
+unsigned long ThreadProc(void *Queue_)
 {
-	work_queue *Queue = (work_queue *)_Queue;
+	work_queue *Queue = (work_queue *)Queue_;
 	for(;;)
 	{
 		if(!TryDoWork(Queue))
@@ -61,7 +61,7 @@ work_queue *CreateWorkQueue()
 	return Queue;
 }
 
-void InitWorkQueue(work_queue *Queue)
+void InitThreadsForQueue(work_queue *Queue)
 {
 	RW_BARRIER;
 	for(int i = 0; i < MAX_THREADS; ++i)

@@ -1,6 +1,7 @@
 #pragma once
 #include "ConstVal.h"
 #include "Dynamic.h"
+#include "DynamicLib.h"
 #include "Lexer.h"
 #include "Module.h"
 #include "VString.h"
@@ -279,17 +280,11 @@ struct node
 	const error_info *ErrorInfo;
 };
 
-struct needs_resolving_import
-{
-	string Name;
-	string As;
-	error_info *ErrorInfo;
-};
-
 struct parser
 {
 	dynamic<needs_resolving_import> Imported;
 	dynamic<string> ConfigIDs;
+	dynamic<DLIB> LoadedDynamicLibs;
 	string ModuleName;
 	token *Tokens;
 	token *Current;
@@ -305,6 +300,8 @@ struct parse_result
 	string ModuleName;
 	dynamic<node *> Nodes;
 	slice<needs_resolving_import> Imports;
+	slice<DLIB> DynamicLibraries;
+	file *File;
 };
 
 node *AllocateNode(const error_info *ErrorInfo, node_type Type);
@@ -332,6 +329,7 @@ string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
 bool IsOpAssignment(token_type Op);
 string MakeLambdaName(const error_info *Info);
+parse_result ParseTokens(file *F, slice<string> ConfigIDs);
 
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo

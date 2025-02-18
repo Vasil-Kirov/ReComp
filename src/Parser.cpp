@@ -458,18 +458,6 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	Parser.CurrentlyPublic = true;
 	Parser.NoItemLists = true;
 
-	using pt = platform_target;
-	switch(PTarget)
-	{
-		case pt::Windows:
-		{
-			Parser.ConfigIDs.Push(STR_LIT("Windows"));
-		} break;
-		case pt::UnixBased:
-		{
-			Parser.ConfigIDs.Push(STR_LIT("Unix"));
-		} break;
-	}
 
 	ForArray(Idx, ConfigIDs)
 	{
@@ -478,12 +466,14 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 
 	if(Parser.Current->Type != T_MODULE)
 	{
-		RaiseError(true, Parser.Current->ErrorInfo, "Expected module keyword at the start of file");
+		RaiseError(false, Parser.Current->ErrorInfo, "Expected module keyword at the start of file");
+		return parse_result {};
 	}
 	EatToken(&Parser, T_MODULE, true);
 	if(Parser.Current->Type != T_ID)
 	{
-		RaiseError(true, Parser.Current->ErrorInfo, "Expected module name at the start of file");
+		RaiseError(false, Parser.Current->ErrorInfo, "Expected module name at the start of file");
+		return parse_result {};
 	}
 	Parser.ModuleName = *EatToken(&Parser, T_ID, true).ID;
 
@@ -513,7 +503,9 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	parse_result Result = {};
 	Result.Nodes = Nodes;
 	Result.Imports = SliceFromArray(Parser.Imported);
+	Result.DynamicLibraries = SliceFromArray(Parser.LoadedDynamicLibs);
 	Result.ModuleName = Parser.ModuleName;
+	Result.File = F;
 
 	return Result;
 }
@@ -522,30 +514,38 @@ void ParseImport(parser *Parser)
 {
 	ERROR_INFO;
 	GetToken(Parser);
-	token T = EatToken(Parser, T_ID, true);
-	string *As = NULL;
-	if(Parser->Current->Type == T_AS)
+	if(Parser->Current->Type == T_ID)
 	{
-		GetToken(Parser);
-		if(Parser->Current->Type == T_PTR)
+		token T = EatToken(Parser, T_ID, true);
+		string *As = NULL;
+		if(Parser->Current->Type == T_AS)
 		{
 			GetToken(Parser);
-			string Any = STR_LIT("*");
-			As = DupeType(Any, string);
+			if(Parser->Current->Type == T_PTR)
+			{
+				GetToken(Parser);
+				string Any = STR_LIT("*");
+				As = DupeType(Any, string);
+			}
+			else
+			{
+				As = EatToken(Parser, T_ID, true).ID;
+			}
 		}
-		else
-		{
-			As = EatToken(Parser, T_ID, true).ID;
-		}
+
+		needs_resolving_import Imported = {
+			.Name = *T.ID,
+			.As = As ? *As : STR_LIT(""),
+			.ErrorInfo = ErrorInfo,
+		};
+
+		Parser->Imported.Push(Imported);
 	}
-
-	needs_resolving_import Imported = {
-		.Name = *T.ID,
-		.As = As ? *As : STR_LIT(""),
-		.ErrorInfo = ErrorInfo,
-	};
-
-	Parser->Imported.Push(Imported);
+	else
+	{
+		//token T = EatToken(Parser, T_STR, true);
+		//string FileName = *T.ID;
+	}
 }
 
 node *ParseNumber(parser *Parser)
@@ -1909,8 +1909,7 @@ node *ParseTopLevel(parser *Parser)
 			}
 			else
 			{
-				// @THREADING: NOT THREAD SAFE
-				DLs.Push(Lib);
+				Parser->LoadedDynamicLibs.Push(Lib);
 			}
 
 			return (node *)0x1;
@@ -1943,8 +1942,7 @@ node *ParseTopLevel(parser *Parser)
 			}
 			else
 			{
-				// @THREADING: NOT THREAD SAFE
-				DLs.Push(Lib);
+				Parser->LoadedDynamicLibs.Push(Lib);
 			}
 			return (node *)0x1;
 		} break;

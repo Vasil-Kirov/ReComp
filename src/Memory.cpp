@@ -90,6 +90,11 @@ AllocateMemory(u64 Size, i8 Index)
 	return Result;
 }
 
+void ResetArena(ap_memory *Arena)
+{
+	Arena->Current = Arena->Start;
+}
+
 scratch_arena::scratch_arena()
 {
 	InitArenaMem(&Arena, MB(1), KB(1));

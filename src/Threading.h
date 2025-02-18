@@ -7,7 +7,7 @@
 #define WRITE_BARRIER atomic_thread_fence(std::memory_order_release)
 #define RW_BARRIER atomic_thread_fence(std::memory_order_seq_cst)
 const int MAX_THREADS = 8;
-const int MAX_JOBS = 128;
+const int MAX_JOBS = 512;
 
 struct job
 {
@@ -31,7 +31,7 @@ void LockMutex();
 void UnlockMutex();
 
 work_queue *CreateWorkQueue();
-void InitWorkQueue(work_queue *Queue);
+void InitThreadsForQueue(work_queue *Queue);
 void PostJob(work_queue *Queue, job Job);
 unsigned long ThreadProc(void *_Queue);
 bool IsQueueDone(work_queue *Queue);

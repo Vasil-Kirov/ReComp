@@ -40,6 +40,12 @@ GetBonusMessage();
 void
 GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird);
 
+void
+CountError();
+
+bool
+HasErroredOut();
+
 extern string BonusErrorMessage;
 
 #endif // _ERRORS_H

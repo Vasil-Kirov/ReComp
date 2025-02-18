@@ -28,6 +28,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpDebugger.h"
 #include "InterpBinaryOps.h"
 #include "InterpCasts.h"
+#include "Pipeline.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -68,6 +69,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpDebugger.cpp"
 #include "InterpBinaryOps.cpp"
 #include "InterpCasts.cpp"
+#include "Pipeline.cpp"
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"
@@ -98,228 +100,7 @@ extern "C"
 #endif
 const char* __asan_default_options() { return "detect_leaks=0"; }
 
-struct timers
-{
-	timer_group Parse;
-	timer_group TypeCheck;
-	timer_group IR;
-	timer_group LLVM;
-};
-
-void ResolveSymbols(slice<file*> Files, b32 ExpectingMain)
-{
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		AnalyzeForModuleStructs(NodeSlice, File->Module);
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		AnalyzeEnumDefinitions(NodeSlice, File->Module);
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeForUserDefinedTypes(File->Checker, SliceFromArray(File->Nodes));
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeDefineStructs(File->Checker, SliceFromArray(File->Nodes));
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		CheckForRecursiveStructs(File->Checker, SliceFromArray(File->Nodes));
-	}
-
-	if(HasErroredOut())
-		exit(1);
-
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeFillStructCaches(File->Checker, SliceFromArray(File->Nodes));
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
-		//File->Module->Checker = File->Checker;
-	}
-
-	if(ExpectingMain)
-	{
-		b32 FoundMain = false;
-		b32 FoundMainMain = false;
-		string MainName = STR_LIT("main");
-		ForArray(Idx, Files)
-		{
-			file *File = Files[Idx];
-			if(File->Module->Name == MainName)
-			{
-				FoundMain = true;
-				ForArray(mi, File->Module->Globals.Data)
-				{
-					symbol *sym = File->Module->Globals.Data[mi];
-					if(sym->Flags & SymbolFlag_Function &&
-							*sym->Name == MainName)
-					{
-						FoundMainMain = true;
-						break;
-					}
-				}
-			}
-		}
-
-		if(!FoundMain)
-		{
-			LFATAL("Missing main module");
-		}
-
-		if(!FoundMainMain)
-		{
-			LFATAL("Missing main function in main module");
-		}
-	}
-}
-
-file *LexFile(string File)
-{
-	string FileData = ReadEntireFile(File);
-
-	if(FileData.Data == NULL)
-	{
-		LFATAL("Couldn't find file: %s", File.Data);
-	}
-
-	error_info ErrorInfo = {};
-	ErrorInfo.Data = DupeType(FileData, string);
-	ErrorInfo.FileName = File.Data;
-	ErrorInfo.Range.StartLine = 1;
-	ErrorInfo.Range.EndLine = 1;
-	ErrorInfo.Range.EndLine = 1;
-	ErrorInfo.Range.EndChar = 1;
-
-	file *Result = StringToTokens(FileData, ErrorInfo);
-	Result->Name = File;
-	return Result;
-}
-
 dynamic<string> ConfigIDs = {};
-
-void AnalyzeFile(file *File)
-{
-	Analyze(File->Checker, File->Nodes);
-	if(HasErroredOut())
-		exit(1);
-}
-
-void BuildIRFile(file *File, command_line CommandLine)
-{
-	File->IR = NewType(ir);
-	*File->IR = BuildIR(File);
-	
-	if(ShouldOutputIR(File->Module->Name, CommandLine))
-	{
-		string Dissasembly = Dissasemble(File->IR);
-		LWARN("[ MODULE %s ]\n\n%s", File->Module->Name.Data, Dissasembly.Data);
-	}
-}
-
-slice<file*> RunBuildPipeline(slice<string> FileNames, timers *Timers, command_line CommandLine, b32 WantMain, slice<module*> *OutModules)
-{
-	dynamic<module*> Modules = {};
-	dynamic<file*> FileDyn = {};
-
-	Timers->Parse = VLibStartTimer("Parse");
-	ForArray(Idx, FileNames)
-	{
-		file *File = LexFile(FileNames[Idx]);
-		Assert(Idx == FileDyn.Count);
-		FileDyn.Push(File);
-	}
-
-	if(HasErroredOut())
-		exit(1);
-
-	slice<file*> Files = SliceFromArray(FileDyn);
-
-	array<parse_result> ParseResults = {FileNames.Count};
-	ForArray(Idx, Files)
-	{
-		auto it = Files[Idx];
-
-		parse_result Parse = ParseTokens(it, SliceFromArray(ConfigIDs));
-		ParseResults[Idx] = Parse;
-
-		AddModule(Modules, it, Parse.ModuleName);
-	}
-	ForArray(Idx, ParseResults)
-	{
-		parse_result pr = ParseResults[Idx];
-
-		file *File = Files[Idx];
-		File->Nodes = pr.Nodes;
-		File->Imported = ResolveImports(pr.Imports, Modules);
-		File->Checker = NewType(checker);
-		File->Checker->Module	= File->Module;
-		File->Checker->Imported	= File->Imported;
-		File->Checker->File		= File->Name;
-	}
-	VLibStopTimer(&Timers->Parse);
-
-	if(HasErroredOut())
-		exit(1);
-
-	CurrentModules = SliceFromArray(Modules);
-	{
-		Timers->TypeCheck = VLibStartTimer("Type Checking");
-		ResolveSymbols(Files, WantMain);
-		ForArray(Idx, FileNames)
-		{
-			file *F = Files[Idx];
-			AnalyzeFile(F);
-		}
-		AssignIRRegistersForModuleSymbols(Modules);
-		VLibStopTimer(&Timers->TypeCheck);
-	}
-
-	if(DumpingInfo)
-	{
-		binary_blob Blob = StartOutput();
-		DumpU32(&Blob, Modules.Count);
-		For(Modules)
-		{
-			DumpModule(&Blob, *it);
-		}
-		DumpTypeTable(&Blob);
-		WriteBlobToFile(&Blob);
-	}
-
-	{
-		Timers->IR = VLibStartTimer("Intermediate Representation Generation");
-		ForArray(Idx, Files)
-		{
-			file *File = Files[Idx];
-			BuildIRFile(File, CommandLine);
-		}
-		BuildEnumIR(SliceFromArray(Modules));
-
-		VLibStopTimer(&Timers->IR);
-	}
-
-	*OutModules = SliceFromArray(Modules);
-	return Files;
-}
 
 const char *GetStdDir()
 {
@@ -433,18 +214,15 @@ function *FindFunction(slice<function> Functions, string Name)
 
 void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 {
-	const char *StdDir = GetStdDir();
-	string Dir = MakeString(StdDir);
-
 	string StdFiles[] = {
-		GetFilePath(Dir, "base.rcp"),
-		GetFilePath(Dir, "os.rcp"),
-		GetFilePath(Dir, "io.rcp"),
-		GetFilePath(Dir, "mem.rcp"),
-		GetFilePath(Dir, "strings.rcp"),
-		GetFilePath(Dir, "array.rcp"),
-		GetFilePath(Dir, "compile.rcp"),
-		GetFilePath(Dir, "math.rcp"),
+		STR_LIT("base.rcp"),
+		STR_LIT("os.rcp"),
+		STR_LIT("io.rcp"),
+		STR_LIT("mem.rcp"),
+		STR_LIT("strings.rcp"),
+		STR_LIT("array.rcp"),
+		STR_LIT("compile.rcp"),
+		STR_LIT("math.rcp"),
 	};
 
 	if((Flags & CF_Standalone) == 0)
@@ -456,42 +234,26 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 		}
 	}
 
-	Files.Push(GetFilePath(Dir, "intrin.rcp"));
+	// Doesn't care about CF_Standalone
+	Files.Push(STR_LIT("intrin.rcp"));
 
 	if(Flags & CF_NoStdLib)
 	{
-		Files.Push(GetFilePath(Dir, "req.rcp"));
+		Files.Push(STR_LIT("req.rcp"));
 	}
 
 	if(Internals.Data == NULL)
 	{
-		Files.Push(GetFilePath(Dir, "internal.rcp"));
+		Files.Push(STR_LIT("internal.rcp"));
 	}
 	else
 	{
 		// @Note: make sure it's null terminated
 		string Str = MakeString(Internals.Data, Internals.Count);
-		Files.Push(GetFilePath(Dir, Str.Data));
+		Files.Push(Str);
 	}
 }
 
-void CompileBuildFile(file *F, string Name, timers *Timers, u32 *CompileInfoTypeIdx, command_line CommandLine, slice<module*> *OutModules, b32 NoStdLib)
-{
-	dynamic<string> FileNames = {};
-	AddStdFiles(FileNames, NoStdLib, {});
-	FileNames.Push(Name);
-	slice<file*> Files = RunBuildPipeline(SliceFromArray(FileNames), Timers, CommandLine, false, OutModules);
-	for(int i = 0; i < Files.Count; ++i)
-	{
-		if(Files[i]->Module->Name == STR_LIT("build"))
-		{
-			*F = *Files[i];
-			return;
-		}
-	}
-	LFATAL("Failed to find build module in compile script");
-	unreachable;
-}
 
 int
 main(int ArgCount, char *Args[])
@@ -522,6 +284,14 @@ main(int ArgCount, char *Args[])
 
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 
+	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
+	Assert(AddLookupPath(STR_LIT(".")));
+	if(!AddLookupPath(StdLibDir))
+	{
+		LogCompilerError("Error: Invalid installation, compiler couldn't find standard library directory\n");
+		exit(1);
+	}
+
 
 #if _WIN32
 	DLs.Push(OpenLibrary("kernel32"));
@@ -548,6 +318,8 @@ main(int ArgCount, char *Args[])
 		 DLs.Push(Lib);
 	}
 
+	CreatePipeline();
+
 	dynamic<timers> Timers = {};
 	slice<module*> ModuleArray = {};
 	compile_info *Info = NewType(compile_info);
@@ -555,17 +327,35 @@ main(int ArgCount, char *Args[])
 	interpreter VM = {};
 	timer_group VMBuildTimer = {};
 	timer_group VMBuildTimer2 = {};
+
+#if _WIN32
+	ConfigIDs.Push(STR_LIT("Windows"));
+#else
+	ConfigIDs.Push(STR_LIT("Unix"));
+#endif
+
 	if(CommandLine.SingleFile.Data == NULL)
 	{
 		timers BuildTimers = {};
-		u32 CompileInfo;
 		file BuildFile = {};
 		slice<module*> BuildModules = {};
 
 		// @TODO: maybe actually check the host machine?
 		ConfigIDs.Push(STR_LIT("x86"));
 		ConfigIDs.Push(STR_LIT("x64"));
-		CompileBuildFile(&BuildFile, CommandLine.BuildFile, &BuildTimers, &CompileInfo, CommandLine, &BuildModules, false);
+
+		{
+			dynamic<string> FileNames = {};
+			FileNames.Push(CommandLine.BuildFile);
+			AddStdFiles(FileNames, false, {});
+			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("build"), STR_LIT("compile"));
+			BuildModules = r.Modules;
+			BuildFile = *r.Files[r.EntryFileIdx];
+			BuildTimers = r.Timers;
+
+			// Clear run-time defines
+			ConfigIDs = {};
+		}
 
 		BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
 
@@ -647,6 +437,19 @@ main(int ArgCount, char *Args[])
 			{
 			}
 
+			using pt = platform_target;
+			switch(PTarget)
+			{
+				case pt::Windows:
+				{
+					ConfigIDs.Push(STR_LIT("Windows"));
+				} break;
+				case pt::UnixBased:
+				{
+					ConfigIDs.Push(STR_LIT("Unix"));
+				} break;
+			}
+
 			if(Info->Arch == Arch_x86_64)
 			{
 				ConfigIDs.Push(STR_LIT("x86"));
@@ -684,22 +487,25 @@ main(int ArgCount, char *Args[])
 				LDEBUG("CONFIG %s", it->Data);
 			}
 
-			slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
+			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), STR_LIT("main"));
+			slice<file*> Files = r.Files;
+			ModuleArray = r.Modules;
+			FileTimer = r.Timers;
 
 			// Remake vm to evaluate enums with new info
 
-				VMBuildTimer2 = VLibStartTimer("VM");
-				interpreter ComptimeVM = {};
-				MakeInterpreter(ComptimeVM, ModuleArray, 0);
-				PlatformClearSignalHandler();
-				if(HasErroredOut())
-					exit(1);
-				VLibStopTimer(&VMBuildTimer2);
+			VMBuildTimer2 = VLibStartTimer("VM");
+			interpreter ComptimeVM = {};
+			MakeInterpreter(ComptimeVM, ModuleArray, 0);
+			PlatformClearSignalHandler();
+			if(HasErroredOut())
+				exit(1);
+			VLibStopTimer(&VMBuildTimer2);
 
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
+			RCGenerateCode(ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -726,19 +532,36 @@ main(int ArgCount, char *Args[])
 	}
 	else
 	{
+		using pt = platform_target;
+		switch(PTarget)
+		{
+			case pt::Windows:
+			{
+				ConfigIDs.Push(STR_LIT("Windows"));
+			} break;
+			case pt::UnixBased:
+			{
+				ConfigIDs.Push(STR_LIT("Unix"));
+			} break;
+		}
+
 		timers FileTimer = {};
 
 		dynamic<string> FileNames = {};
 		FileNames.Push(CommandLine.SingleFile);
 		AddStdFiles(FileNames, false, {});
-		slice<file*> FileArray = RunBuildPipeline(SliceFromArray(FileNames), &FileTimer, CommandLine, true, &ModuleArray);
+
+		auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), STR_LIT("main"));
+		slice<file*> Files = r.Files;
+		ModuleArray = r.Modules;
+		FileTimer = r.Timers;
 		
 		MakeInterpreter(VM, ModuleArray, 100);
 		if(HasErroredOut())
 			exit(1);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(ModuleArray, FileArray, CommandLine.Flags, Info, VM.StoredGlobals);
+		RCGenerateCode(ModuleArray, Files, CommandLine.Flags, Info, VM.StoredGlobals);
 		VLibStopTimer(&FileTimer.LLVM);
 		VM.StackAllocator.Free();
 	}

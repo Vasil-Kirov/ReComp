@@ -29,5 +29,7 @@ void PlatformSleepOnSemaphore(t_semaphore);
 void PlatformSignalSemaphore(t_semaphore);
 void PlatformSetSignalHandler(sig_proc Proc, void *Data);
 void PlatformClearSignalHandler();
+bool PlatformIsPathValid(const char *Path);
 
+#define MAX_PATH_LEN 8192
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "Dynamic.h"
+#include "Memory.h"
 #include <string.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -56,6 +57,7 @@ struct split
 #define STR_LIT(LIT) MakeString(LIT, sizeof(LIT) - 1)
 
 string_builder MakeBuilder();
+string_builder MakeBuilder(ap_memory *Memory);
 
 split SplitAt(string S, char c);
 

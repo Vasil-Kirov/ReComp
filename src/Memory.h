@@ -41,6 +41,8 @@ ArenaAllocate(ap_memory *Arena, u64 Size, b32 NoZeroOut=false);
 void *
 AllocateMemory(u64 Size, i8 Index);
 
+void ResetArena(ap_memory *Arena);
+
 void *ToArena(void *, u64 Size, i8 Index);
 
 void FreeAllArenas();

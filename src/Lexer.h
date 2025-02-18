@@ -120,6 +120,7 @@ struct keyword
 };
 
 
+struct file *StringToTokens(string String, error_info ErrorInfo);
 token GetNextToken(string *String, error_info *ErrorInfo);
 
 const char* GetTokenName(token_type Token);

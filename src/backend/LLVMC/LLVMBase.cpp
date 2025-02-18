@@ -1945,7 +1945,7 @@ void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags
 	work_queue *Queue = CreateWorkQueue();
 	if((CommandFlags & CommandFlag_nothread) == 0)
 	{
-		InitWorkQueue(Queue);
+		InitThreadsForQueue(Queue);
 		Assert(LLVMIsMultithreaded());
 	}
 

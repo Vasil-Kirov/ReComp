@@ -285,6 +285,7 @@ struct ir
 };
 
 ir BuildIR(file *File);
+void BuildEnumIR(slice<module *> Modules);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);
@@ -303,3 +304,4 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 //string Dissasemble(slice<function> Fn);
 string DissasembleFunction(function Fn, int indent);
 void DissasembleInstruction(string_builder *Builder, instruction Instr);
+

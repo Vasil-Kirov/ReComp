@@ -285,10 +285,12 @@ main(int ArgCount, char *Args[])
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
+	StdLibDir.Size--;
+	StdLibDir = MakeString(StdLibDir.Data, StdLibDir.Size);
 	Assert(AddLookupPath(STR_LIT(".")));
 	if(!AddLookupPath(StdLibDir))
 	{
-		LogCompilerError("Error: Invalid installation, compiler couldn't find standard library directory\n");
+		LogCompilerError("Error: Invalid installation, compiler couldn't find standard library directory at %.*s\n", StdLibDir.Size, StdLibDir.Data);
 		exit(1);
 	}
 
@@ -505,7 +507,7 @@ main(int ArgCount, char *Args[])
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
 #if 1
-			RCGenerateCode(ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
+			RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
 #else
 			slice<reg_reserve_instruction> Reserved = SliceFromConst({
 					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
@@ -561,7 +563,7 @@ main(int ArgCount, char *Args[])
 			exit(1);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(ModuleArray, Files, CommandLine.Flags, Info, VM.StoredGlobals);
+		RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, VM.StoredGlobals);
 		VLibStopTimer(&FileTimer.LLVM);
 		VM.StackAllocator.Free();
 	}

@@ -20,6 +20,20 @@ struct lookup_paths {
 
 lookup_paths Lookups = {};
 
+string GetLookupPathsPrintable(string FileName)
+{
+	Lookups.Mutex.lock();
+
+	auto b = MakeBuilder();
+	For(Lookups.Paths)
+	{
+		b.printf("\t%.*s/%.*s\n", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
+	}
+
+	Lookups.Mutex.unlock();
+	return MakeString(b);
+}
+
 string FindFile(string FileName)
 {
 	scratch_arena Arena = {};
@@ -104,6 +118,9 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		TryDoWork(CurrentPipeline.Queue);
 	}
 
+	if(HasErroredOut())
+		exit(1);
+
 	dynamic<module*> Modules = {};
 
 	For(CurrentPipeline.ParseResults.Results)
@@ -117,17 +134,22 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
 		file *File = pr.File;
 		File->Nodes = pr.Nodes;
-		File->Imported = ResolveImports(pr.Imports, Modules);
 		File->Checker = NewType(checker);
 		File->Checker->Module	= File->Module;
-		File->Checker->Imported	= File->Imported;
 		File->Checker->File		= File->Name;
 		For(pr.DynamicLibraries)
 		{
 			DLs.Push(*it);
 		}
+		FileArray[Idx] = CurrentPipeline.ParseResults.Results[Idx].File;
+	}
 
-		FileArray[Idx] = File;
+	ForArray(Idx, CurrentPipeline.ParseResults.Results)
+	{
+		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
+		file *File = FileArray[Idx];
+		File->Imported = ResolveImports(pr.Imports, Modules, SliceFromArray(FileArray));
+		File->Checker->Imported	= File->Imported;
 	}
 
 	if(HasErroredOut())

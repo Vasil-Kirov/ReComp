@@ -5,7 +5,6 @@
 #include "Globals.h"
 #include "Log.h"
 #include "Memory.h"
-#include "Parser.h"
 #include "Semantics.h"
 
 slice<module*> CurrentModules = {};
@@ -30,31 +29,59 @@ void AddModule(dynamic<module*> &Modules, file *File, string Name)
 	File->Module = Modules[Modules.Count-1];
 }
 
-slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules)
+string FindFile(string FileName);
+
+slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules, slice<file*> Files)
 {
 	dynamic<import> Imports = {};
 
 	ForArray(Idx, ResolveImports)
 	{
 		needs_resolving_import ri = ResolveImports[Idx];
-		b32 Found = false;
-		ForArray(MIdx, Modules)
+		if(ri.FileName.Size != 0)
 		{
-			module *m = Modules[MIdx];
-			if(m->Name == ri.Name)
+			string Path = FindFile(ri.FileName);
+			b32 Found = false;
+			For(Files)
 			{
-				Found = true;
-				import NewImport = {
-					.M = m,
-					.As = ri.As
-				};
-				Imports.Push(NewImport);
-				break;
+				if((*it)->Name == Path)
+				{
+					Found = true;
+					import NewImport = {
+						.M = (*it)->Module,
+						.As = ri.As
+					};
+					Imports.Push(NewImport);
+					break;
+				}
+			}
+			if(!Found)
+			{
+				RaiseError(true, *ri.ErrorInfo, "Couldn't find imported file %.*s",
+						ri.FileName.Size, ri.FileName.Data);
 			}
 		}
-		if(!Found)
+		else
 		{
-			RaiseError(true, *ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
+			b32 Found = false;
+			ForArray(MIdx, Modules)
+			{
+				module *m = Modules[MIdx];
+				if(m->Name == ri.Name)
+				{
+					Found = true;
+					import NewImport = {
+						.M = m,
+						.As = ri.As
+					};
+					Imports.Push(NewImport);
+					break;
+				}
+			}
+			if(!Found)
+			{
+				RaiseError(true, *ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
+			}
 		}
 	}
 
@@ -87,7 +114,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 		if(InternalMod == NULL)
 		{
-			LogCompilerError("Error: internal module is not found, if you replaced it in CompileInfo, make sure the module name is `internal`");
+			LogCompilerError("Error: internal module is not found, if you replaced it in CompileInfo, make sure the module name is `internal`\n");
 			exit(1);
 		}
 		Imports.Push(import{.M = InternalMod, .As = STR_LIT("")});
@@ -105,7 +132,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 		if(BaseMod == NULL)
 		{
-			LogCompilerError("Error: base module is missing");
+			LogCompilerError("Error: base module is missing\n");
 			exit(1);
 		}
 		Imports.Push(import{.M = BaseMod, .As = STR_LIT("")});

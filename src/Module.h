@@ -8,6 +8,7 @@ struct file;
 
 struct needs_resolving_import
 {
+	string FileName;
 	string Name;
 	string As;
 	struct error_info *ErrorInfo;
@@ -41,8 +42,8 @@ struct file
 b32 FindImportedModule(slice<import> Imports, string &ModuleName, import *Out);
 int GetFileIndex(module *m, file *f);
 void AddModule(dynamic<module*> &Modules, file *File, string Name);
-slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules);
 u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules);
+slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules, slice<file*> Files);
 
 extern slice<module*> CurrentModules;
 

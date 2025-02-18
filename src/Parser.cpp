@@ -6,6 +6,7 @@
 #include "Lexer.h"
 #include "Log.h"
 #include "Memory.h"
+#include "Pipeline.h"
 #include "Semantics.h"
 #include "Type.h"
 #include "VString.h"
@@ -534,6 +535,7 @@ void ParseImport(parser *Parser)
 		}
 
 		needs_resolving_import Imported = {
+			.FileName = STR_LIT(""),
 			.Name = *T.ID,
 			.As = As ? *As : STR_LIT(""),
 			.ErrorInfo = ErrorInfo,
@@ -543,8 +545,49 @@ void ParseImport(parser *Parser)
 	}
 	else
 	{
-		//token T = EatToken(Parser, T_STR, true);
-		//string FileName = *T.ID;
+		token T = EatToken(Parser, T_STR, true);
+		string FileName = *T.ID;
+		bool Failed = false;
+		if(FileName.Size == 0)
+		{
+			RaiseError(false, T.ErrorInfo, "Empty string after #import is not valid");
+			Failed = true;
+		}
+		else if(!PipelineDoFile(FileName))
+		{
+			string Checked = GetLookupPathsPrintable(FileName);
+			RaiseError(false, T.ErrorInfo, "Cannot find imported file %.*s\nChecked paths:\n%.*s",
+					FileName.Size, FileName.Data, Checked.Size, Checked.Data);
+			Failed = true;
+		}
+
+		string *As = NULL;
+		if(Parser->Current->Type == T_AS)
+		{
+			GetToken(Parser);
+			if(Parser->Current->Type == T_PTR)
+			{
+				GetToken(Parser);
+				string Any = STR_LIT("*");
+				As = DupeType(Any, string);
+			}
+			else
+			{
+				As = EatToken(Parser, T_ID, true).ID;
+			}
+		}
+
+		if(!Failed)
+		{
+			needs_resolving_import Imported = {
+				.FileName = FileName,
+				.Name = STR_LIT(""),
+				.As = As ? *As : STR_LIT(""),
+				.ErrorInfo = ErrorInfo,
+			};
+
+			Parser->Imported.Push(Imported);
+		}
 	}
 }
 

@@ -37,4 +37,5 @@ struct pipeline_result {
 
 bool PipelineDoFile(string GivenPath);
 pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint);
+string GetLookupPathsPrintable(string FileName);
 

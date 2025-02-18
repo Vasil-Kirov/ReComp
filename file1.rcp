@@ -2,26 +2,12 @@ module main
 
 #import intrin as *
 #import io as *
+#import "../file2.rcp" as *
 
-struct OtherThingy {
-    x: *,
-    y: int,
-};
+num :: @i32 4;
 
 main :: fn() -> i32 {
-    x := ```
-    int main() {
-        return 0;
-    }
-    ```;
-
-    fv := v2 { 1.3, 1.0 };
-
-    v := bit_cast(iv2, fv);
-
-    io.println("%", v);
-    back_to_str := bit_cast(v2, v);
-    io.println("%", back_to_str);
+    println("%", get_num());
 
     return 0;
 }

@@ -1940,12 +1940,10 @@ void GenWorkerFn(void *Data)
 	LDEBUG("Done with module: %s", Info->M->Name.Data);
 }
 
-void RCGenerateCode(slice<module*> Modules, slice<file*> Files, u32 CommandFlags, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
+void RCGenerateCode(work_queue *Queue, slice<module*> Modules, slice<file*> Files, u32 CommandFlags, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
 {
-	work_queue *Queue = CreateWorkQueue();
 	if((CommandFlags & CommandFlag_nothread) == 0)
 	{
-		InitThreadsForQueue(Queue);
 		Assert(LLVMIsMultithreaded());
 	}
 

@@ -1,20 +1,8 @@
 module f2
 
+#import "../file1.rcp"
 
-fn_ptr: *fn(str: *u8) -> i32;
-puts: fn #foreign(str: *u8) -> i32;
-
-get_the_fn :: fn() -> * {
-	maybe_x := @?*void puts;
-	if maybe_x == null { #assert false; }
-	return ?maybe_x;
-}
-
-init :: fn () {
-	fn_ptr = get_the_fn();
-	x := fn_ptr;
-	y := x;
-	x(c"X");
-	y(c"X");
+get_num :: fn() -> i32 {
+    return main.num;
 }
 

@@ -38,16 +38,19 @@ string FindFile(string FileName)
 {
 	scratch_arena Arena = {};
 	char *Buf = (char *)Arena.Allocate(MAX_PATH_LEN);
+	char *Absolute = (char *)Arena.Allocate(MAX_PATH_LEN);
 	Lookups.Mutex.lock();
 	For(Lookups.Paths)
 	{
 		sprintf(Buf, "%.*s/%.*s", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
-		if(PlatformIsPathValid(Buf))
+		Absolute = GetAbsolutePath(Buf, Absolute);
+		if(PlatformIsPathValid(Absolute))
 		{
 			Lookups.Mutex.unlock();
-			string Result = MakeString(Buf);
+			string Result = MakeString(Absolute);
 			return Result;
 		}
+		memset(Absolute, 0, MAX_PATH_LEN);
 	}
 	Lookups.Mutex.unlock();
 	return STR_LIT("");

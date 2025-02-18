@@ -414,6 +414,18 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer);
 
+			for(int i = 0; i < Info->DirectoryCount; ++i)
+			{
+				interp_string InterpDir = Info->Directories[i];
+				string Path = { .Data = InterpDir.Data, .Size = InterpDir.Count };
+				if(!AddLookupPath(Path))
+				{
+					LogCompilerError("Error: Couldn't find source directory: %.*s\n",
+							Path.Size, Path.Data);
+
+				}
+			}
+
 			if(Info->Flags & CF_Standalone)
 			{
 				Info->Flags |= CF_NoStdLib;

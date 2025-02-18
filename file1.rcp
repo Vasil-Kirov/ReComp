@@ -2,7 +2,7 @@ module main
 
 #import intrin as *
 #import io as *
-#import "../file2.rcp" as *
+#import "file2.rcp" as *
 
 num :: @i32 4;
 

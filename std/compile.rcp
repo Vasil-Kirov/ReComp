@@ -25,6 +25,7 @@ enum Arch: u32 {
 }
 
 struct CompileInfo {
+    source_dirs: []string,
     files: []string,
     opt: int,
     flags: CompileFlag,

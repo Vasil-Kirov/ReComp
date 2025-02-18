@@ -29,6 +29,8 @@ struct interp_string
 
 struct compile_info
 {
+	size_t DirectoryCount;
+	interp_string *Directories;
 	size_t FileCount;
 	interp_string *FileNames;
 	i64 Optimization;

@@ -558,6 +558,7 @@ main(int ArgCount, char *Args[])
 				ConfigIDs.Push(STR_LIT("Unix"));
 			} break;
 		}
+		CommandLine.Flags |= CF_DebugInfo;
 
 		timers FileTimer = {};
 

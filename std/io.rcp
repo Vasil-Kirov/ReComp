@@ -335,6 +335,20 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
 	 		format_uint(b, num);
         }
         TypeKind.Array: {
+            at := t.t.array;
+            builder_append_u32(b, '[');
+            format_uint(b, at.member_count);
+            builder_append_u32(b, ']');
+            builder_append(b, "{ ");
+
+            align := get_type_alignment(at.t);
+            elem := @*u8 arg.val;
+            for i in at.member_count {
+                if i != 0 builder_append(b, ", ");
+                print_type(b, .{at.t, elem});
+                elem += align;
+            }
+            builder_append(b, " }");
         }
         TypeKind.Slice: {
         }

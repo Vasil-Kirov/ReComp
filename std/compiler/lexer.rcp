@@ -47,6 +47,7 @@ is_id_char :: fn(c: u8) -> bool {
 
 lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location) -> []Token {
     result := array.create(Token, alloc);
+    lexer := lexer;
     lexer.at = text.data;
     lexer.end = text.data + text.count;
     lexer.location = start;
@@ -73,7 +74,7 @@ lex_id_char :: fn(lexer: *Lexer) -> Token {
     end := lexer.at;
     range_end := lexer.location;
 
-    string id = { .data = start, .end = end - start };
+    id := string { data = start, count = end - start };
 
     keyword, found := try_find_keyword(lexer, id);
     if found {
@@ -91,6 +92,7 @@ lex_token :: fn(lexer: *Lexer) -> Token {
     if is_id_char(c) {
         return lex_id_char(lexer);
     }
+    return .{};
 }
 
 try_find_keyword :: fn(lexer: *Lexer, word: string) -> (Keyword, bool) {
@@ -103,6 +105,7 @@ try_find_keyword :: fn(lexer: *Lexer, word: string) -> (Keyword, bool) {
 }
 
 add_keyword :: fn(lexer: *Lexer, word: string, type: TokenType) {
+    lexer := lexer;
     array.add(&lexer.keywords, Keyword {id = word, type = type});
 }
 
@@ -113,7 +116,7 @@ make_lexer :: fn(alloc: *Allocator) -> Lexer {
         alloc = alloc,
         keywords = array.create(Keyword, alloc),
         at = empty_string.data,
-        eend = empty_string.data,
+        end = empty_string.data,
     };
 }
 
@@ -130,8 +133,8 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 	add_keyword(lexer, "as",            .As);
 	add_keyword(lexer, "in",            .In);
 	add_keyword(lexer, "::",            .Const);
-	add_keyword(lexer, ">=",            .GeaterEqual);
-	add_keyword(lexer, "<=",            .LessEqual);
+	add_keyword(lexer, ">=",            .GreaterEqual);
+	add_keyword(lexer, "<=",            .LesserEqual);
 	add_keyword(lexer, "!=",            .NotEqual);
 	add_keyword(lexer, "==",            .EqualEqual);
 	add_keyword(lexer, "||",            .LogicalOr);
@@ -163,7 +166,7 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 	add_keyword(lexer, "#embed_bin",    .EmbedBin);
 	add_keyword(lexer, "#embed_str",    .EmbedString);
 	add_keyword(lexer, "#inline",       .Inline);
-	add_keyword(lexer, "#if",           .Pwdif);
+	add_keyword(lexer, "#if",           .PWDIf);
 	add_keyword(lexer, "#elif",         .PWDElseIf);
 	add_keyword(lexer, "#else",         .PWDElse);
 	add_keyword(lexer, "type_info",     .Info);
@@ -189,6 +192,7 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 #private 
 
 advance :: fn(lexer: *Lexer) -> u8 {
+    lexer := lexer;
     if lexer.at < lexer.end {
         c := *lexer.at;
         if c == '\n' {
@@ -200,14 +204,13 @@ advance :: fn(lexer: *Lexer) -> u8 {
 
         lexer.at += 1;
         return c;
-    } else {
-        return '\0';
     }
+    return @u8 '\0';
 }
 
 get_char :: fn(lexer: *Lexer) -> u8 {
     if lexer.at < lexer.end return *lexer.at;
-    else return '\0';
+    return @u8 '\0';
 }
 
 skip_whitespace :: fn(lexer: *Lexer) {
@@ -219,30 +222,30 @@ skip_whitespace :: fn(lexer: *Lexer) {
 #public
 
 enum TokenType: i16 {
-	Pointer         = '*',
-	And             = '&',
-	Decl            = ':',
-	StartScope      = '{',
-	EndScope        = '}',
-	OpenParen       = '(',
-	CloseParen      = ')',
-	OpenBracket     = '[',
-	CoseBracket     = ']',
-	Cast            = '@',
-	Equal           = '=',
-	Lesser          = '<',
-	Greater         = '>',
-	Comma           = ',',
-	Dot             = '.',
-	QuestionMark    = '?',
-	Bang            = '!',
-	Minus           = '-',
-	SemiColon       = ';',
-	Dollar          = '$',
-	Plus            = '+',
-	Minus           = '-',
-	Or	            = '|',
-	Div	            = '/',
+	Pointer         = @i16 '*',
+	And             = @i16 '&',
+	Decl            = @i16 ':',
+	StartScope      = @i16 '{',
+	EndScope        = @i16 '}',
+	OpenParen       = @i16 '(',
+	CloseParen      = @i16 ')',
+	OpenBracket     = @i16 '[',
+	CoseBracket     = @i16 ']',
+	Cast            = @i16 '@',
+	Equal           = @i16 '=',
+	Lesser          = @i16 '<',
+	Greater         = @i16 '>',
+	Comma           = @i16 ',',
+	Dot             = @i16 '.',
+	QuestionMark    = @i16 '?',
+	Bang            = @i16 '!',
+	Minus           = @i16 '-',
+	SemiColon       = @i16 ';',
+	Dollar          = @i16 '$',
+	Plus            = @i16 '+',
+	Minus           = @i16 '-',
+	Or	            = @i16 '|',
+	Div	            = @i16 '/',
 	EOF             = -1,
 	ID              = -2,
 	If              = -3,

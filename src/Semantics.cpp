@@ -3321,7 +3321,11 @@ void AnalyzeNode(checker *Checker, node *Node)
 					RaiseError(false, *Node->ErrorInfo, "Trying to return a value in a void function");
 					break;
 				}
+
+				Checker->AutoEnum.Push(FnRetTypeID);
 				u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
+				Checker->AutoEnum.Pop();
+
 				const type *Type = GetType(Result);
 				const type *Return = GetType(FnRetTypeID);
 				const type *Promotion = NULL;

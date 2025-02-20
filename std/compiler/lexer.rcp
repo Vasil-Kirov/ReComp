@@ -77,7 +77,7 @@ lex_id_char :: fn(lexer: *Lexer) -> Token {
 
     keyword, found := try_find_keyword(lexer, id);
     if found {
-        return Token { type = keyword.type, str = keyword.id, range = Range { range_start, range_end } };
+        return Token { type = keyword.type, str = keyword.id, range = .{ range_start, range_end } };
     }
     return Token { type = .ID, str = id, range = Range { range_start, range_end } };
 }
@@ -86,7 +86,7 @@ lex_token :: fn(lexer: *Lexer) -> Token {
     skip_whitespace(lexer);
     c := get_char(lexer);
     if c == '\0' {
-        return Token { type = .EOF, str = "", range = Range { lexer.location, lexer.location } };
+        return Token { type = .EOF, str = "", range = .{ lexer.location, lexer.location } };
     }
     if is_id_char(c) {
         return lex_id_char(lexer);

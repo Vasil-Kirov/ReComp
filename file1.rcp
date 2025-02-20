@@ -2,12 +2,18 @@ module main
 
 #import intrin as *
 #import io as *
-#import "file2.rcp" as *
 
-num :: @i32 4;
+struct Foo {
+    a: int,
+    b: int,
+}
+
+print_struct :: fn(x: Foo) {
+    println("%", x);
+}
 
 main :: fn() -> i32 {
-    println("%", get_num());
+    print_struct(.{10, 20});
 
     return 0;
 }

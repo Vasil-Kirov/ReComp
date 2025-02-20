@@ -1107,30 +1107,6 @@ node *ParseIndex(parser *Parser, node *Operand)
 	return MakeIndex(ErrorInfo, Operand, IndexExpression);
 }
 
-node *ParseSelectors(parser *Parser, node *Operand)
-{
-	ERROR_INFO;
-	EatToken(Parser, T_DOT, true);
-	while(true)
-	{
-		token ID = EatToken(Parser, T_ID, false);
-		string *Name = NULL;
-		if(ID.Type == 0)
-			Name = &ErrorID;
-		else
-			Name = ID.ID;
-
-		CopyRangeEndToErrorInfo(ErrorInfo, &ID.ErrorInfo);
-		Operand = MakeSelector(ErrorInfo, Operand, Name);
-		if(Parser->Current->Type != T_DOT)
-			break;
-		ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo;
-		EatToken(Parser, T_DOT, true);
-	}
-
-	return Operand;
-}
-
 node *ParseList(parser *Parser, node *Operand)
 {
 	ERROR_INFO;
@@ -1169,6 +1145,37 @@ node *ParseList(parser *Parser, node *Operand)
 	}
 	EatToken(Parser, T_ENDSCOPE, true);
 	return Result;
+}
+
+node *ParseSelectors(parser *Parser, node *Operand)
+{
+	ERROR_INFO;
+	EatToken(Parser, T_DOT, true);
+	if(Parser->Current->Type == T_STARTSCOPE && Operand == NULL)
+	{
+		return ParseList(Parser, Operand);
+	}
+	else
+	{
+		while(true)
+		{
+			token ID = EatToken(Parser, T_ID, false);
+			string *Name = NULL;
+			if(ID.Type == 0)
+				Name = &ErrorID;
+			else
+				Name = ID.ID;
+
+			CopyRangeEndToErrorInfo(ErrorInfo, &ID.ErrorInfo);
+			Operand = MakeSelector(ErrorInfo, Operand, Name);
+			if(Parser->Current->Type != T_DOT)
+				break;
+			ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo;
+			EatToken(Parser, T_DOT, true);
+		}
+
+		return Operand;
+	}
 }
 
 node *ParseAtom(parser *Parser, node *Operand)

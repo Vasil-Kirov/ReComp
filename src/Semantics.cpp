@@ -1410,7 +1410,29 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_TYPELIST:
 		{
-			u32 TypeIdx = GetTypeFromTypeNode(Checker, Expr->TypeList.TypeNode);
+			u32 TypeIdx = INVALID_TYPE;
+			if(Expr->TypeList.TypeNode == NULL)
+			{
+				for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
+				{
+					const type *T = GetType(Checker->AutoEnum.Data[i]);
+					if(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Slice ||
+							T->Kind == TypeKind_Array || T->Kind == TypeKind_Vector || IsString(T))
+					{
+						TypeIdx = Checker->AutoEnum.Data[i];
+						break;
+					}
+				}
+
+				if(TypeIdx == INVALID_TYPE)
+				{
+					RaiseError(true, *Expr->ErrorInfo, "Cannot infer type list type from this expression");
+				}
+			}
+			else
+			{
+				TypeIdx = GetTypeFromTypeNode(Checker, Expr->TypeList.TypeNode);
+			}
 			Assert(TypeIdx != INVALID_TYPE);
 			const type *Type = GetType(TypeIdx);
 			bool Failed = false;

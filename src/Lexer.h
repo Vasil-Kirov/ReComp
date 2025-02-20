@@ -54,7 +54,7 @@ enum token_type
 	T_TEQ   = -21,
 	T_DEQ   = -22,
 	T_MODEQ = -23,
-	T_SLEQ  = -24, // Lexer doesn't support 3 character combinations right now
+	T_SLEQ  = -24,
 	T_SREQ  = -25,
 	T_ANDEQ = -26,
 	T_XOREQ = -27,

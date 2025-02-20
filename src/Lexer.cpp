@@ -365,6 +365,10 @@ char GetEscapedChar(char ToEscape)
 		return '\0';
 		case 'r':
 		return '\r';
+		case 'v':
+		return '\v';
+		case 'f':
+		return '\f';
 	}
 	return ToEscape;
 }

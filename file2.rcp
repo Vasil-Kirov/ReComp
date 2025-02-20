@@ -1,8 +1,8 @@
 module f2
 
-#import "../file1.rcp"
+//#import "../file1.rcp"
 
 get_num :: fn() -> i32 {
-    return main.num;
+    return 3;
 }
 

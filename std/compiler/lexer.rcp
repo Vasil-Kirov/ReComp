@@ -1,4 +1,320 @@
 module lexer
 
+#import mem as *
+#import array
 
+struct Location {
+    file: string,
+    line: u16,
+    char: u16,
+}
+
+struct Range {
+    start: Location,
+    end: Location,
+}
+
+struct Token {
+    range: Range,
+    str: string,
+    type: TokenType,
+}
+
+struct Keyword {
+    id: string,
+    type: TokenType,
+}
+
+struct Lexer {
+    alloc: *Allocator,
+    keywords: []Keyword,
+    at: *u8,
+    end: *u8,
+    location: Location,
+}
+
+is_space :: fn(c: u8) -> bool {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
+is_digit :: fn(c: u8) -> bool {
+    return c >= '0' && c <= '9';
+}
+
+is_id_char :: fn(c: u8) -> bool {
+    return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location) -> []Token {
+    result := array.create(Token, alloc);
+    lexer.at = text.data;
+    lexer.end = text.data + text.count;
+    lexer.location = start;
+
+    for {
+        token := lex_token(lexer);
+        if token.type == .EOF break;
+        array.add(&result, token);
+    }
+
+    return result;
+}
+
+lex_id_char :: fn(lexer: *Lexer) -> Token {
+    c := get_char(lexer);
+    #assert is_id_char(c);
+
+    range_start := lexer.location;
+    start := lexer.at;
+    for is_id_char(c) || is_digit(c) {
+        advance(lexer);
+        c = get_char(lexer);
+    }
+    end := lexer.at;
+    range_end := lexer.location;
+
+    string id = { .data = start, .end = end - start };
+
+    keyword, found := try_find_keyword(lexer, id);
+    if found {
+        return Token { type = keyword.type, str = keyword.id, range = Range { range_start, range_end } };
+    }
+    return Token { type = .ID, str = id, range = Range { range_start, range_end } };
+}
+
+lex_token :: fn(lexer: *Lexer) -> Token {
+    skip_whitespace(lexer);
+    c := get_char(lexer);
+    if c == '\0' {
+        return Token { type = .EOF, str = "", range = Range { lexer.location, lexer.location } };
+    }
+    if is_id_char(c) {
+        return lex_id_char(lexer);
+    }
+}
+
+try_find_keyword :: fn(lexer: *Lexer, word: string) -> (Keyword, bool) {
+    for keyword in lexer.keywords {
+        if keyword.id == word {
+            return keyword, true;
+        }
+    }
+    return Keyword {id = "", type = .ID}, false;
+}
+
+add_keyword :: fn(lexer: *Lexer, word: string, type: TokenType) {
+    array.add(&lexer.keywords, Keyword {id = word, type = type});
+}
+
+make_lexer :: fn(alloc: *Allocator) -> Lexer {
+    empty_string := "";
+
+    return Lexer {
+        alloc = alloc,
+        keywords = array.create(Keyword, alloc),
+        at = empty_string.data,
+        eend = empty_string.data,
+    };
+}
+
+add_compiler_keywords :: fn(lexer: *Lexer) {
+	add_keyword(lexer, "cast",          .NewCast);
+	add_keyword(lexer, "bit_cast",      .BitCast);
+	add_keyword(lexer, "continue",      .Continue);
+	add_keyword(lexer, "break",         .Break);
+	add_keyword(lexer, "if",            .If);
+	add_keyword(lexer, "else",          .Else);
+	add_keyword(lexer, "then",          .Then);
+	add_keyword(lexer, "for",           .For);
+	add_keyword(lexer, "fn",            .Function);
+	add_keyword(lexer, "as",            .As);
+	add_keyword(lexer, "in",            .In);
+	add_keyword(lexer, "::",            .Const);
+	add_keyword(lexer, ">=",            .GeaterEqual);
+	add_keyword(lexer, "<=",            .LessEqual);
+	add_keyword(lexer, "!=",            .NotEqual);
+	add_keyword(lexer, "==",            .EqualEqual);
+	add_keyword(lexer, "||",            .LogicalOr);
+	add_keyword(lexer, "&&",            .LogicalAnd);
+	add_keyword(lexer, "->",            .Arrow);
+	add_keyword(lexer, "++",            .PlusPlus);
+	add_keyword(lexer, "--",            .MinusMinus);
+	add_keyword(lexer, "<<",            .ShiftLeft);
+	add_keyword(lexer, ">>",            .ShiftRight);
+	add_keyword(lexer, "+=",            .PlusEqual);
+	add_keyword(lexer, "-=",            .MinusEqual);
+	add_keyword(lexer, "*=",            .TimesEqual);
+	add_keyword(lexer, "/=",            .DevideEqual);
+	add_keyword(lexer, "%=",            .ModEqual);
+	add_keyword(lexer, "&=",            .AndEqual);
+	add_keyword(lexer, "^=",            .XOrEqual);
+	add_keyword(lexer, "|=",            .OrEqual);
+	add_keyword(lexer, "<<=",           .ShiftLeftEqual);
+	add_keyword(lexer, ">>=",           .ShiftRightEqual);
+	add_keyword(lexer, "```",           .RawString);
+	add_keyword(lexer, "...",           .VarArg);
+	add_keyword(lexer, "#shadow",       .Shadow);
+	add_keyword(lexer, "#import",       .Import);
+	add_keyword(lexer, "#foreign",      .Foreign);
+	add_keyword(lexer, "#link",         .Link);
+	add_keyword(lexer, "#intrinsic",    .Intrinsic);
+	add_keyword(lexer, "#public",       .Public);
+	add_keyword(lexer, "#private",      .Private);
+	add_keyword(lexer, "#embed_bin",    .EmbedBin);
+	add_keyword(lexer, "#embed_str",    .EmbedString);
+	add_keyword(lexer, "#inline",       .Inline);
+	add_keyword(lexer, "#if",           .Pwdif);
+	add_keyword(lexer, "#elif",         .PWDElseIf);
+	add_keyword(lexer, "#else",         .PWDElse);
+	add_keyword(lexer, "type_info",     .Info);
+	add_keyword(lexer, "#assert",       .Assert);
+	add_keyword(lexer, "#run",          .Run);
+	add_keyword(lexer, "return",        .Return);
+	add_keyword(lexer, "struct",        .Struct);
+	add_keyword(lexer, "enum",          .Enum);
+	add_keyword(lexer, "union",         .Union);
+	add_keyword(lexer, "defer",         .Defer);
+	add_keyword(lexer, "match",         .Match);
+	add_keyword(lexer, "size_of",       .SizeOf);
+	add_keyword(lexer, "type_of",       .TypeOf);
+	add_keyword(lexer, "void",          .Void);
+	add_keyword(lexer, "@profile",      .Profile);
+	add_keyword(lexer, "using",         .Using);
+	add_keyword(lexer, "yield",         .Yield);
+	add_keyword(lexer, "module",        .Module);
+	add_keyword(lexer, "#load_dl",      .LoadDl);
+	add_keyword(lexer, "#load_system_dl",  .LoadSystemDl);
+}
+
+#private 
+
+advance :: fn(lexer: *Lexer) -> u8 {
+    if lexer.at < lexer.end {
+        c := *lexer.at;
+        if c == '\n' {
+            lexer.location.char = 1;
+            lexer.location.line += 1;
+        } else {
+            lexer.location.char += 1;
+        }
+
+        lexer.at += 1;
+        return c;
+    } else {
+        return '\0';
+    }
+}
+
+get_char :: fn(lexer: *Lexer) -> u8 {
+    if lexer.at < lexer.end return *lexer.at;
+    else return '\0';
+}
+
+skip_whitespace :: fn(lexer: *Lexer) {
+    for is_space(get_char(lexer)) {
+        advance(lexer);
+    }
+}
+
+#public
+
+enum TokenType: i16 {
+	Pointer         = '*',
+	And             = '&',
+	Decl            = ':',
+	StartScope      = '{',
+	EndScope        = '}',
+	OpenParen       = '(',
+	CloseParen      = ')',
+	OpenBracket     = '[',
+	CoseBracket     = ']',
+	Cast            = '@',
+	Equal           = '=',
+	Lesser          = '<',
+	Greater         = '>',
+	Comma           = ',',
+	Dot             = '.',
+	QuestionMark    = '?',
+	Bang            = '!',
+	Minus           = '-',
+	SemiColon       = ';',
+	Dollar          = '$',
+	Plus            = '+',
+	Minus           = '-',
+	Or	            = '|',
+	Div	            = '/',
+	EOF             = -1,
+	ID              = -2,
+	If              = -3,
+	Else            = -4,
+	For             = -5,
+	Value           = -6,
+	String          = -7,
+	NotEqual        = -8,
+	GreaterEqual    = -9,
+	LesserEqual     = -10,
+	EqualEqual      = -11,
+	Arrow           = -12,
+	PlusPlus        = -13,
+	MinusMinus      = -14,
+	LogicalOr       = -15,
+	LogicalAnd      = -16,
+	ShiftLeft       = -17,
+	ShiftRight      = -18,
+	PlusEqual       = -19,
+	MinusEqual      = -20,
+	TimesEqual      = -21,
+	DevideEqual     = -22,
+	ModEqual        = -23,
+	ShiftLeftEqual  = -24,
+	ShiftRightEqual = -25,
+	AndEqual        = -26,
+	XOrEqual        = -27,
+	OrEqual         = -28,
+	Function        = -29,
+	Const           = -30,
+	Shadow          = -31,
+	Return          = -32,
+	AutoCast        = -34,
+	Foreign         = -35,
+	CString         = -36,
+	Struct          = -37,
+	Import          = -38,
+	As              = -39,
+	Public          = -40,
+	Private         = -41,
+	SizeOf          = -42,
+	In              = -43,
+	Break           = -44,
+	TypeOf          = -45,
+	VarArg          = -46,
+	PWDIf           = -47,
+	Char            = -48,
+	Enum            = -49,
+	Match           = -50,
+	Intrinsic       = -60,
+	Defer           = -61,
+	Link            = -62,
+	Union           = -63,
+	Info            = -64,
+	EmbedBin        = -65,
+	EmbedString     = -66,
+	Void            = -67,
+	Continue        = -68,
+	PWDElseIf       = -69,
+	Profile         = -70,
+	Assert          = -71,
+	Using           = -72,
+	Yield           = -73,
+	Run             = -74,
+	LoadDl          = -75,
+	LoadSystemDl    = -76,
+	PWDElse         = -77,
+	Then            = -78,
+	Inline          = -79,
+	NewCast         = -80,
+	BitCast         = -81,
+	RawString       = -82,
+	Module          = -83,
+}
 

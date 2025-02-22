@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Platform.h"
 #include <atomic>
+#include <mutex>
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
@@ -118,8 +119,10 @@ HasErroredOut()
 void
 RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 {
+	static std::mutex ErrorMutex;
 	CountError();
 
+	ErrorMutex.lock();
 	string ErrorMessage = MakeString(_ErrorMessage);
 	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
 
@@ -158,6 +161,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 
 	VFree(FinalFormat);
 
+	ErrorMutex.unlock();
 	if(Abort || Errors > 4)
 		exit(1);
 }

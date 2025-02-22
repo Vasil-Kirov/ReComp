@@ -2020,8 +2020,15 @@ ANALYZE_SLICE_SELECTOR:
 				} break;
 				case TypeKind_Basic:
 				{
-					RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
-					Result = OperandTypeIdx;
+					if(IsString(OperandType))
+					{
+						Result = Basic_u8;
+					}
+					else
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
+						Result = OperandTypeIdx;
+					}
 				} break;
 				default:
 				{
@@ -2047,7 +2054,14 @@ ANALYZE_SLICE_SELECTOR:
 		} break;
 		case AST_CHARLIT:
 		{
-			Result = Basic_u32;
+			if((Expr->CharLiteral.C & 0xFF) == Expr->CharLiteral.C)
+			{
+				Result = Basic_u8;
+			}
+			else
+			{
+				Result = Basic_u32;
+			}
 		} break;
 		case AST_CONSTANT:
 		{

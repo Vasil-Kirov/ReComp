@@ -1410,7 +1410,16 @@ BUILD_SLICE_SELECTOR:
 		} break;
 		case AST_CHARLIT:
 		{
-			Result = PushInt(Node->CharLiteral.C, Builder, Basic_u32);
+			u32 T = INVALID_TYPE;
+			if((Node->CharLiteral.C & 0xFF) == Node->CharLiteral.C)
+			{
+				T = Basic_u8;
+			}
+			else
+			{
+				T = Basic_u32;
+			}
+			Result = PushInt(Node->CharLiteral.C, Builder, T);
 		} break;
 		case AST_CONSTANT:
 		{

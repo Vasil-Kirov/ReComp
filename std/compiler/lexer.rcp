@@ -205,12 +205,12 @@ advance :: fn(lexer: *Lexer) -> u8 {
         lexer.at += 1;
         return c;
     }
-    return @u8 '\0';
+    return cast(u8, '\0');
 }
 
 get_char :: fn(lexer: *Lexer) -> u8 {
     if lexer.at < lexer.end return *lexer.at;
-    return @u8 '\0';
+    return cast(u8 '\0');
 }
 
 skip_whitespace :: fn(lexer: *Lexer) {
@@ -222,30 +222,30 @@ skip_whitespace :: fn(lexer: *Lexer) {
 #public
 
 enum TokenType: i16 {
-	Pointer         = @i16 '*',
-	And             = @i16 '&',
-	Decl            = @i16 ':',
-	StartScope      = @i16 '{',
-	EndScope        = @i16 '}',
-	OpenParen       = @i16 '(',
-	CloseParen      = @i16 ')',
-	OpenBracket     = @i16 '[',
-	CoseBracket     = @i16 ']',
-	Cast            = @i16 '@',
-	Equal           = @i16 '=',
-	Lesser          = @i16 '<',
-	Greater         = @i16 '>',
-	Comma           = @i16 ',',
-	Dot             = @i16 '.',
-	QuestionMark    = @i16 '?',
-	Bang            = @i16 '!',
-	Minus           = @i16 '-',
-	SemiColon       = @i16 ';',
-	Dollar          = @i16 '$',
-	Plus            = @i16 '+',
-	Minus           = @i16 '-',
-	Or	            = @i16 '|',
-	Div	            = @i16 '/',
+	Pointer         = cast(i16, '*'),
+	And             = cast(i16, '&'),
+	Decl            = cast(i16, ':'),
+	StartScope      = cast(i16, '{'),
+	EndScope        = cast(i16, '}'),
+	OpenParen       = cast(i16, '('),
+	CloseParen      = cast(i16, ')'),
+	OpenBracket     = cast(i16, '['),
+	CoseBracket     = cast(i16, ']'),
+	Cast            = cast(i16, '@'),
+	Equal           = cast(i16, '='),
+	Lesser          = cast(i16, '<'),
+	Greater         = cast(i16, '>'),
+	Comma           = cast(i16, ','),
+	Dot             = cast(i16, '.'),
+	QuestionMark    = cast(i16, '?'),
+	Bang            = cast(i16, '!'),
+	Minus           = cast(i16, '-'),
+	SemiColon       = cast(i16, ';'),
+	Dollar          = cast(i16, '$'),
+	Plus            = cast(i16, '+'),
+	Minus           = cast(i16, '-'),
+	Or	            = cast(i16, '|'),
+	Div	            = cast(i16, '/'),
 	EOF             = -1,
 	ID              = -2,
 	If              = -3,

@@ -13,7 +13,10 @@ print_struct :: fn(x: Foo) {
 }
 
 main :: fn() -> i32 {
-    print_struct(.{10, 20});
+    x := "foo";
+    for i in x.count {
+        println("%c", x[i]);
+    }
 
     return 0;
 }

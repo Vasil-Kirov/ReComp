@@ -5,7 +5,7 @@
 #include "Log.h"
 #include "Platform.h"
 
-std::mutex MemMutex;
+std::mutex MemMutex = {};
 
 static ap_memory MemoryAllocators[2];
 

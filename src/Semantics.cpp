@@ -13,6 +13,7 @@
 #include "Memory.h"
 #include "VString.h"
 #include "Polymorph.h"
+#include <tuple>
 extern u32 TypeCount;
 
 void FillUntypedStack(checker *Checker, u32 Type)
@@ -1470,6 +1471,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Failed)
 				break;
 
+			auto IsPotentialAttemptForCStyleParam = [](node *Expression) -> std::tuple<bool, const error_info *> {
+				if(Expression->Type == AST_BINARY && Expression->Binary.Left->Type == AST_SELECTOR)
+				{
+					node *Left = Expression->Binary.Left;
+					return {Left->Selector.Operand == NULL, Left->ErrorInfo};
+				}
+				return {false, NULL};
+			};
+
 			enum {
 				NS_UNKNOWN,
 				NS_NAMED,
@@ -1494,7 +1504,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					if(NamedStatus == NS_NAMED)
 					{
-						RaiseError(false, *Item->ErrorInfo, "Unnamed parameter in a list with a named parameter, mixing is not allowed");
+						auto [IsCStyleAttempt, ErrorInfo] = IsPotentialAttemptForCStyleParam(Item->Item.Expression);
+						if(IsCStyleAttempt)
+						{
+							RaiseError(false, *ErrorInfo, "Named parameters in initializer lists are not prefixed with a dot.");
+						}
+						else
+						{
+							RaiseError(false, *Item->ErrorInfo, "Unnamed parameter in a list with a named parameter, mixing is not allowed");
+						}
 						Failed = true;
 						continue;
 					}
@@ -3472,9 +3490,21 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
-			string Name = *Nodes[I]->StructDecl.Name;
+			node *Node = Nodes[I];
+			string Name = *Node->StructDecl.Name;
 			type *New = AllocType(TypeKind_Struct);
 			New->Struct.Name = Name;
+			New->Struct.SubType = INVALID_TYPE;
+			For(Node->StructDecl.Members)
+			{
+				Assert((*it)->Type == AST_VAR);
+				if((*it)->Var.Name == NULL)
+				{
+					// just mark it so that any subtyping struct knows that this is multi-level
+					// getting the actual type of the subtype is not safe here since not all structs are added yet
+					New->Struct.SubType = Basic_bool;
+				}
+			}
 
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();

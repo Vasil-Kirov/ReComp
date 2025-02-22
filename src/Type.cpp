@@ -117,7 +117,7 @@ void AddVectorTypes()
 
 type **TypeTable = InitializeTypeTable();
 dict<u32> TypeMap = { .Default = INVALID_TYPE };
-std::mutex TypeMutex;
+std::mutex TypeMutex = {};
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
 void AddNameToTypeMap(const string *Name, u32 T)

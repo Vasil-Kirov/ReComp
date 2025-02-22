@@ -119,7 +119,7 @@ HasErroredOut()
 void
 RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 {
-	static std::mutex ErrorMutex;
+	std::mutex ErrorMutex;
 	CountError();
 
 	ErrorMutex.lock();

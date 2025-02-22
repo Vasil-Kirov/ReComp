@@ -396,11 +396,6 @@ int GetBasicTypeSize(const type *Type)
 	unreachable;
 }
 
-uint GetPaddingForAlignment(uint Size, uint Align)
-{
-	return (Align - ( Size % Align )) % Align;
-}
-
 int GetStructSize(const type *Type)
 {
 	Assert(Type->Kind == TypeKind_Struct);
@@ -424,7 +419,7 @@ int GetStructSize(const type *Type)
 		int MemberSize = GetTypeSize(m);
 		int Alignment = GetTypeAlignment(m);
 		if(Alignment != 0)
-			Result += Result % Alignment;
+			Result = AlignTo(Result, Alignment);
 		Result += MemberSize;
 		if(MemberSize > BiggestMember)
 			BiggestMember = MemberSize;
@@ -432,7 +427,7 @@ int GetStructSize(const type *Type)
 	if(Type->Struct.Flags & StructFlag_Union)
 		return BiggestMember;
 	auto sa = GetTypeAlignment(Type);
-	Result += GetPaddingForAlignment(Result, sa);
+	Result = AlignTo(Result, sa);
 	return Result;
 }
 
@@ -459,7 +454,7 @@ int GetStructMemberOffset(const type *Type, uint Member)
 		int MemberSize = GetTypeSize(m);
 		int Alignment = GetTypeAlignment(m);
 		if(Alignment != 0)
-			Result += Result % Alignment;
+			Result = AlignTo(Result, Alignment);
 		Result += MemberSize;
 	}
 	const type *m = GetType(Type->Struct.Members[Member].Type);

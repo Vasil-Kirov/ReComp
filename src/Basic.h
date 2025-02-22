@@ -119,4 +119,3 @@ static void PrintStacktrace()
     free(strings);
 }
 #endif
-

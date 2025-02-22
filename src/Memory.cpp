@@ -131,3 +131,7 @@ void FreeAllArenas()
 	}
 }
 
+size_t AlignTo (int Address, int Alignment)
+{
+    return ((Address + (Alignment - 1)) & ~(Alignment - 1));
+}

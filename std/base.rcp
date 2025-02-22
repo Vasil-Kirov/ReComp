@@ -289,7 +289,7 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
         size := get_type_size(st.members[i].t);
         align := get_type_alignment(st.members[i].t);
         if align != 0
-            align_to(result, align);
+            result = align_to(result, align);
         result += size;
     }
     result -= get_type_size(st.members[mem_idx].t);

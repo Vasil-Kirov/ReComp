@@ -274,8 +274,6 @@ b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx);
 void AddNameToTypeMap(const string *Name, u32 T);
 u32 LookupNameOnTypeMap(const string *Name);
 
-uint GetPaddingForAlignment(uint Size, uint Align);
-
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 
 size_t AddGenericReplacement(string Generic, u32 ToReplace);

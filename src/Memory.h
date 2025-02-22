@@ -59,6 +59,7 @@ Align16(void *Address)
 {
     return (void*)(((u64)(Address) + 15ull) & 0xfffffffffffffff0);
 }
+size_t AlignTo (int Address, int Alignment);
 
 
 

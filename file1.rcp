@@ -12,14 +12,16 @@ print_struct :: fn(x: Foo) {
     println("%", x);
 }
 
-main :: fn() -> i32 {
-    x := "foo";
-    for i in x.count {
-        println("%c", x[i]);
-    }
+xx: i32;
 
-    return 0;
+main :: fn() -> i32 {
+    //x := "foo";
+    //for i in x.count {
+    //    println("%c", x[i]);
+    //}
+
+    return ~xx;
 }
 
-#run main();
+//#run main();
 

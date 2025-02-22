@@ -1193,6 +1193,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			}
 			gen->map.Add(I.Result, Value);
 		} break;
+		case OP_BITNOT:
+		{
+			LLVMValueRef RHS = gen->map.Get(I.Right);
+			LLVMValueRef Value = LLVMBuildNot(gen->bld, RHS, "");
+			gen->map.Add(I.Result, Value);
+		} break;
 		case OP_AND:
 		{
 			LLVMValueRef LHS = gen->map.Get(I.Left);

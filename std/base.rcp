@@ -182,28 +182,31 @@ get_struct_alignment :: fn(st: type) -> int {
 get_type_alignment :: fn(t: type) -> int {
     ti := type_info(t);
     result := match ti.kind {
-        TypeKind.Basic: {
+        .Basic: {
             if t == string
                 yield 8;
             yield get_basic_type_size(ti.t.basic);
         }
-        TypeKind.Function: {
+        .Function: {
             yield 8;
         }
-        TypeKind.Pointer: {
+        .Pointer: {
             yield 8;
         }
-        TypeKind.Slice: {
+        .Slice: {
             yield 8;
         }
-        TypeKind.Array: {
+        .Array: {
             yield get_type_alignment(ti.t.array.t);
         }
-        TypeKind.Enum: {
+        .Enum: {
             yield get_type_alignment(ti.t.enum_.t);
         }
-        TypeKind.Struct: {
+        .Struct: {
             yield get_struct_alignment(t);
+        }
+        .Vector: {
+            yield cast(int, ti.t.vector.elem_count * 4);
         }
     };
     return result;
@@ -241,29 +244,36 @@ get_struct_size :: fn(st: type) -> int {
 get_type_size :: fn(t: type) -> int {
     ti := type_info(t);
     result := match ti.kind {
-        TypeKind.Basic: {
+        .Basic: {
             yield get_basic_type_size(ti.t.basic);
         }
-        TypeKind.Function: {
+        .Function: {
             yield get_register_bit_count();
         }
-        TypeKind.Pointer: {
+        .Pointer: {
             yield get_register_bit_count();
         }
-        TypeKind.Array: {
+        .Array: {
             yield get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
         }
-        TypeKind.Slice: {
+        .Slice: {
             yield get_register_bit_count() / 4;
         }
-        TypeKind.Enum: {
+        .Enum: {
             yield get_type_size(ti.t.enum_.t);
         }
-        TypeKind.Struct: {
+        .Struct: {
             yield get_struct_size(t);
+        }
+        .Vector: {
+            yield cast(int, ti.t.vector.elem_count * 4);
         }
     };
     return result;
+}
+
+align_to :: fn(address: int, alignment: int) -> int {
+    return ((address + (alignment - 1)) & ~(alignment - 1));
 }
 
 get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
@@ -279,7 +289,7 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
         size := get_type_size(st.members[i].t);
         align := get_type_alignment(st.members[i].t);
         if align != 0
-            result += result % align;
+            align_to(result, align);
         result += size;
     }
     result -= get_type_size(st.members[mem_idx].t);

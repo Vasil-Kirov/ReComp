@@ -24,6 +24,9 @@ enum op
 	OP_ALLOC,
 	OP_STORE,
 
+	// Right = Expression
+	OP_BITNOT,
+
 	// Left = Target Register
 	// Right = Source Type
 	OP_CAST,

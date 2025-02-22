@@ -1464,6 +1464,7 @@ node *ParseUnary(parser *Parser)
 		case T_BANG:
 		case T_QMARK:
 		case T_ADDROF:
+		case T_BITNOT:
 		case T_PTR:
 		{
 			GetToken(Parser);

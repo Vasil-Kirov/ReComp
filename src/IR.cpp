@@ -1518,6 +1518,11 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					instruction I = Instruction(OP_SUB, Zero, Expr, Node->Unary.Type, Builder);
 					Result = PushInstruction(Builder, I);
 				} break;
+				case T_BITNOT:
+				{
+					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
+					Result = PushInstruction(Builder, Instruction(OP_BITNOT, 0, Expr, Node->Unary.Type, Builder));
+				} break;
 				case T_BANG:
 				{
 					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);

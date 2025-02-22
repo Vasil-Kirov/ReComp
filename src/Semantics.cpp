@@ -2149,6 +2149,17 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					Expr->Unary.Type = Basic_bool;
 					Result = Basic_bool;
 				} break;
+				case T_BITNOT:
+				{
+					u32 TypeIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					const type *T = GetType(TypeIdx);
+					if(!HasBasicFlag(T, BasicFlag_Integer))
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Unary `~` can only be used on integers, attempt to use it on type %s is invalid", GetTypeName(T));
+					}
+					Expr->Unary.Type = TypeIdx;
+					Result = TypeIdx;
+				} break;
 				case T_QMARK:
 				{
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);

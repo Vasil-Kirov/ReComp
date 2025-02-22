@@ -577,18 +577,7 @@ int GetTypeAlignment(const type *Type)
 		} break;
 		case TypeKind_Vector:
 		{
-			switch(Type->Vector.ElementCount)
-			{
-				case 2:
-				{
-					return 8;
-				} break;
-				case 3:
-				case 4:
-				{
-					return 16;
-				} break;
-			}
+			return Type->Vector.ElementCount * 4;
 		} break;
 		default: {};
 	}

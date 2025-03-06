@@ -1816,6 +1816,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					Result = s->Type;
 					Expr->Selector.Type = s->Type;
+					if(GetType(Result)->Kind == TypeKind_Function)
+					{
+						Result = GetPointerTo(Result);
+					}
 				}
 			}
 			else

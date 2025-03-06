@@ -6,12 +6,8 @@ module main
 #import mem as *
 
 main :: fn() -> i32 {
-
-    alloc := c.make_malloc_allocator(true);
-    arr := make_slice(int, 16, &alloc);
-    for i, it in arr {
-        println("%: %", i, it);
-    }
+    x := main;
+    println("%", io.println);
 
     return 0;
 }

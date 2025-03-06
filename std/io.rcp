@@ -331,7 +331,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             builder_append(b, " }");
         }
         TypeKind.Pointer: {
-			num: uint = *@*uint arg.val;
+			num: uint = *cast(*uint, arg.val);
 	 		format_uint(b, num);
         }
         TypeKind.Array: {

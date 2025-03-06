@@ -20,12 +20,12 @@ struct Allocator {
     data: ?*,
 }
 
-make_slice :: fn (T: type, size: int, alloc: *Allocator) -> []T {
+make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T {
     res := []T{};
-    ptr := alloc.alloc(size * size_of T, alloc);
+    ptr := alloc.alloc(count * size_of T, alloc);
     #assert ptr;
     res.data  = ?ptr;
-    res.count = size;
+    res.count = count;
     return res;
 }
 

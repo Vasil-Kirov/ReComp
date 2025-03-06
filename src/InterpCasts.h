@@ -1,4 +1,6 @@
 #include "Interpreter.h"
+void bool_cast_fn(value *R, value *V);
+void bool_bit_cast_fn(value *R, value *V);
 void i8_cast_fn(value *R, value *V);
 void i8_bit_cast_fn(value *R, value *V);
 void i16_cast_fn(value *R, value *V);

@@ -1,0 +1,30 @@
+module libc
+
+
+#import mem as *
+
+malloc :: fn(size: int) -> ?* #foreign;
+free   :: fn(ptr: ?*) #foreign;
+
+do_malloc_free :: fn(ptr: ?*, this: *Allocator) {
+    free(ptr);
+}
+
+do_malloc_allocation :: fn(size: int, this: *Allocator) -> ?* {
+    ptr := malloc(size);
+    if this.data != null && ptr != null {
+        set(?ptr, 0, size);
+    }
+
+    return ptr;
+}
+
+make_malloc_allocator :: fn (zero_on_alloc: bool) -> Allocator {
+    return .{
+        alloc = do_malloc_allocation,
+        free = do_malloc_free,
+        data = cast(u64, zero_on_alloc),
+    };
+}
+
+

@@ -869,6 +869,12 @@ value PerformCast(value *Value, const type *From, u32 ToIdx, b32 IsBitCast, void
 				case Basic_module:
 				unreachable;
 				case Basic_bool:
+				{
+					if(IsBitCast)
+						bool_bit_cast_fn(&Result, Value);
+					else
+						bool_cast_fn(&Result, Value);
+				} break;
 				case Basic_u8:
 				{
 					if(IsBitCast)

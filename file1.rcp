@@ -1,27 +1,20 @@
 module main
 
+#import "libc.rcp" as c
 #import intrin as *
 #import io as *
-
-struct Foo {
-    a: int,
-    b: int,
-}
-
-print_struct :: fn(x: Foo) {
-    println("%", x);
-}
-
-xx: i32;
+#import mem as *
 
 main :: fn() -> i32 {
-    //x := "foo";
-    //for i in x.count {
-    //    println("%c", x[i]);
-    //}
 
-    return ~xx;
+    alloc := c.make_malloc_allocator(true);
+    arr := make_slice(int, 16, &alloc);
+    for i, it in arr {
+        println("%: %", i, it);
+    }
+
+    return 0;
 }
 
-//#run main();
+#run main();
 

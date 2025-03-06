@@ -3,6 +3,174 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+void bool_cast_fn(value *R, value *V) {
+	const type *TYPE = GetType(V->Type);
+    if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
+	switch (TYPE->Kind)
+	{
+        case TypeKind_Basic:
+		{
+			switch(TYPE->Basic.Kind)
+			{
+                case Basic_bool:
+				case Basic_u8:
+				{
+					R->u8 = (u8)V->u8;
+				} break;
+				case Basic_u16:
+				{
+					R->u8 = (u8)V->u16;
+				} break;
+				case Basic_u32:
+				{
+					R->u8 = (u8)V->u32;
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					R->u8 = (u8)V->u64;
+				} break;
+				case Basic_i8:
+				{
+					R->u8 = (u8)V->i8;
+				} break;
+				case Basic_i16:
+				{
+					R->u8 = (u8)V->i16;
+				} break;
+				case Basic_i32:
+				{
+					R->u8 = (u8)V->i32;
+				} break;
+				case Basic_i64:
+				{
+					R->u8 = (u8)V->i64;
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					R->u8 = (u8)V->i64;
+				} break;
+                case Basic_f32:
+                {
+					R->u8 = (u8)V->f32;
+                } break;
+                case Basic_f64:
+                {
+					R->u8 = (u8)V->f64;
+                } break;
+				default: unreachable;
+			}
+		} break;
+        case TypeKind_Pointer:
+        {
+            R->u8 = (u8)(u64)V->ptr;
+        } break;
+        default: unreachable;
+	}
+}
+void bool_bit_cast_fn(value *R, value *V) {
+	const type *TYPE = GetType(V->Type);
+    if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
+    auto Size = GetTypeSize(TYPE);
+	switch (TYPE->Kind)
+	{
+        case TypeKind_Basic:
+		{
+			switch(TYPE->Basic.Kind)
+			{
+                case Basic_bool:
+				case Basic_u8:
+				{
+					memcpy(&R->u8, (u8 *)&V->u8, Size);
+				} break;
+				case Basic_u16:
+				{
+					memcpy(&R->u8, (u8 *)&V->u16, Size);
+				} break;
+				case Basic_u32:
+				{
+					memcpy(&R->u8, (u8 *)&V->u32, Size);
+				} break;
+				case Basic_uint:
+				case Basic_u64:
+				{
+					memcpy(&R->u8, (u8 *)&V->u64, Size);
+				} break;
+				case Basic_i8:
+				{
+					memcpy(&R->u8, (u8 *)&V->i8, Size);
+				} break;
+				case Basic_i16:
+				{
+					memcpy(&R->u8, (u8 *)&V->i16, Size);
+				} break;
+				case Basic_i32:
+				{
+					memcpy(&R->u8, (u8 *)&V->i32, Size);
+				} break;
+				case Basic_i64:
+				{
+					memcpy(&R->u8, (u8 *)&V->i64, Size);
+				} break;
+				case Basic_type:
+				case Basic_int:
+				{
+					memcpy(&R->u8, (u8 *)&V->i64, Size);
+				} break;
+                case Basic_f32:
+                {
+					memcpy(&R->u8, (u8 *)&V->f32, Size);
+                } break;
+                case Basic_f64:
+                {
+					memcpy(&R->u8, (u8 *)&V->f64, Size);
+                } break;
+                case Basic_string:
+                {
+					memcpy(&R->u8, V->ptr, Size);
+                } break;
+				default: unreachable;
+			}
+		} break;
+		case TypeKind_Vector:
+		{
+			switch(TYPE->Vector.Kind)
+            {
+                case Vector_Int:
+				{
+					if(TYPE->Vector.ElementCount == 2)
+					{
+						memcpy(&R->u8, V->ivec2, Size);
+					}
+					else
+					{
+						memcpy(&R->u8, &V->ivec, Size);
+					}
+				} break;
+                case Vector_Float:
+                {
+                    if(TYPE->Vector.ElementCount == 2)
+                    {
+                        memcpy(&R->u8, V->fvec2, Size);
+                    }
+                    else
+                    {
+                        memcpy(&R->u8, &V->fvec, Size);
+                    }
+                } break;
+            }
+        } break;
+        case TypeKind_Pointer:
+        {
+            memcpy(&R->u8, &V->ptr, Size);
+        } break;
+        default:
+        {
+			memcpy(&R->u8, V->ptr, Size);
+        } break;
+	}
+}
 void i8_cast_fn(value *R, value *V) {
 	const type *TYPE = GetType(V->Type);
     if(TYPE->Kind == TypeKind_Enum) TYPE = GetType(TYPE->Enum.Type);
@@ -12,6 +180,7 @@ void i8_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->i8 = (i8)V->u8;
@@ -78,6 +247,7 @@ void i8_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->i8, (i8 *)&V->u8, Size);
@@ -178,6 +348,7 @@ void i16_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->i16 = (i16)V->u8;
@@ -244,6 +415,7 @@ void i16_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->i16, (i16 *)&V->u8, Size);
@@ -344,6 +516,7 @@ void i32_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->i32 = (i32)V->u8;
@@ -410,6 +583,7 @@ void i32_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->i32, (i32 *)&V->u8, Size);
@@ -510,6 +684,7 @@ void i64_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->i64 = (i64)V->u8;
@@ -576,6 +751,7 @@ void i64_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->i64, (i64 *)&V->u8, Size);
@@ -676,6 +852,7 @@ void u8_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->u8 = (u8)V->u8;
@@ -742,6 +919,7 @@ void u8_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->u8, (u8 *)&V->u8, Size);
@@ -842,6 +1020,7 @@ void u16_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->u16 = (u16)V->u8;
@@ -908,6 +1087,7 @@ void u16_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->u16, (u16 *)&V->u8, Size);
@@ -1008,6 +1188,7 @@ void u32_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->u32 = (u32)V->u8;
@@ -1074,6 +1255,7 @@ void u32_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->u32, (u32 *)&V->u8, Size);
@@ -1174,6 +1356,7 @@ void u64_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->u64 = (u64)V->u8;
@@ -1240,6 +1423,7 @@ void u64_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->u64, (u64 *)&V->u8, Size);
@@ -1340,6 +1524,7 @@ void f32_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->f32 = (f32)V->u8;
@@ -1406,6 +1591,7 @@ void f32_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->f32, (f32 *)&V->u8, Size);
@@ -1506,6 +1692,7 @@ void f64_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->f64 = (f64)V->u8;
@@ -1572,6 +1759,7 @@ void f64_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->f64, (f64 *)&V->u8, Size);
@@ -1672,6 +1860,7 @@ void ptr_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->ptr = (void *)V->u8;
@@ -1727,6 +1916,7 @@ void ptr_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(R->ptr, (void * *)&V->u8, Size);
@@ -1828,6 +2018,7 @@ void ivec2_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->ivec2, (i32 * *)&V->u8, Size);
@@ -1929,6 +2120,7 @@ void ivec_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->ivec, (__m128i *)&V->u8, Size);
@@ -2030,6 +2222,7 @@ void fvec2_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->fvec2, (f32 * *)&V->u8, Size);
@@ -2131,6 +2324,7 @@ void fvec_bit_cast_fn(value *R, value *V) {
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(&R->fvec, (__m128 *)&V->u8, Size);

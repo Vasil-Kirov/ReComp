@@ -20,6 +20,7 @@ vec_type_to_c_type :: fn(vt: string) -> string {
 main :: fn() -> i32 {
 
     types := []string{
+        "bool",
         "i8",
         "i16",
         "i32",
@@ -67,14 +68,19 @@ main :: fn() -> i32 {
             fn_signature := sprint("void %_cast_fn(value *R, value *V) {", t);
             builder_append(&b, fn_signature);
 
+            arg0 := t;
             arg1 := t;
             template := non_bit_cast_template;
             if t == "ptr" {
                 arg1 = "void *";
                 template = non_bit_cast_template_for_ptr;
             }
+            if t == "bool" {
+                arg0 = "u8";
+                arg1 = "u8";
+            }
 
-            builder_append(&b, sprint(template, t, arg1));
+            builder_append(&b, sprint(template, arg0, arg1));
 
             builder_append(&b, "\n}\n");
         }
@@ -86,6 +92,10 @@ main :: fn() -> i32 {
             if t == "ptr" {
                 arg0 = "R->ptr";
                 arg1 = "void *";
+            }
+            if t == "bool" {
+                arg0 = "&R->u8";
+                arg1 = "u8";
             }
             if is_vec_type {
                 arg1 = vec_type_to_c_type(t);
@@ -144,6 +154,7 @@ non_bit_cast_template :: ```
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->%0 = (%1)V->u8;
@@ -209,6 +220,7 @@ non_bit_cast_template_for_ptr :: ```
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					R->%0 = (%1)V->u8;
@@ -264,6 +276,7 @@ bit_cast_template :: ```
 		{
 			switch(TYPE->Basic.Kind)
 			{
+                case Basic_bool:
 				case Basic_u8:
 				{
 					memcpy(%0, (%1 *)&V->u8, Size);

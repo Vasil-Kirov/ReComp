@@ -295,8 +295,6 @@ inline char *GetAbsolutePath(const char *RelativePath, char *Memory=NULL)
 	if(FullPath == NULL) FullPath = (char *)VAlloc(VMAX_PATH);
 	if(realpath(RelativePath, FullPath) == NULL)
 	{
-		printf("%s %s %d\n", RelativePath, strerror(errno), errno);
-
 		if(ShouldFree)
 			VFree(FullPath);
 

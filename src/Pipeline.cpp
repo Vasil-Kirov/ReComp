@@ -43,14 +43,16 @@ string FindFile(string FileName)
 	For(Lookups.Paths)
 	{
 		sprintf(Buf, "%.*s/%.*s", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
-		Absolute = GetAbsolutePath(Buf, Absolute);
-		if(PlatformIsPathValid(Absolute))
+		char *GotAbsolute = GetAbsolutePath(Buf, Absolute);
+		if(GotAbsolute == NULL)
+			continue;
+		if(PlatformIsPathValid(GotAbsolute))
 		{
 			Lookups.Mutex.unlock();
-			string Result = MakeString(Absolute);
+			string Result = MakeString(GotAbsolute);
 			return Result;
 		}
-		memset(Absolute, 0, MAX_PATH_LEN);
+		memset(GotAbsolute, 0, MAX_PATH_LEN);
 	}
 	Lookups.Mutex.unlock();
 	return STR_LIT("");

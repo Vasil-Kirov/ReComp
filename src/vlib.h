@@ -279,12 +279,14 @@ ChangeFileExtension(const char *FileName, const char *NewExt)
 
 inline char *GetAbsolutePath(const char *RelativePath, char *Memory=NULL)
 {
+	bool ShouldFree = Memory == NULL;
 #if defined(_WIN32)
 	char *FullPath = Memory;
 	if(FullPath == NULL) FullPath = (char *)VAlloc(VMAX_PATH);
 	if(GetFullPathNameA(RelativePath, VMAX_PATH, FullPath, NULL) == 0)
 	{
-		VFree(FullPath);
+		if(ShouldFree)
+			VFree(FullPath);
 		return NULL;
 	}
 	return FullPath;
@@ -294,7 +296,10 @@ inline char *GetAbsolutePath(const char *RelativePath, char *Memory=NULL)
 	if(realpath(RelativePath, FullPath) == NULL)
 	{
 		printf("%s %s %d\n", RelativePath, strerror(errno), errno);
-		VFree(FullPath);
+
+		if(ShouldFree)
+			VFree(FullPath);
+
 		return NULL;
 	}
 	return FullPath;

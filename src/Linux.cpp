@@ -23,6 +23,11 @@ struct linux_signal_handler
 
 thread_local linux_signal_handler HandleContext = {};
 
+bool PlatformIsPathValid(const char *Path)
+{
+	return access(Path, F_OK) != -1;
+}
+
 void SigHandler(int Sig)
 {
 	if(Sig == SIGSEGV)

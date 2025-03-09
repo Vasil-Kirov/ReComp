@@ -1,15 +1,18 @@
 module main
 
-#import "libc.rcp" as c
-#import intrin as *
 #import io as *
-#import mem as *
+
+DT_DIR :: cast(uint, 4);
+DT_LNK :: cast(uint, 10);
+
+BUTTONW :: cast(i32, 120);
+BUTTONH :: cast(i32, 24);
+
+foo: []string;
 
 main :: fn() -> i32 {
-#if Unix {
-    x := main;
-}
-    println("%", io.println);
+	foo = .{"asd"};
+    println("%", foo[0]);
 
     return 0;
 }

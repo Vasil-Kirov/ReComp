@@ -1710,14 +1710,31 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 				LLVMSetLinkage(Global, Linkage);
 				if(m->Name == M->Name)
 				{
+					LLVMValueRef Init;
 					if(it->Init.LinkName != NULL)
 					{
-						LLVMValueRef Init = FromConstVal(&Gen, &it->Value, TIdx, false);
-						LLVMSetInitializer(Global, Init);
+						Init = FromConstVal(&Gen, &it->Value, TIdx, false);
 					}
 					else
 					{
-						LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
+						Init = LLVMConstNull(LLVMType);
+					}
+
+					LLVMSetInitializer(Global, Init);
+
+
+					if (CompileFlags & CF_DebugInfo) {
+							LLVMMetadataRef DebugTy = ToDebugTypeLLVM(&Gen, it->s->Type);
+							LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(Gen.dbg, NULL, 0);
+							LLVMMetadataRef Decl = NULL;
+							LLVMMetadataRef DebugGlobal = LLVMDIBuilderCreateGlobalVariableExpression(Gen.dbg, Gen.f_dbg,
+								it->s->Name->Data, it->s->Name->Size,
+								it->s->LinkName->Data, it->s->LinkName->Size,
+								Gen.f_dbg, it->s->Node->ErrorInfo->Range.StartLine,
+								DebugTy, (it->s->Flags & SymbolFlag_Public) != 0,
+								Expr, Decl,
+								GetTypeAlignment(it->s->Type)*8);
+							LLVMGlobalSetMetadata(Global, 0, DebugGlobal);
 					}
 				}
 				Gen.global.Add(it->s->Register, Global);

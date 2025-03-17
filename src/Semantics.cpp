@@ -716,10 +716,12 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	for(int I = 0; I < FunctionType->Function.ArgCount; ++I)
 	{
 		node *Arg = FnNode->Fn.Args[I];
-		u32 flags = SymbolFlag_Const;
+		u32 flags = 0;
 		const type *ArgT = GetType(FunctionType->Function.Args[I]);
 		if(IsFnOrPtr(ArgT))
 			flags |= SymbolFlag_Function;
+		if(!IsLoadableType(ArgT))
+			flags |= SymbolFlag_Const;
 		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Var.Name, Arg, flags);
 		//Arg->Decl.Flags = flags;
 	}

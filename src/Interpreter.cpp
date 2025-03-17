@@ -1758,7 +1758,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				const symbol *s = (const symbol *)I.Ptr;
 
 				value *v = VM->Globals.GetValue(s->Register);
-				if((v->Flags & value_flag::Global) == 0)
+				if(((v->Flags & value_flag::Global) == 0) || v->ptr == NULL)
 				{
 					const error_info *e = s->Node->ErrorInfo;
 					if(!VM->ErrorInfo.IsEmpty() && VM->ErrorInfo.Peek() != NULL)

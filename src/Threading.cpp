@@ -61,8 +61,13 @@ work_queue *CreateWorkQueue()
 	return Queue;
 }
 
+bool NoThreads = false;
+
 void InitThreadsForQueue(work_queue *Queue)
 {
+	if(NoThreads)
+		return;
+
 	RW_BARRIER;
 	for(int i = 0; i < MAX_THREADS; ++i)
 		Queue->Threads[i] = PlatformCreateThread(ThreadProc, Queue);

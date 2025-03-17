@@ -4,6 +4,7 @@
 #include "VString.h"
 
 extern bool InterpreterTrace;
+extern bool NoThreads;
 
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rcp
@@ -134,6 +135,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		else if(StringsMatchNoCase(Arg, CompileCommands[10]))
 		{
 			Result.Flags |= CommandFlag_nothread;
+			NoThreads = true;
 		}
 		else
 		{

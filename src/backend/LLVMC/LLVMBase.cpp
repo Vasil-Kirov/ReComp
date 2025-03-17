@@ -1591,16 +1591,18 @@ void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file
 	}
 #endif
 
-	dynamic<module*> UnitModules = {};
-	UnitModules.Push(M);
+	dict<module*> ModuleDict = {};
+	ModuleDict.Add(M->Name, M);
 	ForArray(FIdx, M->Files)
 	{
 		auto Imported = M->Files[FIdx]->Imported;
 		For(Imported)
 		{
-			UnitModules.Push(it->M);
+			ModuleDict.Add(it->M->Name, it->M);
 		}
 	}
+
+	dynamic<module*> UnitModules = ModuleDict.Data;
 
 
 	b32 IsInitModule = M->Name == STR_LIT("base");

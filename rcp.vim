@@ -14,8 +14,9 @@ function s:comment()
 	syn match rcpSString "c?\"(?:[^\"\\]|\\.)*\""
 endfunction
 
-syn match rcpSVariable contained /\w\+/
-syn match rcpSDecl /\w\+\s*:/ contains=rcpSVariable
+syn match rcpSIdentifier  "\%([^[:cntrl:][:space:][:punct:][:digit:]]\|_\)\%([^[:cntrl:][:punct:][:space:]]\|_\)*" display contained
+syn match rcpSDecl /\w\+\s*:/ contains=rcpSIdentifier
+syn match rcpSFuncCall "\w\(\w\)*("he=e-1,me=e-1
 
 " Strings
 syn region rcpSString      start=+c"+ skip=+\\\\\|\\"+ end=+"+
@@ -72,7 +73,7 @@ hi def link rcpSImport Include
 hi def link rcpSNumber Number
 hi def link rcpSBinaryNumber Number
 hi def link rcpSHexNumber Number
-hi def link rcpSVariable Identifier
+hi def link rcpSIdentifier Identifier
 hi def link rcpSConstant Constant
 hi def link rcpSKeyword Keyword
 hi def link rcpSType Type
@@ -81,6 +82,7 @@ hi def link rcpSComment Comment
 hi def link rcpSBlockComment Comment
 hi def link rcpSString String
 hi def link rcpSChar SpecialChar
+hi def link rcpSFuncCall Function
 " 
 hi def link rcpSOperator Operator
 hi def link rcpSBracket Delimiter

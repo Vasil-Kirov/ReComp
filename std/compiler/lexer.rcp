@@ -1,5 +1,6 @@
 module lexer
 
+#import io
 #import mem as *
 #import array
 
@@ -61,7 +62,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
     return result;
 }
 
-lex_id_char :: fn(lexer: *Lexer) -> Token {
+lex_id :: fn(lexer: *Lexer) -> Token {
     c := get_char(lexer);
     #assert is_id_char(c);
 
@@ -78,9 +79,43 @@ lex_id_char :: fn(lexer: *Lexer) -> Token {
 
     keyword, found := try_find_keyword(lexer, id);
     if found {
-        return Token { type = keyword.type, str = keyword.id, range = .{ range_start, range_end } };
+        return .{ type = keyword.type, str = keyword.id, range = .{ range_start, range_end } };
     }
-    return Token { type = .ID, str = id, range = Range { range_start, range_end } };
+    return .{ type = .ID, str = id, range = Range { range_start, range_end } };
+}
+
+lex_number :: fn(lexer: *Lexer) -> Token {
+
+	c := get_char(lexer);
+	if c == '0' && (peek_char(lexer, 1) == 'b' || peek_char(lexer, 1) == 'x') {
+		io.println("Currently binary and hex literals are not implemented");
+		#assert false
+	}
+	else {
+		range_start := lexer.location;
+		start := lexer.at;
+
+		if c == '-' c = advance(lexer);
+		found_dot := false;
+		for is_digit(c) || c == '.' || c == '_' {
+			if c == '.' {
+				if found_dot break;
+				found_dot = true;
+			}
+			advance(lexer);
+		}
+
+		end := lexer.at;
+		range_end := lexer.location;
+		id := string { data = start, count = end - start };
+		return .{ type = .Value, str = id, range = Range { range_start, range_end } };
+	}
+
+	return .{};
+}
+
+lex_char_lit :: fn(lexer: *Lexer) -> Token {
+	return .{};
 }
 
 lex_token :: fn(lexer: *Lexer) -> Token {
@@ -90,8 +125,16 @@ lex_token :: fn(lexer: *Lexer) -> Token {
         return Token { type = .EOF, str = "", range = .{ lexer.location, lexer.location } };
     }
     if is_id_char(c) {
-        return lex_id_char(lexer);
+        return lex_id(lexer);
     }
+	else if is_digit(c) ||
+			(c == '.' && is_digit(peek_char(lexer, 1)) ||
+			(c == '-' && is_digit(peek_char(lexer, 1))) {
+		return lex_number(lexer);
+	}
+	else if c == '\'' {
+		return lex_char_lit(lexer);
+	}
     return .{};
 }
 
@@ -208,9 +251,14 @@ advance :: fn(lexer: *Lexer) -> u8 {
     return cast(u8, '\0');
 }
 
+peek_char :: fn(lexer: *Lexer, ahead: int) -> u8 {
+	if lexer.at + ahead < lexer.end return lexer.at[ahead];
+	return '\0';
+}
+
 get_char :: fn(lexer: *Lexer) -> u8 {
     if lexer.at < lexer.end return *lexer.at;
-    return cast(u8 '\0');
+    return '\0';
 }
 
 skip_whitespace :: fn(lexer: *Lexer) {

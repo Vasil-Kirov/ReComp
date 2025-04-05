@@ -1,21 +1,25 @@
 module main
 
+#import "compiler/lexer.rcp" as *;
+#import "libc.rcp";
+
 #import io as *
-
-DT_DIR :: cast(uint, 4);
-DT_LNK :: cast(uint, 10);
-
-BUTTONW :: cast(i32, 120);
-BUTTONH :: cast(i32, 24);
 
 foo: []string;
 
 main :: fn() -> i32 {
 	foo = .{"asd"};
-    println("%", foo[0]);
+
+	malloc_alloc := libc.make_malloc_allocator(true);
+	lexer := make_lexer(&malloc_alloc);
+	add_compiler_keywords(&lexer);
+	tokens := lex_string(&lexer, "main :: fn() -> i32;", &malloc_alloc, .{"text", 1, 1});
+	for token in tokens {
+		println("token: %", token);
+	}
 
     return 0;
 }
 
-#run main();
+//#run main();
 

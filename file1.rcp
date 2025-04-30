@@ -1,25 +1,24 @@
 module main
 
-#import "compiler/lexer.rcp" as *;
-#import "libc.rcp";
+//#import "compiler/lexer.rcp" as *;
+//#import "libc.rcp";
 
 #import io as *
 
-foo: []string;
+//foo: []string;
 
 main :: fn() -> i32 {
-	foo = .{"asd"};
-
-	malloc_alloc := libc.make_malloc_allocator(true);
-	lexer := make_lexer(&malloc_alloc);
-	add_compiler_keywords(&lexer);
-	tokens := lex_string(&lexer, "main :: fn() -> i32;", &malloc_alloc, .{"text", 1, 1});
-	for token in tokens {
-		println("token: %", token);
-	}
+//	foo = .{"asd"};
+//
+//	malloc_alloc := libc.make_malloc_allocator(true);
+//	lexer := make_lexer(&malloc_alloc);
+//	add_compiler_keywords(&lexer);
+//	tokens := lex_string(&lexer, "main :: fn() -> i32;", &malloc_alloc, .{"text", 1, 1});
+//	for token in tokens {
+//		println("token: %", token);
+//	}
 
     return 0;
 }
 
-//#run main();
 

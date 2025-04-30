@@ -537,10 +537,6 @@ main(int ArgCount, char *Args[])
 			VLibStopTimer(&FileTimer.LLVM);
 			ComptimeVM.StackAllocator.Free();
 
-			// @NOTE:
-			// free now because the interpreter doesn't properly handle struct return values
-			// @TODO: fix
-			VM.StackAllocator.Pop();
 			Timers.Push(FileTimer);
 		}
 	}
@@ -587,8 +583,26 @@ main(int ArgCount, char *Args[])
 	else
 	{
 		system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);
+	}
+	VLibStopTimer(&LinkTimer);
 
-		/* Clean up */
+	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
+	if(AfterFunction)
+	{
+		if(InterpreterTrace)
+			LINFO("Interpreting after_link function");
+
+		PlatformSetSignalHandler(InterpSegFault, &VM);
+		VM.HasSetSigHandler = true;
+
+		InterpretFunction(&VM, *AfterFunction, {});
+
+		PlatformClearSignalHandler();
+	}
+
+	/* Clean up */
+	if((Info->Flags & CF_NoLink) == 0)
+	{
 		ForArray(Idx, ModuleArray)
 		{
 			string_builder Builder = MakeBuilder();
@@ -600,15 +614,7 @@ main(int ArgCount, char *Args[])
 			}
 		}
 	}
-	VLibStopTimer(&LinkTimer);
-
-	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
-	if(AfterFunction)
-	{
-		if(InterpreterTrace)
-			LINFO("Interpreting after_link function");
-		InterpretFunction(&VM, *AfterFunction, {});
-	}
+	VM.StackAllocator.Pop();
 
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;

@@ -61,7 +61,8 @@ work_queue *CreateWorkQueue()
 	return Queue;
 }
 
-bool NoThreads = false;
+// @FIXME: Threading not working
+bool NoThreads = /*false*/true;
 
 void InitThreadsForQueue(work_queue *Queue)
 {

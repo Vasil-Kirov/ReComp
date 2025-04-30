@@ -63,9 +63,7 @@ compile :: fn() -> c.CompileInfo {
 }
 
 after_link :: fn() {
-    //for c in "Done" {
-    //    io.println("%c", c);
-    //}
-    return;
+    x := io.sprint("foo %", 10);
+    io.println(x);
 }
 

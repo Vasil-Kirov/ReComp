@@ -203,7 +203,7 @@ assert :: fn(cond: bool, reason: string) {
     SYS_clock_gettime :: 228;
 	struct stat {
 		pad0: [48]u8,
-		size: int,
+		st_size: int,
 		pad1: [88]u8,
 	}
 }
@@ -236,8 +236,23 @@ assert :: fn(cond: bool, reason: string) {
     SYS_munmap  :: 215;
     SYS_exit    :: 93;
     SYS_clock_gettime :: 113;
+    SYS_fstat   :: 80;
 }
     CLOCK_MONOTONIC :: 1;
+
+    struct __old_kernel_stat {
+        st_dev  : u16,
+        st_ino  : u16,
+        st_mode : u16,
+        st_nlink: u16,
+        st_uid  : u16,
+        st_gid  : u16,
+        st_rdev : u16,
+        st_size : u64,
+        st_atime: u64,
+        st_mtime: u64,
+        st_ctime: u64,
+    }
 
     struct timespec {
         tv_sec:     int,       //* seconds */
@@ -319,8 +334,15 @@ assert :: fn(cond: bool, reason: string) {
 	get_file_size :: fn(fd: *) -> int {
 		fstat := stat {};
 		syscall(SYS_fstat, fd, &fstat);
-		return fstat.size;
+		return fstat.st_size;
 	}
+}
+#elif arm64 {
+    get_file_size :: fn(fd: *) -> int {
+        fstat := __old_kernel_stat {};
+        syscall(SYS_fstat, fd, &fstat);
+        return cast(int, fstat.st_size);
+    }
 }
 
 	open :: fn(name: string) -> ?* {

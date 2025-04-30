@@ -242,9 +242,9 @@ DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
 				else
 				{
 					auto Number = atoll(&ToPrint.Data[1]);
-					if(Number < 0 || Number >= VM->Registers.LastRegister)
+					if(Number < 0 || Number > VM->Registers.LastRegister)
 					{
-						printf("Register number %lld is out of range, 0 < x < %d\n", Number, VM->Registers.LastRegister);
+						printf("Register number %lld is out of range, 0 < x < %d\n", Number, VM->Registers.LastRegister+1);
 					}
 					else
 					{

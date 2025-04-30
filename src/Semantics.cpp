@@ -925,7 +925,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				if(Result == INVALID_TYPE)
 				{
 					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
-					return Basic_int;
+					return INVALID_TYPE;
 				}
 			}
 			const type *Type = GetType(Result);
@@ -1151,6 +1151,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_CALL:
 		{
 			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
+			if(CallTypeIdx == INVALID_TYPE)
+				return INVALID_TYPE;
 
 			const type *CallType = GetType(CallTypeIdx);
 			if(!IsCallable(CallType))
@@ -1810,6 +1812,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						RaiseError(false, *Expr->ErrorInfo,
 								"Cannot find public symbol %s in module %s",
 								Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
+						return INVALID_TYPE;
 					}
 					Result = Basic_type;
 					Expr->Selector.Type = Basic_type;

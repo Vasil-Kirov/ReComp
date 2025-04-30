@@ -16,7 +16,7 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics, node *
 		const type *T = GetType(TypeIdx);
 		if(IsGeneric(T))
 		{
-			const type *G = GetType(GetGenericPart(TypeIdx, TypeIdx));
+			const type *G = GetTypeRaw(GetGenericPart(TypeIdx, TypeIdx));
 			u32 Resolved = DefinedGenerics[G->Generic.Name];
 			TypeIdx = ToNonGeneric(TypeIdx, Resolved, Call->Call.ArgTypes[ArgI]);
 		}
@@ -29,7 +29,7 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics, node *
 	{
 		if(IsGeneric(*it))
 		{
-			const type *G = GetType(GetGenericPart(*it, *it));
+			const type *G = GetTypeRaw(GetGenericPart(*it, *it));
 			u32 Resolved = DefinedGenerics[G->Generic.Name];
 			Returns[At++] = ToNonGeneric(*it, Resolved, *it);
 		}
@@ -75,7 +75,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 		else if(IsGeneric(T))
 		{
 			u32 GenericIdx = GetGenericPart(ArgTypeIdx, ArgTypeIdx);
-			const type *GenT = GetType(GenericIdx);
+			const type *GenT = GetTypeRaw(GenericIdx);
 			Assert(IsGeneric(GenT));
 			if(Arg.IsAutoDefineGeneric)
 			{
@@ -105,7 +105,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 		if(IsGeneric(T))
 		{
 			u32 GenericIdx = GetGenericPart(ArgTypeIdx, ArgTypeIdx);
-			const type *GenT = GetType(GenericIdx);
+			const type *GenT = GetTypeRaw(GenericIdx);
 			u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(GenT->Generic.Name);
 			if(DefinedPtr == NULL)
 			{
@@ -128,7 +128,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 		{
 			auto err_i = Call->ErrorInfo;
 			u32 GenericIdx = GetGenericPart(*it, *it);
-			const type *GenT = GetType(GenericIdx);
+			const type *GenT = GetTypeRaw(GenericIdx);
 			u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(GenT->Generic.Name);
 			if(DefinedPtr == NULL)
 			{

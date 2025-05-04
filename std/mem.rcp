@@ -20,6 +20,10 @@ struct Allocator {
     data: ?*,
 }
 
+reset_temp :: fn() {
+    reset_scratch(&temp_alloc);
+}
+
 make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T {
     res := []T{};
     ptr := alloc.alloc(count * size_of T, alloc);
@@ -34,7 +38,7 @@ make_type :: fn (T: type, alloc: *Allocator) -> ?*T {
 }
 
 destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
-	alloc.free(slice.data);
+	alloc.free(slice.data, alloc);
 	slice.count = 0;
 }
 

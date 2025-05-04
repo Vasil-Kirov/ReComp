@@ -453,6 +453,38 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			AnalyzeStructDeclaration(Checker, TypeNode);
 			return Result;
 		} break;
+		case AST_UNARY:
+		{
+			if(TypeNode->Unary.Op == '*')
+			{
+				if(TypeNode->Unary.Operand == NULL)
+					return GetPointerTo(INVALID_TYPE);
+				u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->Unary.Operand, Error, OutAutoDef);
+				if(Pointed == INVALID_TYPE)
+				{
+					if(Error)
+					{
+						RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
+					}
+					return INVALID_TYPE;
+				}
+				return GetPointerTo(Pointed);
+			}
+			else if(TypeNode->Unary.Op == '?')
+			{
+				// @TODO:
+				RaiseError(true, *TypeNode->ErrorInfo, "Invalid Type!");
+				return INVALID_TYPE;
+			}
+			else
+			{
+				if(Error)
+				{
+					RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
+				}
+				return INVALID_TYPE;
+			}
+		} break;
 		default:
 		{
 			if(Error)

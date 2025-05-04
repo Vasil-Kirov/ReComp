@@ -8,6 +8,7 @@ module main
 //foo: []string;
 
 main :: fn() -> i32 {
+    x := true;
 //	foo = .{"asd"};
 //
 //	malloc_alloc := libc.make_malloc_allocator(true);
@@ -18,7 +19,7 @@ main :: fn() -> i32 {
 //		println("token: %", token);
 //	}
 
-    return 0;
+    return if x 10 else if !x 20 else 30;
 }
 
 

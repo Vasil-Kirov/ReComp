@@ -7,8 +7,24 @@ module main
 
 //foo: []string;
 
+print_num :: fn(x: i32 = 10, y: f32 = 4.3) {
+    io.println("X: % Y: %", x, y);
+}
+
 main :: fn() -> i32 {
     x := true;
+    
+    print_num();
+    print_num(1);
+    print_num(3);
+    print_num();
+    print_num(3, 1);
+    print_num();
+
+    return 0;
+}
+
+
 //	foo = .{"asd"};
 //
 //	malloc_alloc := libc.make_malloc_allocator(true);
@@ -18,8 +34,3 @@ main :: fn() -> i32 {
 //	for token in tokens {
 //		println("token: %", token);
 //	}
-
-    return if x 10 else if !x 20 else 30;
-}
-
-

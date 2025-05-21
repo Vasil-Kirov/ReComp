@@ -104,6 +104,7 @@ struct node
 		struct {
 			const string *Name;
 			node *TypeNode;
+			node *Default;
 			u32 Type; // Set by semantic analyzer
 			b32 IsAutoDefineGeneric; // Set by semantic analyzer
 		} Var;

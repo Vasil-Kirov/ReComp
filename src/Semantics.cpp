@@ -234,6 +234,49 @@ symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule)
 	}
 }
 
+slice<default_value> GetDefaultValues(checker *Checker, slice<node *> Vars, u32 *VarTypes)
+{
+	int DefaultArgCount = 0;
+	bool FoundDefaults = false;
+	ForArray(I, Vars)
+	{
+		auto it = Vars[I];
+		if(it->Var.Default != NULL)
+		{
+			u32 Type = VarTypes[I];
+			Assert(Type != INVALID_TYPE);
+
+			Checker->AutoEnum.Push(Type);
+
+
+			AnalyzeNode(Checker, it->Var.Default);
+
+
+			FillUntypedStack(Checker, Type);
+			Checker->AutoEnum.Pop();
+
+			DefaultArgCount += 1;
+			FoundDefaults = true;
+		}
+		else if(FoundDefaults)
+		{
+			RaiseError(true, *it->ErrorInfo, "All default arguments must be after non default arguments");
+		}
+	}
+	
+	if(DefaultArgCount == 0) return {};
+
+	array<default_value> DefaultValues(DefaultArgCount);
+	int At = 0;
+	ForArray(I, Vars)
+	{
+		auto it = Vars[I];
+		DefaultValues[At++] = {.Idx = I, .Default = it->Var.Default};
+	}
+
+	return SliceFromArray(DefaultValues);
+}
+
 u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
 {
 	string NoNamespace = STR_LIT("*");
@@ -338,15 +381,18 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			{
 				FnType->Function.Returns = {};
 			}
+
 			FnType->Function.Flags = TypeNode->Fn.Flags;
 			FnType->Function.ArgCount = TypeNode->Fn.Args.Count;
 			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
+
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
 				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode, Error, OutAutoDef);
 				if(FnType->Function.Args[Idx] == INVALID_TYPE)
 					return INVALID_TYPE;
 			}
+			FnType->Function.DefaultValues = GetDefaultValues(Checker, TypeNode->Fn.Args, FnType->Function.Args);
 			
 			return AddType(FnType);
 		} break;
@@ -724,6 +770,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			}
 		}
 	}
+
+	Function.DefaultValues = GetDefaultValues(Checker, FnNode->Fn.Args, Function.Args);
 	
 	NewType->Function = Function;
 	Checker->Scope.Pop();
@@ -1213,9 +1261,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
 			{
+				bool NoIncorrectArgs = false;
 				if(CallType->Function.Flags & SymbolFlag_VarFunc && Expr->Call.Args.Count > CallType->Function.ArgCount)
-				{}
-				else
+					NoIncorrectArgs = true;
+
+				if(Expr->Call.Args.Count < CallType->Function.ArgCount)
+				{
+					if(CallType->Function.DefaultValues.Count + Expr->Call.Args.Count >= CallType->Function.ArgCount)
+						NoIncorrectArgs = true;
+				}
+
+				if(!NoIncorrectArgs)
 				{
 					RaiseError(false, *Expr->ErrorInfo, "Incorrect number of arguments, needed %d got %d",
 							CallType->Function.ArgCount, Expr->Call.Args.Count);

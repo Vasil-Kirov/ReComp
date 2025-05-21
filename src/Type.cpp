@@ -1258,6 +1258,13 @@ string GetTypeNameAsString(const type *Type)
 			for(int i = 0; i < Type->Function.ArgCount; ++i)
 			{
 				PushBuilderFormated(&Builder, "%s", GetTypeName(Type->Function.Args[i]));
+				For(Type->Function.DefaultValues)
+				{
+					if((*it).Idx == i)
+					{
+						PushBuilder(&Builder, "=<default>");
+					}
+				}
 				if(i + 1 != Type->Function.ArgCount)
 					PushBuilder(&Builder, ", ");
 			}

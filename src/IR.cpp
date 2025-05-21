@@ -1001,6 +1001,19 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 			}
 
+			// Default args
+			for(int Idx = Node->Call.Args.Count; Idx < Type->Function.ArgCount; ++Idx)
+			{
+				default_value Default = {};
+				For(Type->Function.DefaultValues)
+				{
+					if(it->Idx == Idx) Default = *it;
+				}
+				Assert(Default.Default);
+				u32 Expr = BuildIRFromExpression(Builder, Default.Default);
+				Args.Push(Expr);
+			}
+
 			if(Type->Function.Flags & SymbolFlag_VarFunc && !IsForeign(Type))
 				Args.Push(VarArgAlloc);
 

@@ -2,7 +2,6 @@
 #include "Dynamic.h"
 #include "DynamicLib.h"
 #include "Errors.h"
-#include "Interpreter.h"
 #include "Lexer.h"
 #include "Log.h"
 #include "Memory.h"
@@ -56,11 +55,12 @@ node *MakeAssert(const error_info *ErrorInfo, node *Expr)
 	return Result;
 }
 
-node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type)
+node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type, node *DefaultExpr)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_VAR);
 	Result->Var.Name = Name;
 	Result->Var.TypeNode = Type;
+	Result->Var.Default = DefaultExpr;
 
 	return Result;
 }
@@ -744,7 +744,7 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 		{
 			GetToken(P);
 			node *Type = ParseType(P);
-			return MakeVar(ErrorInfo, NULL, Type);
+			return MakeVar(ErrorInfo, NULL, Type, NULL);
 		}
 
 		token ID = EatToken(P, T_ID, false);
@@ -753,8 +753,17 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 			MemberName = &ErrorID;
 		EatToken(P, T_DECL, false);
 		node *Type = ParseType(P);
+		node *Default = NULL;
+		if(P->Current->Type == T_EQ)
+		{
+			GetToken(P);
+			b32 SaveILists = P->NoItemLists;
+			P->NoItemLists = true;
+			Default = ParseExpression(P);
+			P->NoItemLists = SaveILists;
+		}
 
-		return MakeVar(ErrorInfo, MemberName, Type);
+		return MakeVar(ErrorInfo, MemberName, Type, Default);
 	};
 	auto Name = StructToModuleNamePtr(*StructName, Parser->ModuleName);
 
@@ -928,11 +937,24 @@ node *ParseFunctionArgument(parser *Parser)
 	token ID = EatToken(Parser, T_ID, true);
 	EatToken(Parser, ':', false);
 	node *Type = NULL;
+	node *Default = NULL;
 	if(Parser->Current->Type == T_VARARG)
+	{
 		EatToken(Parser, T_VARARG, true);
+	}
 	else
-		Type   = ParseType(Parser);
-	return MakeVar(ErrorInfo, ID.ID, Type);
+	{
+		Type = ParseType(Parser);
+		if(Parser->Current->Type == T_EQ)
+		{
+			GetToken(Parser);
+			b32 SaveILists = Parser->NoItemLists;
+			Parser->NoItemLists = true;
+			Default = ParseExpression(Parser);
+			Parser->NoItemLists = SaveILists;
+		}
+	}
+	return MakeVar(ErrorInfo, ID.ID, Type, Default);
 }
 
 u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
@@ -2230,6 +2252,7 @@ node *CopyASTNode(node *N)
 			R->Var.Type = N->Var.Type;
 			R->Var.IsAutoDefineGeneric = N->Var.IsAutoDefineGeneric;
 			R->Var.TypeNode = CopyASTNode(N->Var.TypeNode);
+			R->Var.Default = CopyASTNode(N->Var.Default);
 		} break;
 
 		case AST_LIST:

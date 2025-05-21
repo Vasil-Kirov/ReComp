@@ -117,10 +117,17 @@ struct slice_type
 	u32 Type;
 };
 
+struct default_value
+{
+	int Idx;
+	node *Default;
+};
+
 struct function_type
 {
 	slice<u32> Returns;
 	u32 *Args;
+	slice<default_value> DefaultValues;
 	u32 Flags;
 	int ArgCount;
 };

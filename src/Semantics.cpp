@@ -271,7 +271,8 @@ slice<default_value> GetDefaultValues(checker *Checker, slice<node *> Vars, u32 
 	ForArray(I, Vars)
 	{
 		auto it = Vars[I];
-		DefaultValues[At++] = {.Idx = I, .Default = it->Var.Default};
+		if (it->Var.Default)
+			DefaultValues[At++] = {.Idx = I, .Default = it->Var.Default};
 	}
 
 	return SliceFromArray(DefaultValues);

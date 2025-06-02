@@ -43,7 +43,7 @@ b32 IsNumCharacter(char C, b32 *FoundDot)
 		*FoundDot = true;
 		return true;
 	}
-	return C == '-' || isdigit(C);
+	return isdigit(C);
 }
 
 inline string *MakeStringPointer(string String)

@@ -4,22 +4,17 @@ module main
 //#import "libc.rcp";
 
 #import io as *
+#import mem
 
 //foo: []string;
 
-print_num :: fn(x: i32 = 10, y: f32 = 4.3) {
-    io.println("X: % Y: %", x, y);
+print :: fn(x: int) {
+    io.println("%", x);
 }
 
 main :: fn() -> i32 {
-    x := true;
-    
-    print_num();
-    print_num(1);
-    print_num(3);
-    print_num();
-    print_num(3, 1);
-    print_num();
+    f := 2;
+    print(10-f); 
 
     return 0;
 }

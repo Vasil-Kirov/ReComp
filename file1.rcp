@@ -8,13 +8,10 @@ module main
 
 //foo: []string;
 
-print :: fn(x: int) {
-    io.println("%", x);
-}
-
 main :: fn() -> i32 {
-    f := 2;
-    print(10-f); 
+    println("%", 0.1005);
+    println("%", 0.3 * 0.3);
+    println("%", v4{0.3, 0, 0, 0} * v4{0.3, 0, 0, 0});
 
     return 0;
 }

@@ -249,8 +249,6 @@ format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
 		return;
 	}
 
-    temp := [256]u32{};
-    count := 0;
     num := num_in;
 
     if ft != f32 && ft != f64 {
@@ -264,47 +262,34 @@ format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
 
     is_neg := false;
     if num < 0 {
-        num = 0 - num;
+        num = -num;
         is_neg = true;
     }
 
-    num += 0.005;
-    int_val := @i32 num;
-    dec := @i32 (num * round_at) % round_at;
-
-    if dec == 0 {
-        temp[count] = '0';
-        count += 1;
-    }
-    else {
-        for dec > 0 {
-            temp[count] = '0' + @u8(dec % 10);
-            count += 1;
-            dec /= 10;
-        }
-    }
-
-    temp[count] = '.';
-    count += 1;
-
-    if int_val == 0 {
-        temp[count] = '0';
-        count += 1;
-    } else {
-        for int_val > 0 {
-            temp[count] = '0' + @u32 (int_val % 10);
-            count += 1;
-            int_val /= 10;
-        }
-    }
-
+    num += 0.5 / cast(ft, round_at);
+    int_part := cast(i32, num);
+    frac_part := cast(i32, (num - cast(ft, int_part)) * round_at);
 
     if is_neg {
-        builder_append_u32(b, '-');
+        builder_append_u8(b, '-');
     }
 
-    for i in count {
-        builder_append_u32(b, temp[count - i - 1]);
+    format_int(b, int_part);
+    builder_append_u8(b, '.');
+
+    digits := 0;
+    tmp := round_at;
+    for tmp > 1 {
+        digits += 1;
+        tmp /= 10;
     }
+
+    // print leading 0s
+    tmp = frac_part;
+    for tmp * 10 < round_at {
+        builder_append_u8(b, '0');
+        tmp *= 10;
+    }
+    format_int(b, frac_part);
 }
 

@@ -284,12 +284,19 @@ format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
         tmp /= 10;
     }
 
-    // print leading 0s
-    tmp = frac_part;
-    for tmp * 10 < round_at {
-        builder_append_u8(b, '0');
-        tmp *= 10;
+    if frac_part != 0 {
+        // print leading 0s
+        tmp = frac_part;
+        for tmp * 10 < round_at {
+            builder_append_u8(b, '0');
+            tmp *= 10;
+        }
+        format_int(b, frac_part);
     }
-    format_int(b, frac_part);
+    else {
+        for i := 1; i < round_at; i *= 10 {
+            builder_append_u8(b, '0');
+        }
+    }
 }
 

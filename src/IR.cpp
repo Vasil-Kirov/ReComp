@@ -1066,16 +1066,32 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				default: unreachable;
 				case TypeKind_Vector:
 				{
-					ForArray(Idx, Node->TypeList.Items)
+					if(Node->TypeList.Items.Count == 1)
 					{
-						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[0]->Item.Expression, IsLHS);
+						for(int Idx = 0; Idx < Type->Vector.ElementCount; Idx++)
+						{
+							ir_insert *Ins = NewType(ir_insert);
+							Ins->Idx = Idx;
+							Ins->Register = Result;
+							Ins->ValueRegister = Register;
 
-						ir_insert *Ins = NewType(ir_insert);
-						Ins->Idx = Idx;
-						Ins->Register = Result;
-						Ins->ValueRegister = Register;
+							Result = PushInstruction(Builder, Instruction(OP_INSERT, Ins, TypeIdx, Builder, 0));
+						}
+					}
+					else
+					{
+						ForArray(Idx, Node->TypeList.Items)
+						{
+							u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
 
-						Result = PushInstruction(Builder, Instruction(OP_INSERT, Ins, TypeIdx, Builder, 0));
+							ir_insert *Ins = NewType(ir_insert);
+							Ins->Idx = Idx;
+							Ins->Register = Result;
+							Ins->ValueRegister = Register;
+
+							Result = PushInstruction(Builder, Instruction(OP_INSERT, Ins, TypeIdx, Builder, 0));
+						}
 					}
 				} break;
 				case TypeKind_Array:

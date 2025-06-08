@@ -3,13 +3,19 @@ module main
 //#import "compiler/lexer.rcp" as *;
 //#import "libc.rcp";
 
+#import intrin as *
 #import io as *
 #import mem
 
 //foo: []string;
 
 main :: fn() -> i32 {
-    println("%", v4{0.1005});
+    x := 10;
+
+    value := atomic_load(&x);
+    old := atomic_add(&x, value);
+
+    println("old: % val: %", old, x);
 
     return 0;
 }

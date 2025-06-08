@@ -89,6 +89,11 @@ enum op
 
 	OP_DEBUG_BREAK,
 
+	OP_FENCE,
+
+	OP_ATOMIC_ADD,
+	OP_ATOMIC_LOAD,
+
 	OP_CMPXCHG,
 
 	// SIMD

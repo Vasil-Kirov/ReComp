@@ -8,6 +8,7 @@
 #include "Threading.h"
 #include "VString.h"
 #include "Interpreter.h"
+#include "CommandLine.h"
 #include <mutex>
 
 pipeline CurrentPipeline = {};
@@ -182,6 +183,12 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	{
 		(*it)->IR = NewType(ir);
 		*(*it)->IR = BuildIR(*it);
+
+		if(ShouldOutputIR((*it)->Module->Name))
+		{
+			string Dissasembly = Dissasemble((*it)->IR);
+			LWARN("[ MODULE %s ]\n\n%s", (*it)->Module->Name.Data, Dissasembly.Data);
+		}
 	}
 	BuildEnumIR(SliceFromArray(Modules));
 
@@ -192,11 +199,6 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		.EntryFileIdx = EntryIdx,
 	};
 
-		//if(ShouldOutputIR((*it)->Module->Name, CommandLine))
-		//{
-		//	string Dissasembly = Dissasemble(File->IR);
-		//	LWARN("[ MODULE %s ]\n\n%s", File->Module->Name.Data, Dissasembly.Data);
-		//}
 }
 
 void ParseFile(void *File_)

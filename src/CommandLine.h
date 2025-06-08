@@ -45,5 +45,5 @@ struct command_line
 	uint Flags;
 };
 
-bool ShouldOutputIR(string MName, command_line CommandLine);
+bool ShouldOutputIR(string MName);
 

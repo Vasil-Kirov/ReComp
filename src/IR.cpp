@@ -876,6 +876,18 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					Op = OP_DEBUG_BREAK;
 				}
+				else if(Node->Call.SymName == "fence")
+				{
+					Op = OP_FENCE;
+				}
+				else if(Node->Call.SymName == "atomic_load")
+				{
+					Op = OP_ATOMIC_LOAD;
+				}
+				else if(Node->Call.SymName == "atomic_add")
+				{
+					Op = OP_ATOMIC_ADD;
+				}
 			}
 			else
 			{
@@ -3425,6 +3437,20 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		{
 			call_info *ci = (call_info *)Instr.BigRegister;
 			PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
+		} break;
+		case OP_FENCE:
+		{
+			PushBuilderFormated(Builder, "fence");
+		} break;
+		case OP_ATOMIC_LOAD:
+		{
+			call_info *ci = (call_info *)Instr.BigRegister;
+			PushBuilderFormated(Builder, "%%%d = atomic load %%%d", Instr.Result, ci->Args[0]);
+		} break;
+		case OP_ATOMIC_ADD:
+		{
+			call_info *ci = (call_info *)Instr.BigRegister;
+			PushBuilderFormated(Builder, "atomic add %%%d, %%%d", ci->Args[0], ci->Args[1]);
 		} break;
 		case OP_GLOBAL:
 		{

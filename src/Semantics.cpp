@@ -3666,6 +3666,9 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 bool CheckIntrinsic(string Name)
 {
 	string Intrinsics[] = {
+		STR_LIT("atomic_add"),
+		STR_LIT("atomic_load"),
+		STR_LIT("fence"),
 		STR_LIT("compare_exchange"),
 		STR_LIT("debug_break"),
 	};

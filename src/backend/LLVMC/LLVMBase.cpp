@@ -571,6 +571,28 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			Assert(Intrin.Fn);
 			LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "");
 		} break;
+		case OP_ATOMIC_ADD:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+			LLVMValueRef Val = gen->map.Get(ci->Args[1]);
+			LLVMValueRef OldVal = LLVMBuildAtomicRMW(gen->bld, LLVMAtomicRMWBinOpAdd, Ptr, Val, LLVMAtomicOrderingSequentiallyConsistent, false);
+
+			gen->map.Add(I.Result, OldVal);
+		} break;
+		case OP_ATOMIC_LOAD:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
+			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+			LLVMValueRef Val = LLVMBuildLoad2(gen->bld, IntType, Ptr, "");
+			LLVMSetOrdering(Val, LLVMAtomicOrderingSequentiallyConsistent);
+			gen->map.Add(I.Result, Val);
+		} break;
+		case OP_FENCE:
+		{
+			LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent, false, "");
+		} break;
 		case OP_CMPXCHG:
 		{
 			call_info *ci = (call_info *)I.BigRegister;

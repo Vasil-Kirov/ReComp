@@ -1,8 +1,10 @@
 module intrin
 
 
-
-compare_exchange :: fn(dst: *int, compare: int, new: int) -> (int, bool) #intrinsic;
+atomic_add :: fn(ptr: *int, val: int) -> int #intrinsic;
+atomic_load :: fn(ptr: *int) -> int #intrinsic;
+fence :: fn() #intrinsic;
 debug_break :: fn() #intrinsic;
+compare_exchange :: fn(dst: *int, compare: int, new: int) -> (int, bool) #intrinsic;
 
 

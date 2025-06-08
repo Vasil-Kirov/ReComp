@@ -5,6 +5,7 @@
 
 extern bool InterpreterTrace;
 extern bool NoThreads;
+slice<string> GlobalIRModules;
 
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rcp
@@ -161,14 +162,16 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
 	Result.IRModules = SliceFromArray(IRModules);
+
+	GlobalIRModules = Result.IRModules;
 	return Result;
 }
 
-bool ShouldOutputIR(string MName, command_line CommandLine)
+bool ShouldOutputIR(string MName)
 {
-	ForArray(Idx, CommandLine.IRModules)
+	For(GlobalIRModules)
 	{
-		if(CommandLine.IRModules[Idx] == MName)
+		if(*it == MName)
 			return true;
 	}
 	return false;

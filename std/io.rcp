@@ -353,6 +353,20 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             builder_append(b, " }");
         }
         TypeKind.Slice: {
+			st := t.t.slice;
+			count := *cast(*int, arg.val);
+			data := cast(*u8, *(cast(*uint, arg.val)+1));
+			builder_append(b, "[]");
+			builder_append(b, "{ ");
+
+			align := get_type_alignment(st.t);
+
+			for i in count {
+				if i != 0 builder_append(b, ", ");
+				print_type(b, .{st.t, data});
+				data += align;
+			}
+			builder_append(b, " }");
         }
         TypeKind.Vector: {
             vect := t.t.vector;

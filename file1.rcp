@@ -9,13 +9,23 @@ module main
 
 //foo: []string;
 
-main :: fn() -> i32 {
-    x := 10;
+get_num :: fn() -> i32 { return 4; }
 
+main :: fn() -> i32 {
+	_ := get_num();
+	_ := get_num();
+	_ := get_num();
+	_ := get_num();
+	_ := get_num();
+	_ := get_num();
+
+	x := cast(int, get_num());
     value := atomic_load(&x);
     old := atomic_add(&x, value);
 
     println("old: % val: %", old, x);
+	_ := get_num();
+	_ := get_num();
 
     return 0;
 }

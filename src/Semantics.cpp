@@ -2633,6 +2633,10 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const string *ID, node *Node, u32 Flags)
 {
+	Assert(ID);
+	if(*ID == "_")
+		return;
+
 	if((Flags & SymbolFlag_Shadow) == 0)
 	{
 		scope *scope = Checker->Scope.TryPeek();

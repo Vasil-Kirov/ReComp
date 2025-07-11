@@ -3,37 +3,37 @@ module os
 assert :: fn(cond: bool, reason: string) {
 	if !cond {
 		header := "Assert Failed!\n";
-		print(header.data, @u32 header.count);
-		print(reason.data, @u32 reason.count);
+		print(header.data, header.count as u32);
+		print(reason.data, reason.count as u32);
 		abort();
 	}
 }
 
 #if Windows {
-    STD_INPUT_HANDLE  :: @u32 -10;
-    STD_OUTPUT_HANDLE :: @u32 -11;
-    STD_ERROR_HANDLE  :: @u32 -12;
-    INVALID_HANDLE_VALUE :: @?* @u64 -1;
+    STD_INPUT_HANDLE  :: (-10) as u32;
+    STD_OUTPUT_HANDLE :: (-11) as u32;
+    STD_ERROR_HANDLE  :: (-12) as u32;
+    INVALID_HANDLE_VALUE :: cast(?*, ((-1) as u64));
 
-    CP_UTF7 :: @u32 65000;      // UTF-7 translation
-    CP_UTF8 :: @u32 65001;      // UTF-8 translation
+    CP_UTF7 :: 65000 as u32;      // UTF-7 translation
+    CP_UTF8 :: 65001 as u32;      // UTF-8 translation
 
-    MEM_COMMIT  :: @u32 0x00001000;
-    MEM_RESERVE :: @u32 0x00002000; 
-    MEM_RELEASE :: @u32 0x00008000;
+    MEM_COMMIT  :: 0x00001000 as u32;
+    MEM_RESERVE :: 0x00002000 as u32; 
+    MEM_RELEASE :: 0x00008000 as u32;
 
 
-    PAGE_NOACCESS          :: @u32 0x001;
-    PAGE_READONLY          :: @u32 0x002;
-    PAGE_READWRITE         :: @u32 0x004;
-    PAGE_WRITECOPY         :: @u32 0x008;
-    PAGE_EXECUTE           :: @u32 0x010;
-    PAGE_EXECUTE_READ      :: @u32 0x020;
-    PAGE_EXECUTE_READWRITE :: @u32 0x040;
-    PAGE_EXECUTE_WRITECOPY :: @u32 0x080;
-    PAGE_GUARD             :: @u32 0x100;
-    PAGE_NOCACHE           :: @u32 0x200;
-    PAGE_WRITECOMBINE      :: @u32 0x400;
+    PAGE_NOACCESS          :: 0x001 as u32;
+    PAGE_READONLY          :: 0x002 as u32;
+    PAGE_READWRITE         :: 0x004 as u32;
+    PAGE_WRITECOPY         :: 0x008 as u32;
+    PAGE_EXECUTE           :: 0x010 as u32;
+    PAGE_EXECUTE_READ      :: 0x020 as u32;
+    PAGE_EXECUTE_READWRITE :: 0x040 as u32;
+    PAGE_EXECUTE_WRITECOPY :: 0x080 as u32;
+    PAGE_GUARD             :: 0x100 as u32;
+    PAGE_NOCACHE           :: 0x200 as u32;
+    PAGE_WRITECOMBINE      :: 0x400 as u32;
 
     struct LARGE_INTEGER_STRUCT {
         LowPart: u32,
@@ -73,42 +73,42 @@ assert :: fn(cond: bool, reason: string) {
     }
 
 	alloc :: fn(size: int) -> ?* {
-        return VirtualAlloc(null, @uint size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+        return VirtualAlloc(null, size as uint, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     }
 
 	free :: fn(ptr: *) {
         VirtualFree(ptr, 0, MEM_RELEASE);
     }
 
-    GENERIC_READ   :: @u32 0x80000000;
-    GENERIC_WRITE  :: @u32 0x40000000;
-    CREATE_NEW          :: @u32 1;
-    CREATE_ALWAYS       :: @u32 2;
-    OPEN_EXISTING       :: @u32 3;
-    OPEN_ALWAYS         :: @u32 4;
-    TRUNCATE_EXISTING   :: @u32 5;
-    FILE_ATTRIBUTE_READONLY             :: @u32 0x00000001;
-    FILE_ATTRIBUTE_HIDDEN               :: @u32 0x00000002;
-    FILE_ATTRIBUTE_SYSTEM               :: @u32 0x00000004;
-    FILE_ATTRIBUTE_DIRECTORY            :: @u32 0x00000010;
-    FILE_ATTRIBUTE_ARCHIVE              :: @u32 0x00000020;
-    FILE_ATTRIBUTE_DEVICE               :: @u32 0x00000040;
-    FILE_ATTRIBUTE_NORMAL               :: @u32 0x00000080;
-    FILE_ATTRIBUTE_TEMPORARY            :: @u32 0x00000100;
-    FILE_ATTRIBUTE_SPARSE_FILE          :: @u32 0x00000200;
-    FILE_ATTRIBUTE_REPARSE_POINT        :: @u32 0x00000400;
-    FILE_ATTRIBUTE_COMPRESSED           :: @u32 0x00000800;
-    FILE_ATTRIBUTE_OFFLINE              :: @u32 0x00001000;
-    FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  :: @u32 0x00002000;
-    FILE_ATTRIBUTE_ENCRYPTED            :: @u32 0x00004000;
-    FILE_ATTRIBUTE_INTEGRITY_STREAM     :: @u32 0x00008000;
-    FILE_ATTRIBUTE_VIRTUAL              :: @u32 0x00010000;
-    FILE_ATTRIBUTE_NO_SCRUB_DATA        :: @u32 0x00020000;
-    FILE_ATTRIBUTE_EA                   :: @u32 0x00040000;
-    FILE_ATTRIBUTE_PINNED               :: @u32 0x00080000;
-    FILE_ATTRIBUTE_UNPINNED             :: @u32 0x00100000;
-    FILE_ATTRIBUTE_RECALL_ON_OPEN       :: @u32 0x00040000;
-    FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS :: @u32 0x00400000;
+    GENERIC_READ   :: 0x80000000 as u32;
+    GENERIC_WRITE  :: 0x40000000 as u32;
+    CREATE_NEW          :: 1 as u32;
+    CREATE_ALWAYS       :: 2 as u32;
+    OPEN_EXISTING       :: 3 as u32;
+    OPEN_ALWAYS         :: 4 as u32;
+    TRUNCATE_EXISTING   :: 5 as u32;
+    FILE_ATTRIBUTE_READONLY             :: 0x00000001 as u32;
+    FILE_ATTRIBUTE_HIDDEN               :: 0x00000002 as u32;
+    FILE_ATTRIBUTE_SYSTEM               :: 0x00000004 as u32;
+    FILE_ATTRIBUTE_DIRECTORY            :: 0x00000010 as u32;
+    FILE_ATTRIBUTE_ARCHIVE              :: 0x00000020 as u32;
+    FILE_ATTRIBUTE_DEVICE               :: 0x00000040 as u32;
+    FILE_ATTRIBUTE_NORMAL               :: 0x00000080 as u32;
+    FILE_ATTRIBUTE_TEMPORARY            :: 0x00000100 as u32;
+    FILE_ATTRIBUTE_SPARSE_FILE          :: 0x00000200 as u32;
+    FILE_ATTRIBUTE_REPARSE_POINT        :: 0x00000400 as u32;
+    FILE_ATTRIBUTE_COMPRESSED           :: 0x00000800 as u32;
+    FILE_ATTRIBUTE_OFFLINE              :: 0x00001000 as u32;
+    FILE_ATTRIBUTE_NOT_CONTENT_INDEXED  :: 0x00002000 as u32;
+    FILE_ATTRIBUTE_ENCRYPTED            :: 0x00004000 as u32;
+    FILE_ATTRIBUTE_INTEGRITY_STREAM     :: 0x00008000 as u32;
+    FILE_ATTRIBUTE_VIRTUAL              :: 0x00010000 as u32;
+    FILE_ATTRIBUTE_NO_SCRUB_DATA        :: 0x00020000 as u32;
+    FILE_ATTRIBUTE_EA                   :: 0x00040000 as u32;
+    FILE_ATTRIBUTE_PINNED               :: 0x00080000 as u32;
+    FILE_ATTRIBUTE_UNPINNED             :: 0x00100000 as u32;
+    FILE_ATTRIBUTE_RECALL_ON_OPEN       :: 0x00040000 as u32;
+    FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS :: 0x00400000 as u32;
 
 	stdin :: fn() -> * {
         h := GetStdHandle(STD_INPUT_HANDLE);
@@ -132,15 +132,15 @@ assert :: fn(cond: bool, reason: string) {
 	write :: fn(file: *, buf: *u8, count: int) -> int {
         // @TODO: 64 bit file writes
         written: u32;
-        if !WriteFile(file, buf, @u32 count, &written, null) return 0;
-        return @int written;
+        if !WriteFile(file, buf, count as u32, &written, null) return 0;
+        return written as int;
 	}
     
 	read :: fn(file: *, buf: *, size: int) -> int {
         read: u32;
         // @TODO: 64 bit file reads
-        if !ReadFile(file, buf, @u32 size, &read, null) return 0;
-        return @int read;
+        if !ReadFile(file, buf, size as u32, &read, null) return 0;
+        return read as int;
         
     }
 
@@ -151,7 +151,7 @@ assert :: fn(cond: bool, reason: string) {
 	get_file_size :: fn(handle: *) -> int {
         out: LARGE_INTEGER;
         if GetFileSizeEx(handle, &out) == false return 0;
-		return @int out.QuadPart;
+		return out.QuadPart as int;
 	}
 
     struct CONSOLE_READCONSOLE_CONTROL {
@@ -171,12 +171,12 @@ assert :: fn(cond: bool, reason: string) {
             return 0;
         }
 
-        read := @u32 0;
+        read := 0 as u32;
         if ReadConsoleA(?handle, buffer, size, &read, &control) == false {
             return 0;
         }
 
-        as_chars := @*u8 buffer;
+        as_chars := buffer as *u8;
 
         // remove /r/n
         as_chars[read-2] = 0;
@@ -303,15 +303,15 @@ assert :: fn(cond: bool, reason: string) {
 }
 
 	alloc :: fn(size: int) -> ?* {
-		myb_ctx := @?*AllocCtx syscall(SYS_mmap,
+		myb_ctx := syscall(SYS_mmap,
 		null,						// Address
 		size + size_of AllocCtx,	// Size
 		PROT_READ | PROT_WRITE,		// Prot
 		MAP_PRIVATE | MAP_ANON | MAP_NORESERVE,	// Flags
 		-1,							// FD
-		0);							// Offset
+		0) as ?*AllocCtx;			// Offset
         FAILED :: -1;
-        if myb_ctx == @?*void FAILED || myb_ctx == null {
+        if myb_ctx == cast(?*void, FAILED) || myb_ctx == null {
             return null;
         }
 
@@ -322,11 +322,11 @@ assert :: fn(cond: bool, reason: string) {
 	}
 
 	stdin :: fn() -> * {
-		return @*void handle_stdin;
+		return handle_stdin as *void;
 	}
 
 	stdout :: fn() -> * {
-		return @*void handle_stdout;
+		return handle_stdout as *void;
 	}
 
     // @TODO: other platforms
@@ -348,7 +348,7 @@ assert :: fn(cond: bool, reason: string) {
 	open :: fn(name: string) -> ?* {
 		fd := syscall(SYS_open, name.data, O_RDWR | O_APPEND);
 		if fd == -1 return null;
-		return @*void fd;
+		return fd as *void;
 	}
 
 	write :: fn(fd: *, buf: *u8, count: int) -> int {
@@ -362,15 +362,15 @@ assert :: fn(cond: bool, reason: string) {
 	}
 
 	free :: fn(ptr: *) {
-		ctx := (@*AllocCtx ptr) - 1;
+		ctx := cast(*AllocCtx, ptr) - 1;
 		syscall(SYS_munmap, ctx, ctx.size);
 	}
 
     read_stdin_line :: fn(buffer: *, size: u32) -> u32 {
-		buf := @*u8 buffer;
-		count := @u32 0;
+		buf := cast(*u8, buffer);
+		count := cast(u32, 0);
 		for count < size {
-			c := @u8 0;
+			c := cast(u8, 0);
 			syscall(SYS_read, stdin(), &c, 1);
 			if c == '\n' {
 				break;

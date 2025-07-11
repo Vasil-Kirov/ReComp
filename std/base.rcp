@@ -7,7 +7,7 @@ struct Arg {
     val: *,
 }
 
-INVALID_TYPE :: @type -1;
+INVALID_TYPE :: (-1) as type;
 
 enum TypeKind {
 	Invalid ,
@@ -214,7 +214,7 @@ get_type_alignment :: fn(t: type) -> int {
 
 get_basic_type_size :: fn(t: BasicType) -> int {
     if t.size != -1
-        return @int t.size;
+        return t.size as int;
     return get_register_bit_count() / 8;
 }
 
@@ -234,7 +234,7 @@ get_struct_size :: fn(st: type) -> int {
 		if member_size > biggest_member
 			biggest_member = member_size;
 	}
-	if (t.flags & @u32 StructFlag.Union) != 0
+	if (t.flags & (StructFlag.Union as u32)) != 0
 		return biggest_member;
     align := get_type_alignment(st);
 	result += (align - ( result % align )) % align;
@@ -254,7 +254,7 @@ get_type_size :: fn(t: type) -> int {
             yield get_register_bit_count();
         }
         .Array: {
-            yield get_type_size(ti.t.array.t) * @int ti.t.array.member_count;
+            yield get_type_size(ti.t.array.t) * ti.t.array.member_count as int;
         }
         .Slice: {
             yield get_register_bit_count() / 4;
@@ -281,7 +281,7 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
         return 0;
     }
 
-	if (st.flags & @u32 StructFlag.Union) != 0
+	if (st.flags & StructFlag.Union as u32) != 0
 		return 0;
 
     result := 0;

@@ -7,5 +7,5 @@ str :: #embed_str "str.txt";
 bin :: #embed_bin "bin";
 
 main :: fn() -> i32 {
-	return @i32 str.count - (@i32 *bin) + 94;
+	return str.count as i32 - (*bin) as i32 + 94;
 }

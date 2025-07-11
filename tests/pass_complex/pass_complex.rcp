@@ -20,7 +20,7 @@ make_bs :: fn(num: i32) -> BigStruct {
 }
 
 make_ss :: fn(num: i32) -> SmallStruct {
-    res := SmallStruct { num1 = @i16 num, num2 = @i16 num };
+    res := SmallStruct { num1 = num as i16, num2 = num  as i16};
     return res;
 }
 

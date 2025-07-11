@@ -5,7 +5,7 @@ module main
 // *x from getting done
 
 main :: fn() -> i32 {
-    x := @*u8 ?null;
+    x := (?null) as *u8;
     if x != null && *x == 10 {
         return 1;
     }

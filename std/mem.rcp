@@ -34,7 +34,7 @@ make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T {
 }
 
 make_type :: fn (T: type, alloc: *Allocator) -> ?*T {
-    return @?*T alloc.alloc(size_of T, alloc);
+    return alloc.alloc(size_of T, alloc) as ?*T;
 }
 
 destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
@@ -70,9 +70,9 @@ struct ScratchContext {
 }
 
 addr_align16 :: fn(addr: *) -> * {
-	addr := @*u8 addr;
-    val := ((@u64 addr) + 15) & 0xfffffffffffffff0;
-	return @*void val;
+	addr := cast(*u8, addr);
+    val := ((addr as u64) + 15) & 0xfffffffffffffff0;
+	return cast(*void, val);
 }
 
 arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
@@ -81,7 +81,7 @@ arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 		*this = create_scratch(mb(1));
 	}
 
-    ctx := @*ScratchContext ?this.data;
+    ctx := cast(*ScratchContext, ?this.data);
 
     #assert ctx && "Invalid allocator for arena_alloc()";
     #assert ctx.max > ctx.current && "Calling arena_alloc() with an out of memory arena";
@@ -89,7 +89,7 @@ arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 
 	
 	res := addr_align16(ctx.current);
-    ctx.current = (@*u8 res) + size;
+    ctx.current = (res as *u8) + size;
 
 	set(res, 0, size);
     
@@ -103,10 +103,10 @@ no_free :: fn(p: *, this: *Allocator) {
 create_scratch :: fn(max_size: int) -> Allocator {
 	mem := os.alloc(max_size + size_of ScratchContext);
 	#assert mem && "Couldn't allocate memory";
-    ctx := @*ScratchContext ?mem;
+    ctx := cast(*ScratchContext, ?mem);
 
-	ctx.start   = @*u8 (ctx + 1);
-    ctx.current = @*u8 (ctx + 1);
+	ctx.start   = cast(*u8, (ctx + 1));
+    ctx.current = cast(*u8, (ctx + 1));
     ctx.max = ctx.current + max_size;
 
     r := Allocator {
@@ -120,13 +120,13 @@ create_scratch :: fn(max_size: int) -> Allocator {
 
 reset_scratch :: fn(a: *Allocator) {
 	if a.data == null return;
-    ctx := @*ScratchContext ?a.data;
+    ctx := cast(*ScratchContext, ?a.data);
 	ctx.current = ctx.start;
 }
 
 destroy_scratch :: fn(a: *Allocator) {
 	#assert a.data;
-    ctx := @*ScratchContext ?a.data;
+    ctx := cast(*ScratchContext, ?a.data);
     os.free(ctx);
 }
 

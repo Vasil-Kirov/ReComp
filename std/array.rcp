@@ -18,14 +18,14 @@ create :: fn(T: type, allocator: *mem.Allocator) -> []T {
     ptr.allocator = *allocator;
 
     res := []T{};
-    res.data = @*T(ptr+1);
+    res.data = cast(*T, (ptr+1));
     res.count = 0;
     return res;
 }
 
 add :: fn(arg_arr: *[]$T, item: T) {
     arr := arg_arr;
-    header := (@*Header arr.data) - 1;
+    header := cast(*Header, arr.data) - 1;
     if arr.count >= header.capacity {
         new_capacity := header.capacity * 2;
         maybe_ptr: ?*Header = header.allocator.alloc(new_capacity * size_of T + size_of Header, &header.allocator);
@@ -36,7 +36,7 @@ add :: fn(arg_arr: *[]$T, item: T) {
         ptr.allocator = header.allocator;
         mem.copy(ptr+1, arr.data, arr.count * size_of T);
         ptr.allocator.free(header, &ptr.allocator);
-        arr.data = @*T(ptr+1);
+        arr.data = cast(*T, (ptr+1));
     }
 
     (*arr)[arr.count] = item;
@@ -46,7 +46,7 @@ add :: fn(arg_arr: *[]$T, item: T) {
 free :: fn(arg_arr: *[]$T) {
 	size_of(T);
     arr := arg_arr;
-    header := (@*Header arr.data) - 1;
+    header := cast(*Header, arr.data) - 1;
     header.allocator.free(header, &header.allocator);
     arr.data = ?null;
     arr.count = 0;

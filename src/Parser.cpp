@@ -1253,6 +1253,13 @@ node *ParseAtom(parser *Parser, node *Operand)
 				Loop = false;
 
 			} break;
+			case T_AS:
+			{
+				GetToken(Parser);
+				ERROR_INFO;
+				node *Type = ParseType(Parser, true);
+				Operand = MakeCast(ErrorInfo, Operand, Type, INVALID_TYPE, INVALID_TYPE);
+			} break;
 			default:
 			{
 				Loop = false;
@@ -1307,7 +1314,6 @@ node *ParseOperand(parser *Parser)
 			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, NULL, 0, 0);
 		} break;
-#endif
 		case T_CAST:
 		{
 			ERROR_INFO;
@@ -1316,6 +1322,7 @@ node *ParseOperand(parser *Parser)
 			node *Expr = ParseUnary(Parser);
 			Result = MakeCast(ErrorInfo, Expr, Type, INVALID_TYPE, INVALID_TYPE);
 		} break;
+#endif
 		case T_BITCAST:
 		case T_NEWCAST:
 		{

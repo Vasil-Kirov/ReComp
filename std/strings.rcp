@@ -56,36 +56,36 @@ builder_append_u32 :: fn(b: *Builder, c: u32) {
 	b := b;
 	c := c;
 	if c <= 0x7F {
-		array.add(&b.data, @u8 c);
+		array.add(&b.data, c as u8);
 	} else if c <= 0x7FF { 
-		second := @u8 c & 0b0011_1111;
+		second := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		first  := @u8 c & 0b0001_1111;
+		first  := cast(u8, c & 0b0001_1111);
 		
-		array.add(&b.data, @u8 (0b1100_0000 | first));
-		array.add(&b.data, @u8 (0b1000_0000 | second));
+		array.add(&b.data, cast(u8, (0b1100_0000 | first)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | second)));
 	} else if c <= 0xFFFF {
-		third  := @u8 c & 0b0011_1111;
+		third  := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		second := @u8 c & 0b0011_1111;
+		second := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		first  := @u8 c & 0b0000_1111;
+		first  := cast(u8, c & 0b0000_1111);
 
-		array.add(&b.data, @u8 (0b1110_0000 | first));
-		array.add(&b.data, @u8 (0b1000_0000 | second));
-		array.add(&b.data, @u8 (0b1000_0000 | third));
+		array.add(&b.data, cast(u8, (0b1110_0000 | first)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | second)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | third)));
 	} else {
-		forth  := @u8 c & 0b0011_1111;
+		forth  := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		third  := @u8 c & 0b0011_1111;
+		third  := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		second := @u8 c & 0b0011_1111;
+		second := cast(u8, c & 0b0011_1111);
 		c >>= 6;
-		first  := @u8 c & 0b0000_0111;
-		array.add(&b.data, @u8 (0b1111_0000 | first));
-		array.add(&b.data, @u8 (0b1000_0000 | second));
-		array.add(&b.data, @u8 (0b1000_0000 | third));
-		array.add(&b.data, @u8 (0b1000_0000 | forth));
+		first  := cast(u8, c & 0b0000_0111);
+		array.add(&b.data, cast(u8, (0b1111_0000 | first)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | second)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | third)));
+		array.add(&b.data, cast(u8, (0b1000_0000 | forth)));
 	}
 }
 
@@ -98,7 +98,7 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
     b := b;
     data_ := alloc.alloc(b.data.count+1, alloc);
 	if data_ == null return "";
-	data := @*u8 ?data_;
+	data := cast(*u8, ?data_);
     scan := b.data.data;
 	len := b.data.count;
     for i := 0; i < len; i += 1 {
@@ -111,7 +111,7 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
     return string { len, data };
 }
 
-CONTINUE_BIT :: @u8 0b1000_0000;
+CONTINUE_BIT :: 0b1000_0000 as u8;
 
 substr :: fn(original: string, from: int, to_excl: int) -> string {
     o := original;
@@ -123,9 +123,9 @@ substr :: fn(original: string, from: int, to_excl: int) -> string {
 
 get_codepoint_size :: fn(codepoint: *u8) -> int {
     p := codepoint;
-	SIZE4 :: @u8 0b1111_0000;
-	SIZE3 :: @u8 0b1110_0000;
-	SIZE2 :: @u8 0b1100_0000;
+	SIZE4 :: 0b1111_0000 as u8;
+	SIZE3 :: 0b1110_0000 as u8;
+	SIZE2 :: 0b1100_0000 as u8;
 	if *p & SIZE4 == SIZE4 return 4;
 	if *p & SIZE3 == SIZE3 return 3;
 	if *p & SIZE2 == SIZE2 return 2;
@@ -141,25 +141,25 @@ advance :: fn(pos: *u8) -> *u8 {
 extract_codepoint :: fn (p: *u8, size: int) -> u32 {
     res := match size {
 		1: {
-			yield @u32 *p;
+			yield cast(u32, *p);
 		}
 		2: {
 			First := *p & 0b0001_1111;
 			Second := *(p+1) & 0b0011_1111;
-			yield (@u32 First) << 6 | @u32 Second;
+			yield (First as u32) << 6 | Second as u32;
 		}
 		3: {
 			First := *p & 0b0000_1111;
 			Second := *(p+1) & 0b0011_1111;
 			Third := *(p+2) & 0b0011_1111;
-			yield (@u32 First) << 12 | (@u32 Second) << 6 | @u32 Third;
+			yield (First as u32) << 12 | (Second as u32) << 6 | Third as u32;
 		}
 		4: {
 			First := *p & 0b0000_0111;
 			Second := *(p+1) & 0b0011_1111;
 			Third := *(p+2) & 0b0011_1111;
 			Forth := *(p+3) & 0b0011_1111;
-			yield (@u32 First) << 18 | (@u32 Second) << 12 | (@u32 Third) << 6 | @u32 Forth;
+			yield (First as u32) << 18 | (Second as u32) << 12 | (Third as u32) << 6 | Forth as u32;
 		}
 	};
 	return res;
@@ -196,7 +196,7 @@ format_uint :: fn(b: *Builder, num_in: uint) {
         digit := num % 10;
         num /= 10;
         c := '0' + digit;
-        temp[count] = @u32 c;
+        temp[count] = c as u32;
         count += 1;
     }
 
@@ -223,7 +223,7 @@ format_int :: fn(b: *Builder, num_in: int) {
     for num > 0 {
         digit := num % 10;
         num /= 10;
-        c := '0' + @u8 digit;
+        c := '0' + digit as u8;
         temp[count] = c;
         count += 1;
     }

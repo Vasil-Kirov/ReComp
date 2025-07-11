@@ -31,5 +31,5 @@ main :: fn() -> i32 {
 	// 1 + 2 + 3 + 12 = 18
     sum1 := child1.foo + child1.bar + child1.ff + size_of child1;
 	sum2 := child2.foo + child2.bar + child2.ff + size_of Child;
-	return @i32 (36 - sum1 - sum2);
+	return (36 - sum1 - sum2) as i32;
 }

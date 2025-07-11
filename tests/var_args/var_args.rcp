@@ -5,12 +5,12 @@ foo :: fn(list: ...) -> i32 {
     for i in list.count {
         it := list[i];
         if it.t == i32 {
-            sum += *@*i32 it.val;
+            sum += *cast(*i32, it.val);
         }
     }
-    return @i32 sum;
+    return sum as i32;
 }
 
 main :: fn() -> i32 {
-	return foo(1, @i32 2, @i32 3, 4) - 5;
+	return foo(1, 2 as i32, 3 as i32, 4) - 5;
 }

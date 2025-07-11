@@ -12,6 +12,7 @@ module main
 get_num :: fn() -> i32 { return 4; }
 
 main :: fn() -> i32 {
+
 	_ := get_num();
 	_ := get_num();
 	_ := get_num();

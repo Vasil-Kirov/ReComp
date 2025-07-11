@@ -13,5 +13,5 @@ get_other_num :: fn(m: $T) -> T {
 main :: fn() -> i32 {
     foo := get_num(int, 3);
     bar := get_num(i32, 1);
-	return @i32 foo - (bar * get_other_num(@i32 0));
+	return foo as i32 - (bar * get_other_num(0 as i32));
 }

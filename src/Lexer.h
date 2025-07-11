@@ -15,7 +15,7 @@ enum token_type
 	T_CLOSEPAREN = ')',
 	T_OPENBRACKET  = '[',
 	T_CLOSEBRACKET = ']',
-	T_CAST  = '@',
+	//T_CAST  = '@',
 	T_EQ    = '=',
 	T_LESS  = '<',
 	T_GREAT = '>',

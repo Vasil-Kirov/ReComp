@@ -658,7 +658,7 @@ const char* GetTokenName(token_type Token) {
         case T_CLOSEPAREN:  return ")";
         case T_OPENBRACKET: return "[";
         case T_CLOSEBRACKET:return "]";
-        case T_CAST:        return "cast";
+        //case T_CAST:        return "cast";
         case T_EQ:          return "=";
         case T_LESS:        return "<";
         case T_GREAT:       return ">";

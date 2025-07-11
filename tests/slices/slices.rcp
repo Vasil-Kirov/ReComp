@@ -5,7 +5,7 @@ get_sum :: fn(my_slice: []i32) -> i32 {
     for num in my_slice {
         sum += num;
     }
-    return @i32 sum;
+    return sum as i32;
 }
 
 main :: fn() -> i32 {

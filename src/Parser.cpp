@@ -1655,10 +1655,18 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 		{
 			MaybeTypeNode = ParseType(Parser);
 		}
-		if(Parser->Current->Type != T_EQ)
+		if(Parser->Current->Type != T_EQ && Parser->Current->Type != T_DECL)
+		{
 			HasExpression = false;
+		}
 		else
-			GetToken(Parser);
+		{
+			token T = GetToken(Parser);
+			if(T.Type == T_DECL)
+			{
+				IsConst = true;
+			}
+		}
 	}
 	node *Expression = NULL;
 	if(HasExpression)

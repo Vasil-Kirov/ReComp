@@ -105,6 +105,7 @@ enum token_type
 	T_BITCAST = -81,
 	T_RAWSTRING = -82,
 	T_MODULE = -83,
+	T_FILE_LOCATION = -89,
 };
 
 struct token

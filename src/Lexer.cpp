@@ -627,6 +627,7 @@ void InitializeLexer()
 	AddKeyword("#assert",  T_ASSERT);
 	AddKeyword("#load_dl",  T_LOAD_DL);
 	AddKeyword("#load_system_dl",  T_LOAD_SYSTEM_DL);
+	AddKeyword("#file_location",  T_FILE_LOCATION);
 	AddKeyword("#run",   T_RUN);
 	AddKeyword("return", T_RETURN);
 	AddKeyword("struct", T_STRUCT);

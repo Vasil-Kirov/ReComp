@@ -28,6 +28,13 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeFileLocation(const error_info *ErrorInfo)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_FILE_LOCATION);
+
+	return Result;
+}
+
 node *MakeRun(const error_info *ErrorInfo, slice<node *> Body)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_RUN);
@@ -940,11 +947,15 @@ node *ParseFunctionArgument(parser *Parser)
 	node *Default = NULL;
 	if(Parser->Current->Type == T_VARARG)
 	{
+		Type = (node *)0x1;
 		EatToken(Parser, T_VARARG, true);
 	}
 	else
 	{
-		Type = ParseType(Parser);
+		Type = NULL;
+		if(Parser->Current->Type != T_EQ)
+			Type = ParseType(Parser);
+
 		if(Parser->Current->Type == T_EQ)
 		{
 			GetToken(Parser);
@@ -1275,6 +1286,12 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+		case T_FILE_LOCATION:
+		{
+			ERROR_INFO;
+			GetToken(Parser);
+			Result = MakeFileLocation(ErrorInfo);
+		} break;
 		case T_DOT:
 		{
 			// Detect selector
@@ -1389,18 +1406,52 @@ node *ParseOperand(parser *Parser)
 			node *Expr = ParseExpression(Parser);
 			Parser->NoStructLists = NoStructLists;
 			EatToken(Parser, T_STARTSCOPE, true);
+
 			auto ParseFn = [](parser *Parser) -> node* {
 				ERROR_INFO;
 				if(Parser->Current->Type == T_ENDSCOPE)
 					return NULL;
 
-				node *Value = ParseExpression(Parser);
+
+				dynamic<node *> List = {};
+				node *Value = NULL;
+				do {
+					if(Parser->Current->Type == T_COMMA)
+					{
+						if(Value == NULL)
+						{
+							RaiseError(false, Parser->Current->ErrorInfo, "Expected case value before comma");
+							EatToken(Parser, ',', false);
+							continue;
+						}
+						else
+						{
+							if(!List.IsValid())
+								List.Push(Value);
+							EatToken(Parser, ',', false);
+						}
+
+					}
+
+					Value = ParseExpression(Parser);
+					if(List.IsValid())
+						List.Push(Value);
+				} while(Parser->Current->Type == T_COMMA);
+
+
+				if(List.IsValid())
+				{
+					Value = MakeList(ErrorInfo, SliceFromArray(List));
+				}
+
 				EatToken(Parser, ':', false);
 				dynamic<node *> Body = {};
 				ParseMaybeBody(Parser, Body);
 				return MakeCase(ErrorInfo, Value, SliceFromArray(Body));
 			};
+			
 			slice<node *> Cases = Delimited(Parser, 0, ParseFn);
+
 			EatToken(Parser, T_ENDSCOPE, true);
 			Result = MakeMatch(ErrorInfo, Expr, Cases);
 		} break;
@@ -2510,6 +2561,10 @@ node *CopyASTNode(node *N)
 			R->PtrDiff.Left = CopyASTNode(N->PtrDiff.Left);
 			R->PtrDiff.Right = CopyASTNode(N->PtrDiff.Right);
 			R->PtrDiff.Type = N->PtrDiff.Type;
+		} break;
+
+		case AST_FILE_LOCATION:
+		{
 		} break;
 	}
 

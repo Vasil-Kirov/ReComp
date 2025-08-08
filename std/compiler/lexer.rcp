@@ -54,6 +54,9 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
     lexer.location = start;
 
     for {
+
+
+
         token := lex_token(lexer);
         if token.type == .EOF break;
         array.add(&result, token);

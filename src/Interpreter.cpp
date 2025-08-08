@@ -2070,7 +2070,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				{
 					u32 Case = Info->Cases[Idx];
 					value *Value = VM->Registers.GetValue(Info->OnValues[Idx]);
-					if(Matcher->u64 == Value->u64)
+					if(Idx != Info->Default && Matcher->u64 == Value->u64)
 					{
 						if(!OptionalBlocks.IsValid())
 							return { INTERPRET_RUNTIME_ERROR };
@@ -2081,7 +2081,15 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				if(!Found)
 				{
-					VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, Info->After).Code);
+					if(Info->Default != -1)
+					{
+						u32 ID = Info->Cases[Info->Default];
+						VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, ID).Code);
+					}
+					else
+					{
+						VM->Executing->Code = SliceFromArray(FindBlockByID(OptionalBlocks, Info->After).Code);
+					}
 				}
 
 				InstrIdx = -1;

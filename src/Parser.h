@@ -72,6 +72,7 @@ enum node_type
 	AST_USING,
 	AST_YIELD,
 	AST_RUN,
+	AST_FILE_LOCATION,
 };
 
 struct node

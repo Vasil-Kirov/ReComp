@@ -166,6 +166,34 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 	return INVALID_TYPE;
 }
 
+u32 FillFunctionArgumentType(checker *Checker, node *Arg, b32 Error, b32 *OutAutoDef)
+{
+	if(Arg->Var.TypeNode == NULL)
+	{
+		if(Arg->Var.Default == NULL)
+		{
+			RaiseError(true, *Arg->ErrorInfo, "Expected a valid default expression!");
+		}
+		u32 T = AnalyzeExpression(Checker, Arg->Var.Default);
+		if(T == INVALID_TYPE || IsGeneric(T))
+		{
+			RaiseError(true, *Arg->Var.Default->ErrorInfo, "Unable to evaluate type of expression in function default argument!");
+		}
+
+		if(IsUntyped(T))
+		{
+			T = UntypedGetType(T);
+			FillUntypedStack(Checker, T);
+		}
+		return T;
+
+	}
+	else
+	{
+		return GetTypeFromTypeNode(Checker, Arg->Var.TypeNode, Error, OutAutoDef);
+	}
+}
+
 symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule)
 {
 	switch(Node->Type)
@@ -389,7 +417,9 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
-				FnType->Function.Args[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.Args[Idx]->Var.TypeNode, Error, OutAutoDef);
+				node *Arg = TypeNode->Fn.Args[Idx];
+				FnType->Function.Args[Idx] = FillFunctionArgumentType(Checker, Arg, Error, OutAutoDef);
+
 				if(FnType->Function.Args[Idx] == INVALID_TYPE)
 					return INVALID_TYPE;
 			}
@@ -682,7 +712,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	u32 Flags = FnNode->Fn.Flags;
 	ForArray(Idx, FnNode->Fn.Args)
 	{
-		if(FnNode->Fn.Args[Idx]->Var.TypeNode == NULL)
+		if(FnNode->Fn.Args[Idx]->Var.TypeNode == (node *)0x1)
 		{
 			Flags |= SymbolFlag_VarFunc;
 			if(Idx + 1 != FnNode->Fn.Args.Count)
@@ -728,7 +758,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		b32 IsAutoDefine = false;
-		Function.Args[I] = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode, true, &IsAutoDefine);
+		node *Arg = FnNode->Fn.Args[I];
+		Function.Args[I] = FillFunctionArgumentType(Checker, Arg, true, &IsAutoDefine);
 		FnNode->Fn.Args[I]->Var.IsAutoDefineGeneric = IsAutoDefine;
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
@@ -1013,6 +1044,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_FILE_LOCATION:
+		{
+			Result = FindStruct(STR_LIT("base.FileLocation"));
+		} break;
 		case AST_IFX:
 		{
 			AnalyzeBooleanExpression(Checker, &Expr->IfX.Expr);
@@ -1138,13 +1173,30 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				else
 				{
-					if(!IsConstant(Checker, Case->Case.Value))
+					if(Case->Case.Value->Type == AST_LIST)
 					{
-						RaiseError(true, *Case->Case.Value->ErrorInfo, "Case value must be constant");
-					}
+						slice<node *> Values = Case->Case.Value->List.Nodes;
+						For(Values)
+						{
+							if(!IsConstant(Checker, *it))
+							{
+								RaiseError(true, *Case->Case.Value->ErrorInfo, "Case value must be constant");
+							}
 
-					u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
-					TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
+							u32 CaseTypeIdx = AnalyzeExpression(Checker, *it);
+							TypeCheckAndPromote(Checker, (*it)->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, it, "Cannot match expression of type %s with case of type %s");
+						}
+					}
+					else
+					{
+						if(!IsConstant(Checker, Case->Case.Value))
+						{
+							RaiseError(true, *Case->Case.Value->ErrorInfo, "Case value must be constant");
+						}
+
+						u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
+						TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
+					}
 				}
 			}
 

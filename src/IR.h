@@ -270,6 +270,7 @@ struct block_builder
 	stack<dict<symbol>> Scope;
 	stack<yield_info> YieldReturn;
 	dynamic<run_location> RunIndexes;
+	const error_info *LastErrorInfo;
 	u32 BreakBlockID;
 	u32 ContinueBlockID;
 	u32 LastRegister;

@@ -7,6 +7,11 @@ struct Arg {
     val: *,
 }
 
+struct FileLocation {
+	file: string,
+	line: int,
+}
+
 INVALID_TYPE :: (-1) as type;
 
 enum TypeKind {

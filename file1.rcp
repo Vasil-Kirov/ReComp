@@ -3,35 +3,35 @@ module main
 //#import "compiler/lexer.rcp" as *;
 //#import "libc.rcp";
 
+#import base as *
 #import intrin as *
 #import io as *
 #import mem
 
 //foo: []string;
 
-x : i32 : 0;
-
-get_num :: fn() -> i32 { return 4; }
+print_file_info :: fn(fi := #file_location) {
+	println("%", fi);
+}
 
 main :: fn() -> i32 {
 
-	_ := get_num();
-	_ := get_num();
-	_ := get_num();
-	_ := get_num();
-	_ := get_num();
-	_ := get_num();
+	x := 4;
 
-	x := cast(int, get_num());
-    value := atomic_load(&x);
-    old := atomic_add(&x, value);
+	for i := 0; i < 10; i += 1 {
+		match i {
+			1, 2, 3, 4, 5, 6:
+				println("Number: %", i);
+			_:
+				println("NO!");
 
-    println("old: % val: %", old, x);
-	_ := get_num();
-	_ := get_num();
+		};
+	}
 
     return 0;
 }
+
+#run main();
 
 
 //	foo = .{"asd"};

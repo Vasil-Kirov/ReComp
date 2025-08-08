@@ -259,6 +259,7 @@ void PushErrorInfo(block_builder *Builder, node *Node)
 	Info->err_i.ErrorInfo = Node->ErrorInfo;
 	instruction DbgErrI = InstructionDebugInfo(Info);
 	PushInstruction(Builder, DbgErrI);
+	Builder->LastErrorInfo = Node->ErrorInfo;
 }
 
 u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, const type *SliceType = NULL, u32 Alloc = -1)
@@ -523,7 +524,16 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		if(Case->Case.Value == NULL)
 		{
 			OnValues.Push(0);
-			Default = Idx;
+			Default = OnValues.Count-1;
+		}
+		else if(Case->Case.Value->Type == AST_LIST)
+		{
+			slice<node *> Values = Case->Case.Value->List.Nodes;
+			For(Values)
+			{
+				u32 Value = BuildIRFromExpression(Builder, *it);
+				OnValues.Push(Value);
+			}
 		}
 		else
 		{
@@ -549,8 +559,21 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 			PushInstruction(Builder,
 					Instruction(OP_JMP, After.ID, Basic_type, Builder));
 		}
-
 		CaseBlocks.Push(CaseBlock.ID);
+		
+		if(Case->Case.Value && Case->Case.Value->Type == AST_LIST)
+		{
+			slice<node *> Values = Case->Case.Value->List.Nodes;
+			for(int i = 1; i < Values.Count; ++i)
+			{
+				basic_block Fallthrough = AllocateBlock(Builder);
+				Terminate(Builder, Fallthrough);
+
+				PushInstruction(Builder,
+						Instruction(OP_JMP, CaseBlock.ID, Basic_type, Builder));
+				CaseBlocks.Push(Fallthrough.ID);
+			}
+		}
 	}
 	Builder->YieldReturn.Pop();
 	Terminate(Builder, After);
@@ -679,6 +702,36 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
+		} break;
+		case AST_FILE_LOCATION:
+		{
+			const error_info *ei = Node->ErrorInfo;
+			if(Builder->LastErrorInfo)
+			{
+				ei = Builder->LastErrorInfo;
+			}
+			u32 FLType = FindStruct(STR_LIT("base.FileLocation"));
+			u32 Alloc = PushInstruction(Builder, 
+					Instruction(OP_ALLOC, -1, FLType, Builder));
+			u32 FilePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, Alloc, 0, FLType, Builder));
+			u32 LinePtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, Alloc, 1, FLType, Builder));
+
+			string FN = MakeString(ei->FileName);
+			string *FileName = DupeType(FN, string);
+			const_value *StringValue = NewType(const_value);
+			StringValue->Type = const_type::String;
+			StringValue->String.Data = FileName;
+			u32 FileNameString = PushInstruction(Builder, 
+					Instruction(OP_CONST, (u64)StringValue, Basic_string, Builder));
+			u32 LineInt = PushInt(ei->Range.StartLine, Builder);
+
+
+			PushInstruction(Builder, InstructionStore(FilePtr, FileNameString, Basic_string));
+			PushInstruction(Builder, InstructionStore(LinePtr, LineInt, Basic_int));
+
+			Result = Alloc;
 		} break;
 		case AST_IFX:
 		{

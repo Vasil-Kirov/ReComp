@@ -1,7 +1,7 @@
 module compile
 
-#import io
-#import os
+#import io;
+#import os;
 
 enum CompileFlag: u32 {
     Debug       = 0b00000000001,

@@ -1,6 +1,6 @@
 module TTF
 
-#import "sdl.rcp" as SDL
+SDL :: #import "sdl.rcp";
 
 MAJOR_VERSION :: 3;
 MINOR_VERSION :: 1;

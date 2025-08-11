@@ -1,7 +1,5 @@
 module base
 
-#import io
-
 struct Arg {
     t: type,
     val: *,

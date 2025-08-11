@@ -1,7 +1,7 @@
 module str
 
-#import mem 
-#import array
+#import mem;
+#import array;
 
 struct Builder {
     data: []u8,

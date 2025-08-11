@@ -2457,6 +2457,53 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					Store(VM, &Ptr, Member, OutType);
 				}
 			} break;
+			case OP_BITNOT:
+			{
+				value *V = VM->Registers.GetValue(I.Right);
+				value R = {};
+				R.Type = I.Type;
+				const type *T = GetType(I.Type);
+				VM->Registers.AddValue(I.Result, R);
+				Assert(T->Kind == TypeKind_Basic && T->Basic.Flags & BasicFlag_Integer);
+				switch(T->Basic.Kind)
+				{
+					case Basic_u8:
+					{
+						R.u8 = ~V->u8;
+					} break;
+					case Basic_u16:
+					{
+						R.u16 = ~V->u16;
+					} break;
+					case Basic_u32:
+					{
+						R.u32 = ~V->u32;
+					} break;
+					case Basic_uint:
+					case Basic_u64:
+					{
+						R.u64 = ~V->u64;
+					} break;
+					case Basic_i8:
+					{
+						R.i8 = ~V->i8;
+					} break;
+					case Basic_i16:
+					{
+						R.i16 = ~V->i16;
+					} break;
+					case Basic_i32:
+					{
+						R.i32 = ~V->i32;
+					} break;
+					case Basic_int:
+					case Basic_i64:
+					{
+						R.i64 = ~V->i64;
+					} break;
+					default: unreachable;
+				}
+			} break;
 			case OP_ADD:
 			{
 				DoOp(VM, I, '+');

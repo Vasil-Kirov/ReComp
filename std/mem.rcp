@@ -1,6 +1,6 @@
 module mem
-#import os
-#import intrin as *
+#import os;
+_ :: #import intrin;
 
 kb :: fn(b: int) -> int { return b << 10; }
 mb :: fn(b: int) -> int { return b << 20; }

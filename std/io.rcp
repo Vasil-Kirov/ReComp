@@ -1,10 +1,10 @@
 module io
 
-#import os
-#import array
-#import mem
-#import base as *
-#import str as *
+#import os;
+#import array;
+#import mem;
+_ :: #import base;
+_ :: #import str;
 
 FLOAT_ROUND_AT := cast(i32, 100);
 

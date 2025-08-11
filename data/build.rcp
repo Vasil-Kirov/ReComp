@@ -1,11 +1,11 @@
 module build
 
-#import compile as c
-#import io
-#import os
-#import array as arr
-#import mem
-#import str as *
+c :: #import compile;
+#import io;
+#import os;
+arr :: #import array;
+#import mem;
+_ :: #import str;
 
 //#load_system_dl "libSDL3.so"
 

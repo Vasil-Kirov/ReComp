@@ -1,6 +1,6 @@
 module array
 
-#import mem
+#import mem;
 
 struct Header {
     capacity: int,

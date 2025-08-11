@@ -1,13 +1,10 @@
 module main
 
 //#import "compiler/lexer.rcp" as *;
-#import "vendor/sdl_image.rcp"
 //#import "libc.rcp";
 
-#import base as *
-#import intrin as *
-#import io as *
-#import mem
+img :: #import "vendor/sdl_image.rcp";
+_ :: #import io;
 
 //foo: []string;
 
@@ -16,7 +13,9 @@ print_file_info :: fn(fi := #file_location) {
 }
 
 main :: fn() -> i32 {
-	image.Load(c"foo.png");
+	print_file_info();
+	print_file_info();
+	print_file_info();
 
     return 0;
 }

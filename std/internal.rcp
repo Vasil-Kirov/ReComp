@@ -1,6 +1,7 @@
 module internal
-#import str
-#import os
+
+#import str;
+#import os;
 
 // This file implements the internals needed for different compiler features
 // You can implement this file yourself by setting "internals_file" in CompileInfo

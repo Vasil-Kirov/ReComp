@@ -518,44 +518,25 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	return Result;
 }
 
-void ParseImport(parser *Parser)
+void ParseImport(parser *Parser, const string *NewStyleName)
 {
 	ERROR_INFO;
 	GetToken(Parser);
+	bool Failed = false;
+	string DirectName = STR_LIT("");
+	string FileName = STR_LIT("");
+	string RelativePath = STR_LIT("");
+
 	if(Parser->Current->Type == T_ID)
 	{
 		token T = EatToken(Parser, T_ID, true);
-		string *As = NULL;
-		if(Parser->Current->Type == T_AS)
-		{
-			GetToken(Parser);
-			if(Parser->Current->Type == T_PTR)
-			{
-				GetToken(Parser);
-				string Any = STR_LIT("*");
-				As = DupeType(Any, string);
-			}
-			else
-			{
-				As = EatToken(Parser, T_ID, true).ID;
-			}
-		}
-
-		needs_resolving_import Imported = {
-			.FileName = STR_LIT(""),
-			.Name = *T.ID,
-			.As = As ? *As : STR_LIT(""),
-			.ErrorInfo = ErrorInfo,
-		};
-
-		Parser->Imported.Push(Imported);
+		DirectName = *T.ID;
 	}
 	else
 	{
 		token T = EatToken(Parser, T_STR, true);
-		string FileName = *T.ID;
-		string RelativePath = MakeString(T.ErrorInfo.FileName);
-		bool Failed = false;
+		FileName = *T.ID;
+		RelativePath = MakeString(T.ErrorInfo.FileName);
 		if(FileName.Size == 0)
 		{
 			RaiseError(false, T.ErrorInfo, "Empty string after #import is not valid");
@@ -568,35 +549,47 @@ void ParseImport(parser *Parser)
 					FileName.Size, FileName.Data, Checked.Size, Checked.Data);
 			Failed = true;
 		}
+	}
 
-		string *As = NULL;
-		if(Parser->Current->Type == T_AS)
+	string *As = NULL;
+	if(Parser->Current->Type == T_AS)
+	{
+		token AsKeyword = GetToken(Parser);
+
+		if(NewStyleName)
+		{
+			RaiseError(false, AsKeyword.ErrorInfo, "Cannot combine `as` import with new style name :: #import");
+		}
+
+		if(Parser->Current->Type == T_PTR)
 		{
 			GetToken(Parser);
-			if(Parser->Current->Type == T_PTR)
-			{
-				GetToken(Parser);
-				string Any = STR_LIT("*");
-				As = DupeType(Any, string);
-			}
-			else
-			{
-				As = EatToken(Parser, T_ID, true).ID;
-			}
+			string Any = STR_LIT("*");
+			As = DupeType(Any, string);
 		}
-
-		if(!Failed)
+		else
 		{
-			needs_resolving_import Imported = {
-				.FileName = FileName,
-				.RelativePath = RelativePath,
-				.Name = STR_LIT(""),
-				.As = As ? *As : STR_LIT(""),
-				.ErrorInfo = ErrorInfo,
-			};
-
-			Parser->Imported.Push(Imported);
+			As = EatToken(Parser, T_ID, true).ID;
 		}
+	}
+
+	if(!Failed)
+	{
+		needs_resolving_import Imported = {
+			.FileName = FileName,
+			.RelativePath = RelativePath,
+			.Name = DirectName,
+			.As = NewStyleName ? *NewStyleName : (As ? *As : STR_LIT("")),
+			.ErrorInfo = ErrorInfo,
+		};
+
+		if(NewStyleName && *NewStyleName == STR_LIT("_"))
+		{
+			Imported.As = STR_LIT("*");
+		}
+
+
+		Parser->Imported.Push(Imported);
 	}
 }
 
@@ -1708,6 +1701,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 		{
 			MaybeTypeNode = ParseType(Parser);
 		}
+
 		if(Parser->Current->Type != T_EQ && Parser->Current->Type != T_DECL)
 		{
 			HasExpression = false;
@@ -1723,7 +1717,29 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 	}
 	node *Expression = NULL;
 	if(HasExpression)
+	{
+		if(Parser->Current->Type == T_IMPORT)
+		{
+			if(!IsConst)
+			{
+				RaiseError(false, Decl.ErrorInfo, "Import declaration must be constant!");
+			}
+			if(MaybeTypeNode)
+			{
+				RaiseError(false, MaybeType.ErrorInfo, "Import declaration cannot have an explicit type!");
+			}
+			if(LHS->Type != AST_ID)
+			{
+				RaiseError(true, *LHS->ErrorInfo, "Left-hand side of import declaration must be a single identifier.");
+			}
+			else
+			{
+				ParseImport(Parser, LHS->ID.Name);
+				return (node *)0x1;
+			}
+		}
 		Expression = ParseExpression(Parser);
+	}
 	u32 Flags = IsConst ? SymbolFlag_Const : 0 | IsShadow ? SymbolFlag_Shadow : 0;
 	return MakeDecl(ErrorInfo, LHS, Expression, MaybeTypeNode, Flags);
 }
@@ -1736,7 +1752,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 	{
 		case T_IMPORT:
 		{
-			ParseImport(Parser);
+			ParseImport(Parser, NULL);
 			ExpectSemicolon = false;
 		} break;
 		case T_RUN:
@@ -1801,6 +1817,9 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 				Result = ParseDeclaration(Parser, false, LHS);
 			else
 				Result = LHS;
+
+			if(Result == (node *)0x1)
+				Result = NULL;
 
 			Parser->NoItemLists = SaveILists;
 		} break;
@@ -2113,7 +2132,12 @@ node *ParseTopLevel(parser *Parser)
 			node *LHS = ParseExpression(Parser);
 			node *Decl = ParseDeclaration(Parser, false, LHS);
 			Parser->NoItemLists = SaveILists;
-			if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
+			if(Decl == (node *)0x1)
+			{
+				Result = Decl;
+				EatToken(Parser, ';', false);
+			}
+			else if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
 			{
 				const string *LHSName = NULL;
 				if(LHS->Type != AST_ID)
@@ -2171,7 +2195,7 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		case T_IMPORT:
 		{
-			ParseImport(Parser);
+			ParseImport(Parser, NULL);
 			Result = (node *)0x1;
 		} break;
 		case T_ENUM:

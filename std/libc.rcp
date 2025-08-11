@@ -1,7 +1,7 @@
 module libc
 
 
-#import mem as *
+_ :: #import mem;
 
 malloc :: fn(size: int) -> ?* #foreign;
 free   :: fn(ptr: ?*) #foreign;

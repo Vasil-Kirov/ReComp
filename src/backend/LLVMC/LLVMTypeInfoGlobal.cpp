@@ -4,6 +4,8 @@
 #include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
 
+LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String);
+
 LLVMValueRef RCConstSlice(generator *gen, slice<LLVMValueRef> Slice, LLVMTypeRef IntType, LLVMTypeRef BaseType, LLVMTypeRef SliceTy)
 {
 	LLVMValueRef Count = LLVMConstInt(IntType, Slice.Count, false);

@@ -5,6 +5,7 @@
 #include "Globals.h"
 #include "Log.h"
 #include "Memory.h"
+#include "Pipeline.h"
 #include "Semantics.h"
 
 slice<module*> CurrentModules = {};
@@ -29,8 +30,6 @@ void AddModule(dynamic<module*> &Modules, file *File, string Name)
 	File->Module = Modules[Modules.Count-1];
 }
 
-string FindFile(string FileName);
-
 slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules, slice<file*> Files)
 {
 	dynamic<import> Imports = {};
@@ -40,7 +39,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		needs_resolving_import ri = ResolveImports[Idx];
 		if(ri.FileName.Size != 0)
 		{
-			string Path = FindFile(ri.FileName);
+			string Path = FindFile(ri.FileName, ri.RelativePath);
 			b32 Found = false;
 			For(Files)
 			{

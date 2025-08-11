@@ -21,21 +21,41 @@ struct lookup_paths {
 
 lookup_paths Lookups = {};
 
-string GetLookupPathsPrintable(string FileName)
+string GetLookupPathsPrintable(string FileName, string RelativePath)
 {
 	Lookups.Mutex.lock();
+
+	scratch_arena Arena = {};
+	char *Buf = (char *)Arena.Allocate(MAX_PATH_LEN);
+	char *Absolute = (char *)Arena.Allocate(MAX_PATH_LEN);
 
 	auto b = MakeBuilder();
 	For(Lookups.Paths)
 	{
-		b.printf("\t%.*s/%.*s\n", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
+		sprintf(Buf, "%.*s/%.*s", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
+		char *GotAbsolute = GetAbsolutePath(Buf, Absolute);
+		if(GotAbsolute == NULL)
+			continue;
+
+		b.printf("\t%s\n", Absolute);
+		memset(Absolute, 0, MAX_PATH_LEN);
+	}
+	//b.printf("\t%.*s/../%.*s\n", (int)RelativePath.Size, RelativePath.Data, (int)FileName.Size, FileName.Data);
+
+	{
+		auto b2 = MakeBuilder();
+		b2.printf("%.*s/../%.*s\n", (int)RelativePath.Size, RelativePath.Data, (int)FileName.Size, FileName.Data);
+		auto str = MakeString(b2);
+		char Absolute[512] = {};
+		if(GetAbsolutePath(str.Data, Absolute))
+			b.printf("\t%s", Absolute);
 	}
 
 	Lookups.Mutex.unlock();
 	return MakeString(b);
 }
 
-string FindFile(string FileName)
+string FindFile(string FileName, string RelativePath)
 {
 	scratch_arena Arena = {};
 	char *Buf = (char *)Arena.Allocate(MAX_PATH_LEN);
@@ -55,6 +75,22 @@ string FindFile(string FileName)
 		}
 		memset(GotAbsolute, 0, MAX_PATH_LEN);
 	}
+
+	if(RelativePath.Size != 0)
+	{
+		sprintf(Buf, "%.*s/../%.*s", (int)RelativePath.Size, RelativePath.Data, (int)FileName.Size, FileName.Data);
+		char *GotAbsolute = GetAbsolutePath(Buf, Absolute);
+		if(GotAbsolute != NULL)
+		{
+			if(PlatformIsPathValid(GotAbsolute))
+			{
+				Lookups.Mutex.unlock();
+				string Result = MakeString(GotAbsolute);
+				return Result;
+			}
+		}
+	}
+
 	Lookups.Mutex.unlock();
 	return STR_LIT("");
 }
@@ -242,9 +278,9 @@ void LexFile(void *FilePath_)
 	}
 }
 
-bool PipelineDoFile(string GivenPath)
+bool PipelineDoFile(string GivenPath, string RelativePath)
 {
-	string FilePath = FindFile(GivenPath);
+	string FilePath = FindFile(GivenPath, RelativePath);
 	if(FilePath.Size == 0)
 	{
 		return false;

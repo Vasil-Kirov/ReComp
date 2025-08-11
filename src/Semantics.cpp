@@ -31,7 +31,7 @@ void FillUntypedStack(checker *Checker, u32 Type)
 	}
 }
 
-u32 FindEnumTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
+u32 FindEnumTypeNoModuleRenaming(const string *NamePtr)
 {
 	string Name = *NamePtr;
 	for(int I = 0; I < TypeCount; ++I)
@@ -48,7 +48,7 @@ u32 FindEnumTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
 	return INVALID_TYPE;
 }
 
-u32 FindStructTypeNoModuleRenaming(checker *Checker, const string *NamePtr)
+u32 FindStructTypeNoModuleRenaming(const string *NamePtr)
 {
 	string Name = *NamePtr;
 	for(int I = 0; I < TypeCount; ++I)
@@ -300,7 +300,7 @@ slice<default_value> GetDefaultValues(checker *Checker, slice<node *> Vars, u32 
 	{
 		auto it = Vars[I];
 		if (it->Var.Default)
-			DefaultValues[At++] = {.Idx = I, .Default = it->Var.Default};
+			DefaultValues[At++] = {.Idx = (int)I, .Default = it->Var.Default};
 	}
 
 	return SliceFromArray(DefaultValues);
@@ -2725,7 +2725,7 @@ void AddVariable(checker *Checker, const error_info *ErrorInfo, u32 Type, const 
 	Assert(Success);
 }
 
-const u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
+u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 {
 	Assert(Node->Type == AST_DECL);
 	//const string *ID = Node->Decl.ID;
@@ -3121,7 +3121,7 @@ u32 FixPotentialFunctionPointer(u32 Type)
 
 void AnalyzeEnum(checker *Checker, node *Node)
 {
-	u32 OpaqueType = FindEnumTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+	u32 OpaqueType = FindEnumTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
 	if(Node->Enum.Items.Count == 0)
 	{
@@ -3213,7 +3213,7 @@ void AnalyzeEnum(checker *Checker, node *Node)
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
-	u32 OpaqueType = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != INVALID_TYPE);
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
 	Checker->Scope.Push(StructScope);
@@ -3956,12 +3956,13 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 
 void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 {
+	UNUSED(Checker);
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
 			node *Node = Nodes[I];
-			u32 TypeIdx = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+			u32 TypeIdx = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
 			{
 				SetStructCache(TypeIdx);
@@ -3973,12 +3974,13 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 
 void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes)
 {
+	UNUSED(Checker);
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
 			node *Node = Nodes[I];
-			u32 TypeIdx = FindStructTypeNoModuleRenaming(Checker, Node->StructDecl.Name);
+			u32 TypeIdx = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
 			{
 				int Failed = -1;

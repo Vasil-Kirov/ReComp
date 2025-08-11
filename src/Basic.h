@@ -11,6 +11,8 @@
 #include <xmmintrin.h>
 #include <stdint.h>
 
+#define UNUSED(param) (void)(param)
+
 union IVEC4 {
     __m128i v;
     int32_t e[4];

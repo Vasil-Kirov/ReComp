@@ -718,6 +718,8 @@ LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID)
 
 LLVMOpcode RCCastTrunc(const type *From, const type *To)
 {
+	UNUSED(From);
+
 	if(To->Basic.Flags & BasicFlag_Float)
 	{
 		return LLVMFPTrunc;

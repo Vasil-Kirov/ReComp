@@ -1,0 +1,33 @@
+module NET;
+
+struct Address {};
+struct Server {};
+struct StreamSocket {};
+struct DatagramSocket {};
+struct Datagram
+{
+    addr: *Address,  /**< this is unref'd by NET_DestroyDatagram. You only need to ref it if you want to keep it. */
+    port: u16,  /**< these do not have to come from the same port the receiver is bound to. These are in host byte order, don't byteswap them! */
+    buf: *u8,  /**< the payload of this datagram. */
+    buflen: i32,  /**< the number of bytes available at `buf`. */
+};
+
+Init :: fn #link="NET_Init"() -> bool;
+Quit :: fn #link="NET_Quit"();
+ResolveHostname :: fn #link="NET_ResolveHostname"(host: *u8) -> ?*Address;
+CreateServer :: fn #link="NET_CreateServer"(addr: ?*Address, port: u16) -> ?*Server;
+AcceptClient :: fn #link="NET_AcceptClient"(server: *Server, client_stream: *?*StreamSocket) -> bool;
+CreateClient :: fn #link="NET_CreateClient"(addr: *Address, port: u16) -> ?*StreamSocket;
+WaitUntilResolved :: fn #link="NET_WaitUntilResolved"(addr: *Address, timeout: i32) -> i32;
+WaitUntilConnected :: fn #link="NET_WaitUntilConnected"(sock: *StreamSocket, timeout: i32) -> i32;
+
+ReadFromStreamSocket :: fn #link="NET_ReadFromStreamSocket"(sock: *StreamSocket, buf: *, buflen: i32) -> i32;
+WriteToStreamSocket :: fn #link="NET_WriteToStreamSocket"(sock: *StreamSocket, buf: *, buflen: i32) -> bool;
+
+CreateDatagramSocket :: fn #link="NET_CreateDatagramSocket"(addr: ?*Address, port: u16) -> ?*DatagramSocket;
+
+SendDatagram :: fn #link="NET_SendDatagram"(sock: *DatagramSocket, addr: *Address, port: u16, buf: *, buflen: i32) -> bool;
+
+ReceiveDatagram :: fn #link="NET_ReceiveDatagram"(sock: *DatagramSocket, dgram: *?*Datagram) -> bool;
+DestroyDatagram :: fn #link="NET_DestroyDatagram"(dgram: *Datagram);
+

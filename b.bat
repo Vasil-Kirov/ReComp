@@ -6,7 +6,8 @@ set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp
 :: set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS
 set ASAN=
 
-set FLAGS=-std=c++17
+set IGNORE_WARNINGS=-Wno-sign-compare -Wno-missing-field-initializers 
+set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS%
 
 if "%1" == "rel" (
 	set FLAGS=%FLAGS% -O3

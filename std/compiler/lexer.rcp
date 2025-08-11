@@ -29,9 +29,21 @@ struct Keyword {
 struct Lexer {
     alloc: *Allocator,
     keywords: []Keyword,
+	start: *u8,
     at: *u8,
     end: *u8,
+	last_location: Location,
     location: Location,
+}
+
+enum State {
+	Default,
+	Identifier,
+	String,
+	CharLit,
+	Number,
+	SpecialNumber,
+	Operator,
 }
 
 is_space :: fn(c: u8) -> bool {
@@ -46,23 +58,93 @@ is_id_char :: fn(c: u8) -> bool {
     return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location) -> []Token {
+start_token :: fn(type: TokenType, start_incl: *u8, start_location: Location) -> Token {
+	return .{ type = type, str = .{0, start_incl}, range = Range { start_location } };
+}
+
+finish_token :: fn(start: Token, end_excl: *u8, end_location: Location) -> Token {
+	start := start;
+	start.str.count = end_excl - start.str.data;
+	start.range.end = end_location;
+	return start;
+}
+
+format_error :: fn(err: string, location: Location) -> string {
+	return io.sprint("% at %(%:%)", err, location.file, location.line, location.char);
+}
+
+lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location) -> ([]Token, string) {
     result := array.create(Token, alloc);
-    lexer := lexer;
+    lexer.start = text.data;
     lexer.at = text.data;
     lexer.end = text.data + text.count;
     lexer.location = start;
 
-    for {
+	state := State.Default;
+	next := State.Default;
+	token := Token {};
+    for lexer.at < lexer.end {
+		location := lexer.location;
+		at := lexer.at;
+		c := peek_char(lexer);
+		no_advance := false;
 
+		match state {
+			.Default: {
+				if is_space(c) {
+					continue;
+				}
+				else if is_digit(c) {
+					next = if c == '0' then .SpecialNumber else .Number;
+					token = start_token(.Value, at, location);
+				}
+				else if is_id_char(c) {
+					next = .Identifier;
+					token = start_token(.ID, at, location);
+				}
+				else if c == '"' {
+					next = .String;
+					token = start_token(.String, at, location);
+				}
+				else if c == '\'' {
+					next = .CharLit;
+					token = start_token(.Char, at, location);
+				}
+			}
 
+			.Number: {
 
-        token := lex_token(lexer);
-        if token.type == .EOF break;
-        array.add(&result, token);
+			}
+
+			.SpecialNumber: {
+				if !is_id_char(c) {
+					if is_digit(c)
+						return result, format_error("Invalid number!", location);
+					else {
+						no_advance = true;
+						next = .Default;
+						finish_token(token, at, lexer.last_location);
+					}
+				}
+				else {
+					if c == 'b' {
+
+					}
+					if c == 'x' {
+
+					}
+				}
+			}
+
+		};
+
+		if !no_advance advance(lexer);
+
+		state = next;
+        //array.add(&result, token);
     }
 
-    return result;
+    return result, "";
 }
 
 lex_id :: fn(lexer: *Lexer) -> Token {
@@ -131,7 +213,7 @@ lex_token :: fn(lexer: *Lexer) -> Token {
         return lex_id(lexer);
     }
 	else if is_digit(c) ||
-			(c == '.' && is_digit(peek_char(lexer, 1)) ||
+			(c == '.' && is_digit(peek_char(lexer, 1))) ||
 			(c == '-' && is_digit(peek_char(lexer, 1))) {
 		return lex_number(lexer);
 	}
@@ -161,6 +243,7 @@ make_lexer :: fn(alloc: *Allocator) -> Lexer {
     return Lexer {
         alloc = alloc,
         keywords = array.create(Keyword, alloc),
+		start = empty_string.data,
         at = empty_string.data,
         end = empty_string.data,
     };
@@ -237,9 +320,39 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 
 #private 
 
+get_chars_at_line :: fn(start_limit: *u8, line_end: *u8) -> u16 {
+	#assert line_end[0] == '\n';
+
+	at := line_end-1;
+	count: u16 = 0;
+	for at >= start_limit && *at != '\n' {
+		count += 1;
+	}
+
+	return count;
+}
+
+rewind :: fn(lexer: *Lexer, num := 1) {
+	if lexer.at - num < lexer.start {
+		num = lexer.at - lexer.start;
+	}
+	if num == 0 return;
+
+	scan := lexer.at - num + 1;
+	for i in num {
+		if scan[i] == '\n' {
+			lexer.location.line -= 1;
+			lexer.location.char = get_chars_at_line(lexer.start, scan);
+		}
+		else {
+			lexer.location.char -= 1;
+		}
+	}
+}
+
 advance :: fn(lexer: *Lexer) -> u8 {
-    lexer := lexer;
     if lexer.at < lexer.end {
+		lexer.last_location = location;
         c := *lexer.at;
         if c == '\n' {
             lexer.location.char = 1;
@@ -254,20 +367,9 @@ advance :: fn(lexer: *Lexer) -> u8 {
     return cast(u8, '\0');
 }
 
-peek_char :: fn(lexer: *Lexer, ahead: int) -> u8 {
+peek_char :: fn(lexer: *Lexer, ahead := 1) -> u8 {
 	if lexer.at + ahead < lexer.end return lexer.at[ahead];
 	return '\0';
-}
-
-get_char :: fn(lexer: *Lexer) -> u8 {
-    if lexer.at < lexer.end return *lexer.at;
-    return '\0';
-}
-
-skip_whitespace :: fn(lexer: *Lexer) {
-    for is_space(get_char(lexer)) {
-        advance(lexer);
-    }
 }
 
 #public

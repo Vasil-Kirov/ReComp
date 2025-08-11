@@ -54,6 +54,8 @@ inline u32 PushAlloc(u32 Type, block_builder *Builder)
 
 inline instruction Instruction(op Op, void *Ptr, u32 Type, block_builder *Builder, int Reserved)
 {
+	UNUSED(Reserved);
+
 	instruction Result;
 	Result.Ptr = Ptr;
 	Result.Op = Op;
@@ -285,7 +287,7 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 	return Alloc;
 }
 
-const u32 GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
+u32 GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
 {
 	// @TODO: Global abuse
 	For(CurrentModules)
@@ -3878,9 +3880,9 @@ string Dissasemble(ir *IR)
 }
 
 
+#if 0
 void GetUsedRegisters(instruction I, dynamic<u32> &out)
 {
-#if 0
 #define OP_ALL(o) case o: out.Push(I.Result); out.Push(I.Left); out.Push(I.Right); break
 #define OP_RESULT(o) case o: out.Push(I.Result); out.Push(-1); out.Push(-1); break
 #define OP_BR(o) case o: out.Push(I.Result); out.Push(I.BigRegister); out.Push(-1); break
@@ -4021,6 +4023,6 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_TOPHYSICAL:
 		case OP_COUNT: unreachable;
 	}
-#endif
 }
+#endif
 

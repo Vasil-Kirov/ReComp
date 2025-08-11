@@ -1,6 +1,7 @@
 module main
 
 //#import "compiler/lexer.rcp" as *;
+#import "vendor/sdl_image.rcp"
 //#import "libc.rcp";
 
 #import base as *
@@ -15,18 +16,7 @@ print_file_info :: fn(fi := #file_location) {
 }
 
 main :: fn() -> i32 {
-
-	x := 4;
-
-	for i := 0; i < 10; i += 1 {
-		match i {
-			1, 2, 3, 4, 5, 6:
-				println("Number: %", i);
-			_:
-				println("NO!");
-
-		};
-	}
+	image.Load(c"foo.png");
 
     return 0;
 }

@@ -1525,7 +1525,7 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
-void RCGenerateFile(module *M, b32 OutputBC, slice<module*> _Modules, slice<file*> Files, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
+void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
 
@@ -1992,7 +1992,7 @@ struct file_generate_info
 void GenWorkerFn(void *Data)
 {
 	file_generate_info *Info = (file_generate_info *)Data;
-	RCGenerateFile(Info->M, Info->OutputBC, Info->Modules, Info->Files, Info->Info, *Info->StoredGlobals);
+	RCGenerateFile(Info->M, Info->OutputBC, Info->Info, *Info->StoredGlobals);
 	LDEBUG("Done with module: %s", Info->M->Name.Data);
 }
 

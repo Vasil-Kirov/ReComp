@@ -1,0 +1,447 @@
+module TTF
+
+#import "sdl.rcp" as SDL
+
+MAJOR_VERSION :: 3;
+MINOR_VERSION :: 1;
+MICRO_VERSION :: 0;
+STYLE_NORMAL :: 0x00;
+STYLE_BOLD :: 0x01;
+STYLE_ITALIC :: 0x02;
+STYLE_UNDERLINE :: 0x04;
+STYLE_STRIKETHROUGH :: 0x08;
+SUBSTRING_DIRECTION_MASK :: 0x000000FF;
+SUBSTRING_TEXT_START :: 0x00000100;
+SUBSTRING_LINE_START :: 0x00000200;
+SUBSTRING_LINE_END :: 0x00000400;
+SUBSTRING_TEXT_END :: 0x00000800;
+
+Version :: fn #link="TTF_Version"() -> i32;
+
+GetFreeTypeVersion :: fn #link="TTF_GetFreeTypeVersion"(
+	major: *i32,
+	minor: *i32,
+	patch: *i32);
+
+GetHarfBuzzVersion :: fn #link="TTF_GetHarfBuzzVersion"(
+	major: *i32,
+	minor: *i32,
+	patch: *i32);
+
+struct Font {
+}
+
+Init :: fn #link="TTF_Init"() -> bool;
+
+OpenFont :: fn #link="TTF_OpenFont"(
+	file: *u8,
+	ptsize: f32) -> ?*Font;
+
+OpenFontIO :: fn #link="TTF_OpenFontIO"(
+	src: *SDL.IOStream,
+	closeio: fn #foreign(a: *i32) -> i32,
+	ptsize: f32) -> *Font;
+
+OpenFontWithProperties :: fn #link="TTF_OpenFontWithProperties"(
+	props: u32) -> *Font;
+
+CopyFont :: fn #link="TTF_CopyFont"(
+	existing_font: *Font) -> *Font;
+
+GetFontProperties :: fn #link="TTF_GetFontProperties"(
+	font: *Font) -> u32;
+
+GetFontGeneration :: fn #link="TTF_GetFontGeneration"(
+	font: *Font) -> u32;
+
+AddFallbackFont :: fn #link="TTF_AddFallbackFont"() -> i32;
+
+RemoveFallbackFont :: fn #link="TTF_RemoveFallbackFont"(
+	font: *Font,
+	fallback: *Font);
+
+ClearFallbackFonts :: fn #link="TTF_ClearFallbackFonts"(
+	font: *Font);
+
+SetFontSize :: fn #link="TTF_SetFontSize"() -> i32;
+
+SetFontSizeDPI :: fn #link="TTF_SetFontSizeDPI"() -> i32;
+
+GetFontSize :: fn #link="TTF_GetFontSize"(
+	font: *Font) -> f32;
+
+GetFontDPI :: fn #link="TTF_GetFontDPI"() -> i32;
+
+SetFontStyle :: fn #link="TTF_SetFontStyle"(
+	font: *Font,
+	style: u32);
+
+GetFontStyle :: fn #link="TTF_GetFontStyle"(
+	font: *Font) -> u32;
+
+SetFontOutline :: fn #link="TTF_SetFontOutline"() -> i32;
+
+GetFontOutline :: fn #link="TTF_GetFontOutline"(
+	font: *Font) -> i32;
+
+enum HintingFlags {
+	TTF_HINTING_NORMAL = 0,
+	TTF_HINTING_LIGHT = 1,
+	TTF_HINTING_MONO = 2,
+	TTF_HINTING_NONE = 3,
+	TTF_HINTING_LIGHT_SUBPIXEL = 4,
+}
+
+SetFontHinting :: fn #link="TTF_SetFontHinting"(
+	font: *Font,
+	hinting: HintingFlags);
+
+GetNumFontFaces :: fn #link="TTF_GetNumFontFaces"(
+	font: *Font) -> i32;
+
+GetFontHinting :: fn #link="TTF_GetFontHinting"(
+	font: *Font) -> HintingFlags;
+
+SetFontSDF :: fn #link="TTF_SetFontSDF"() -> i32;
+
+GetFontSDF :: fn #link="TTF_GetFontSDF"() -> i32;
+
+enum HorizontalAlignment {
+	TTF_HORIZONTAL_ALIGN_INVALID = -1,
+	TTF_HORIZONTAL_ALIGN_LEFT = 0,
+	TTF_HORIZONTAL_ALIGN_CENTER = 1,
+	TTF_HORIZONTAL_ALIGN_RIGHT = 2,
+}
+
+SetFontWrapAlignment :: fn #link="TTF_SetFontWrapAlignment"(
+	font: *Font,
+	align: HorizontalAlignment);
+
+GetFontWrapAlignment :: fn #link="TTF_GetFontWrapAlignment"(
+	font: *Font) -> HorizontalAlignment;
+
+GetFontHeight :: fn #link="TTF_GetFontHeight"(
+	font: *Font) -> i32;
+
+GetFontAscent :: fn #link="TTF_GetFontAscent"(
+	font: *Font) -> i32;
+
+GetFontDescent :: fn #link="TTF_GetFontDescent"(
+	font: *Font) -> i32;
+
+SetFontLineSkip :: fn #link="TTF_SetFontLineSkip"(
+	font: *Font,
+	lineskip: i32);
+
+GetFontLineSkip :: fn #link="TTF_GetFontLineSkip"(
+	font: *Font) -> i32;
+
+SetFontKerning :: fn #link="TTF_SetFontKerning"(
+	font: *Font,
+	enabled: fn #foreign(a: *i32) -> i32);
+
+GetFontKerning :: fn #link="TTF_GetFontKerning"() -> i32;
+
+FontIsFixedWidth :: fn #link="TTF_FontIsFixedWidth"() -> i32;
+
+FontIsScalable :: fn #link="TTF_FontIsScalable"() -> i32;
+
+GetFontFamilyName :: fn #link="TTF_GetFontFamilyName"(
+	font: *Font) -> *u8;
+
+GetFontStyleName :: fn #link="TTF_GetFontStyleName"(
+	font: *Font) -> *u8;
+
+enum Direction {
+	TTF_DIRECTION_INVALID = 0,
+	TTF_DIRECTION_LTR = 4,
+	TTF_DIRECTION_RTL = 5,
+	TTF_DIRECTION_TTB = 6,
+	TTF_DIRECTION_BTT = 7,
+}
+
+SetFontDirection :: fn #link="TTF_SetFontDirection"() -> i32;
+
+GetFontDirection :: fn #link="TTF_GetFontDirection"(
+	font: *Font) -> Direction;
+
+SetFontScript :: fn #link="TTF_SetFontScript"() -> i32;
+
+GetFontScript :: fn #link="TTF_GetFontScript"(
+	font: *Font) -> u32;
+
+GetGlyphScript :: fn #link="TTF_GetGlyphScript"(
+	ch: u32) -> u32;
+
+SetFontLanguage :: fn #link="TTF_SetFontLanguage"() -> i32;
+
+FontHasGlyph :: fn #link="TTF_FontHasGlyph"() -> i32;
+
+enum ImageType {
+	TTF_IMAGE_INVALID = 0,
+	TTF_IMAGE_ALPHA = 1,
+	TTF_IMAGE_COLOR = 2,
+	TTF_IMAGE_SDF = 3,
+}
+
+GetGlyphImage :: fn #link="TTF_GetGlyphImage"(
+	font: *Font,
+	ch: u32,
+	image_type: *ImageType) -> *SDL.Surface;
+
+GetGlyphImageForIndex :: fn #link="TTF_GetGlyphImageForIndex"(
+	font: *Font,
+	glyph_index: u32,
+	image_type: *ImageType) -> *SDL.Surface;
+
+GetGlyphMetrics :: fn #link="TTF_GetGlyphMetrics"() -> i32;
+
+GetGlyphKerning :: fn #link="TTF_GetGlyphKerning"() -> i32;
+
+GetStringSize :: fn #link="TTF_GetStringSize"() -> i32;
+
+GetStringSizeWrapped :: fn #link="TTF_GetStringSizeWrapped"() -> i32;
+
+MeasureString :: fn #link="TTF_MeasureString"() -> i32;
+
+RenderText_Solid :: fn #link="TTF_RenderText_Solid"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color) -> *SDL.Surface;
+
+RenderText_Solid_Wrapped :: fn #link="TTF_RenderText_Solid_Wrapped"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	wrapLength: i32) -> *SDL.Surface;
+
+RenderGlyph_Solid :: fn #link="TTF_RenderGlyph_Solid"(
+	font: *Font,
+	ch: u32,
+	fg: SDL.Color) -> *SDL.Surface;
+
+RenderText_Shaded :: fn #link="TTF_RenderText_Shaded"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	bg: SDL.Color) -> *SDL.Surface;
+
+RenderText_Shaded_Wrapped :: fn #link="TTF_RenderText_Shaded_Wrapped"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	bg: SDL.Color,
+	wrap_width: i32) -> *SDL.Surface;
+
+RenderGlyph_Shaded :: fn #link="TTF_RenderGlyph_Shaded"(
+	font: *Font,
+	ch: u32,
+	fg: SDL.Color,
+	bg: SDL.Color) -> *SDL.Surface;
+
+RenderText_Blended :: fn #link="TTF_RenderText_Blended"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color) -> *SDL.Surface;
+
+RenderText_Blended_Wrapped :: fn #link="TTF_RenderText_Blended_Wrapped"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	wrap_width: i32) -> *SDL.Surface;
+
+RenderGlyph_Blended :: fn #link="TTF_RenderGlyph_Blended"(
+	font: *Font,
+	ch: u32,
+	fg: SDL.Color) -> *SDL.Surface;
+
+RenderText_LCD :: fn #link="TTF_RenderText_LCD"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	bg: SDL.Color) -> *SDL.Surface;
+
+RenderText_LCD_Wrapped :: fn #link="TTF_RenderText_LCD_Wrapped"(
+	font: *Font,
+	text: *u8,
+	length: i32,
+	fg: SDL.Color,
+	bg: SDL.Color,
+	wrap_width: i32) -> *SDL.Surface;
+
+RenderGlyph_LCD :: fn #link="TTF_RenderGlyph_LCD"(
+	font: *Font,
+	ch: u32,
+	fg: SDL.Color,
+	bg: SDL.Color) -> *SDL.Surface;
+
+struct TextEngine {
+}
+
+struct TextData {
+}
+
+struct Text {
+	text: *u8,
+	num_lines: i32,
+	refcount: i32,
+	internal: *TextData,
+}
+
+CreateSurfaceTextEngine :: fn #link="TTF_CreateSurfaceTextEngine"() -> *TextEngine;
+
+DrawSurfaceText :: fn #link="TTF_DrawSurfaceText"() -> i32;
+
+DestroySurfaceTextEngine :: fn #link="TTF_DestroySurfaceTextEngine"(
+	engine: *TextEngine);
+
+CreateRendererTextEngine :: fn #link="TTF_CreateRendererTextEngine"(
+	renderer: *SDL.Renderer) -> *TextEngine;
+
+CreateRendererTextEngineWithProperties :: fn #link="TTF_CreateRendererTextEngineWithProperties"(
+	props: u32) -> *TextEngine;
+
+DrawRendererText :: fn #link="TTF_DrawRendererText"() -> i32;
+
+DestroyRendererTextEngine :: fn #link="TTF_DestroyRendererTextEngine"(
+	engine: *TextEngine);
+
+CreateGPUTextEngine :: fn #link="TTF_CreateGPUTextEngine"(
+	device: *SDL.GPUDevice) -> *TextEngine;
+
+CreateGPUTextEngineWithProperties :: fn #link="TTF_CreateGPUTextEngineWithProperties"(
+	props: u32) -> *TextEngine;
+
+struct GPUAtlasDrawSequence {
+	atlas_texture: *SDL.GPUTexture,
+	xy: *SDL.FPoint,
+	uv: *SDL.FPoint,
+	num_vertices: i32,
+	indices: *i32,
+	num_indices: i32,
+	image_type: ImageType,
+	next: *GPUAtlasDrawSequence,
+}
+
+GetGPUTextDrawData :: fn #link="TTF_GetGPUTextDrawData"(
+	text: *Text) -> *GPUAtlasDrawSequence;
+
+DestroyGPUTextEngine :: fn #link="TTF_DestroyGPUTextEngine"(
+	engine: *TextEngine);
+
+enum GPUTextEngineWinding {
+	TTF_GPU_TEXTENGINE_WINDING_INVALID = -1,
+	TTF_GPU_TEXTENGINE_WINDING_CLOCKWISE = 0,
+	TTF_GPU_TEXTENGINE_WINDING_COUNTER_CLOCKWISE = 1,
+}
+
+SetGPUTextEngineWinding :: fn #link="TTF_SetGPUTextEngineWinding"(
+	engine: *TextEngine,
+	winding: GPUTextEngineWinding);
+
+GetGPUTextEngineWinding :: fn #link="TTF_GetGPUTextEngineWinding"(
+	engine: *TextEngine) -> GPUTextEngineWinding;
+
+CreateText :: fn #link="TTF_CreateText"(
+	engine: *TextEngine,
+	font: *Font,
+	text: *u8,
+	length: i32) -> *Text;
+
+GetTextProperties :: fn #link="TTF_GetTextProperties"(
+	text: *Text) -> u32;
+
+SetTextEngine :: fn #link="TTF_SetTextEngine"() -> i32;
+
+GetTextEngine :: fn #link="TTF_GetTextEngine"(
+	text: *Text) -> *TextEngine;
+
+SetTextFont :: fn #link="TTF_SetTextFont"() -> i32;
+
+GetTextFont :: fn #link="TTF_GetTextFont"(
+	text: *Text) -> *Font;
+
+SetTextDirection :: fn #link="TTF_SetTextDirection"() -> i32;
+
+GetTextDirection :: fn #link="TTF_GetTextDirection"(
+	text: *Text) -> Direction;
+
+SetTextScript :: fn #link="TTF_SetTextScript"() -> i32;
+
+GetTextScript :: fn #link="TTF_GetTextScript"(
+	text: *Text) -> u32;
+
+SetTextColor :: fn #link="TTF_SetTextColor"() -> i32;
+
+SetTextColorFloat :: fn #link="TTF_SetTextColorFloat"() -> i32;
+
+GetTextColor :: fn #link="TTF_GetTextColor"() -> i32;
+
+GetTextColorFloat :: fn #link="TTF_GetTextColorFloat"() -> i32;
+
+SetTextPosition :: fn #link="TTF_SetTextPosition"() -> i32;
+
+GetTextPosition :: fn #link="TTF_GetTextPosition"() -> i32;
+
+SetTextWrapWidth :: fn #link="TTF_SetTextWrapWidth"() -> i32;
+
+GetTextWrapWidth :: fn #link="TTF_GetTextWrapWidth"() -> i32;
+
+SetTextWrapWhitespaceVisible :: fn #link="TTF_SetTextWrapWhitespaceVisible"() -> i32;
+
+TextWrapWhitespaceVisible :: fn #link="TTF_TextWrapWhitespaceVisible"() -> i32;
+
+SetTextString :: fn #link="TTF_SetTextString"() -> i32;
+
+InsertTextString :: fn #link="TTF_InsertTextString"() -> i32;
+
+AppendTextString :: fn #link="TTF_AppendTextString"() -> i32;
+
+DeleteTextString :: fn #link="TTF_DeleteTextString"() -> i32;
+
+GetTextSize :: fn #link="TTF_GetTextSize"() -> i32;
+
+struct SubString {
+	flags: u32,
+	offset: i32,
+	length: i32,
+	line_index: i32,
+	cluster_index: i32,
+	rect: SDL.Rect,
+}
+
+GetTextSubString :: fn #link="TTF_GetTextSubString"() -> i32;
+
+GetTextSubStringForLine :: fn #link="TTF_GetTextSubStringForLine"() -> i32;
+
+GetTextSubStringsForRange :: fn #link="TTF_GetTextSubStringsForRange"(
+	text: *Text,
+	offset: i32,
+	length: i32,
+	count: *i32) -> **SubString;
+
+GetTextSubStringForPoint :: fn #link="TTF_GetTextSubStringForPoint"() -> i32;
+
+GetPreviousTextSubString :: fn #link="TTF_GetPreviousTextSubString"() -> i32;
+
+GetNextTextSubString :: fn #link="TTF_GetNextTextSubString"() -> i32;
+
+UpdateText :: fn #link="TTF_UpdateText"() -> i32;
+
+DestroyText :: fn #link="TTF_DestroyText"(
+	text: *Text);
+
+CloseFont :: fn #link="TTF_CloseFont"(
+	font: *Font);
+
+Quit :: fn #link="TTF_Quit"();
+
+WasInit :: fn #link="TTF_WasInit"() -> i32;
+

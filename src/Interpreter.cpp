@@ -1156,6 +1156,8 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 
 void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 {
+	UNUSED(VM);
+
 	const type *Type = GetType(TypeIdx);
 	if(Type->Kind == TypeKind_Enum)
 	{
@@ -1763,7 +1765,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					const error_info *e = s->Node->ErrorInfo;
 					if(!VM->ErrorInfo.IsEmpty() && VM->ErrorInfo.Peek() != NULL)
 						e = VM->ErrorInfo.Peek();
-					RaiseError(false, *e, "Global value %s is not available", s->LinkName->Data);
+					RaiseError(false, *e, "Global value %s is not available to interpreter", s->LinkName->Data);
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 				Assert(v->Flags & value_flag::Global);

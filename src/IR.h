@@ -310,7 +310,7 @@ int GetPointerPassIdx(u32 TypeIdx, uint Size);
 void GetUsedRegisters(instruction I, dynamic<u32> &out);
 u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr);
 
-//string Dissasemble(slice<function> Fn);
+string Dissasemble(ir *IR);
 string DissasembleFunction(function Fn, int indent);
 void DissasembleInstruction(string_builder *Builder, instruction Instr);
 

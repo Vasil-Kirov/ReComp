@@ -9,6 +9,7 @@ struct file;
 struct needs_resolving_import
 {
 	string FileName;
+	string RelativePath;
 	string Name;
 	string As;
 	struct error_info *ErrorInfo;

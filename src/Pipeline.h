@@ -35,7 +35,8 @@ struct pipeline_result {
 	int EntryFileIdx;
 };
 
-bool PipelineDoFile(string GivenPath);
+string FindFile(string FileName, string RelativePath = STR_LIT(""));
+bool PipelineDoFile(string GivenPath, string RelativePath = STR_LIT(""));
 pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint);
-string GetLookupPathsPrintable(string FileName);
+string GetLookupPathsPrintable(string FileName, string RelativePath);
 

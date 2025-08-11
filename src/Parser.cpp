@@ -554,15 +554,16 @@ void ParseImport(parser *Parser)
 	{
 		token T = EatToken(Parser, T_STR, true);
 		string FileName = *T.ID;
+		string RelativePath = MakeString(T.ErrorInfo.FileName);
 		bool Failed = false;
 		if(FileName.Size == 0)
 		{
 			RaiseError(false, T.ErrorInfo, "Empty string after #import is not valid");
 			Failed = true;
 		}
-		else if(!PipelineDoFile(FileName))
+		else if(!PipelineDoFile(FileName, RelativePath))
 		{
-			string Checked = GetLookupPathsPrintable(FileName);
+			string Checked = GetLookupPathsPrintable(FileName, RelativePath);
 			RaiseError(false, T.ErrorInfo, "Cannot find imported file %.*s\nChecked paths:\n%.*s",
 					FileName.Size, FileName.Data, Checked.Size, Checked.Data);
 			Failed = true;
@@ -588,6 +589,7 @@ void ParseImport(parser *Parser)
 		{
 			needs_resolving_import Imported = {
 				.FileName = FileName,
+				.RelativePath = RelativePath,
 				.Name = STR_LIT(""),
 				.As = As ? *As : STR_LIT(""),
 				.ErrorInfo = ErrorInfo,

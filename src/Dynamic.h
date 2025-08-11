@@ -129,6 +129,6 @@ slice<T> SliceFromConst(std::initializer_list<T> List)
 	return Result;
 }
 
-#define ForArray(_Index, _Array) for(int _Index = 0; _Index < (_Array).Count; ++_Index)
-#define For(_Array) for(auto *it = _Array.Data; it - _Array.Data < _Array.Count; ++it)
+#define ForArray(_Index, _Array) for(size_t _Index = 0; _Index < (_Array).Count; ++_Index)
+#define For(_Array) for(auto *it = _Array.Data; (size_t)(it - _Array.Data) < _Array.Count; ++it)
 

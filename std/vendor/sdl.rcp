@@ -37,10 +37,11 @@ WINDOW_TRANSPARENT          :u64 : 0x0000000040000000;   // < window with transp
 WINDOW_NOT_FOCUSABLE        :u64 : 0x0000000080000000;   // < window should not be focusable */
 
 Init :: fn #link="SDL_Init"(flags: u32) -> bool;
+SetAppMetadata :: fn #link="SDL_SetAppMetadata"(appname: *u8, appversion: *u8, appidentifier: *u8) -> bool;
 CreateWindow :: fn #link="SDL_CreateWindow"(title: *u8, w: i32, h: i32, flags: u64) -> ?*Window;
 CreateWindowAndRenderer :: fn #link="SDL_CreateWindowAndRenderer"(
     title: *u8, width: i32, height: i32, window_flags: u64,
-    window: **Window, renderer: **Renderer
+    window: *?*Window, renderer: *?*Renderer
 ) -> bool;
 GL_CreateContext :: fn #link="SDL_GL_CreateContext"(window: *Window) -> ?*GLContext;
 GL_SwapWindow :: fn #link="SDL_GL_SwapWindow"(window: *Window) -> bool;
@@ -112,6 +113,34 @@ struct Color {
 	g: u8,
 	b: u8,
 	a: u8,
+}
+
+struct PixelFormatDetails
+{
+    format: PixelFormat,
+    bits_per_pixel: u8,
+    bytes_per_pixel: u8,
+    padding: [2]u8,
+    Rmask: u32,
+    Gmask: u32,
+    Bmask: u32,
+    Amask: u32,
+    Rbits: u8,
+    Gbits: u8,
+    Bbits: u8,
+    Abits: u8,
+    Rshift: u8,
+    Gshift: u8,
+    Bshift: u8,
+    Ashift: u8,
+}
+
+struct Palette
+{
+    ncolors: i32,       /**< number of elements in `colors`. */
+    colors: *Color,     /**< an array of colors, `ncolors` long. */
+    version: u32,       /**< internal use only, do not touch. */
+    refcount: i32       /**< internal use only, do not touch. */
 }
 
 struct QuitEvent {
@@ -983,6 +1012,27 @@ enum PixelFormat: u32 {
     XBGR32 = 0x16261804,
 }
 
+enum TextureAccess
+{
+    STATIC,    /**< Changes rarely, not lockable */
+    STREAMING, /**< Changes frequently, lockable */
+    TARGET     /**< Texture can be used as a render target */
+}
+
+//
+// 
+//                  Textures & Surfaces
+// 
+// 
+
+CreateTexture :: fn #link="SDL_CreateTexture"(renderer: *Renderer, format: PixelFormat, access: TextureAccess, w: i32, h: i32) -> ?*Texture;
+CreateTextureFromSurface :: fn #link="SDL_CreateTextureFromSurface"(renderer: *Renderer, surface: *Surface) -> ?*Texture;
+LockTextureToSurface :: fn #link="SDL_LockTextureToSurface"(texture: *Texture, rect: *Rect, surface: **Surface) -> bool;
+UnlockTexture :: fn #link="SDL_UnlockTexture"(texture: *Texture);
+CreateSurface :: fn #link="SDL_CreateSurface"(width: i32, height: i32, format: PixelFormat) -> ?*Surface;
+FillSurfaceRect :: fn #link="SDL_FillSurfaceRect"(dst: *Surface, rect: *Rect, color: u32) -> bool;
+MapRGB :: fn #link="SDL_MapRGB"(format: *PixelFormatDetails, palette: ?*Palette, r: u8, g: u8, b: u8) -> u32;
+GetPixelFormatDetails :: fn #link="SDL_GetPixelFormatDetails"(format: PixelFormat) -> ?*PixelFormatDetails;
 
 //
 // 

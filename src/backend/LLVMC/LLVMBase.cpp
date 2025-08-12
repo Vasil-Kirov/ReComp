@@ -1897,7 +1897,7 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	{
 		features = "";
 	}
-#if 1
+#if 0
 	LLVMInitializeX86TargetInfo();
 	LLVMInitializeX86Target();
 	LLVMInitializeX86TargetMC();
@@ -1911,6 +1911,13 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	LLVMInitializeAArch64AsmParser();
 	LLVMInitializeAArch64AsmPrinter();
 	LLVMInitializeAArch64Disassembler();
+
+	LLVMInitializeWebAssemblyTargetInfo();
+	LLVMInitializeWebAssemblyTarget();
+	LLVMInitializeWebAssemblyTargetMC();
+	LLVMInitializeWebAssemblyAsmParser();
+	LLVMInitializeWebAssemblyAsmPrinter();
+	LLVMInitializeWebAssemblyDisassembler();
 
 #else
     LLVMInitializeAllTargetInfos();

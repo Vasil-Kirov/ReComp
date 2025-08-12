@@ -13,7 +13,7 @@ memcpy :: fn #foreign(dst: *, src: *, size: int) -> * {
 memset :: fn #foreign(dst: *, val: i32, num: int) -> * {
 	d: *u8 = dst;
 	for i in num {
-		d[i] = @u8 val;
+		d[i] = val as u8;
 	}
 
 	return dst;

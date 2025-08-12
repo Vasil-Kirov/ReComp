@@ -3,6 +3,7 @@ module libc
 
 _ :: #import mem;
 
+system :: fn(cmd: *u8) -> i32 #foreign;
 malloc :: fn(size: int) -> ?* #foreign;
 free   :: fn(ptr: ?*) #foreign;
 

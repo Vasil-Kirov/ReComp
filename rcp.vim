@@ -14,8 +14,8 @@ function s:comment()
 	syn match rcpSString "c?\"(?:[^\"\\]|\\.)*\""
 endfunction
 
-syn match rcpSIdentifier  "\%([^[:cntrl:][:space:][:punct:][:digit:]]\|_\)\%([^[:cntrl:][:punct:][:space:]]\|_\)*" display contained
-syn match rcpSDecl /\w\+\s*:/ contains=rcpSIdentifier
+syn match rcpSIdentifier  "\%([^[:cntrl:][:space:][:punct:][:digit:]]\|_\)\%([^[:cntrl:][:punct:][:space:]]\|_\)*"
+" syn match rcpSDecl /\w\+\s*:/ contains=rcpSIdentifier
 syn match rcpSFuncCall "\w\(\w\)*("he=e-1,me=e-1
 
 " Strings
@@ -28,7 +28,7 @@ syn region rcpSChar      start=+'+ skip=+\\\\\|\\'+ end=+'+
 
 " Brackets and punctuation
 syn match rcpSBracket "[{}()\[\]]"
-syn match rcpSOperator "[-+=*/<>:&]"
+syn match rcpSOperator "\(::\|[-+=*/<>:&]\)"
 
 " Keywords
 syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_info type_of size_of as continue using yield then cast bit_cast module

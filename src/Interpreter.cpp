@@ -194,7 +194,7 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 				case Basic_type:
 				case Basic_int:
 				{
-					int RegisterSize = GetRegisterTypeSize() / 8;
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: Sig = DC_SIGCHAR_LONGLONG; break;
@@ -205,7 +205,7 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 				} break;
 				case Basic_uint:
 				{
-					int RegisterSize = GetRegisterTypeSize() / 8;
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: Sig = DC_SIGCHAR_ULONGLONG; break;
@@ -283,14 +283,14 @@ DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree)
 		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
 		char Second = DC_SIGCHAR_POINTER;
 		dcAggrField(Aggr, First, 0, 0);
-		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
+		dcAggrField(Aggr, Second, GetHostRegisterTypeSize()/8, 0);
 	}
 	else if(IsString(T))
 	{
 		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
 		char Second = DC_SIGCHAR_STRING;
 		dcAggrField(Aggr, First, 0, 0);
-		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
+		dcAggrField(Aggr, Second, GetHostRegisterTypeSize()/8, 0);
 	}
 
 	dcCloseAggr(Aggr);
@@ -418,7 +418,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 					case Basic_type:
 					case Basic_int:
 					{
-						int RegisterSize = GetRegisterTypeSize() / 8;
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: dcArgLongLong(dc, Arg->i64); break;
@@ -429,7 +429,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 					} break;
 					case Basic_uint:
 					{
-						int RegisterSize = GetRegisterTypeSize() / 8;
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: dcArgLongLong(dc, Arg->u64); break;
@@ -1355,7 +1355,7 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 		{
 			if(HasBasicFlag(Type, BasicFlag_String))
 			{
-				int Offset = Right * GetRegisterTypeSize() / 8;
+				int Offset = Right * GetHostRegisterTypeSize() / 8;
 				Result = ((u8 *)Operand->ptr) + Offset;
 
 				if(Right == 0)
@@ -1368,7 +1368,7 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 		} break;
 		case TypeKind_Slice:
 		{
-			int Offset = Right * GetRegisterTypeSize() / 8;
+			int Offset = Right * GetHostRegisterTypeSize() / 8;
 			Result = ((u8 *)Operand->ptr) + Offset;
 
 			if(Right == 1)

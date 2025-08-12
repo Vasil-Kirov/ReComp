@@ -8,6 +8,7 @@
 #include <mutex>
 
 platform_target PTarget = platform_target::Windows;
+int RegisterBitSize = 64;
 
 #define NOT_DEFINED ((uint)-1)
 
@@ -376,10 +377,15 @@ void SetStructCache(u32 TypeIdx)
 	TypeTable[TypeIdx]->CachedAlignment = GetTypeAlignment(TypeTable[TypeIdx]);
 }
 
+int GetHostRegisterTypeSize()
+{
+	// @TODO: detect host machine?
+	return 64;
+}
+
 int GetRegisterTypeSize()
 {
-	// @TODO: Other platforms :|
-	return 64;
+	return RegisterBitSize;
 }
 
 // @TODO: Non basic type size calculation and arch dependant type sizes

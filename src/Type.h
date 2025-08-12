@@ -228,6 +228,7 @@ int GetTypeAlignment(u32 Type);
 int GetStructMemberOffset(const type *Type, uint Member);
 int GetStructMemberOffset(u32 Type, uint Member);
 int GetRegisterTypeSize();
+int GetHostRegisterTypeSize();
 
 b32 CanTypePerformBinExpression(const type *T, token_type Op);
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);

@@ -471,10 +471,12 @@ main(int ArgCount, char *Args[])
 			}
 			else if(Info->Arch == Arch_x86)
 			{
+				RegisterBitSize = 32;
 				ConfigIDs.Push(STR_LIT("x86"));
 			}
 			else if(Info->Arch == Arch_arm32)
 			{
+				RegisterBitSize = 32;
 				ConfigIDs.Push(STR_LIT("arm32"));
 			}
 			else if(Info->Arch == Arch_arm64)

@@ -501,7 +501,13 @@ main(int ArgCount, char *Args[])
 				LDEBUG("CONFIG %s", it->Data);
 			}
 
-			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), STR_LIT("main"));
+			string EntryPoint = STR_LIT("main");
+			if(Info->EntryPoint.Count != 0)
+			{
+				EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
+			}
+
+			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint);
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;

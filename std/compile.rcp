@@ -33,6 +33,7 @@ struct CompileInfo {
     arch: Arch,
 	link: string,
 	internals_file: string,
+	entry_point: string,
 }
 
 raise_error :: fn(fmt: string, args: ...) {

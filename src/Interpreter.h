@@ -45,6 +45,7 @@ struct compile_info
 	u32 Arch;
 	interp_string Link;
 	interp_string InternalFile;
+	interp_string EntryPoint;
 };
 
 enum interpret_result_kind

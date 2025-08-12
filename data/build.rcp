@@ -62,8 +62,9 @@ compile :: fn() -> c.CompileInfo {
 	 return out;
 }
 
-after_link :: fn() {
-    x := io.sprint("foo %", 10);
-    io.println(x);
+after_link :: fn(objs: []string) {
+	for obj in objs {
+		io.println(obj);
+	}
 }
 

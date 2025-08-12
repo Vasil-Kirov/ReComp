@@ -21,6 +21,12 @@ enum DebugAction
 	DebugAction_break,
 };
 
+struct interp_slice
+{
+	size_t Count;
+	void *Data;
+};
+
 struct interp_string
 {
 	size_t Count;

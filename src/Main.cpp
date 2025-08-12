@@ -595,7 +595,24 @@ main(int ArgCount, char *Args[])
 		PlatformSetSignalHandler(InterpSegFault, &VM);
 		VM.HasSetSigHandler = true;
 
-		InterpretFunction(&VM, *AfterFunction, {});
+		interp_slice Objs = {};
+		Objs.Count = ModuleArray.Count;
+		Objs.Data = AllocatePermanent(sizeof(interp_string) * Objs.Count);
+		ForArray(Idx, ModuleArray)
+		{
+			string_builder Builder = MakeBuilder();
+			Builder += ModuleArray[Idx]->Name;
+			Builder += ".obj";
+			string Path = MakeString(Builder);
+			((interp_string *)Objs.Data)[Idx] = {Path.Size, Path.Data};
+		}
+
+
+		value ObjsValue = {};
+		ObjsValue.Type = GetSliceType(Basic_string);
+		ObjsValue.ptr = &Objs;
+
+		InterpretFunction(&VM, *AfterFunction, {&ObjsValue, 1});
 
 		PlatformClearSignalHandler();
 	}

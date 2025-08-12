@@ -40,8 +40,10 @@ compile :: fn() -> c.CompileInfo {
          source_dirs = []string { "../" },
 		 files = []string { "file1.rcp" },
 		 opt = 0,
-		 flags = .DebugInfo,
-		 flags = (.SanAddress | .DebugInfo ),
+		 //flags = .DebugInfo,
+		 flags = (.SanAddress | .DebugInfo | .NoLink | .Standalone),
+		 arch = .x86,
+		 internals_file = "dummy_internals.rcp",
 		 //link = "/SUBSYSTEM:windows",
 	 };
 

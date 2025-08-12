@@ -23,7 +23,7 @@ void FillUntypedStack(checker *Checker, u32 Type)
 		return;
 
 	if(TypePtr->Kind == TypeKind_Pointer)
-		Type = Basic_i64;
+		Type = Basic_int;
 	while(!Checker->UntypedStack.IsEmpty())
 	{
 		u32 *ToGiveType = Checker->UntypedStack.Pop();

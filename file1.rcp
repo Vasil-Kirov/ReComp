@@ -3,24 +3,37 @@ module main
 //#import "compiler/lexer.rcp" as *;
 //#import "libc.rcp";
 
-img :: #import "vendor/sdl_image.rcp";
-_ :: #import io;
+//img :: #import "vendor/sdl_image.rcp";
+//_ :: #import io;
 
 //foo: []string;
 
 print_file_info :: fn(fi := #file_location) {
-	println("%", fi);
+	//println("%", fi);
 }
 
 main :: fn() -> i32 {
-	print_file_info();
-	print_file_info();
-	print_file_info();
+	//print_file_info();
+	//print_file_info();
+	//print_file_info();
+	f_ := malloc(size_of Foo);
 
-    return 0;
+	f := (?f_) as *Foo;
+	f.x = 10;
+	f.y = 20;
+
+    return f.x + f.y;
 }
 
-#run main();
+malloc :: fn(size: int) -> ?* #foreign;
+
+struct Foo
+{
+	x: int,
+	y: int,
+}
+
+//#run main();
 
 
 //	foo = .{"asd"};

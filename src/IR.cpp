@@ -871,7 +871,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Size->Int.IsSigned = false;
 			Size->Int.Unsigned = GetTypeSize(Type);
 			Result = PushInstruction(Builder, 
-					Instruction(OP_CONST, (u64)Size, Basic_u64, Builder));
+					Instruction(OP_CONST, (u64)Size, Basic_int, Builder));
 		} break;
 		case AST_CALL:
 		{

@@ -30,9 +30,10 @@ string GetLookupPathsPrintable(string FileName, string RelativePath)
 	char *Absolute = (char *)Arena.Allocate(MAX_PATH_LEN);
 
 	auto b = MakeBuilder();
-	For(Lookups.Paths)
+	ForArray(Idx, Lookups.Paths)
 	{
-		sprintf(Buf, "%.*s/%.*s", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
+		auto it = Lookups.Paths[Lookups.Paths.Count-Idx-1];
+		sprintf(Buf, "%.*s/%.*s", (int)it.Size, it.Data, (int)FileName.Size, FileName.Data);
 		char *GotAbsolute = GetAbsolutePath(Buf, Absolute);
 		if(GotAbsolute == NULL)
 			continue;
@@ -61,9 +62,10 @@ string FindFile(string FileName, string RelativePath)
 	char *Buf = (char *)Arena.Allocate(MAX_PATH_LEN);
 	char *Absolute = (char *)Arena.Allocate(MAX_PATH_LEN);
 	Lookups.Mutex.lock();
-	For(Lookups.Paths)
+	ForArray(Idx, Lookups.Paths)
 	{
-		sprintf(Buf, "%.*s/%.*s", (int)it->Size, it->Data, (int)FileName.Size, FileName.Data);
+		auto it = Lookups.Paths[Lookups.Paths.Count-Idx-1];
+		sprintf(Buf, "%.*s/%.*s", (int)it.Size, it.Data, (int)FileName.Size, FileName.Data);
 		char *GotAbsolute = GetAbsolutePath(Buf, Absolute);
 		if(GotAbsolute == NULL)
 			continue;

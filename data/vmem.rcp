@@ -1,0 +1,121 @@
+module vmem;
+
+kb :: fn(b: int) -> int { return b << 10; }
+mb :: fn(b: int) -> int { return b << 20; }
+gb :: fn(b: int) -> int { return b << 30; }
+
+enum AllocCMD
+{
+	Alloc,
+	Free,
+	Clear,
+	Destroy,
+}
+
+struct Allocator {
+	data: ?*,
+	function: *fn(this: *Allocator, cmd: AllocCMD, size: int, old_ptr: ?*, old_size: int, called_from := #file_location) -> ?*,
+	initialized: bool,
+}
+
+struct ArenaInternal {
+	start: *u8,
+	at: *u8,
+	end: *u8,
+}
+
+
+align_16_32bit :: fn(address: *) -> *
+{
+    return ((address as uint + 15) & 0xffff_fff0);
+}
+
+dummy_fn :: fn(this: *Allocator, cmd: AllocCMD, size: int, old_ptr: ?*, old_size: int, called_from := #file_location) -> ?* {
+	return null;
+}
+
+make_arena_alloc :: fn(max_size: int) -> Allocator {
+	internal_ := malloc(size_of ArenaInternal);
+	if internal_ == null {
+		return .{function=dummy_fn};
+	}
+	internal := (?internal_) as *ArenaInternal;
+
+	start := malloc(max_size) as ?*u8;
+	if start == null {
+		free(internal);
+		return .{function=dummy_fn};
+	}
+	internal.start = ?start;
+	internal.at = ?start;
+	internal.end = ?start + max_size;
+
+	alloc := Allocator {
+		data = internal,
+		function = arena_fn,
+		initialized = true,
+	};
+
+	return .{
+		data = internal,
+		function = arena_fn,
+		initialized = true,
+	};
+}
+
+arena_fn :: fn(this: *Allocator, cmd: AllocCMD, size: int, old_ptr: ?*, old_size: int, fl := #file_location) -> ?* {
+	printf(c"called?!\n");
+	if !this.initialized || this.data == null {
+		printf(c"NOOOO!\n");
+		return null;
+	}
+	printf(c"YESSS!\n");
+
+	internal := (?this.data) as *ArenaInternal;
+
+	printf(c"CMD: %d\n", cmd);
+	return match cmd {
+		.Alloc: {
+			printf(c"Aligning...\n");
+			at := align_16_32bit(internal.at) as *u8;
+			if at + size >= internal.end {
+				return null;
+			}
+
+			internal.at = at + size;
+
+			printf(c"Setting...\n");
+			set(at, 0, size);
+
+			printf(c"Returning...\n");
+			yield at as ?*;
+		}
+		.Free: {
+			// Not supported
+			yield null;
+		}
+		.Clear: {
+			internal.at = internal.start;
+			yield null;
+		}
+		.Destroy: {
+			free(this.data);
+			free(internal.start);
+			this.initialized = false;
+			this.data = null;
+			yield null;
+		}
+	};
+}
+
+new_t :: fn(T: type, this: *Allocator) -> ?*T {
+	return this.function(this, .Alloc, size_of T, null, 0);
+}
+
+printf :: fn(fmt: *u8, args: ...) -> i32 #foreign;
+malloc :: fn(size: int) -> ?*void #foreign;
+free :: fn(ptr: ?*void) #foreign;
+
+copy :: fn #foreign(dst: *, src: *,   size: int) -> * #link="memcpy";
+set  :: fn #foreign(dst: *, val: i32, size: int) -> * #link="memset";
+

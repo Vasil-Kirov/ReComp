@@ -180,3 +180,27 @@ u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules)
 	return Count;
 }
 
+void CheckInternalModule(module *Module)
+{
+	slice<string> InternalFns = SliceFromConst({
+		STR_LIT("advance"),
+		STR_LIT("deref"),
+		STR_LIT("stdout"),
+		STR_LIT("write"),
+		STR_LIT("abort"),
+	});
+
+	bool Abort = false;
+	For(InternalFns)
+	{
+		if(!Module->Globals.Contains(*it))
+		{
+			LogCompilerError("Error: Internals file does not contain a definition for %.*s.\n", (int)it->Size, it->Data);
+			Abort = true;
+		}
+	}
+	if(Abort)
+		exit(1);
+	
+}
+

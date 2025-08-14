@@ -418,6 +418,14 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			ForArray(Idx, TypeNode->Fn.Args)
 			{
 				node *Arg = TypeNode->Fn.Args[Idx];
+				if(Arg->Var.TypeNode == (node *)0x1)
+				{
+					FnType->Function.Flags |= SymbolFlag_VarFunc;
+					if(Idx + 1 != TypeNode->Fn.Args.Count)
+						return INVALID_TYPE;
+					FnType->Function.ArgCount-=1;
+					continue;
+				}
 				FnType->Function.Args[Idx] = FillFunctionArgumentType(Checker, Arg, Error, OutAutoDef);
 
 				if(FnType->Function.Args[Idx] == INVALID_TYPE)

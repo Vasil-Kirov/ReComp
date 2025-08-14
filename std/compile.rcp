@@ -9,7 +9,7 @@ enum CompileFlag: u32 {
     SanMemory   = 0b00000000100,
     SanThread   = 0b00000001000,
     SanUndefined= 0b00000010000,
-	NoStdLib	= 0b00000100000,
+	NoLibC	    = 0b00000100000,
     SharedLib   = 0b00001000000,
     CrossAndroid= 0b00010000000,
     NoLink      = 0b00100000000,

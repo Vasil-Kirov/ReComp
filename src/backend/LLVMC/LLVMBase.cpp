@@ -650,7 +650,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				LLVMValueRef Zero = LLVMConstNull(LLVMInt8TypeInContext(gen->ctx));
 				u64 Size = LLVMABISizeOfType(gen->data, LLVMT);
 				u64 Alignment = LLVMABIAlignmentOfType(gen->data, LLVMT);
-				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+				LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 				LLVMBuildMemSet(gen->bld, Pointer, Zero, ValueSize, Alignment);
 			}
 		} break;
@@ -892,7 +892,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				else
 				{
 					u64 Size = GetTypeSize(T->Array.Type);
-					LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+					LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 					uint Align = LLVMABIAlignmentOfType(gen->data, MemberLLVM);
 
 					LLVMBuildMemCpy(gen->bld, Location, Align, Member, Align, ValueSize);
@@ -962,7 +962,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				u64 Size = GetTypeSize(I.Type);//LLVMABISizeOfType(gen->data, LLVMType);
-				LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+				LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 				uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
 				
 				LLVMBuildMemCpy(gen->bld, Pointer, Align, Value, Align, ValueSize);
@@ -975,7 +975,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			u64 Size = LLVMABISizeOfType(gen->data, Type);
 			u64 Alignment = LLVMABIAlignmentOfType(gen->data, Type);
 			LLVMValueRef ValueZero = LLVMConstInt(LLVMInt8TypeInContext(gen->ctx), 0, false);
-			LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+			LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 			LLVMBuildMemSet(gen->bld, Pointer, ValueZero, ValueSize, Alignment);
 		} break;
 		case OP_LOAD:
@@ -1120,7 +1120,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					LLVMValueRef RetPtr = LLVMGetParam(gen->fn, 0);
 					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 					u64 Size = LLVMABISizeOfType(gen->data, LLVMType);
-					LLVMValueRef ValueSize = LLVMConstInt(LLVMInt64TypeInContext(gen->ctx), Size, false);
+					LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 					uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
 
 					LLVMBuildMemCpy(gen->bld, RetPtr, Align, Value, Align, ValueSize);
@@ -1550,8 +1550,21 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				FileName, VStrLen(FileName),
 				FileDirectory, VStrLen(FileDirectory));
 	)
-	Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
-	LLVMSetModuleDataLayout(Gen.mod, Gen.data);
+	if(GetRegisterTypeSize() == 64)
+	{
+		Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
+		LLVMSetModuleDataLayout(Gen.mod, Gen.data);
+	}
+	else if(GetRegisterTypeSize() == 32)
+	{
+		LLVMSetDataLayout(Gen.mod, "e-m:x-p:32:32-i64:32-f80:32-n8:16:32-S32");
+		Gen.data = LLVMGetModuleDataLayout(Gen.mod);
+	}
+	else
+	{
+		LogCompilerError("--- COMPILER BUG ---""\nData layout for %d bit machine is not implemented!", GetRegisterTypeSize());
+		exit(1);
+	}
 
 	string CompilerName = STR_LIT("RCP Compiler");
 
@@ -1568,17 +1581,18 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		)
 
 	DEBUG_RUN (
-#if defined (_WIN32)
-	string CodeView = STR_LIT("CodeView");
-	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
-			CodeView.Data, CodeView.Size, IntToMeta(&Gen, 1));
-#elif defined (CM_LINUX)
-	string DwarV = STR_LIT("Dwarf Version");
-	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
-			DwarV.Data, DwarV.Size, IntToMeta(&Gen, 5));
-#else
-#error Unkown debug fromat for this OS
-#endif
+	if(strstr(Info->TargetTriple.Data, "windows"))
+	{
+		string CodeView = STR_LIT("CodeView");
+		LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
+				CodeView.Data, CodeView.Size, IntToMeta(&Gen, 1));
+	}
+	else
+	{
+		string DwarV = STR_LIT("Dwarf Version");
+		LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
+				DwarV.Data, DwarV.Size, IntToMeta(&Gen, 5));
+	}
 
 	string DIV = STR_LIT("Debug Info Version");
 	LLVMAddModuleFlag(Gen.mod, LLVMModuleFlagBehaviorWarning,
@@ -1683,6 +1697,13 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 						ConvertToLLVMType(&Gen, s->Type));
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
+				if(s->Flags & SymbolFlag_NoSanitizeAddress)
+				{
+					string K = STR_LIT("no_sanitize");
+					string V = STR_LIT("address");
+					LLVMAttributeRef Attr = LLVMCreateStringAttribute(Gen.ctx, K.Data, K.Size, V.Data, V.Size);
+					LLVMAddAttributeAtIndex(Fn, LLVMAttributeFunctionIndex, Attr);
+				}
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.global.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);

@@ -124,36 +124,41 @@ string GetFilePath(string Dir, const char *FileName)
 	return MakeString(Builder);
 }
 
-string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlags)
+string MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
 {
 	string_builder Builder = MakeBuilder();
+	u32 CompileFlags = Info->Flags;
 #if _WIN32
 	b32 NoSetDefaultLib = false;
+	b32 NoSetEntryPoint = false;
+
 	Builder += "LINK.EXE /nologo /OUT:a.exe /DEBUG ";
+
+	if(Info->EntryPoint.Data)
+	{
+		NoSetEntryPoint = true;
+		Builder.printf("/ENTRY:%.*s ", Info->EntryPoint.Count, Info->EntryPoint.Data);
+	}
+
 	if(CompileFlags & CF_SanAdress)
 	{
 		string Std = MakeString(GetStdDir());
 		Builder += GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib ");
-		if((CompileFlags & CF_NoStdLib) == 0)
+		if((CompileFlags & CF_NoLibC) == 0)
 		{
 			NoSetDefaultLib = true;
 			Builder += " /DEFAULTLIB:LIBCMT ";
 		}
 	}
-	if(CompileFlags & CF_NoStdLib)
+
+	if(CompileFlags & CF_NoLibC)
 	{
 		NoSetDefaultLib = true;
 		Builder += "/NODEFAULTLIB ";
-		if(CompileFlags & CF_Standalone)
-		{
-			Builder += "/ENTRY:start ";
-		}
-		else
-		{
+		if(!NoSetEntryPoint)
 			Builder += "/ENTRY:main ";
-		}
 	}
-	else
+	else if(!NoSetEntryPoint)
 	{
 		Builder += "/ENTRY:mainCRTStartup ";
 	}
@@ -164,6 +169,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, u32 CompileFlag
 	}
 
 #elif CM_LINUX
+	// @TODO: update these
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
 
@@ -237,7 +243,7 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 	// Doesn't care about CF_Standalone
 	Files.Push(STR_LIT("intrin.rcp"));
 
-	if(Flags & CF_NoStdLib)
+	if(Flags & CF_NoLibC)
 	{
 		Files.Push(STR_LIT("req.rcp"));
 	}
@@ -426,12 +432,7 @@ main(int ArgCount, char *Args[])
 				}
 			}
 
-			if(Info->Flags & CF_Standalone)
-			{
-				Info->Flags |= CF_NoStdLib;
-			}
-
-			if((Info->Flags & CF_NoStdLib) == 0)
+			if((Info->Flags & CF_NoLibC) == 0)
 			{
 				ConfigIDs.Push(STR_LIT("LIBC"));
 			}
@@ -590,7 +591,9 @@ main(int ArgCount, char *Args[])
 	if(Info->Flags & CF_NoLink) {}
 	else
 	{
-		system(MakeLinkCommand(CommandLine, ModuleArray, Info->Flags).Data);
+		string LinkCommand = MakeLinkCommand(CommandLine, ModuleArray, Info);
+		LINFO("Link: %.*s", (int)LinkCommand.Size, LinkCommand.Data);
+		system(LinkCommand.Data);
 	}
 	VLibStopTimer(&LinkTimer);
 

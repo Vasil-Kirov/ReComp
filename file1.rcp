@@ -1,19 +1,25 @@
 module main
 
+_ :: #import "data/vmem.rcp";
 
-_ :: #import mem;
-
-
-new_t :: fn(T: type, this: *Allocator, fl := #file_location) -> ?*T {
-    return this.alloc(size_of T, this) as ?*T;
+/*
+struct Method {
+	print: *fn(fmt: string, args: ...),
+	print_the_fl: *fn(m: *Method, fl := #file_location),
 }
+*/
 
-main :: fn () -> i32 {
-	f := ?new_t(i32, &mem.temp_alloc);
-	*f = 10;
+main :: fn () -> i32 #foreign {
+	a := make_arena_alloc(128);
+	f := ?new_t(i32, &a);
 
 
 	return *f;
+}
+
+printf :: fn(fmt: *u8, arg: i32) -> i32 #foreign {
+
+	return 0;
 }
 
 

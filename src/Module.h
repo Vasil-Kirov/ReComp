@@ -45,6 +45,7 @@ int GetFileIndex(module *m, file *f);
 void AddModule(dynamic<module*> &Modules, file *File, string Name);
 u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules);
 slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynamic<module*> Modules, slice<file*> Files);
+void CheckInternalModule(module *Module);
 
 extern slice<module*> CurrentModules;
 

@@ -1,9 +1,10 @@
 
-int foo(int a) { return a; }
+__attribute__((no_sanitize("address")))
+int foo(int a);
 
 int main()
 {
-	int x = 1 + 1;
+	int x = foo(1);
 	return x;
 }
 

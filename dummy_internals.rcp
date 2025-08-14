@@ -1,2 +1,23 @@
 module internal;
 
+no_out: i32;
+
+advance :: fn(pos: *u8) -> *u8 {
+	return pos;
+}
+
+deref :: fn(pos: *u8) -> u32 {
+	return 0;
+}
+
+stdout :: fn() -> * {
+	return &no_out;
+}
+
+write :: fn(fd: *, buf: *u8, count: int) -> int {
+	return 0;
+}
+
+abort :: fn() {
+}
+

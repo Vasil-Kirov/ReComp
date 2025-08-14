@@ -34,6 +34,7 @@ syn match rcpSOperator "\(::\|[-+=*/<>:&]\)"
 syn keyword rcpSKeyword union enum struct fn return for in if else match break defer type_info type_of size_of as continue using yield then cast bit_cast module
 syn keyword rcpSConstant null true false inf nan
 syn match rcpSImport /#import/
+syn match rcpSCompilerDir /#no_sanitize_address/
 syn match rcpSCompilerDir /#foreign/
 syn match rcpSCompilerDir /#inline/
 syn match rcpSCompilerDir /#link/

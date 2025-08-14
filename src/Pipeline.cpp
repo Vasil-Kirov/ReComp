@@ -207,6 +207,22 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	if(HasErroredOut())
 		exit(1);
 
+	bool FoundInternal = false;
+	For(Modules)
+	{
+		if((*it)->Name == "internal")
+		{
+			FoundInternal = true;
+			CheckInternalModule(*it);
+		}
+	}
+	if(!FoundInternal)
+	{
+		LogCompilerError("Error: Didn't find internal module, make sure to name it properly if including a custom one!\n");
+		exit(1);
+	}
+
+
 	For(Files)
 	{
 		Analyze((*it)->Checker, (*it)->Nodes);

@@ -19,7 +19,7 @@ enum compile_flags
     CF_SanMemory   	= 0b00000000100,
     CF_SanThread   	= 0b00000001000,
     CF_SanUndefined	= 0b00000010000,
-    CF_NoStdLib		= 0b00000100000,
+    CF_NoLibC		= 0b00000100000,
     CF_SharedLib	= 0b00001000000,
 	CF_CrossAndroid = 0b00010000000,
 	CF_NoLink	    = 0b00100000000,

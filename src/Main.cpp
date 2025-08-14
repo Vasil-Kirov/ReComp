@@ -326,7 +326,7 @@ main(int ArgCount, char *Args[])
 	slice<module*> ModuleArray = {};
 	compile_info *Info = NewType(compile_info);
 	slice<function> BuildFileFunctions = {};
-	interpreter VM = {};
+	interpreter BuildVM = {};
 	timer_group VMBuildTimer = {};
 	timer_group VMBuildTimer2 = {};
 
@@ -394,7 +394,7 @@ main(int ArgCount, char *Args[])
 
 		VMBuildTimer = VLibStartTimer("VM");
 
-		MakeInterpreter(VM, BuildModules, BuildFile.IR->MaxRegisters);
+		MakeInterpreter(BuildVM, BuildModules, BuildFile.IR->MaxRegisters);
 		if(HasErroredOut())
 			exit(1);
 
@@ -403,7 +403,7 @@ main(int ArgCount, char *Args[])
 
 			if(InterpreterTrace)
 				LINFO("Interpreting compile function");
-			interpret_result Result = InterpretFunction(&VM, *CompileFunction, {&InfoValue, 1});
+			interpret_result Result = InterpretFunction(&BuildVM, *CompileFunction, {&InfoValue, 1});
 			PlatformClearSignalHandler();
 
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
@@ -575,14 +575,14 @@ main(int ArgCount, char *Args[])
 		ModuleArray = r.Modules;
 		FileTimer = r.Timers;
 		
-		MakeInterpreter(VM, ModuleArray, 100);
+		MakeInterpreter(BuildVM, ModuleArray, 100);
 		if(HasErroredOut())
 			exit(1);
 
 		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, VM.StoredGlobals);
+		RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, BuildVM.StoredGlobals);
 		VLibStopTimer(&FileTimer.LLVM);
-		VM.StackAllocator.Free();
+		BuildVM.StackAllocator.Free();
 	}
 
 
@@ -600,8 +600,8 @@ main(int ArgCount, char *Args[])
 		if(InterpreterTrace)
 			LINFO("Interpreting after_link function");
 
-		PlatformSetSignalHandler(InterpSegFault, &VM);
-		VM.HasSetSigHandler = true;
+		PlatformSetSignalHandler(InterpSegFault, &BuildVM);
+		BuildVM.HasSetSigHandler = true;
 
 		interp_slice Objs = {};
 		Objs.Count = ModuleArray.Count;
@@ -620,7 +620,7 @@ main(int ArgCount, char *Args[])
 		ObjsValue.Type = GetSliceType(Basic_string);
 		ObjsValue.ptr = &Objs;
 
-		InterpretFunction(&VM, *AfterFunction, {&ObjsValue, 1});
+		InterpretFunction(&BuildVM, *AfterFunction, {&ObjsValue, 1});
 
 		PlatformClearSignalHandler();
 	}
@@ -639,7 +639,7 @@ main(int ArgCount, char *Args[])
 			}
 		}
 	}
-	VM.StackAllocator.Pop();
+	BuildVM.StackAllocator.Pop();
 
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;

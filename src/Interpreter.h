@@ -17,6 +17,7 @@ enum DebugAction
 	DebugAction_next_stmt,
 	DebugAction_list_instructions,
 	DebugAction_quit,
+	DebugAction_print_stack,
 	DebugAction_prompt_again,
 	DebugAction_break,
 };

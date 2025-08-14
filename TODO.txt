@@ -1,3 +1,2 @@
 
-[] - Make checking on binary expressions so you can't do dumb stuff like struct * struct;
-
+[] - If user defines their own standard library using the std module names the after_link function should not be affected by that

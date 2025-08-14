@@ -258,6 +258,15 @@ DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
 			}
 		}
 	}
+	else if(Action == "ps" || Action == "print_stack")
+	{
+		r = DebugAction_prompt_again;
+		for(int i = 0; i < VM->FunctionStack.Data.Count; ++i)
+		{
+			string FnName = VM->FunctionStack.PeekNth(i);
+			printf("%.*s\n", (int)FnName.Size, FnName.Data);
+		}
+	}
 	else
 	{
 		printf("%s", Help);

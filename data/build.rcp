@@ -41,10 +41,12 @@ compile :: fn() -> c.CompileInfo {
 		 files = []string { "file1.rcp" },
 		 opt = 0,
 		 flags = .DebugInfo | .SanAddress,
+		 //flags = .Standalone | .NoStdLib,
 		 //flags = (.SanAddress | .DebugInfo | .NoLink | .Standalone),
 		 //arch = .x86,
 		 //internals_file = "dummy_internals.rcp",
-		 //link = "/SUBSYSTEM:windows",
+		 //link = "/SUBSYSTEM:console",
+		 //entry_point = "start",
 	 };
 
 	 //puts(c"foo");

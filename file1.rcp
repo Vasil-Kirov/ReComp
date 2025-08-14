@@ -1,40 +1,21 @@
 module main
 
-_ :: #import io;
-_ :: #import base;
+
+_ :: #import mem;
 
 
-print_number :: fn(x: FileLocation) {
-	println("%", x);
+new_t :: fn(T: type, this: *Allocator, fl := #file_location) -> ?*T {
+    return this.alloc(size_of T, this) as ?*T;
 }
 
-struct Methods {
-	foo: *fn(x := #file_location),
+main :: fn () -> i32 {
+	f := ?new_t(i32, &mem.temp_alloc);
+	*f = 10;
+
+
+	return *f;
 }
 
-main :: fn() -> i32 {
-
-	m := Methods {
-		foo = print_number,
-	};
-
-	m.foo();
-	m.foo();
-	m.foo();
-
-
-	return 0;
-}
-
-#run main();
-
-malloc :: fn(size: int) -> ?* #foreign;
-
-struct Foo
-{
-	x: int,
-	y: int,
-}
 
 //#run main();
 

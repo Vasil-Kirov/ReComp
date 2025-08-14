@@ -10,6 +10,7 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics, node *
 	NewFT->Function.Flags = Old->Function.Flags & ~SymbolFlag_Generic;
 	NewFT->Function.ArgCount = Old->Function.ArgCount;
 	NewFT->Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Old->Function.ArgCount);
+	NewFT->Function.DefaultValues = Old->Function.DefaultValues;
 	for(int ArgI = 0; ArgI < Old->Function.ArgCount; ++ArgI)
 	{
 		u32 TypeIdx = Old->Function.Args[ArgI];
@@ -99,6 +100,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 
 	for(int ArgI = 0; ArgI < FnT->Function.ArgCount; ++ArgI)
 	{
+		if(ArgI >= Call->Call.Args.Count)
+			break;
+
 		auto err_i = Call->Call.Args[ArgI]->ErrorInfo;
 		u32 ArgTypeIdx = FnT->Function.Args[ArgI];
 		const type *T = GetType(ArgTypeIdx);

@@ -558,8 +558,25 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			else if(TypeNode->Unary.Op == '?')
 			{
 				// @TODO:
-				RaiseError(true, *TypeNode->ErrorInfo, "Invalid Type!");
-				return INVALID_TYPE;
+				u32 Pointer = GetTypeFromTypeNode(Checker, TypeNode->Unary.Operand, Error, OutAutoDef);
+				if(Pointer == INVALID_TYPE)
+				{
+					if(Error)
+					{
+						RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
+					}
+					return INVALID_TYPE;
+				}
+				const type *Pt = GetType(Pointer);
+				if(Pt->Kind != TypeKind_Pointer)
+				{
+					if(Error)
+					{
+						RaiseError(true, *TypeNode->ErrorInfo, "Cannot use ? on a non pointer type.");
+					}
+					return INVALID_TYPE;
+				}
+				return GetOptional(Pt);
 			}
 			else
 			{

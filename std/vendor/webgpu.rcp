@@ -1246,7 +1246,7 @@ struct InstanceDescriptor {
 
 struct ProgrammableStageDescriptor {
 	nextInChain: ?*ChainedStruct,
-	module: ShaderModule,
+	_module: ShaderModule,
 	entryPoint: ?*u8,
 	constantCount: uint,
 	constants: ?*ConstantEntry,
@@ -1336,7 +1336,7 @@ struct RenderPassDescriptor {
 
 struct VertexState {
 	nextInChain: ?*ChainedStruct,
-	module: ShaderModule,
+	_module: ShaderModule,
 	entryPoint: ?*u8,
 	constantCount: uint,
 	constants: ?*ConstantEntry,
@@ -1346,7 +1346,7 @@ struct VertexState {
 
 struct FragmentState {
 	nextInChain: ?*ChainedStruct,
-	module: ShaderModule,
+	_module: ShaderModule,
 	entryPoint: ?*u8,
 	constantCount: uint,
 	constants: ?*ConstantEntry,

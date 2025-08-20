@@ -1543,6 +1543,18 @@ node *ParseUnary(parser *Parser)
 		case T_PTR:
 		{
 			GetToken(Parser);
+			if(Token.Type == T_PTR)
+			{
+				if(Parser->Current->Type == T_VOID)
+				{
+					GetToken(Parser);
+					return MakePointerType(ErrorInfo, NULL);
+				}
+				else if(Parser->Current->Type == T_SEMICOL)
+				{
+					return MakePointerType(ErrorInfo, NULL);
+				}
+			}
 			Result = MakeUnary(ErrorInfo, ParseUnary(Parser), Token.Type);
 			return Result;
 		} break;

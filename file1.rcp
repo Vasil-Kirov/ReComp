@@ -1,7 +1,14 @@
 module main
 
 _ :: #import "data/vmem.rcp";
+XEvent :: _XEvent;
 
+X11EventHook :: ?*fn(a: ?*, b: ?*XEvent) -> bool #foreign;
+
+SetX11EventHook :: fn(
+	callback: X11EventHook,
+	userdata: ?*
+) #foreign #link="SDL_SetX11EventHook";
 /*
 struct Method {
 	print: *fn(fmt: string, args: ...),
@@ -9,7 +16,7 @@ struct Method {
 }
 */
 
-main :: fn () -> i32 #foreign {
+main :: fn () -> i32 {
 	a := make_arena_alloc(128);
 	f := ?new_t(i32, &a);
 

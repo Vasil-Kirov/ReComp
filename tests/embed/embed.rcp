@@ -6,6 +6,20 @@ str :: #embed_str "str.txt";
 // the char a
 bin :: #embed_bin "bin";
 
+is_newline :: fn(c: u32) -> bool { return c == '\n' || c == '\r'; }
+
 main :: fn() -> i32 {
-	return str.count as i32 - (*bin) as i32 + 94;
+	sum: u8;
+	sum = 0;
+	for b in bin {
+		sum += b;
+	}
+
+	for c in str {
+		if !is_newline(c) {
+			sum -= (c - '0') as u8;
+		}
+	}
+
+	return sum as i32;
 }

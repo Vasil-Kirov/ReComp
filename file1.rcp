@@ -1,36 +1,25 @@
 module main
 
-_ :: #import "data/vmem.rcp";
-XEvent :: _XEvent;
+_ :: #import io;
 
-X11EventHook :: ?*fn(a: ?*, b: ?*XEvent) -> bool #foreign;
-
-SetX11EventHook :: fn(
-	callback: X11EventHook,
-	userdata: ?*
-) #foreign #link="SDL_SetX11EventHook";
-/*
-struct Method {
-	print: *fn(fmt: string, args: ...),
-	print_the_fl: *fn(m: *Method, fl := #file_location),
-}
-*/
+bin :: #embed_bin "bin_f";
 
 main :: fn () -> i32 {
-	a := make_arena_alloc(128);
-	f := ?new_t(i32, &a);
 
-
-	return *f;
-}
-
-printf :: fn(fmt: *u8, arg: i32) -> i32 #foreign {
+	for b in bin {
+		println("%", b);
+	}
 
 	return 0;
 }
 
+//printf :: fn(fmt: *u8, arg: i32) -> i32 #foreign {
+//
+//	return 0;
+//}
 
-//#run main();
+
+#run main();
 
 
 //	foo = .{"asd"};

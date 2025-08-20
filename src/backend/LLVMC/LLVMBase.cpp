@@ -313,6 +313,8 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 		} break;
 		case TypeKind_Slice:
 		{
+			LLVMTypeRef DataType = ConvertToLLVMType(gen, T->Slice.Type);
+			LLVMTypeRef SizeType = ConvertToLLVMType(gen, Basic_int);
 			size_t TypeSize = GetTypeSize(T->Slice.Type);
 			u8 *At = (u8 *)Ptr;
 			size_t Size = *(size_t *)At;
@@ -325,7 +327,15 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				Values[Count++] = FromPtr(gen, T->Slice.Type, Elems);
 				Elems += TypeSize;
 			}
-			return LLVMConstNamedStruct(lt, Values.Data, Count);
+			LLVMTypeRef GlobalArrayType = LLVMArrayType2(DataType, Count);
+			LLVMValueRef DataArray = LLVMConstArray2(DataType, Values.Data, Count);
+			LLVMValueRef DataPtr = LLVMAddGlobal(gen->mod, GlobalArrayType, "");
+			LLVMValueRef SizeVal = LLVMConstInt(SizeType, Size, true);
+
+			LLVMSetInitializer(DataPtr, DataArray);
+
+			auto Slice = SliceFromConst({SizeVal, DataPtr});
+			return LLVMConstNamedStruct(lt, Slice.Data, 2);
 		} break;
 		case TypeKind_Array:
 		{

@@ -1468,7 +1468,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(false, *Expr->ErrorInfo, "Couldn't open #embed_%s file %s", Expr->Embed.IsString ? "str" : "bin", FileName.Data);
 
 			Expr->Embed.Content = Read;
-			Result = Expr->Embed.IsString ? Basic_string : GetPointerTo(Basic_u8);
+			Result = Expr->Embed.IsString ? Basic_string : GetSliceType(Basic_u8);
 		} break;
 		case AST_TYPEOF:
 		{

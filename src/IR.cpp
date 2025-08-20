@@ -1,6 +1,7 @@
 #include "IR.h"
 #include "ConstVal.h"
 #include "Errors.h"
+#include "Interpreter.h"
 #include "Module.h"
 #include "Semantics.h"
 #include "Dynamic.h"
@@ -851,12 +852,26 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_EMBED:
 		{
-			const_value *EmbedValue = NewType(const_value);
-			EmbedValue->Type = const_type::String;
-			EmbedValue->String.Data = &Node->Embed.Content;
-			u32 T = Node->Embed.IsString ? Basic_string : GetPointerTo(Basic_u8);
-			Result = PushInstruction(Builder, 
-					Instruction(OP_CONST, (u64)EmbedValue, T, Builder));
+			if(Node->Embed.IsString)
+			{
+				const_value *EmbedValue = NewType(const_value);
+				EmbedValue->Type = const_type::String;
+				EmbedValue->String.Data = &Node->Embed.Content;
+				Result = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)EmbedValue, Basic_string, Builder));
+			}
+			else
+			{
+				interp_slice *Slice = NewType(interp_slice);
+				Slice->Count = Node->Embed.Content.Size;
+				Slice->Data = (void *)Node->Embed.Content.Data;
+
+				const_value *EmbedValue = NewType(const_value);
+				EmbedValue->Type = const_type::Aggr;
+				EmbedValue->Struct.Ptr = Slice;
+				Result = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)EmbedValue, GetSliceType(Basic_u8), Builder));
+			}
 		} break;
 		case AST_TYPEOF:
 		{

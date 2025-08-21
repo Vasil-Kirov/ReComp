@@ -1,10 +1,15 @@
 module main
 
 _ :: #import io;
+sdl :: #import "vendor/sdl.rcp";
 
-bin :: #embed_bin "bin_f";
+bin :[]u8= #embed_bin "bin_f";
 
 main :: fn () -> i32 {
+
+	sdl.WaitAndAcquireGPUSwapChainTexture(null, null, null, null, null);
+
+	bin = []u8 {3, 2, 1};
 
 	for b in bin {
 		println("%", b);
@@ -19,7 +24,7 @@ main :: fn () -> i32 {
 //}
 
 
-#run main();
+//#run main();
 
 
 //	foo = .{"asd"};

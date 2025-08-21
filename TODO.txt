@@ -1,2 +1,0 @@
-
-[] - If user defines their own standard library using the std module names the after_link function should not be affected by that

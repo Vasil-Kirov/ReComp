@@ -9,7 +9,7 @@ Module provides basic input-output functionality, mainly formatted printing
 #### `print :: fn(str: string, args: ...)`
 #### `println :: fn(str: string, args: ...)`
 
-**Description**
+**Description**<br>
 print a formatted string to stdout
 
 **Parameters**
@@ -23,7 +23,7 @@ print a formatted string to stdout
 #### `sprint :: fn(str: string, args: ...) -> string`
 #### `vsprint :: fn(str: string, args: []Arg) -> string`
 
-**Description**
+**Description**<br>
 format a string and return it
 
 **Parameters**
@@ -35,7 +35,7 @@ Same as print
 
 #### `read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool)`
 
-**Description**
+**Description**<br>
 reads a file and returns the contents as a string
 
 **Parameters**
@@ -49,7 +49,7 @@ reads a file and returns the contents as a string
 
 #### `readln :: fn(alloc: *mem.Allocator) -> string`
 
-**Description**
+**Description**<br>
 read a line from stdin
 
 **Parameters**
@@ -62,7 +62,7 @@ read a line from stdin
 
 #### `read :: fn(bytes: int, alloc: *mem.Allocator) -> string`
 
-**Description**
+**Description**<br>
 read a bytes from stdin
 
 **Parameters**
@@ -81,7 +81,7 @@ Module provides memory related functions
 #### `set  :: fn #link="memset"(dst: *, c: i32, size: int) -> *;`
 #### `cmp  :: fn #link="memcmp"(p1: *, p2: *, size: int) -> i32;`
 
-**Description**
+**Description**<br>
 Bindings for memcpy, memset, and memcmp
 
 
@@ -89,7 +89,7 @@ Bindings for memcpy, memset, and memcmp
 #### `mb :: fn(n: int) -> int`
 #### `gb :: fn(n: int) -> int`
 
-**Description**
+**Description**<br>
 Get the number of bytes for the sepcified memory unit (kb, mb, or gb)
 
 **Parameters**
@@ -101,7 +101,7 @@ Get the number of bytes for the sepcified memory unit (kb, mb, or gb)
 
 #### `make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T`
 
-**Description**
+**Description**<br>
 Allocate a memory view with the given allocator, function asserts for a valid allocation
 
 **Parameters**
@@ -115,7 +115,7 @@ Allocate a memory view with the given allocator, function asserts for a valid al
 
 #### `make_type :: fn (T: type, alloc: *Allocator) -> ?*T`
 
-**Description**
+**Description**<br>
 Allocates memory for a single instance of T
 
 **Parameters**

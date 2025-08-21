@@ -8,6 +8,7 @@ Module provides basic input-output functionality, mainly formatted printing
 
 #### `print :: fn(str: string, args: ...)`
 #### `println :: fn(str: string, args: ...)`
+
 **Description**
 print a formatted string to stdout
 
@@ -21,6 +22,7 @@ print a formatted string to stdout
 
 #### `sprint :: fn(str: string, args: ...) -> string`
 #### `vsprint :: fn(str: string, args: []Arg) -> string`
+
 **Description**
 format a string and return it
 
@@ -32,6 +34,7 @@ Same as print
 
 
 #### `read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool)`
+
 **Description**
 reads a file and returns the contents as a string
 
@@ -45,6 +48,7 @@ reads a file and returns the contents as a string
 
 
 #### `readln :: fn(alloc: *mem.Allocator) -> string`
+
 **Description**
 read a line from stdin
 
@@ -57,6 +61,7 @@ read a line from stdin
 
 
 #### `read :: fn(bytes: int, alloc: *mem.Allocator) -> string`
+
 **Description**
 read a bytes from stdin
 
@@ -75,6 +80,7 @@ Module provides memory related functions
 #### `copy :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;`
 #### `set  :: fn #link="memset"(dst: *, c: i32, size: int) -> *;`
 #### `cmp  :: fn #link="memcmp"(p1: *, p2: *, size: int) -> i32;`
+
 **Description**
 Bindings for memcpy, memset, and memcmp
 
@@ -82,6 +88,7 @@ Bindings for memcpy, memset, and memcmp
 #### `kb :: fn(n: int) -> int`
 #### `mb :: fn(n: int) -> int`
 #### `gb :: fn(n: int) -> int`
+
 **Description**
 Get the number of bytes for the sepcified memory unit (kb, mb, or gb)
 
@@ -93,6 +100,7 @@ Get the number of bytes for the sepcified memory unit (kb, mb, or gb)
 
 
 #### `make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T`
+
 **Description**
 Allocate a memory view with the given allocator, function asserts for a valid allocation
 
@@ -106,6 +114,7 @@ Allocate a memory view with the given allocator, function asserts for a valid al
 
 
 #### `make_type :: fn (T: type, alloc: *Allocator) -> ?*T`
+
 **Description**
 Allocates memory for a single instance of T
 

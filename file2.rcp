@@ -1,7 +1,0 @@
-module main
-
-yyy: int;
-
-//#import "../file1.rcp"
-
-

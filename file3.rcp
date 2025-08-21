@@ -1,9 +1,0 @@
-module mat
-
-struct m4 {
-	row1: [4]f32,
-	row2: [4]f32,
-	row3: [4]f32,
-	row4: [4]f32,
-}
-

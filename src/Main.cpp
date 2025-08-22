@@ -169,18 +169,25 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *I
 	}
 
 #elif CM_LINUX
-	// @TODO: update these
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
 
 	string SystemCallObj = GetFilePath(Dir, "system_call.o");
-	if(CompileFlags & CF_NoStdLib)
+	string Entry = STR_LIT("_start");
+	if(CompileFlags & CF_NoLibC)
+		Entry = STR_LIT("main");
+
+	if(Info->EntryPoint.Count != 0)
+		Entry = string { .Data = Info->EntryPoint.Data, .Size = Info->EntryPoint.Count };
+	Builder += "ld -e ";
+	Builder += Entry;
+	if(CompileFlags & CF_NoLibC)
 	{
-		Builder += "ld -e main -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
 	}
 	else
 	{
-		Builder += "ld -e _start -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		Builder += " -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
 		Builder += FindObjectFiles();
 	}
 	Builder += SystemCallObj;

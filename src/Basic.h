@@ -65,6 +65,8 @@ typedef SSIZE_T ssize_t;
 
 #define FOR_ARRAY(ARR, LEN) for(auto It = ARR; It < ARR + LEN; ++It)
 
+#define SWAP(A, B) { auto tmp_var_name_do_not_use__ = A; A = B; B = tmp_var_name_do_not_use__; }
+
 struct token;
 struct node;
 struct ir;

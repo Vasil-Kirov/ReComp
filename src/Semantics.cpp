@@ -31,6 +31,108 @@ void FillUntypedStack(checker *Checker, u32 Type)
 	}
 }
 
+slice<std::pair<symbol*, int>> FindSimilarGlobalsInModule(module *Module, string Name)
+{
+	const int MINIMAL_DISTANCE = 5;
+
+	array<std::pair<symbol*, int>> MostSimilar(3);
+	For(MostSimilar)
+	{
+		*it = std::pair(nullptr, INT32_MAX);
+	}
+
+	slice<symbol*> Globals = SliceFromArray(Module->Globals.Data);
+
+	// Find the 3 shortest distance symbols
+	For(Globals)
+	{
+		i32 Distance = DistanceBetweenStrings(Name, *(*it)->Name, MINIMAL_DISTANCE);
+		if(Distance == INT32_MAX || Distance >= (*it)->Name->Size)
+			continue;
+
+		int MaxIdx = -1;
+		int Longest = 0;
+		ForArray(Idx, MostSimilar)
+		{
+			if(MostSimilar[Idx].second > Distance && MostSimilar[Idx].second > Longest)
+			{
+				MaxIdx = Idx;
+				Longest = MostSimilar[Idx].second;
+			}
+		}
+		if(MaxIdx != -1)
+			MostSimilar[MaxIdx] = std::pair(*it, Distance);
+	}
+
+	// sort it
+	ForArray(i, MostSimilar)
+	{
+		for(size_t j = i+1; j < MostSimilar.Count; ++j)
+		{
+			if(MostSimilar[i].second > MostSimilar[j].second)
+			{
+				SWAP(MostSimilar[i], MostSimilar[j]);
+			}
+		}
+	}
+
+	return SliceFromArray(MostSimilar);
+}
+
+void RaiseErrorForMissingSymbol(module *M, string SymbolName, const error_info *ErrorInfo, bool Abort)
+{
+	auto Found = FindSimilarGlobalsInModule(M, SymbolName);
+	bool HasSimilars = false;
+	For(Found)
+		if(it->second != INT32_MAX)
+			HasSimilars = true;
+
+	if(!HasSimilars)
+	{
+		RaiseError(Abort, *ErrorInfo,
+				"Cannot find public symbol %s in module %s",
+				SymbolName.Data, M->Name.Data);
+	}
+	else
+	{
+		auto b = MakeBuilder();
+		b.printf("Cannot find public symbol %s in module %s\n",
+				SymbolName.Data, M->Name.Data);
+		b.printf("Similarly named symbols in module %s:\n\n", M->Name.Data);
+		ForArray(Idx, Found)
+		{
+			auto it = &Found.Data[Idx];
+			if(it->second == INT32_MAX)
+				break;
+			if(Idx != 0)
+				b += '\n';
+
+			auto s = it->first;
+			Assert(s->Node);
+			auto ei = s->Node->ErrorInfo;
+			string Region = GetInfoRegionWhole(*ei);
+			string LinePrefix = {};
+
+			{
+				auto tmp_b = MakeBuilder();
+				tmp_b.printf("%s(%d:%d) ", ei->FileName, ei->Range.StartLine, ei->Range.StartChar);
+				LinePrefix = MakeString(tmp_b);
+			}
+
+			b.printf("%*s" 
+					 "%s| %.*s"
+					 "%*s",
+					 (int)LinePrefix.Size+2, "|\n",
+					 LinePrefix.Data, (int)Region.Size, Region.Data,
+					 (int)LinePrefix.Size+2, "|\n");
+		}
+		string Error = MakeString(b);
+		RaiseError(Abort, *ErrorInfo,
+				"%.*s",
+				(int)Error.Size, Error.Data);
+	}
+}
+
 u32 FindEnumTypeNoModuleRenaming(const string *NamePtr)
 {
 	string Name = *NamePtr;
@@ -666,9 +768,7 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				}
 				else
 				{
-					RaiseError(false, *LHS->ErrorInfo,
-							"Cannot find public symbol %s in module %s",
-							LHS->Selector.Member->Data, ModuleName.Data);
+					RaiseErrorForMissingSymbol(Import.M, *LHS->Selector.Member, LHS->ErrorInfo, false);
 					return false;
 				}
 				return false;
@@ -1968,16 +2068,21 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(TypeIdx == Basic_module)
 			{
 				Assert(Expr->Selector.Operand->Type == AST_ID);
-				symbol *s = FindSymbolFromNode(Checker, Expr);
+				module *M = NULL;
+				symbol *s = FindSymbolFromNode(Checker, Expr, &M);
 				if(!s)
 				{
 					const string *ModuleName = Expr->Selector.Operand->ID.Name;
 					u32 t = FindType(Checker, Expr->Selector.Member, ModuleName);
 					if(t == INVALID_TYPE)
 					{
+						Assert(M);
+						RaiseErrorForMissingSymbol(M, *Expr->Selector.Member, Expr->ErrorInfo, false);
+						/*
 						RaiseError(false, *Expr->ErrorInfo,
 								"Cannot find public symbol %s in module %s",
 								Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
+								*/
 						return INVALID_TYPE;
 					}
 					Result = Basic_type;

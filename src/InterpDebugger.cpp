@@ -52,7 +52,7 @@ void PrintRegisterValue(interpreter *VM, long long Register)
 	value *V = VM->Registers.GetValue(Register);
 	const type *T = GetType(V->Type);
 	auto b = MakeBuilder();
-	b.printf("%%%d = %s ", Register, GetTypeName(T));
+	b.printf("%%%lld = %s ", Register, GetTypeName(T));
 	switch(T->Kind)
 	{
 		case TypeKind_Basic:
@@ -107,7 +107,7 @@ void PrintRegisterValue(interpreter *VM, long long Register)
 				{
 					size_t Size = *(size_t *)V->ptr;
 					u8 *Data = *((u8 **)V->ptr + 1);
-					b.printf("count: %d, data: %.*s", Size, Size, Data);
+					b.printf("count: %zu, data: %.*s", Size, (int)Size, Data);
 				} break;
 				default:
 				{
@@ -124,7 +124,7 @@ void PrintRegisterValue(interpreter *VM, long long Register)
 		{
 			size_t Size = *(size_t *)V->ptr;
 			u8 *Data = *((u8 **)V->ptr + 1);
-			b.printf("count: %d, data: %p", Size, Data);
+			b.printf("count: %zu, data: %p", Size, Data);
 		} break;
 		default:
 		{

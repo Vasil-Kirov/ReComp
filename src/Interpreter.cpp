@@ -121,7 +121,7 @@ void InterpSegFault(void *VMPtr)
 		for(int i = VM->FunctionStack.Data.Count-1; i >= 0; --i)
 		{
 			string Name = VM->FunctionStack.Data[i];
-			b.printf("\t%.*s\n", Name.Size, Name.Data);
+			b.printf("\t%.*s\n", (int)Name.Size, Name.Data);
 		}
 	}
 	else b += '\n';

@@ -137,7 +137,7 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *I
 	if(Info->EntryPoint.Data)
 	{
 		NoSetEntryPoint = true;
-		Builder.printf("/ENTRY:%.*s ", Info->EntryPoint.Count, Info->EntryPoint.Data);
+		Builder.printf("/ENTRY:%.*s ", (int)Info->EntryPoint.Count, Info->EntryPoint.Data);
 	}
 
 	if(CompileFlags & CF_SanAdress)

@@ -110,6 +110,17 @@ void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlig
 	}
 }
 
+string GetInfoRegionWhole(error_info Info)
+{
+	string First = {};
+	string Second = {};
+	string Third = {};
+	GetErrorSegments(Info, &First, &Second, &Third);
+	auto b = MakeBuilder();
+	b.printf("%.*s%.*s%.*s", (int)First.Size, First.Data, (int)Second.Size, Second.Data, (int)Third.Size, Third.Data);
+	return MakeString(b);
+}
+
 bool
 HasErroredOut()
 {

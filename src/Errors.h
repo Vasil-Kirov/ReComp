@@ -40,6 +40,9 @@ GetBonusMessage();
 void
 GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird);
 
+string
+GetInfoRegionWhole(error_info Info);
+
 void
 CountError();
 

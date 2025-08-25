@@ -45,7 +45,9 @@ struct string_builder
 	void operator+=(const string& B);
 	void operator+=(const char *String);
 	void operator+=(char C);
-	void printf(const char *fmt, ...);
+
+	void printf(const char *fmt, ...)
+	__attribute__((format (printf, 2, 3)));
 };
 
 struct split
@@ -70,6 +72,7 @@ string SliceString(string S, int from, int to);
 bool StringsMatchNoCase(const string &a, const string &b);
 bool StringStartsWith(const string &a, const string b);
 bool StringEndsWith(const string &a, const string b);
+i32 DistanceBetweenStrings(const string &A, const string &B, int Threshhold);
 
 void PushBuilder(string_builder *Builder, const char *Data);
 void PushBuilder(string_builder *Builder, char C);

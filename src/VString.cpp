@@ -35,7 +35,6 @@ CStrLen(const char *str)
 	}
 }
 
-// @TODO: This is really slow but maybe it doesn't matter
 string_builder MakeBuilder()
 {
 	string_builder Builder;
@@ -213,4 +212,78 @@ split SplitAt(string S, char c)
 	}
 	return {};
 }
+
+i32 DistanceBetweenStrings(const string &A, const string &B, int Threshold)
+{
+	const i32 FAILED = INT32_MAX;
+
+	long long Len1 = (long long)A.Size;
+	long long Len2 = (long long)B.Size;
+	if(abs(Len1 - Len2) > Threshold)
+		return FAILED;
+
+	string S1 = A;
+	string S2 = B;
+	if(Len1 > Len2)
+	{
+		SWAP(S1, S2);
+		SWAP(Len1, Len2);
+	}
+
+    int maxi = Len1;
+    int maxj = Len2;
+
+	scratch_arena Scratch = {};
+
+    i32 *current = (int *)Scratch.Allocate(sizeof(i32) * (maxi+1));
+    i32 *minus1  = (int *)Scratch.Allocate(sizeof(i32) * (maxi+1));
+    i32 *minus2  = (int *)Scratch.Allocate(sizeof(i32) * (maxi+1));
+    i32 *dSwap;
+
+    for (i32 i = 0; i <= maxi; i++) { current[i] = i; }
+
+    i32 jm1 = 0, im1 = 0, im2 = -1;
+
+    for (i32 j = 1; j <= maxj; j++) {
+        // Rotate
+        dSwap = minus2;
+        minus2 = minus1;
+        minus1 = current;
+        current = dSwap;
+
+        // Initialize
+        i32 min_distance = INT32_MAX;
+        current[0] = j;
+        im1 = 0;
+        im2 = -1;
+
+        for (i32 i = 1; i <= maxi; i++) {
+
+            i32 cost = S1.Data[im1] == S2.Data[jm1] ? 0 : 1;
+
+            i32 del = current[im1] + 1;
+            i32 ins = minus1[i] + 1;
+            i32 sub = minus1[im1] + cost;
+
+            //Fastest execution for min value of 3 integers
+            int min = (del > ins) ? (ins > sub ? sub : ins) : (del > sub ? sub : del);
+
+            if (i > 1 && j > 1 && S1.Data[im2] == S2.Data[jm1] && S1.Data[im1] == S2.Data[j - 2])
+                min = min(min, minus2[im2] + cost);
+
+            current[i] = min;
+            if (min < min_distance) { min_distance = min; }
+            im1++;
+            im2++;
+        }
+        jm1++;
+        if (min_distance > Threshold) 
+			return INT32_MAX;
+    }
+
+    int result = current[maxi];
+    return (result > Threshold) ? INT32_MAX : result;
+
+}
+
 

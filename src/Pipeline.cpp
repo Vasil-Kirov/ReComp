@@ -118,6 +118,7 @@ bool AddLookupPath(string PassPath)
 	{
 		if(*it == Path)
 		{
+			Lookups.Mutex.unlock();
 			return true;
 		}
 	}

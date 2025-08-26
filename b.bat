@@ -1,6 +1,6 @@
 @ECHO OFF
 
-set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp 
+set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp -lAdvapi32.lib -lOle32.lib -lMincore.lib
 
 :: set ASAN=-fsanitize=address
 :: set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS

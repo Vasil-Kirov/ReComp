@@ -89,6 +89,9 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #if defined(_WIN32)
 #include "Win32.cpp"
+#define MICROSOFT_CRAZINESS_IMPLEMENTATION
+#include "microsoft_craziness.h"
+
 #elif defined(CM_LINUX)
 #include "Linux.cpp"
 #else
@@ -132,7 +135,18 @@ string MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *I
 	b32 NoSetDefaultLib = false;
 	b32 NoSetEntryPoint = false;
 
-	Builder += "LINK.EXE /nologo /OUT:a.exe /DEBUG ";
+	Find_Result windows_sdk = find_visual_studio_and_windows_sdk();
+	if(windows_sdk.windows_sdk_version == 0)
+	{
+		Builder += "LINK.EXE ";
+	}
+	else
+	{
+		Builder.printf("\"%ls/LINK.EXE\" ", windows_sdk.vs_exe_path);
+	}
+	free_resources(&windows_sdk);
+
+	Builder += "/nologo /OUT:a.exe /DEBUG ";
 
 	if(Info->EntryPoint.Data)
 	{

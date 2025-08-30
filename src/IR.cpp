@@ -2410,6 +2410,25 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
 }
 
+void PushDefferedInstructions(block_builder *Builder)
+{
+	ForArray(Idx, Builder->Defered.Data)
+	{
+		int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
+		auto s = Builder->Defered.Data[ActualIdx];
+
+		ForArray(SIdx, s.Expressions)
+		{
+			int ActualSIdx = s.Expressions.Count - 1 - SIdx;
+			auto ExprBody = s.Expressions[ActualSIdx];
+			For(ExprBody)
+			{
+				BuildIRFunctionLevel(Builder, (*it));
+			}
+		}
+	}
+}
+
 void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 {
 	if(Node->Type != AST_SCOPE)
@@ -2546,21 +2565,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  }
 		    }
 
-		    ForArray(Idx, Builder->Defered.Data)
-		    {
-		  	  int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
-		  	  auto s = Builder->Defered.Data[ActualIdx];
-
-		  	  ForArray(SIdx, s.Expressions)
-		  	  {
-		  		  int ActualSIdx = s.Expressions.Count - 1 - SIdx;
-		  		  auto ExprBody = s.Expressions[ActualSIdx];
-		  		  For(ExprBody)
-		  		  {
-		  			  BuildIRFunctionLevel(Builder, (*it));
-		  		  }
-		  	  }
-		    }
+			PushDefferedInstructions(Builder);
 
 		    if(Builder->Profile)
 		    {
@@ -2621,11 +2626,13 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_BREAK:
 		{
+			PushDefferedInstructions(Builder);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_CONTINUE:
 		{
+			PushDefferedInstructions(Builder);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;

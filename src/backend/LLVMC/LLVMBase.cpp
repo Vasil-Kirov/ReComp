@@ -1560,6 +1560,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				FileName, VStrLen(FileName),
 				FileDirectory, VStrLen(FileDirectory));
 	)
+	
 	if(GetRegisterTypeSize() == 64)
 	{
 		Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
@@ -1567,7 +1568,14 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 	}
 	else if(GetRegisterTypeSize() == 32)
 	{
-		LLVMSetDataLayout(Gen.mod, "e-m:x-p:32:32-i64:32-f80:32-n8:16:32-S32");
+		if(strstr(Info->TargetTriple.Data, "wasm32"))
+		{
+			LLVMSetDataLayout(Gen.mod, "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-f128:64-n32:64-S128-ni:1:10:20");
+		}
+		else
+		{
+			LLVMSetDataLayout(Gen.mod, "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:32-n8:16:32-a:0:32-S32");
+		}
 		Gen.data = LLVMGetModuleDataLayout(Gen.mod);
 	}
 	else

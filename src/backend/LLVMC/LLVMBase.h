@@ -57,5 +57,5 @@ void RCGenerateFunction(generator *gen, function fn);
 LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef InitFn);
 llvm_init_info RCInitLLVM(struct compile_info *Info);
 
-#define DEBUG_RUN(x) if(CompileFlags & CF_DebugInfo) { x }
+#define DEBUG_RUN(x) if(g_CompileFlags & CF_DebugInfo) { x }
 

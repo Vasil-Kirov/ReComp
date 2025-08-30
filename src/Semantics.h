@@ -19,7 +19,7 @@ enum SymbolFlag
 	SymbolFlag_Intrinsic = BIT(7),
 	SymbolFlag_Extern  = BIT(8),
 	SymbolFlag_Inline  = BIT(9),
-	SymbolFlag_NoSanitizeAddress = BIT(10),
+	SymbolFlag_LocalStatic = BIT(10),
 };
 
 struct generic_generated
@@ -33,7 +33,7 @@ struct symbol
 	const string *Name;
 	const string *LinkName;
 	node *Node;
-	checker *Checker;
+	checker *Checker; // @NULLABLE
 	dynamic<generic_generated> Generated;
 	u32 Type;
 	u32 Flags;

@@ -229,6 +229,7 @@ struct function
 {
 	const string *Name;
 	const string *LinkName;
+	ir *IR;
 	dynamic<basic_block> Blocks;
 	slice<symbol> ModuleSymbols;
 	slice<run_location> Runs;
@@ -299,7 +300,7 @@ instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
-function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
+function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported);
 b32 CanGetPointerAfterSize(const type *T, int Size);
 void PushErrorInfo(block_builder *Builder, node *Node);

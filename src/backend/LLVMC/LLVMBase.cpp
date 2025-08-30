@@ -89,7 +89,7 @@ void RCGenerateIntrins(generator *gen)
 
 void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 {
-	if((CompileFlags & CF_DebugInfo) == 0)
+	if((g_CompileFlags & CF_DebugInfo) == 0)
 		return;
 	switch(Info->type)
 	{
@@ -1399,7 +1399,7 @@ void RCGenerateFunction(generator *gen, function fn)
 	{
 		gen->IsCurrentFnRetInPtr = fn.ReturnPassedInPtr;
 		gen->irfn = fn;
-		if(CompileFlags & CF_DebugInfo)
+		if(g_CompileFlags & CF_DebugInfo)
 		{
 			gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
 			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
@@ -1715,13 +1715,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 						ConvertToLLVMType(&Gen, s->Type));
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
-				if(s->Flags & SymbolFlag_NoSanitizeAddress)
-				{
-					string K = STR_LIT("no_sanitize");
-					string V = STR_LIT("address");
-					LLVMAttributeRef Attr = LLVMCreateStringAttribute(Gen.ctx, K.Data, K.Size, V.Data, V.Size);
-					LLVMAddAttributeAtIndex(Fn, LLVMAttributeFunctionIndex, Attr);
-				}
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.global.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);
@@ -1786,7 +1779,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 					LLVMSetInitializer(Global, Init);
 
 
-					if (CompileFlags & CF_DebugInfo) {
+					if (g_CompileFlags & CF_DebugInfo) {
 							LLVMMetadataRef DebugTy = ToDebugTypeLLVM(&Gen, it->s->Type);
 							LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(Gen.dbg, NULL, 0);
 							LLVMMetadataRef Decl = NULL;

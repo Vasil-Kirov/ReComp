@@ -118,7 +118,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 		Imports.Push(import{.M = InternalMod, .As = STR_LIT("")});
 	}
-	if(!HasBase && (CompileFlags & CF_Standalone) == 0)
+	if(!HasBase && (g_CompileFlags & CF_Standalone) == 0)
 	{
 		module *BaseMod = NULL;
 		For(Modules)

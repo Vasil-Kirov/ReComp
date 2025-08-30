@@ -968,7 +968,7 @@ u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NO_SANITIZE_ADDRESS, SymbolFlag_NoSanitizeAddress} };
+	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline} };
 
 	u32 Result = 0;
 	size_t Len = ARR_LEN(FlagTokens);
@@ -1680,7 +1680,7 @@ node *ParseExpression(parser *Parser)
 	return ParseExpression(Parser, -999);
 }
 
-node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
+node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, b32 IsStatic=false)
 {
 	b32 IsConst = false;
 
@@ -1753,6 +1753,10 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS)
 		Expression = ParseExpression(Parser);
 	}
 	u32 Flags = IsConst ? SymbolFlag_Const : 0 | IsShadow ? SymbolFlag_Shadow : 0;
+	if(IsStatic)
+	{
+		Flags |= SymbolFlag_LocalStatic;
+	}
 	return MakeDecl(ErrorInfo, LHS, Expression, MaybeTypeNode, Flags);
 }
 
@@ -1760,6 +1764,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 {
 	token Token = PeekToken(Parser);
 	node *Result = NULL;
+	b32 IsParsingStaticVariable = false;
 	switch(Token.Type)
 	{
 		case T_IMPORT:
@@ -1819,6 +1824,15 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			Result = ParseDeclaration(Parser, true);
 		} break;
 #endif
+		case T_STATIC:
+		{
+			GetToken(Parser);
+			if(Parser->Current->Type != T_ID)
+			{
+				RaiseError(true, Parser->Current->ErrorInfo, "Expected declaration after #static");
+			}
+			IsParsingStaticVariable = true;
+		}
 		case T_ID:
 		{
 			b32 SaveILists = Parser->NoItemLists;
@@ -1826,7 +1840,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 
 			node *LHS = ParseExpression(Parser);
 			if(Parser->Current->Type == T_DECL || Parser->Current->Type == T_CONST)
-				Result = ParseDeclaration(Parser, false, LHS);
+				Result = ParseDeclaration(Parser, false, LHS, IsParsingStaticVariable);
 			else
 				Result = LHS;
 

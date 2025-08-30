@@ -612,7 +612,7 @@ void InitializeLexer()
 	AddKeyword("...",  T_VARARG);
 	AddKeyword("#shadow", T_SHADOW);
 	AddKeyword("#import", T_IMPORT);
-	AddKeyword("#no_sanitize_address", T_NO_SANITIZE_ADDRESS);
+	AddKeyword("#static", T_STATIC);
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("#link", T_LINK);
 	AddKeyword("#intrinsic",  T_INTR);

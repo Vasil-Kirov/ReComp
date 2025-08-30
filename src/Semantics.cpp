@@ -2866,6 +2866,14 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 			Checker->AutoEnum.Push(Type);
 
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
+		if(Node->Decl.Flags & SymbolFlag_LocalStatic)
+		{
+			if(!IsConstant(Checker, Node->Decl.Expression))
+			{
+				RaiseError(true, *Node->Decl.Expression->ErrorInfo,
+						"Expression for #static variable must be constant!");
+			}
+		}
 
 		if(Type != INVALID_TYPE)
 			Checker->AutoEnum.Pop();
@@ -3098,7 +3106,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 				ItType = T->Slice.Type;
 			else if(HasBasicFlag(T, BasicFlag_String))
 			{
-				if(CompileFlags & CF_Standalone)
+				if(g_CompileFlags & CF_Standalone)
 				{
 					RaiseError(true, *Node->ErrorInfo, "Cannot perform utf-8 string iteration in a standalone build");
 				}
@@ -3574,7 +3582,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
-			if(CompileFlags & CF_Standalone)
+			if(g_CompileFlags & CF_Standalone)
 			{
 				// @TODO: Have a way to specify assert needed functionality to enable it
 				RaiseError(true, *Node->ErrorInfo, "Cannot use #assert in a standalone build");
@@ -3884,6 +3892,27 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	return CreateFunctionSymbol(Checker, Node);
 }
 
+void AddGlobalVariable(checker *Checker, const string *Name, const string *LinkName, u32 Flags, node *Node, u32 Type)
+{
+	symbol *Sym = NewType(symbol);
+	Sym->Checker = Checker;
+	Sym->Name = Name;
+	Sym->LinkName = LinkName;
+	Sym->Type = Type;
+	Sym->Flags = Flags;
+	Sym->Node = Node;
+
+	bool Success = Checker->Module->Globals.Add(*Name, Sym);
+	if(!Success)
+	{
+		symbol *Redifined = Checker->Module->Globals[*Name];
+		Assert(Redifined);
+		RaiseError(true, *Node->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+				Name->Data,
+				Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
+	}
+}
+
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
 {
 	Checker->Nodes = NodesPtr;
@@ -3928,25 +3957,11 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			}
 			if(Node->Decl.LHS->Type == AST_ID)
 			{
-				string Name = *Node->Decl.LHS->ID.Name;
-				symbol *Sym = NewType(symbol);
-				Sym->Checker = Checker;
-				Sym->Name = Node->Decl.LHS->ID.Name;
-				Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
-				Sym->Type = Type;
-				Sym->Flags = Node->Decl.Flags;
-				Sym->Node = Node;
-
-				Sym->Flags &= ~SymbolFlag_Function;
-				bool Success = Checker->Module->Globals.Add(Name, Sym);
-				if(!Success)
-				{
-					symbol *Redifined = Checker->Module->Globals[Name];
-					Assert(Redifined);
-					RaiseError(true, *Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
-							Name.Data,
-							Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
-				}
+				const string *Name = Node->Decl.LHS->ID.Name;
+				string PassName = *Name;
+				const string *LinkName = StructToModuleNamePtr(PassName, ThisModule->Name);
+				u32 Flags = Node->Decl.Flags & ~SymbolFlag_Function;
+				AddGlobalVariable(Checker, Name, LinkName, Flags, Node, Type);
 			}
 			else if(Node->Decl.LHS->Type == AST_LIST)
 			{

@@ -458,7 +458,7 @@ main(int ArgCount, char *Args[])
 				ConfigIDs.Push(STR_LIT("LIBC"));
 			}
 
-			CompileFlags = Info->Flags;
+			g_CompileFlags = Info->Flags;
 			if(Info->Flags & CF_CrossAndroid)
 			{
 				PTarget = platform_target::UnixBased;

@@ -1,6 +1,7 @@
 #include "IR.h"
 #include "ConstVal.h"
 #include "Errors.h"
+#include "Globals.h"
 #include "Interpreter.h"
 #include "Module.h"
 #include "Semantics.h"
@@ -190,6 +191,28 @@ u32 MakeIRString(block_builder *Builder, string S)
 	*Val = MakeConstString(DupeType(S, string));
 	return PushInstruction(Builder, 
 			Instruction(OP_CONST, (u64)Val, Basic_string, Builder));
+}
+
+function GenerateFakeFunctionForGlobalExpression(node *Expression, module *Module, slice<import> Imported, node *ErrInfoNode)
+{
+	static u32 VoidFnT = GenerateVoidFnT();
+
+	function FakeFn = {};
+	if(Expression)
+	{
+		string NoFnName = STR_LIT("");
+		FakeFn.Name = DupeType(NoFnName, string);
+		FakeFn.Type = VoidFnT;
+		FakeFn.LinkName = FakeFn.Name;
+		FakeFn.NoDebugInfo = true;
+		block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
+		PushErrorInfo(&Builder, ErrInfoNode);
+		BuildIRFromExpression(&Builder, Expression);
+		Terminate(&Builder, {});
+		FakeFn.LastRegister = Builder.LastRegister;
+	}
+
+	return FakeFn;
 }
 
 const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error = true, b32 *OutIsGlobal=NULL)
@@ -1577,7 +1600,7 @@ BUILD_SLICE_SELECTOR:
 		} break;
 		case AST_FN:
 		{
-			function fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
+			function fn = BuildFunctionIR(Builder->Function->IR, Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
 
 			Result = PushInstruction(Builder,
 					Instruction(OP_FN, DupeType(fn, function), fn.Type, Builder, 0));
@@ -1990,7 +2013,29 @@ void BuildIRFromDecleration(block_builder *Builder, node *Node)
 	if(Node->Decl.LHS->Type == AST_ID)
 	{
 		u32 Var = -1;
-		if(Node->Decl.Expression)
+		if(Node->Decl.Flags & SymbolFlag_LocalStatic)
+		{
+			function FakeFn = GenerateFakeFunctionForGlobalExpression(Node->Decl.Expression, Builder->Module, Builder->Imported, Node);
+			ir *IR = Builder->Function->IR;
+
+			// forward decl
+			string *MakeAnonStructName(const error_info *e);
+
+			string *JumbledName = MakeAnonStructName(Node->ErrorInfo);
+			symbol *Sym = NewType(symbol);
+			Sym->Register = g_LastAddedGlobal++;
+			Sym->Node    = Node;
+			Sym->Name    = JumbledName;
+			Sym->LinkName= JumbledName;
+			Sym->Type    = Node->Decl.TypeIndex;
+			Sym->Flags   = Node->Decl.Flags;
+			Sym->Checker = NULL; // hope this doesn't cause any issues :)
+
+			IR->Globals.Push(ir_global{.s = Sym, .Init=FakeFn});
+			instruction GlobalI = Instruction(OP_GLOBAL, (void *)Sym, Sym->Type, Builder, 0);
+			Var = PushInstruction(Builder, GlobalI);
+		}
+		else if(Node->Decl.Expression)
 		{
 			u32 ExpressionRegister = BuildIRFromExpression(Builder, Node->Decl.Expression);
 			Var = BuildIRStoreVariable(Builder, ExpressionRegister, Node->Decl.TypeIndex);
@@ -2899,7 +2944,7 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 	return AddType(NewT);
 }
 
-function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
+function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported)
 {
 	module *Module = Node->Fn.FnModule;
@@ -2911,6 +2956,7 @@ function BuildFunctionIR(dynamic<node *> &Body, const string *Name, u32 TypeIdx,
 	TypeIdx = FixFunctionTypeForCallConv(TypeIdx, Locations, &RetInPtr);
 
 	function Function = {};
+	Function.IR = IR; // Needed for #static variables
 	Function.Name = Name;
 	Function.Type = TypeIdx;
 	Function.Args = SliceFromArray(Locations);
@@ -3307,7 +3353,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 
 			if((Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
-				function Fn = BuildFunctionIR(Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported);
+				function Fn = BuildFunctionIR(IR, Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported);
 				if(Fn.LastRegister > IR->MaxRegisters)
 					IR->MaxRegisters = Fn.LastRegister;
 
@@ -3330,20 +3376,8 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 		} break;
 		case AST_DECL:
 		{
-			function FakeFn = {};
-			if(Node->Decl.Expression)
-			{
-				string NoFnName = STR_LIT("");
-				FakeFn.Name = DupeType(NoFnName, string);
-				FakeFn.Type = VoidFnT;
-				FakeFn.LinkName = FakeFn.Name;
-				FakeFn.NoDebugInfo = true;
-				block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
-				PushErrorInfo(&Builder, Node);
-				BuildIRFromExpression(&Builder, Node->Decl.Expression);
-				Terminate(&Builder, {});
-				FakeFn.LastRegister = Builder.LastRegister;
-			}
+			function FakeFn = GenerateFakeFunctionForGlobalExpression(Node->Decl.Expression, Module, Imported, Node);
+
 			Assert(Node->Decl.LHS->Type == AST_ID);
 			const string *Name = Node->Decl.LHS->ID.Name;
 			const symbol *Sym = Module->Globals[*Name];

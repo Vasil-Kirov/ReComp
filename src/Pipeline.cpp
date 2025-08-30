@@ -9,6 +9,7 @@
 #include "VString.h"
 #include "Interpreter.h"
 #include "CommandLine.h"
+#include "Globals.h"
 #include <mutex>
 
 pipeline CurrentPipeline = {};
@@ -232,7 +233,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	if(HasErroredOut())
 		exit(1);
 
-	AssignIRRegistersForModuleSymbols(Modules);
+	g_LastAddedGlobal.store(AssignIRRegistersForModuleSymbols(Modules));
 
 	For(Files)
 	{

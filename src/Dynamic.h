@@ -42,6 +42,20 @@ struct dynamic {
 		Assert(Index < Count);
 		return Data[Index];
 	}
+	ssize_t Find(T Value)
+	{
+		for(size_t Idx = 0; Idx < Count; ++Idx)
+		{
+			if(Data[Idx] == Value)
+				return (ssize_t)Idx;
+		}
+
+		return -1;
+	}
+	void Clear()
+	{
+		Count = 0;
+	}
 	void Push(T Value)
 	{
 		EnsureCapacity();
@@ -96,6 +110,13 @@ struct array {
 	{
 		Assert(Index < Count);
 		return Data[Index];
+	}
+	void Free()
+	{
+		if(Data)
+			VFree(Data);
+		Data = NULL;
+		Count = 0;
 	}
 };
 

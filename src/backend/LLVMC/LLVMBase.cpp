@@ -711,6 +711,12 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 			gen->map.Add(I.Result, Value);
 		} break;
+		case OP_NULL:
+		{
+			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
+			LLVMValueRef Null = LLVMConstNull(LLVMType);
+			gen->map.Add(I.Result, Null);
+		} break;
 		case OP_UNREACHABLE:
 		{
 			LLVMBuildUnreachable(gen->bld);
@@ -1303,7 +1309,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_DEBUGINFO:
 		{
-			ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+			ir_debug_info *Info = (ir_debug_info *)I.Ptr;
 			RCGenerateDebugInfo(gen, Info);
 		} break;
 		case OP_SPILL:

@@ -8,6 +8,7 @@ enum op
 {
 	OP_NOP,
 	OP_CONST,
+	OP_NULL,
 	OP_CONSTINT,
 	OP_ARG,
 	OP_ADD,
@@ -188,6 +189,7 @@ struct call_info
 {
 	u32 Operand;
 	slice<u32> Args;
+	const error_info *ErrorInfo;
 };
 
 struct array_list_info
@@ -239,6 +241,7 @@ struct function
 	u32 LastRegister;
 	u32 Type;
 	b32 NoDebugInfo;
+	b32 FakeFunction;
 	b32 ReturnPassedInPtr;
 };
 

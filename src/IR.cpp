@@ -85,7 +85,7 @@ inline instruction InstructionDebugInfo(ir_debug_info *Info)
 {
 	instruction Result;
 	Result.Op = OP_DEBUGINFO;
-	Result.BigRegister = (u64)Info;
+	Result.Ptr = Info;
 	Result.Type = INVALID_TYPE;
 
 	return Result;
@@ -205,6 +205,7 @@ function GenerateFakeFunctionForGlobalExpression(node *Expression, module *Modul
 		FakeFn.Type = VoidFnT;
 		FakeFn.LinkName = FakeFn.Name;
 		FakeFn.NoDebugInfo = true;
+		FakeFn.FakeFunction = true;
 		block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
 		PushErrorInfo(&Builder, ErrInfoNode);
 		BuildIRFromExpression(&Builder, Expression);
@@ -685,6 +686,7 @@ u32 BuildRun(block_builder *Builder, node *Node)
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
+	PushErrorInfo(Builder, Node);
 	switch(Node->Type)
 	{
 		case AST_ID:
@@ -847,8 +849,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			using rs = reserved;
 			switch(Node->Reserved.ID)
 			{
-				case rs::False:
 				case rs::Null:
+				{
+					Result = PushInstruction(Builder, 
+							Instruction(OP_NULL, (u64)0, Node->Reserved.Type, Builder));
+				} break;
+				case rs::False:
 				{
 					Val->Int.IsSigned = false;
 					Val->Int.Unsigned = 0;
@@ -870,8 +876,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				default: unreachable;
 			}
-			Result = PushInstruction(Builder, 
-					Instruction(OP_CONST, (u64)Val, Node->Reserved.Type, Builder));
+			if(Node->Reserved.ID != rs::Null)
+			{
+				Result = PushInstruction(Builder, 
+						Instruction(OP_CONST, (u64)Val, Node->Reserved.Type, Builder));
+			}
 		} break;
 		case AST_EMBED:
 		{
@@ -915,6 +924,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		{
 			//Assert(!IsLHS);
 			call_info *CallInfo = NewType(call_info);
+			CallInfo->ErrorInfo = Node->ErrorInfo;
 
 #if 0
 			if(Node->Call.Fn->Type == AST_ID || Node->Call.Fn->Type == AST_FN)
@@ -1979,6 +1989,8 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 				Assert(false);
 			} break;
 		};
+
+		PushErrorInfo(Builder, Node);
 		PushInstruction(Builder, I);
 		return I.Result;
 	}
@@ -2268,6 +2280,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 					u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 					call_info *Info = NewType(call_info);
+					Info->ErrorInfo = Node->ErrorInfo;
 					Info->Operand = DerefFn;
 					Info->Args = SliceFromConst({Data});
 					u32 Derefed = PushInstruction(Builder, 
@@ -2348,6 +2361,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 			call_info *Info = NewType(call_info);
+			Info->ErrorInfo = Node->ErrorInfo;
 			Info->Operand = AdvanceFn;
 			Info->Args = SliceFromConst({Data});
 			Data = PushInstruction(Builder, 
@@ -2430,6 +2444,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
 	u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 	call_info *Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
 	Call = NewType(call_info);
 	Call->Operand = StdOut;
 	Call->Args = {};
@@ -2439,6 +2454,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 
 	Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
 	Call->Operand = Write;
 	Call->Args = SliceFromConst({Handle, Data, Count});
 	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
@@ -2448,6 +2464,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
 	u32 Abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
 	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
 	Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
 	Call->Operand = Abort;
 	Call->Args = {};
 	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
@@ -2623,6 +2640,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  u32 FnName = MakeIRString(Builder, *Builder->Function->Name);
 
 		  	  call_info *Call = NewType(call_info);
+			  Call->ErrorInfo = Node->ErrorInfo;
 		  	  Call->Operand = Callback;
 		  	  Call->Args = SliceFromConst({FnName, Taken});
 
@@ -3368,6 +3386,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 			FakeFn.Type = VoidFnT;
 			FakeFn.LinkName = FakeFn.Name;
 			FakeFn.NoDebugInfo = true;
+			FakeFn.FakeFunction = true;
 			block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
 			BuildRun(&Builder, Node);
 			Terminate(&Builder, {});
@@ -3409,6 +3428,7 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT)
 	TypeTableFn.Type = VoidFnT;
 	TypeTableFn.LinkName = TypeTableFn.Name;
 	TypeTableFn.NoDebugInfo = true;
+	TypeTableFn.FakeFunction = true;
 
 	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module, {});
 
@@ -3596,6 +3616,10 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		case OP_CONSTINT:
 		{
 			PushBuilderFormated(Builder, "%%%d = %s %llu", Instr.Result, GetTypeName(Type), Instr.BigRegister);
+		} break;
+		case OP_NULL:
+		{
+			PushBuilderFormated(Builder, "%%%d = null", Instr.Result);
 		} break;
 		case OP_CONST:
 		{
@@ -3800,7 +3824,7 @@ INSIDE_EQ:
 #undef CASE_OP
 		case OP_DEBUGINFO:
 		{
-			ir_debug_info *Info = (ir_debug_info *)Instr.BigRegister;
+			ir_debug_info *Info = (ir_debug_info *)Instr.Ptr;
 			switch(Info->type)
 			{
 				case IR_DBG_VAR:

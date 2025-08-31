@@ -29,6 +29,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpBinaryOps.h"
 #include "InterpCasts.h"
 #include "Pipeline.h"
+#include "FlowTyping.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -70,6 +71,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpBinaryOps.cpp"
 #include "InterpCasts.cpp"
 #include "Pipeline.cpp"
+#include "FlowTyping.cpp"
+
 #if 0
 #include "backend/LLVMFileOutput.cpp"
 #include "backend/LLVMFileCast.cpp"

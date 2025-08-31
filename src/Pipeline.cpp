@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include "FlowTyping.h"
 #include "Lexer.h"
 #include "Memory.h"
 #include "Module.h"
@@ -247,6 +248,15 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		}
 	}
 	BuildEnumIR(SliceFromArray(Modules));
+
+	ForArray(FIdx, Files)
+	{
+		auto File = Files[FIdx];
+		For(File->IR->Functions)
+		{
+			FlowTypeFunction(it);
+		}
+	}
 
 	return pipeline_result {
 		.Files = Files,

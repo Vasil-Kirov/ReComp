@@ -747,14 +747,6 @@ b32 IsCastValid(const type *From, const type *To)
 		return IsCastValid(T, From);
 	}
 
-	if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
-	{
-		if(From->Pointer.Flags & PointerFlag_Optional)
-		{
-			return To->Pointer.Flags & PointerFlag_Optional;
-		}
-	}
-
 	if(From->Kind != To->Kind)
 		return false;
 
@@ -857,14 +849,7 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment)
 {
-	if(HAS_FLAG(L->Pointer.Flags, PointerFlag_Optional) &&
-			!HAS_FLAG(R->Pointer.Flags, PointerFlag_Optional) && !IsAssignment)
-		return false;
-
-	if(HAS_FLAG(R->Pointer.Flags, PointerFlag_Optional) &&
-			!HAS_FLAG(L->Pointer.Flags, PointerFlag_Optional) && IsAssignment)
-		return false;
-
+	UNUSED(IsAssignment);
 	if(L->Pointer.Pointed == INVALID_TYPE || R->Pointer.Pointed == INVALID_TYPE)
 		return true;
 

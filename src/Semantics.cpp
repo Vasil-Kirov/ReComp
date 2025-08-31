@@ -2230,10 +2230,7 @@ ANALYZE_SLICE_SELECTOR:
 							RaiseError(true, *Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
 									GetTypeName(Type));
 						}
-						if(Type->Pointer.Flags & PointerFlag_Optional)
-						{
-							RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence optional pointer, check for null and then mark it non optional with the ? operator");
-						}
+
 						Type = Pointed;
 						if(Pointed->Kind == TypeKind_Slice)
 							goto ANALYZE_SLICE_SELECTOR;
@@ -2293,10 +2290,6 @@ ANALYZE_SLICE_SELECTOR:
 			{
 				case TypeKind_Pointer:
 				{
-					if(OperandType->Pointer.Flags & PointerFlag_Optional)
-					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot index optional pointer. Check if it's null and then use the ? operator");
-					}
 					if(OperandType->Pointer.Pointed == INVALID_TYPE)
 					{
 						RaiseError(true, *Expr->ErrorInfo, "Cannot index opaque pointer");
@@ -2465,12 +2458,12 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 						RaiseError(false, *Expr->ErrorInfo, "Cannot use ? operator on non pointer type %s", GetTypeName(Pointer));
 						Result = PointerIdx;
 					}
-					if((Pointer->Pointer.Flags & PointerFlag_Optional) == 0)
-					{
-						RaiseError(false, *Expr->ErrorInfo, "Pointer is not optional, remove the ? operator");
-					}
+
+					// @TODO: Getting rid of this in favor of flow typing!
+					// Right now it just does nothing so make it raise an error in the future to remove it
 					if(Result == INVALID_TYPE)
-						Result = GetNonOptional(Pointer);
+						Result = PointerIdx;
+
 				} break;
 				case T_PTR:
 				{
@@ -2488,10 +2481,6 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
 						Result = PointerIdx;
-					}
-					if(Pointer->Pointer.Flags & PointerFlag_Optional)
-					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence optional pointer, check for null and then mark it non optional with the ? operator");
 					}
 					if(Pointer->Pointer.Pointed == INVALID_TYPE)
 					{

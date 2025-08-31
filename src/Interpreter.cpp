@@ -1810,6 +1810,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				IntForT(T, Val, &Value);
 				VM->Registers.AddValue(I.Result, Value);
 			} break;
+			case OP_NULL:
+			{
+				value Value = {};
+				Value.Type = I.Type;
+				VM->Registers.AddValue(I.Result, Value);
+			} break;
 			case OP_ENUM_ACCESS:
 			const_value V;
 			{
@@ -2552,7 +2558,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			BIN_COMP_OP(NEQ, !=);
 			case OP_DEBUGINFO:
 			{
-				ir_debug_info *Info = (ir_debug_info *)I.BigRegister;
+				ir_debug_info *Info = (ir_debug_info *)I.Ptr;
 				if(Info->type == IR_DBG_ERROR_INFO)
 				{
 					VM->ErrorInfo.Peek() = Info->err_i.ErrorInfo;

@@ -107,6 +107,7 @@ enum token_type
 	T_MODULE = -83,
 	T_FILE_LOCATION = -84,
 	T_STATIC = -85,
+	T_NORETURN = -86,
 };
 
 struct token

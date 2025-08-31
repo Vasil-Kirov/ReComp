@@ -1770,6 +1770,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
 				//LLVMSetGlobalConstant(Global, it->s->Flags & SymbolFlag_Const);
 				LLVMSetLinkage(Global, Linkage);
+
 				if(m->Name == M->Name)
 				{
 					LLVMValueRef Init;
@@ -1785,7 +1786,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 					LLVMSetInitializer(Global, Init);
 
 
-					if (g_CompileFlags & CF_DebugInfo) {
+					DEBUG_RUN(
 							LLVMMetadataRef DebugTy = ToDebugTypeLLVM(&Gen, it->s->Type);
 							LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(Gen.dbg, NULL, 0);
 							LLVMMetadataRef Decl = NULL;
@@ -1797,7 +1798,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 								Expr, Decl,
 								GetTypeAlignment(it->s->Type)*8);
 							LLVMGlobalSetMetadata(Global, 0, DebugGlobal);
-					}
+							)
 				}
 				Gen.global.Add(it->s->Register, Global);
 			}
@@ -1827,12 +1828,24 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 				RCGenerateFunction(&Gen, IR->Functions[Idx]);
 				Assert(GetType(IR->Functions[Idx].Type)->Kind == TypeKind_Function);
-				if(GetType(IR->Functions[Idx].Type)->Function.Flags & SymbolFlag_Inline)
+				const type *T = GetType(IR->Functions[Idx].Type);
+				if(T->Function.Flags & SymbolFlag_Inline)
 				{
 					string InlineStr = STR_LIT("alwaysinline");
-					unsigned LLVMInline = LLVMGetEnumAttributeKindForName(InlineStr.Data, InlineStr.Size);
-					LLVMAddAttributeAtIndex(Gen.fn, LLVMAttributeFunctionIndex, LLVMCreateEnumAttribute(Gen.ctx, LLVMInline, 0));
+					LLVMAttributeRef Inline = LLVMCreateEnumAttribute(Gen.ctx,
+							LLVMGetEnumAttributeKindForName(InlineStr.Data, InlineStr.Size),
+							0);
+					LLVMAddAttributeAtIndex(Gen.fn, LLVMAttributeFunctionIndex, Inline);
 				}
+				if(T->Function.Flags & SymbolFlag_NoReturn)
+				{
+					string NoretStr = STR_LIT("noreturn");
+					LLVMAttributeRef NoReturn = LLVMCreateEnumAttribute(Gen.ctx,
+							LLVMGetEnumAttributeKindForName(NoretStr.Data, NoretStr.Size),
+							0);
+					LLVMAddAttributeAtIndex(Gen.fn, LLVMAttributeFunctionIndex, NoReturn);
+				}
+
 				Gen.map.Clear();
 				Gen.fn = NULL;
 			}

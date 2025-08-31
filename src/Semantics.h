@@ -9,17 +9,18 @@
 enum SymbolFlag
 {
 	SymbolFlag_None = 0,
-	SymbolFlag_Public  = BIT(0),
-	SymbolFlag_Const   = BIT(1),
-	SymbolFlag_Shadow  = BIT(2),
-	SymbolFlag_Function= BIT(3),
-	SymbolFlag_Foreign = BIT(4),
-	SymbolFlag_VarFunc = BIT(5),
-	SymbolFlag_Generic = BIT(6),
-	SymbolFlag_Intrinsic = BIT(7),
-	SymbolFlag_Extern  = BIT(8),
-	SymbolFlag_Inline  = BIT(9),
+	SymbolFlag_Public      = BIT(0),
+	SymbolFlag_Const       = BIT(1),
+	SymbolFlag_Shadow      = BIT(2),
+	SymbolFlag_Function    = BIT(3),
+	SymbolFlag_Foreign     = BIT(4),
+	SymbolFlag_VarFunc     = BIT(5),
+	SymbolFlag_Generic     = BIT(6),
+	SymbolFlag_Intrinsic   = BIT(7),
+	SymbolFlag_Extern      = BIT(8),
+	SymbolFlag_Inline      = BIT(9),
 	SymbolFlag_LocalStatic = BIT(10),
+	SymbolFlag_NoReturn    = BIT(11),
 };
 
 struct generic_generated

@@ -1,4 +1,5 @@
 #include "FlowTyping.h"
+#include "Semantics.h"
 #include "Type.h"
 
 
@@ -333,6 +334,10 @@ void FlowTypeEvaluateBlock(FlowState *flow, slice<basic_block> Blocks, flow_bran
 					}
 				}
 
+				if(T->Function.Flags & SymbolFlag_NoReturn)
+				{
+					goto StopChecking;
+				}
 			} break;
 			case OP_DEBUGINFO:
 			{
@@ -469,6 +474,7 @@ void FlowTypeEvaluateBlock(FlowState *flow, slice<basic_block> Blocks, flow_bran
 		}
 	}
 
+StopChecking:
 	LoadedNullables.Free();
 	Cmps.Free();
 }

@@ -1273,6 +1273,8 @@ string GetTypeNameAsString(const type *Type)
 				Builder += " #foreign";
 			if(Type->Function.Flags & SymbolFlag_Inline)
 				Builder += " #inline";
+			if(Type->Function.Flags & SymbolFlag_NoReturn)
+				Builder += " #noreturn";
 
 			return MakeString(Builder);
 		} break;

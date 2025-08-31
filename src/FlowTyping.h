@@ -23,7 +23,6 @@ struct FlowState
 	dynamic<u32> Trues;  // Registers containing true
 	dynamic<u32> Falses; // Registers containing false
 	dynamic<flow_branch*> AlreadyEvaluated;
-	dynamic<u32> LoopingDetectionBuffer;
 	flow_branch* CurrentFlow;
 	const error_info *LastErrorInfo;
 };

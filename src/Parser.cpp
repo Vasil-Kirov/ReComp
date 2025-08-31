@@ -968,7 +968,7 @@ u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline} };
+	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn} };
 
 	u32 Result = 0;
 	size_t Len = ARR_LEN(FlagTokens);

@@ -1,6 +1,6 @@
 module image
 
-#import "sdl.rcp";
+sdl :: #import "sdl.rcp";
 
 SDL_IMAGE_MAJOR_VERSION :: 3;
 SDL_IMAGE_MINOR_VERSION :: 3;
@@ -11,29 +11,29 @@ Version :: fn #link="IMG_Version"() -> i32;
 LoadTyped_IO :: fn #link="IMG_LoadTyped_IO"(
 	src: *sdl.IOStream,
 	closeio: bool,
-	type: *u8) -> *sdl.Surface;
+	type: *u8) -> ?*sdl.Surface;
 
 Load :: fn #link="IMG_Load"(
 	file: *u8) -> ?*sdl.Surface;
 
 Load_IO :: fn #link="IMG_Load_IO"(
 	src: *sdl.IOStream,
-	closeio: bool) -> *sdl.Surface;
+	closeio: bool) -> ?*sdl.Surface;
 
 LoadTexture :: fn #link="IMG_LoadTexture"(
 	renderer: *sdl.Renderer,
-	file: *u8) -> *sdl.Texture;
+	file: *u8) -> ?*sdl.Texture;
 
 LoadTexture_IO :: fn #link="IMG_LoadTexture_IO"(
 	renderer: *sdl.Renderer,
 	src: *sdl.IOStream,
-	closeio: bool) -> *sdl.Texture;
+	closeio: bool) -> ?*sdl.Texture;
 
 LoadTextureTyped_IO :: fn #link="IMG_LoadTextureTyped_IO"(
 	renderer: *sdl.Renderer,
 	src: *sdl.IOStream,
 	closeio: bool,
-	type: *u8) -> *sdl.Texture;
+	type: *u8) -> ?*sdl.Texture;
 
 isAVIF :: fn #link="IMG_isAVIF"(
 	src: *sdl.IOStream) -> bool;

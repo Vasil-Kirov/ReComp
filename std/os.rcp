@@ -67,8 +67,10 @@ assert :: fn(cond: bool, reason: string) {
         SetConsoleOutputCP(CP_UTF8);
         handle := GetStdHandle(STD_OUTPUT_HANDLE);
         written: u32;
-        if (handle != null) && (handle != INVALID_HANDLE_VALUE) {
-            WriteFile(?handle, data, count, &written, null);
+        if handle != null {
+			if handle != INVALID_HANDLE_VALUE {
+				WriteFile(?handle, data, count, &written, null);
+			}
         }
     }
 

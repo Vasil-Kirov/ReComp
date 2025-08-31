@@ -34,11 +34,10 @@ vsprint :: fn(str: string, args: []Arg) -> string {
 }
 
 read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
-	f_ := os.open(name);
-	if f_ == null {
+	f := os.open(name);
+	if f == null {
 		return "", false;
 	}
-	f := ?f_;
 	defer os.close(f);
 
 	size := os.get_file_size(f);

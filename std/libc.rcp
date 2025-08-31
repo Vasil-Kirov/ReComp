@@ -14,8 +14,9 @@ do_malloc_free :: fn(ptr: ?*, this: *Allocator) {
 
 do_malloc_allocation :: fn(size: int, this: *Allocator) -> ?* {
     ptr := malloc(size);
-    if this.data != null && ptr != null {
-        set(?ptr, 0, size);
+    if this.data != null {
+		if ptr != null
+			set(?ptr, 0, size);
     }
 
     return ptr;

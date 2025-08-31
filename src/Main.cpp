@@ -671,14 +671,16 @@ main(int ArgCount, char *Args[])
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;
 	i64 IRBuildTime = 0;
-	i64 LLVMTimer = 0;
+	i64 FlowTypingTime = 0;
+	i64 LLVMTime = 0;
 
 	ForArray(Idx, Timers)
 	{
 		ParseTime     += TimeTaken(&Timers.Data[Idx].Parse);
 		TypeCheckTime += TimeTaken(&Timers.Data[Idx].TypeCheck);
 		IRBuildTime   += TimeTaken(&Timers.Data[Idx].IR);
-		LLVMTimer     += TimeTaken(&Timers.Data[Idx].LLVM);
+		FlowTypingTime+= TimeTaken(&Timers.Data[Idx].FlowTyping);
+		LLVMTime      += TimeTaken(&Timers.Data[Idx].LLVM);
 	}
 
 	if(CommandLine.Flags & CommandFlag_time)
@@ -687,9 +689,10 @@ main(int ArgCount, char *Args[])
 		LWARN("Parsing:                   %lldms", ParseTime                / 1000);
 		LWARN("Type Checking:             %lldms", TypeCheckTime            / 1000);
 		LWARN("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
+		LWARN("Flow Typing:               %lldms", FlowTypingTime           / 1000);
 		LWARN("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
 		LWARN("Compile Time Evaluation:   %lldms", TimeTaken(&VMBuildTimer2)/ 1000);
-		LWARN("LLVM Code Generation:      %lldms", LLVMTimer                / 1000);
+		LWARN("LLVM Code Generation:      %lldms", LLVMTime                 / 1000);
 		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
 	}
 

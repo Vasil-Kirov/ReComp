@@ -25,6 +25,7 @@ struct timers
 	timer_group Parse;
 	timer_group TypeCheck;
 	timer_group IR;
+	timer_group FlowTyping;
 	timer_group LLVM;
 };
 

@@ -151,6 +151,12 @@ void ResetPipelineState()
 pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint)
 {
 	ResetPipelineState();
+
+	timers Timers = {};
+
+	// START OF PARSING         --------------------------------------------------
+	Timers.Parse = VLibStartTimer("Parsing");
+
 	For(InitialFiles)
 	{
 		if(!PipelineDoFile(*it))
@@ -191,6 +197,12 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		FileArray[Idx] = CurrentPipeline.ParseResults.Results[Idx].File;
 	}
 
+	VLibStopTimer(&Timers.Parse);
+	// END OF PARSING           --------------------------------------------------
+
+	// START OF TYPE CHECKING   --------------------------------------------------
+	Timers.TypeCheck = VLibStartTimer("Type Checking");
+
 	ForArray(Idx, CurrentPipeline.ParseResults.Results)
 	{
 		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
@@ -225,14 +237,19 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		exit(1);
 	}
 
-
 	For(Files)
 	{
 		Analyze((*it)->Checker, (*it)->Nodes);
 	}
 
+	VLibStopTimer(&Timers.TypeCheck);
+	// END OF TYPE CHECKING     --------------------------------------------------
+
 	if(HasErroredOut())
 		exit(1);
+
+	// START OF IR GENERATION   --------------------------------------------------
+	Timers.IR = VLibStartTimer("IR");
 
 	g_LastAddedGlobal.store(AssignIRRegistersForModuleSymbols(Modules));
 
@@ -249,6 +266,12 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 	BuildEnumIR(SliceFromArray(Modules));
 
+	VLibStopTimer(&Timers.IR);
+	// END OF IR GENERATION     --------------------------------------------------
+
+	// START OF FLOW TYPING     --------------------------------------------------
+	Timers.FlowTyping = VLibStartTimer("Flow Typing");
+
 	ForArray(FIdx, Files)
 	{
 		auto File = Files[FIdx];
@@ -258,10 +281,13 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		}
 	}
 
+	VLibStopTimer(&Timers.FlowTyping);
+	// START OF FLOW TYPING     --------------------------------------------------
+
 	return pipeline_result {
 		.Files = Files,
 		.Modules = SliceFromArray(Modules),
-		.Timers = {},
+		.Timers = Timers,
 		.EntryFileIdx = EntryIdx,
 	};
 

@@ -294,6 +294,20 @@ void FlowTypeEvaluateBlock(FlowState *flow, slice<basic_block> Blocks, flow_bran
 						flow->NullLocations[it->Result][BlockID] = true;
 					}
 				}
+				if(IsRegisterLoadedNullable(LoadedNullables, it->Left))
+				{
+					if(T->Kind == TypeKind_Struct)
+					{
+						RaiseError(false, *flow->LastErrorInfo,
+								"Trying to access a member from a nullable pointer to a struct is not allowed. You can turn it to non nullable by doing an if comparison.");
+					}
+					else
+					{
+						RaiseError(false, *flow->LastErrorInfo,
+								"Trying to index a nullable pointer is not allowed. "
+								"You can turn it to non nullable by doing an if comparison");
+					}
+				}
 			} break;
 			case OP_STORE:
 			{

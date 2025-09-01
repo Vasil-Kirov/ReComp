@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #define UNUSED(param) (void)(param)
+#define MIN(a, b) ((a) > (b) ? (a) : (b))
 
 union IVEC4 {
     __m128i v;

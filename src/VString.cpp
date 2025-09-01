@@ -266,13 +266,13 @@ i32 DistanceBetweenStrings(const string &A, const string &B, int Threshold)
             i32 sub = minus1[im1] + cost;
 
             //Fastest execution for min value of 3 integers
-            int min = (del > ins) ? (ins > sub ? sub : ins) : (del > sub ? sub : del);
+            int vmin = (del > ins) ? (ins > sub ? sub : ins) : (del > sub ? sub : del);
 
             if (i > 1 && j > 1 && S1.Data[im2] == S2.Data[jm1] && S1.Data[im1] == S2.Data[j - 2])
-                min = min(min, minus2[im2] + cost);
+                vmin = MIN(vmin, minus2[im2] + cost);
 
-            current[i] = min;
-            if (min < min_distance) { min_distance = min; }
+            current[i] = vmin;
+            if (vmin < min_distance) { min_distance = vmin; }
             im1++;
             im2++;
         }
@@ -285,5 +285,4 @@ i32 DistanceBetweenStrings(const string &A, const string &B, int Threshold)
     return (result > Threshold) ? INT32_MAX : result;
 
 }
-
 

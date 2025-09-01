@@ -305,7 +305,7 @@ assert :: fn(cond: bool, reason: string) {
 }
 
 	alloc :: fn(size: int) -> ?* {
-		myb_ctx := syscall(SYS_mmap,
+		ctx := syscall(SYS_mmap,
 		null,						// Address
 		size + size_of AllocCtx,	// Size
 		PROT_READ | PROT_WRITE,		// Prot
@@ -313,12 +313,13 @@ assert :: fn(cond: bool, reason: string) {
 		-1,							// FD
 		0) as ?*AllocCtx;			// Offset
         FAILED :: -1;
-        if myb_ctx == cast(?*void, FAILED) || myb_ctx == null {
+		if ctx == null
+			return null;
+
+        if ctx == cast(*void, FAILED) {
             return null;
         }
 
-        ctx := ?myb_ctx;
-		
 		ctx.size = size + size_of AllocCtx;
 		return ctx + 1;
 	}

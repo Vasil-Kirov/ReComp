@@ -18,6 +18,7 @@ list -- show the current location
 list_instructions -- show the current location in IR
 quit -- quit the program
 clear -- clears the screen
+print_stack -- prints the function stack
 
 )raw";
 

@@ -2337,11 +2337,13 @@ ANALYZE_SLICE_SELECTOR:
 			}
 			if(IsUntyped(ExprType))
 			{
-				FillUntypedStack(Checker, Basic_uint);
+				FillUntypedStack(Checker, Basic_int);
+				ExprTypeIdx = Basic_int;
 			}
 
 			Expr->Index.OperandType = OperandTypeIdx;
 			Expr->Index.IndexedType = Result;
+			Expr->Index.IndexExprType = ExprTypeIdx;
 		} break;
 		case AST_CHARLIT:
 		{

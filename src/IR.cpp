@@ -1,4 +1,5 @@
 #include "IR.h"
+#include "CommandLine.h"
 #include "ConstVal.h"
 #include "Errors.h"
 #include "Globals.h"
@@ -630,6 +631,77 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 		}
 	}
 	return Result;
+}
+
+void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, string BonusMessage)
+{
+	string FirstPart;
+	string SecondPart;
+	string ThirdPart;
+	GetErrorSegments(*ErrorInfo, &FirstPart, &SecondPart, &ThirdPart);
+	string_builder b = MakeBuilder();
+	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s%s%s\n", ErrorInfo->FileName, ErrorInfo->Range.StartLine, FirstPart.Data, SecondPart.Data, ThirdPart.Data);
+	if(BonusMessage.Size != 0)
+		PushBuilderFormated(&b, "%.*s\n", BonusMessage.Size, BonusMessage.Data);
+
+	string S = MakeString(b);
+	string *Message = DupeType(S, string);
+
+
+	const_value *String = NewType(const_value);
+	String->Type = const_type::String;
+	String->String.Data = Message;
+	u32 MessageRegister = PushInstruction(Builder, 
+			Instruction(OP_CONST, (u64)String, Basic_string, Builder));
+
+	u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 0, Basic_string, Builder));
+	u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 1, Basic_string, Builder));
+	u32 Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
+	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
+
+	string Internal = STR_LIT("internal");
+	u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
+	u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
+	call_info *Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
+	Call = NewType(call_info);
+	Call->Operand = StdOut;
+	Call->Args = {};
+	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+
+	u32 Write = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
+	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
+
+	Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
+	Call->Operand = Write;
+	Call->Args = SliceFromConst({Handle, Data, Count});
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+
+	PushDebugBreak(Builder);
+
+	u32 Abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
+	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
+	Call = NewType(call_info);
+	Call->ErrorInfo = ErrorInfo;
+	Call->Operand = Abort;
+	Call->Args = {};
+	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+
+	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
+}
+
+void BuildAssertExpr(block_builder *Builder, u32 Expr, const error_info *Info, string BonusMessage=STR_LIT(""))
+{
+	if(g_CompileFlags & CF_DisableAssert)
+		return;
+
+	basic_block AssertFailed = AllocateBlock(Builder);
+	basic_block After = AllocateBlock(Builder);
+	PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Expr, Basic_bool));
+	Terminate(Builder, AssertFailed);
+	BuildAssertFailed(Builder, Info, BonusMessage);
+	Terminate(Builder, After);
 }
 
 u32 BuildIRMatch(block_builder *Builder, node *Node)
@@ -1360,6 +1432,16 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			b32 DontLoadResult = !IsLoadableType(Node->Index.IndexedType);
 			if(Type->Kind == TypeKind_Slice)
 			{
+				if((g_CompileFlags & CF_DisableAssert) == 0)
+				{
+					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+
+					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Index.OperandType, Builder));
+					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
+					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, LoadedCount, Basic_bool, Builder));
+					BuildAssertExpr(Builder, AssertCond, Node->ErrorInfo, STR_LIT("Trying to index slice out of bounds!"));
+				}
+
 				u32 PtrToIdxed = GetPointerTo(Node->Index.IndexedType);
 				u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Index.OperandType, Builder));
 				u32 LoadedPtr = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, PtrToIdxed, Builder));
@@ -1369,6 +1451,16 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			else if(HasBasicFlag(Type, BasicFlag_String))
 			{
+				if((g_CompileFlags & CF_DisableAssert) == 0)
+				{
+					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+
+					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Basic_string, Builder));
+					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
+					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, LoadedCount, Basic_bool, Builder));
+					BuildAssertExpr(Builder, AssertCond, Node->ErrorInfo, STR_LIT("Trying to index string out of bounds!"));
+				}
+
 				u32 u8ptr = GetPointerTo(Basic_u8);
 				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Basic_string, Builder));
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, u8ptr, Builder));
@@ -1378,6 +1470,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			else
 			{
+				if((g_CompileFlags & CF_DisableAssert) == 0 && Type->Kind == TypeKind_Array)
+				{
+					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+
+					u32 Count = PushInt(Type->Array.MemberCount, Builder);
+					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, Count, Basic_bool, Builder));
+					BuildAssertExpr(Builder, AssertCond, Node->ErrorInfo, STR_LIT("Trying to index slice out of bounds!"));
+				}
+
 				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, Index, Node->Index.OperandType, Builder));
 				if(!IsLHS && !Node->Index.ForceNotLoad && !DontLoadResult)
 					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
@@ -2416,62 +2517,6 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 	Builder->ContinueBlockID = CurrentContinue;
 }
 
-void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo)
-{
-	string FirstPart;
-	string SecondPart;
-	string ThirdPart;
-	GetErrorSegments(*ErrorInfo, &FirstPart, &SecondPart, &ThirdPart);
-	string_builder b = MakeBuilder();
-	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s%s%s\n", ErrorInfo->FileName, ErrorInfo->Range.StartLine, FirstPart.Data, SecondPart.Data, ThirdPart.Data);
-
-	string S = MakeString(b);
-	string *Message = DupeType(S, string);
-
-
-	const_value *String = NewType(const_value);
-	String->Type = const_type::String;
-	String->String.Data = Message;
-	u32 MessageRegister = PushInstruction(Builder, 
-			Instruction(OP_CONST, (u64)String, Basic_string, Builder));
-
-	u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 0, Basic_string, Builder));
-	u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, MessageRegister, 1, Basic_string, Builder));
-	u32 Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
-	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
-
-	string Internal = STR_LIT("internal");
-	u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
-	u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
-	call_info *Call = NewType(call_info);
-	Call->ErrorInfo = ErrorInfo;
-	Call = NewType(call_info);
-	Call->Operand = StdOut;
-	Call->Args = {};
-	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
-
-	u32 Write = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
-	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
-
-	Call = NewType(call_info);
-	Call->ErrorInfo = ErrorInfo;
-	Call->Operand = Write;
-	Call->Args = SliceFromConst({Handle, Data, Count});
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
-
-	PushDebugBreak(Builder);
-
-	u32 Abort = GetBuiltInFunction(Builder, Internal, STR_LIT("abort"));
-	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
-	Call = NewType(call_info);
-	Call->ErrorInfo = ErrorInfo;
-	Call->Operand = Abort;
-	Call->Args = {};
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
-
-	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
-}
-
 void PushDefferedInstructions(block_builder *Builder)
 {
 	ForArray(Idx, Builder->Defered.Data)
@@ -2577,15 +2622,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
-			PushErrorInfo(Builder, Node);
-
-		    u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
-		    basic_block AssertFailed = AllocateBlock(Builder);
-		    basic_block After = AllocateBlock(Builder);
-		    PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Cond, Basic_bool));
-		    Terminate(Builder, AssertFailed);
-		    BuildAssertFailed(Builder, Node->ErrorInfo);
-		    Terminate(Builder, After);
+			if((g_CompileFlags & CF_DisableAssert) == 0)
+			{
+				u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
+				BuildAssertExpr(Builder, Cond, Node->ErrorInfo);
+			}
 		} break;
 		case AST_DEFER:
 		{

@@ -333,6 +333,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 			LLVMValueRef SizeVal = LLVMConstInt(SizeType, Size, true);
 
 			LLVMSetInitializer(DataPtr, DataArray);
+			LLVMSetLinkage(DataPtr, LLVMLinkerPrivateLinkage);
 
 			auto Slice = SliceFromConst({SizeVal, DataPtr});
 			return LLVMConstNamedStruct(lt, Slice.Data, 2);
@@ -1688,7 +1689,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 					continue;
 				}
 #endif
-				if(*s->Name == STR_LIT("type_table") && ((Info->Flags & CF_Standalone) == 0))
+				if(*s->Name == STR_LIT("type_table"))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
 					LLVMSetLinkage(TypeTable, LLVMExternalLinkage);

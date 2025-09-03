@@ -10,6 +10,7 @@ LLVMValueRef RCConstSlice(generator *gen, slice<LLVMValueRef> Slice, LLVMTypeRef
 {
 	LLVMValueRef Count = LLVMConstInt(IntType, Slice.Count, false);
 	LLVMValueRef ArrayGlobal = LLVMAddGlobal(gen->mod, LLVMArrayType2(BaseType, Slice.Count), "");
+	LLVMSetLinkage(ArrayGlobal, LLVMLinkerPrivateLinkage);
 	LLVMSetGlobalConstant(ArrayGlobal, true);
 	LLVMValueRef Array = LLVMConstArray2(BaseType, Slice.Data, Slice.Count);
 	LLVMSetInitializer(ArrayGlobal, Array);
@@ -144,6 +145,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 	LLVMTypeRef TypeInfoArray = LLVMStructType(UnionArrayType.Data, TypeCount, false);
 
 	LLVMValueRef TypeTableContents = LLVMAddGlobal(gen->mod, TypeInfoArray, "base.type_table_contents");
+	LLVMSetLinkage(TypeTableContents, LLVMLinkerPrivateLinkage);
 	LLVMSetGlobalConstant(TypeTableContents, true);
 
 	auto ArrayValues = (LLVMValueRef *)VAlloc(sizeof(LLVMValueRef) * TypeCount);

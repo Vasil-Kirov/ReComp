@@ -1903,7 +1903,7 @@ b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx)
 	return VerifyStructMemberNoRecursion(TIdx, T, FailedIdx);
 }
 
-void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original)
+void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original, slice<import> Imports, module *Module)
 {
 	TypeMutex.lock();
 	type T = {};
@@ -1911,6 +1911,8 @@ void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Origi
 	T.Enum.Name = Name;
 	T.Enum.Members = Members;
 	T.Enum.Type = Type;
+	T.Enum.Imports = Imports;
+	T.Enum.Module = Module;
 	T.CachedAsPointer	= INVALID_TYPE;
 	T.CachedAlignment	= -1;
 	T.CachedSize		= -1;

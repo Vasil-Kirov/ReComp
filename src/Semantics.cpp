@@ -3338,7 +3338,6 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		enum_member Member = {};
 		auto Item = Node->Enum.Items[Idx]->Item;
 		Member.Name = *Item.Name;
-		Member.Module = Checker->Module;
 		if(Item.Expression)
 		{
 			u32 T = AnalyzeExpression(Checker, Item.Expression);
@@ -3358,7 +3357,7 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		Members.Push(Member);
 	}
 
-	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType);
+	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType, Checker->Imported, Checker->Module);
 }
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)

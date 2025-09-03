@@ -264,7 +264,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 			LWARN("[ MODULE %s ]\n\n%s", (*it)->Module->Name.Data, Dissasembly.Data);
 		}
 	}
-	BuildEnumIR(SliceFromArray(Modules));
+
+	BuildEnumIR();
 
 	VLibStopTimer(&Timers.IR);
 	// END OF IR GENERATION     --------------------------------------------------

@@ -298,7 +298,7 @@ struct ir
 };
 
 ir BuildIR(file *File);
-void BuildEnumIR(slice<module *> Modules);
+void BuildEnumIR();
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 u32 PushInstruction(block_builder *Builder, instruction I);

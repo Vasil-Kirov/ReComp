@@ -3529,16 +3529,8 @@ ir BuildIR(file *File)
 
 extern type **TypeTable;
 
-void BuildEnumIR(slice<module *> Modules)
+void BuildEnumIR()
 {
-	// @LEAK
-	array<import> ImportArray{Modules.Count};
-	ForArray(Idx, Modules)
-	{
-		ImportArray[Idx].M = Modules[Idx];
-	}
-
-	slice<import> Imports = SliceFromArray(ImportArray);
 	u32 VoidFnT = GenerateVoidFnT();
 
 	uint TC = GetTypeCount();
@@ -3547,8 +3539,9 @@ void BuildEnumIR(slice<module *> Modules)
 		type *T = TypeTable[i];
 		if(T->Kind == TypeKind_Enum)
 		{
-			Assert(T->Enum.Members.Count > 0);
-			module *M = T->Enum.Members.Data[0].Module;
+			module *M = T->Enum.Module;
+			slice<import> Imports = T->Enum.Imports;
+
 			function Fn = {};
 			Fn.Name = &T->Enum.Name;
 			Fn.Type = VoidFnT;

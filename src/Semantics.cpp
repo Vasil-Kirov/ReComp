@@ -711,6 +711,22 @@ const symbol *FindSymbol(checker *Checker, const string *ID)
 	symbol *s = Checker->Module->Globals[*ID];
 	if(s)
 		return s;
+
+
+	string NoNamespace = STR_LIT("*");
+	For(Checker->Imported)
+	{
+		if(it->As == NoNamespace)
+		{
+			// @THREADING: NOT THREAD SAFE (maybe)
+			auto Sym = it->M->Globals[*ID];
+			if(Sym)
+			{
+				return Sym;
+			}
+		}
+	}
+
 	return NULL;
 }
 
@@ -3913,34 +3929,8 @@ void AddGlobalVariable(checker *Checker, const string *Name, const string *LinkN
 	}
 }
 
-void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
+void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Module)
 {
-	Checker->Nodes = NodesPtr;
-	Checker->Module = ThisModule;
-	Checker->Scope = {};
-	Checker->CurrentFnReturnTypeIdx = {};
-	Checker->Scope.Push(AllocScope(NULL));
-
-	slice<node *> Nodes = SliceFromArray(*NodesPtr);
-
-	for(int I = 0; I < Nodes.Count; ++I)
-	{
-		if(Nodes[I]->Type == AST_FN)
-		{
-			node *Node = Nodes[I];
-			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
-			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
-			if(!Success)
-			{
-				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
-				Assert(Redifined);
-				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
-						Node->Fn.Name->Data,
-						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
-			}
-		}
-	}
-
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_DECL)
@@ -3963,7 +3953,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 				if(Node->Decl.LinkName)
 					LinkName = Node->Decl.LinkName;
 				else
-					LinkName = StructToModuleNamePtr(PassName, ThisModule->Name);
+					LinkName = StructToModuleNamePtr(PassName, Module->Name);
 
 				u32 Flags = Node->Decl.Flags & ~SymbolFlag_Function;
 				AddGlobalVariable(Checker, Name, LinkName, Flags, Node, Type);
@@ -3991,7 +3981,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 					symbol *Sym = NewType(symbol);
 					Sym->Checker = Checker;
 					Sym->Name = (*it)->ID.Name;
-					Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
+					Sym->LinkName = StructToModuleNamePtr(Name, Module->Name);
 					Sym->Type = Type;
 					Sym->Flags = Node->Decl.Flags;
 					Sym->Node = Node;
@@ -4012,6 +4002,35 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			{
 				// @NOTE: I don't think there is any way to get here
 				RaiseError(true, *Node->ErrorInfo, "Invalid left-hand side of declaration");
+			}
+		}
+	}
+}
+
+void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *Module)
+{
+	Checker->Nodes = NodesPtr;
+	Checker->Module = Module;
+	Checker->Scope = {};
+	Checker->CurrentFnReturnTypeIdx = {};
+	Checker->Scope.Push(AllocScope(NULL));
+
+	slice<node *> Nodes = SliceFromArray(*NodesPtr);
+
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_FN)
+		{
+			node *Node = Nodes[I];
+			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
+			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
+			if(!Success)
+			{
+				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
+				Assert(Redifined);
+				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
+						Node->Fn.Name->Data,
+						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 			}
 		}
 	}

@@ -99,6 +99,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 void AnalyzeDefineStructs(checker *Checker, slice<node *> Nodes);
 void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes);
 void AnalyzeEnums(checker *Checker, slice<node *> Nodes);
+void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *ThisModule);
 void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes);
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule);
 

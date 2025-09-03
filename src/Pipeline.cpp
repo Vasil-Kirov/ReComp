@@ -398,6 +398,11 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
+		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
 		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
@@ -408,8 +413,7 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
-		//File->Module->Checker = File->Checker;
+		AnalyzeGlobalVariables(File->Checker, SliceFromArray(File->Nodes), File->Module);
 	}
 
 	int Result = -1;

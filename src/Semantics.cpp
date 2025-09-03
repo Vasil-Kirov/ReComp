@@ -3950,7 +3950,12 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			{
 				const string *Name = Node->Decl.LHS->ID.Name;
 				string PassName = *Name;
-				const string *LinkName = StructToModuleNamePtr(PassName, ThisModule->Name);
+				const string *LinkName = NULL;
+				if(Node->Decl.LinkName)
+					LinkName = Node->Decl.LinkName;
+				else
+					LinkName = StructToModuleNamePtr(PassName, ThisModule->Name);
+
 				u32 Flags = Node->Decl.Flags & ~SymbolFlag_Function;
 				AddGlobalVariable(Checker, Name, LinkName, Flags, Node, Type);
 			}

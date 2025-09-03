@@ -238,6 +238,7 @@ struct node
 			u32 Type;
 		} Constant;
 		struct {
+			const string *LinkName; // Can only be non null on single global decls
 			node *LHS;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable

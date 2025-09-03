@@ -1783,7 +1783,8 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 						Init = LLVMConstNull(LLVMType);
 					}
 
-					LLVMSetInitializer(Global, Init);
+					if((it->s->Flags & SymbolFlag_Extern) == 0)
+						LLVMSetInitializer(Global, Init);
 
 
 					DEBUG_RUN(

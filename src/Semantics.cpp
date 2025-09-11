@@ -3349,8 +3349,11 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		{
 			const_value Value = {};
 			Value.Type = const_type::Integer;
-			Value.Int.IsSigned = false;
-			Value.Int.Unsigned = Idx;
+			Value.Int.IsSigned = IsSigned(GetType(Type));
+			if(Value.Int.IsSigned)
+				Value.Int.Signed = Idx;
+			else
+				Value.Int.Unsigned = Idx;
 			Member.Expr = MakeConstant(Node->ErrorInfo, Value);
 			Member.Expr->Constant.Type = Type;
 		}

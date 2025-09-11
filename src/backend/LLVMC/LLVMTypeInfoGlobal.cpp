@@ -302,14 +302,14 @@ LLVMValueRef GenTypeInfo(generator *gen)
 				//     t: type,
 				// }
 
-				auto EnumType = ConvertToLLVMType(gen, T->Enum.Type);
+				auto IntType = ConvertToLLVMType(gen, Basic_int);
 				array<LLVMValueRef> Members{T->Enum.Members.Count};
 				ForArray(Idx, T->Enum.Members)
 				{
 					auto it = T->Enum.Members[Idx];
 					LLVMValueRef ConstVals[] = {
 						RCConstString(gen, it.Name, IntType, StrType),
-						LLVMConstInt(EnumType, it.Value.Int.IsSigned ? it.Value.Int.Signed : it.Value.Int.Unsigned, false),
+						LLVMConstInt(IntType, it.Value.Int.IsSigned ? it.Value.Int.Signed : it.Value.Int.Unsigned, false),
 					};
 					Members[Idx] = LLVMConstNamedStruct(EnumMemberType, ConstVals, ARR_LEN(ConstVals));
 				}

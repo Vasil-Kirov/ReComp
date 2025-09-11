@@ -44,6 +44,7 @@ enum State {
 	Number,
 	SpecialNumber,
 	Operator,
+	// @TODO: comments and raw strings
 }
 
 is_space :: fn(c: u8) -> bool {
@@ -62,11 +63,11 @@ start_token :: fn(type: TokenType, start_incl: *u8, start_location: Location) ->
 	return .{ type = type, str = .{0, start_incl}, range = Range { start_location } };
 }
 
-finish_token :: fn(start: Token, end_excl: *u8, end_location: Location) -> Token {
-	start := start;
-	start.str.count = end_excl - start.str.data;
-	start.range.end = end_location;
-	return start;
+end_token :: fn(start: Token, end_excl: *u8, end_location: Location) -> Token {
+	res := start;
+	res.str.count = end_excl - start.str.data;
+	res.range.end = end_location;
+	return res;
 }
 
 format_error :: fn(err: string, location: Location) -> string {
@@ -81,22 +82,26 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
     lexer.location = start;
 
 	state := State.Default;
-	next := State.Default;
 	token := Token {};
+	found_digit_dot := false;
+
     for lexer.at < lexer.end {
+		next := state;
+
 		location := lexer.location;
 		at := lexer.at;
 		c := peek_char(lexer);
-		no_advance := false;
+		finish_token := false;
 
 		match state {
 			.Default: {
 				if is_space(c) {
-					continue;
+
 				}
-				else if is_digit(c) {
+				else if is_digit(c) || (c == '.' && is_digit(peek_char(lexer, 1))) {
 					next = if c == '0' then .SpecialNumber else .Number;
 					token = start_token(.Value, at, location);
+					found_digit_dot = false;
 				}
 				else if is_id_char(c) {
 					next = .Identifier;
@@ -110,117 +115,138 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 					next = .CharLit;
 					token = start_token(.Char, at, location);
 				}
+				else {
+					next = .Operator;
+					token = start_token(.Unknown, at, location);
+				}
 			}
 
 			.Number: {
-
-			}
-
-			.SpecialNumber: {
-				if !is_id_char(c) {
-					if is_digit(c)
-						return result, format_error("Invalid number!", location);
+				if is_digit(c) {}
+				else if c == '.' {
+					if found_digit_dot {
+						finish_token = true;
+					}
 					else {
-						no_advance = true;
-						next = .Default;
-						finish_token(token, at, lexer.last_location);
+						found_digit_dot = true;
 					}
 				}
 				else {
-					if c == 'b' {
-
-					}
-					if c == 'x' {
-
-					}
+					finish_token = true;
 				}
 			}
 
+			.SpecialNumber: {
+				at_idx := at - token.str.data;
+				if !is_id_char(c) {
+					if at_idx == 1 && is_digit(c)
+						return result, format_error("Invalid number!", location);
+					if c == '.' {
+						for i in at_idx {
+							if token.str.data[i] == '.' || is_id_char(token.str.data[i]) {
+								finish_token = true;
+							}
+						}
+					}
+				}
+				else {
+					if at_idx == 1 {
+						if c == 'b' {
+
+						}
+						else if c == 'x' {
+
+						}
+						else {
+							finish_token = true;
+						}
+					}
+					else {
+						finish_token = true;
+					}
+				}
+				if finish_token && at_idx == 2 {
+					if is_id_char(token.str.data[1]) {
+						return result, format_error("Special number is not complete.", location);
+					}
+				}
+			}
+			.String: {
+				if c == '"' {
+					finish_token = true;
+				}
+				else if c == '\\' {
+					advance(lexer);
+				}
+			}
+			.CharLit: {
+				at_idx := at - token.str.data;
+				if c == '\'' {
+					finish_token = true;
+				}
+				else if at_idx > 1 {
+					return result, format_error("Multicharacter character literals are not allowed.", location);
+				}
+				else if c == '\\' {
+					advance(lexer);
+				}
+			}
+			.Identifier: {
+				if !is_id_char(c) && !is_digit(c) {
+					finish_token = true;
+				}
+			}
+			.Operator: {
+				// @NOTE: Always try to parse an operator at once for simplicity
+				finish_token = true;
+
+				decr := false;
+				str := string { count = at - token.str.data+2, data = token.str.data };
+				if at + 1 >= lexer.end {
+					decr = true;
+					str.count -= 1;
+				}
+				keyword, found := try_find_keyword(lexer, str);
+				if found {
+					if !decr
+						advance(lexer);
+					advance(lexer);
+					token.type = keyword.type;
+				}
+				else {
+					str = string { count = at - token.str.data+1, data = token.str.data };
+					keyword, found := try_find_keyword(lexer, str);
+					if found {
+						advance(lexer);
+						token.type = keyword.type;
+					}
+					else {
+						token.type = token.str.data[0] as TokenType;
+					}
+				}
+			}
 		};
 
-		if !no_advance advance(lexer);
+		if finish_token {
+			next = .Default;
 
-		state = next;
-        //array.add(&result, token);
-    }
-
-    return result, "";
-}
-
-lex_id :: fn(lexer: *Lexer) -> Token {
-    c := get_char(lexer);
-    #assert is_id_char(c);
-
-    range_start := lexer.location;
-    start := lexer.at;
-    for is_id_char(c) || is_digit(c) {
-        advance(lexer);
-        c = get_char(lexer);
-    }
-    end := lexer.at;
-    range_end := lexer.location;
-
-    id := string { data = start, count = end - start };
-
-    keyword, found := try_find_keyword(lexer, id);
-    if found {
-        return .{ type = keyword.type, str = keyword.id, range = .{ range_start, range_end } };
-    }
-    return .{ type = .ID, str = id, range = Range { range_start, range_end } };
-}
-
-lex_number :: fn(lexer: *Lexer) -> Token {
-
-	c := get_char(lexer);
-	if c == '0' && (peek_char(lexer, 1) == 'b' || peek_char(lexer, 1) == 'x') {
-		io.println("Currently binary and hex literals are not implemented");
-		#assert false
-	}
-	else {
-		range_start := lexer.location;
-		start := lexer.at;
-
-		if c == '-' c = advance(lexer);
-		found_dot := false;
-		for is_digit(c) || c == '.' || c == '_' {
-			if c == '.' {
-				if found_dot break;
-				found_dot = true;
+			finished := end_token(token, at, lexer.last_location);
+			if finished.type == .ID {
+				keyword, found := try_find_keyword(lexer, finished.str);
+				if found
+					finished.type = keyword.type;
 			}
+
+			array.add(&result, finished);
+		}
+		else {
 			advance(lexer);
 		}
 
-		end := lexer.at;
-		range_end := lexer.location;
-		id := string { data = start, count = end - start };
-		return .{ type = .Value, str = id, range = Range { range_start, range_end } };
-	}
-
-	return .{};
-}
-
-lex_char_lit :: fn(lexer: *Lexer) -> Token {
-	return .{};
-}
-
-lex_token :: fn(lexer: *Lexer) -> Token {
-    skip_whitespace(lexer);
-    c := get_char(lexer);
-    if c == '\0' {
-        return Token { type = .EOF, str = "", range = .{ lexer.location, lexer.location } };
+		state = next;
     }
-    if is_id_char(c) {
-        return lex_id(lexer);
-    }
-	else if is_digit(c) ||
-			(c == '.' && is_digit(peek_char(lexer, 1))) ||
-			(c == '-' && is_digit(peek_char(lexer, 1))) {
-		return lex_number(lexer);
-	}
-	else if c == '\'' {
-		return lex_char_lit(lexer);
-	}
-    return .{};
+
+    return result, "";
 }
 
 try_find_keyword :: fn(lexer: *Lexer, word: string) -> (Keyword, bool) {
@@ -352,7 +378,7 @@ rewind :: fn(lexer: *Lexer, num := 1) {
 
 advance :: fn(lexer: *Lexer) -> u8 {
     if lexer.at < lexer.end {
-		lexer.last_location = location;
+		lexer.last_location = lexer.location;
         c := *lexer.at;
         if c == '\n' {
             lexer.location.char = 1;
@@ -367,7 +393,7 @@ advance :: fn(lexer: *Lexer) -> u8 {
     return cast(u8, '\0');
 }
 
-peek_char :: fn(lexer: *Lexer, ahead := 1) -> u8 {
+peek_char :: fn(lexer: *Lexer, ahead := 0) -> u8 {
 	if lexer.at + ahead < lexer.end return lexer.at[ahead];
 	return '\0';
 }
@@ -399,6 +425,7 @@ enum TokenType: i16 {
 	Minus           = cast(i16, '-'),
 	Or	            = cast(i16, '|'),
 	Div	            = cast(i16, '/'),
+	Unknown         = 0,
 	EOF             = -1,
 	ID              = -2,
 	If              = -3,

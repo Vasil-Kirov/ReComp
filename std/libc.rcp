@@ -22,7 +22,7 @@ do_malloc_allocation :: fn(size: int, this: *Allocator) -> ?* {
     return ptr;
 }
 
-make_malloc_allocator :: fn (zero_on_alloc: bool) -> Allocator {
+make_malloc_allocator :: fn (zero_on_alloc := true) -> Allocator {
     return .{
         alloc = do_malloc_allocation,
         free = do_malloc_free,

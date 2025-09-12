@@ -1,7 +1,7 @@
-module lexer
+module lexer;
 
 #import io
-#import mem as *
+_ :: #import mem;
 #import array
 
 struct Location {
@@ -21,11 +21,6 @@ struct Token {
     type: TokenType,
 }
 
-struct Keyword {
-    id: string,
-    type: TokenType,
-}
-
 struct Lexer {
     alloc: *Allocator,
     keywords: []Keyword,
@@ -34,6 +29,11 @@ struct Lexer {
     end: *u8,
 	last_location: Location,
     location: Location,
+}
+
+struct Keyword {
+    id: string,
+    type: TokenType,
 }
 
 enum State {

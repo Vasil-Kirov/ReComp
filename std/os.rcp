@@ -49,7 +49,7 @@ assert :: fn(cond: bool, reason: string) {
         creation_disposition: u32, flags_and_attribs: u32, template: ?*) -> ?*;
     WriteFile :: fn #foreign(hFile: *, lpBuff: *, nBytesToWrite: u32, lpBytesWritten: *u32, lpOverlapped: ?*) -> bool;
     GetStdHandle :: fn #foreign(Handle: u32) -> ?*;
-    ExitProcess :: fn #foreign(ExitCode: u32);
+    ExitProcess :: fn #foreign(ExitCode: u32) #no_return;
     SetConsoleOutputCP :: fn #foreign(code_page: u32) -> i32; // win32 bool
     VirtualAlloc :: fn #foreign(addr: ?*, size: uint, type: u32, protect: u32) -> ?*;
     VirtualFree :: fn #foreign(addr: ?*, size: uint, type: u32) -> bool;
@@ -58,7 +58,7 @@ assert :: fn(cond: bool, reason: string) {
     ReadFile :: fn #foreign(file: *, buf: *, bytes_to_read: u32, bytes_read: ?*u32, overlapped: ?*) -> bool;
     CloseHandle :: fn #foreign(handle: *) -> bool;
 
-    abort :: fn() {
+    abort :: fn() #no_return {
         ExitProcess(1);
         return;
     }
@@ -292,14 +292,14 @@ assert :: fn(cond: bool, reason: string) {
 	O_NONBLOCK	:: 0x800;
 
 #if LIBC {
-	exit :: fn #foreign(code: int);
+	exit :: fn (code: int) #foreign #no_return;
 	
-	abort :: fn() {
+	abort :: fn() #no_return {
 		exit(1);
 	}
 }
 #else {
-	abort :: fn() {
+	abort :: fn() #no_return {
 		syscall(SYS_exit, 1);
 	}
 }

@@ -1,0 +1,74 @@
+module parser;
+
+_ :: #import mem;
+lex :: #import "lexer.rcp";
+#import array;
+#import os;
+
+enum NodeType {
+	Invalid,
+}
+
+struct Node {
+	type: NodeType,
+	location: Location,
+};
+
+alloc_node :: fn(parser: *Parser, type: NodeType, location: Location) -> *Node {
+	node := make_type(Node, parser.alloc);
+	if node == null {
+		stdout := os.stdout();
+		error := "Failed to allocate memory for parsing node";
+		os.write(stdout, error.data, error.count);
+		os.abort();
+	}
+	node.type = type;
+	node.location = location;
+	return node;
+}
+
+parse_tokens :: fn(tokens: []Token, node_allocator: *Allocator) -> []*Node, []string {
+	if tokens.count == 0
+		return .{}, .{};
+
+	parser := Parser {
+		tokens = tokens,
+		at = 0,
+		current_token = &tokens[0],
+		alloc = node_allocator,
+		errors = array.create(string, node_allocator);
+	};
+
+    result := array.create(*Node, parser.alloc);
+
+	for {
+		node := parse_top_level(&parser);
+		if node {
+			array.add(&result, node);
+		}
+	}
+
+	return result, parser.errors;
+}
+
+parse_top_level :: fn(parser: *Parser) -> ?*Node {
+	result := null as ?*Node;
+	
+	match parser.current_token.type {
+
+	}
+
+	return result;
+}
+
+
+#private
+
+struct Parser {
+	tokens: []Token,
+	at: int,
+	current_token: *Token,
+	alloc: *Allocator,
+	errors: []string,
+}
+

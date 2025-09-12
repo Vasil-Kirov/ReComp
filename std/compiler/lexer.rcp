@@ -85,7 +85,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 	token := Token {};
 	found_digit_dot := false;
 
-    for lexer.at < lexer.end {
+    for lexer.at <= lexer.end {
 		next := state;
 
 		location := lexer.location;
@@ -173,6 +173,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 			}
 			.String: {
 				if c == '"' {
+					advance(lexer);
 					finish_token = true;
 				}
 				else if c == '\\' {
@@ -182,6 +183,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 			.CharLit: {
 				at_idx := at - token.str.data;
 				if c == '\'' {
+					advance(lexer);
 					finish_token = true;
 				}
 				else if at_idx > 1 {
@@ -199,6 +201,10 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 			.Operator: {
 				// @NOTE: Always try to parse an operator at once for simplicity
 				finish_token = true;
+				if at == lexer.end {
+					token.type = token.str.data[0] as TokenType;
+					yield;
+				}
 
 				decr := false;
 				str := string { count = at - token.str.data+2, data = token.str.data };
@@ -240,6 +246,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 			array.add(&result, finished);
 		}
 		else {
+			if lexer.at == lexer.end break;
 			advance(lexer);
 		}
 

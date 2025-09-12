@@ -311,6 +311,8 @@ main(int ArgCount, char *Args[])
 #endif
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
+	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile == NULL)
+		return 1;
 
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 

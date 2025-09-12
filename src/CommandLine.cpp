@@ -57,6 +57,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--dump-info"),
 		STR_LIT("--no-thread"),
 	};
+	bool HasPrintedHelp = false;
 
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
@@ -92,6 +93,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[2]))
 		{
+			HasPrintedHelp = true;
 			LINFO(HELP);
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[3]))
@@ -151,7 +153,9 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	}
 	if(Result.BuildFile.Data == NULL && Result.SingleFile.Data == NULL)
 	{
-		LFATAL("No input file");
+		if(!HasPrintedHelp)
+			LINFO(HELP);
+
 		RET_EMPTY(command_line);
 	}
 	if(Result.BuildFile.Data != NULL && Result.SingleFile.Data != NULL)

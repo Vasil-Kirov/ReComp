@@ -173,13 +173,14 @@ struct enum_member
 	string Name;
 	node *Expr;
 	slice<instruction> Evaluate;
-	module *Module;
 	const_value Value;
 };
 
 struct enum_type
 {
 	string Name;
+	module *Module;        // Module where the enum is defined, for building IR
+	slice<import> Imports; // File imports that the enum can use when building IR
 	slice<enum_member> Members;
 	u32 Type;
 };
@@ -264,7 +265,7 @@ u32 FindStruct(string Name);
 u32 FindEnum(string Name);
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT);
 u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags);
-void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original);
+void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original, slice<import> Imports, module *Module);
 b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
 b32 IsString(const type *T, b32 OrCString = false);

@@ -231,6 +231,9 @@ const_value FromInterp(value &Value)
 		unreachable;
 		case TypeKind_Basic:
 		{
+			u32 TSize = GetTypeSize(T);
+			if(T->Basic.Size == -1)
+				TSize = sizeof(size_t);
 			if(HasBasicFlag(T, BasicFlag_Integer | BasicFlag_TypeID))
 			{
 				V.Type = const_type::Integer;
@@ -238,11 +241,49 @@ const_value FromInterp(value &Value)
 				{
 					V.Int.IsSigned = false;
 					V.Int.Unsigned = Value.u64;
+					switch(TSize)
+					{
+						case 1:
+						{
+							V.Int.Unsigned = Value.u8;
+						} break;
+						case 2:
+						{
+							V.Int.Unsigned = Value.u16;
+						} break;
+						case 4:
+						{
+							V.Int.Unsigned = Value.u32;
+						} break;
+						case 8:
+						{
+							V.Int.Unsigned = Value.u64;
+						} break;
+					}
 				}
 				else
 				{
 					V.Int.IsSigned = true;
 					V.Int.Signed = Value.i64;
+					switch(TSize)
+					{
+						case 1:
+						{
+							V.Int.Signed = Value.i8;
+						} break;
+						case 2:
+						{
+							V.Int.Signed = Value.i16;
+						} break;
+						case 4:
+						{
+							V.Int.Signed = Value.i32;
+						} break;
+						case 8:
+						{
+							V.Int.Signed = Value.i64;
+						} break;
+					}
 				}
 			}
 			else if(HasBasicFlag(T, BasicFlag_Float))

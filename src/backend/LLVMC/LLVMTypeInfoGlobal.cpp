@@ -10,6 +10,7 @@ LLVMValueRef RCConstSlice(generator *gen, slice<LLVMValueRef> Slice, LLVMTypeRef
 {
 	LLVMValueRef Count = LLVMConstInt(IntType, Slice.Count, false);
 	LLVMValueRef ArrayGlobal = LLVMAddGlobal(gen->mod, LLVMArrayType2(BaseType, Slice.Count), "");
+	LLVMSetLinkage(ArrayGlobal, LLVMLinkerPrivateLinkage);
 	LLVMSetGlobalConstant(ArrayGlobal, true);
 	LLVMValueRef Array = LLVMConstArray2(BaseType, Slice.Data, Slice.Count);
 	LLVMSetInitializer(ArrayGlobal, Array);
@@ -144,6 +145,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 	LLVMTypeRef TypeInfoArray = LLVMStructType(UnionArrayType.Data, TypeCount, false);
 
 	LLVMValueRef TypeTableContents = LLVMAddGlobal(gen->mod, TypeInfoArray, "base.type_table_contents");
+	LLVMSetLinkage(TypeTableContents, LLVMLinkerPrivateLinkage);
 	LLVMSetGlobalConstant(TypeTableContents, true);
 
 	auto ArrayValues = (LLVMValueRef *)VAlloc(sizeof(LLVMValueRef) * TypeCount);
@@ -300,14 +302,14 @@ LLVMValueRef GenTypeInfo(generator *gen)
 				//     t: type,
 				// }
 
-				auto EnumType = ConvertToLLVMType(gen, T->Enum.Type);
+				auto IntType = ConvertToLLVMType(gen, Basic_int);
 				array<LLVMValueRef> Members{T->Enum.Members.Count};
 				ForArray(Idx, T->Enum.Members)
 				{
 					auto it = T->Enum.Members[Idx];
 					LLVMValueRef ConstVals[] = {
 						RCConstString(gen, it.Name, IntType, StrType),
-						LLVMConstInt(EnumType, it.Value.Int.IsSigned ? it.Value.Int.Signed : it.Value.Int.Unsigned, false),
+						LLVMConstInt(IntType, it.Value.Int.IsSigned ? it.Value.Int.Signed : it.Value.Int.Unsigned, false),
 					};
 					Members[Idx] = LLVMConstNamedStruct(EnumMemberType, ConstVals, ARR_LEN(ConstVals));
 				}

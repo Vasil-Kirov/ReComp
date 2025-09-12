@@ -711,6 +711,22 @@ const symbol *FindSymbol(checker *Checker, const string *ID)
 	symbol *s = Checker->Module->Globals[*ID];
 	if(s)
 		return s;
+
+
+	string NoNamespace = STR_LIT("*");
+	For(Checker->Imported)
+	{
+		if(it->As == NoNamespace)
+		{
+			// @THREADING: NOT THREAD SAFE (maybe)
+			auto Sym = it->M->Globals[*ID];
+			if(Sym)
+			{
+				return Sym;
+			}
+		}
+	}
+
 	return NULL;
 }
 
@@ -2337,11 +2353,13 @@ ANALYZE_SLICE_SELECTOR:
 			}
 			if(IsUntyped(ExprType))
 			{
-				FillUntypedStack(Checker, Basic_uint);
+				FillUntypedStack(Checker, Basic_int);
+				ExprTypeIdx = Basic_int;
 			}
 
 			Expr->Index.OperandType = OperandTypeIdx;
 			Expr->Index.IndexedType = Result;
+			Expr->Index.IndexExprType = ExprTypeIdx;
 		} break;
 		case AST_CHARLIT:
 		{
@@ -3095,10 +3113,15 @@ void AnalyzeFor(checker *Checker, node *Node)
 				ItType = T->Slice.Type;
 			else if(HasBasicFlag(T, BasicFlag_String))
 			{
+
+				/*
+				 * There is a way now :)
+				 *
 				if(g_CompileFlags & CF_Standalone)
 				{
 					RaiseError(true, *Node->ErrorInfo, "Cannot perform utf-8 string iteration in a standalone build");
 				}
+				*/
 				ItType = Basic_u32;
 			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))
@@ -3315,7 +3338,6 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		enum_member Member = {};
 		auto Item = Node->Enum.Items[Idx]->Item;
 		Member.Name = *Item.Name;
-		Member.Module = Checker->Module;
 		if(Item.Expression)
 		{
 			u32 T = AnalyzeExpression(Checker, Item.Expression);
@@ -3327,15 +3349,18 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		{
 			const_value Value = {};
 			Value.Type = const_type::Integer;
-			Value.Int.IsSigned = false;
-			Value.Int.Unsigned = Idx;
+			Value.Int.IsSigned = IsSigned(GetType(Type));
+			if(Value.Int.IsSigned)
+				Value.Int.Signed = Idx;
+			else
+				Value.Int.Unsigned = Idx;
 			Member.Expr = MakeConstant(Node->ErrorInfo, Value);
 			Member.Expr->Constant.Type = Type;
 		}
 		Members.Push(Member);
 	}
 
-	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType);
+	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType, Checker->Imported, Checker->Module);
 }
 
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
@@ -3571,11 +3596,15 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
+			/*
+			 * There is a way now :)
+			 *
 			if(g_CompileFlags & CF_Standalone)
 			{
 				// @TODO: Have a way to specify assert needed functionality to enable it
 				RaiseError(true, *Node->ErrorInfo, "Cannot use #assert in a standalone build");
 			}
+			*/
 			AnalyzeBooleanExpression(Checker, &Node->Assert.Expr);
 		} break;
 		case AST_USING:
@@ -3902,34 +3931,8 @@ void AddGlobalVariable(checker *Checker, const string *Name, const string *LinkN
 	}
 }
 
-void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule)
+void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Module)
 {
-	Checker->Nodes = NodesPtr;
-	Checker->Module = ThisModule;
-	Checker->Scope = {};
-	Checker->CurrentFnReturnTypeIdx = {};
-	Checker->Scope.Push(AllocScope(NULL));
-
-	slice<node *> Nodes = SliceFromArray(*NodesPtr);
-
-	for(int I = 0; I < Nodes.Count; ++I)
-	{
-		if(Nodes[I]->Type == AST_FN)
-		{
-			node *Node = Nodes[I];
-			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
-			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
-			if(!Success)
-			{
-				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
-				Assert(Redifined);
-				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
-						Node->Fn.Name->Data,
-						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
-			}
-		}
-	}
-
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_DECL)
@@ -3948,7 +3951,12 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			{
 				const string *Name = Node->Decl.LHS->ID.Name;
 				string PassName = *Name;
-				const string *LinkName = StructToModuleNamePtr(PassName, ThisModule->Name);
+				const string *LinkName = NULL;
+				if(Node->Decl.LinkName)
+					LinkName = Node->Decl.LinkName;
+				else
+					LinkName = StructToModuleNamePtr(PassName, Module->Name);
+
 				u32 Flags = Node->Decl.Flags & ~SymbolFlag_Function;
 				AddGlobalVariable(Checker, Name, LinkName, Flags, Node, Type);
 			}
@@ -3975,7 +3983,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 					symbol *Sym = NewType(symbol);
 					Sym->Checker = Checker;
 					Sym->Name = (*it)->ID.Name;
-					Sym->LinkName = StructToModuleNamePtr(Name, ThisModule->Name);
+					Sym->LinkName = StructToModuleNamePtr(Name, Module->Name);
 					Sym->Type = Type;
 					Sym->Flags = Node->Decl.Flags;
 					Sym->Node = Node;
@@ -3996,6 +4004,35 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *T
 			{
 				// @NOTE: I don't think there is any way to get here
 				RaiseError(true, *Node->ErrorInfo, "Invalid left-hand side of declaration");
+			}
+		}
+	}
+}
+
+void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *Module)
+{
+	Checker->Nodes = NodesPtr;
+	Checker->Module = Module;
+	Checker->Scope = {};
+	Checker->CurrentFnReturnTypeIdx = {};
+	Checker->Scope.Push(AllocScope(NULL));
+
+	slice<node *> Nodes = SliceFromArray(*NodesPtr);
+
+	for(int I = 0; I < Nodes.Count; ++I)
+	{
+		if(Nodes[I]->Type == AST_FN)
+		{
+			node *Node = Nodes[I];
+			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
+			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
+			if(!Success)
+			{
+				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
+				Assert(Redifined);
+				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
+						Node->Fn.Name->Data,
+						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 			}
 		}
 	}

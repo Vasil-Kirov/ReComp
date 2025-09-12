@@ -263,6 +263,10 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 			Files.Push(StdFiles[i]);
 		}
 	}
+	else
+	{
+		Files.Push(STR_LIT("base.rcp"));
+	}
 
 	// Doesn't care about CF_Standalone
 	Files.Push(STR_LIT("intrin.rcp"));

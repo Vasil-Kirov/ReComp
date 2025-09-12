@@ -218,8 +218,9 @@ struct node
 		struct {
 			node *Operand;
 			node *Expression;
-			u32 OperandType; // Set by semantic analyzer
-			u32 IndexedType; // Set by semantic analyzer
+			u32 OperandType;  // Set by semantic analyzer
+			u32 IndexedType;  // Set by semantic analyzer
+			u32 IndexExprType;// Set by semantic analyzer
 			b32 ForceNotLoad; // Set by semantic analyzer
 		} Index;
 		struct {
@@ -237,6 +238,7 @@ struct node
 			u32 Type;
 		} Constant;
 		struct {
+			const string *LinkName; // Can only be non null on single global decls
 			node *LHS;
 			node *Expression; // NULL in fn args
 			node *Type; // @Nullable

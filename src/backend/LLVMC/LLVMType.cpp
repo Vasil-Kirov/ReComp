@@ -831,6 +831,7 @@ LLVMOpcode RCCast(const type *From, const type *To)
 	}
 	else
 	{
+		LERROR("--- COMPILER BUG ---: %s to %s", GetTypeName(From), GetTypeName(To));
 		Assert(false);
 	}
 	Assert(false);

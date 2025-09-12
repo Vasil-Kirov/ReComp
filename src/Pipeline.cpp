@@ -264,7 +264,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 			LWARN("[ MODULE %s ]\n\n%s", (*it)->Module->Name.Data, Dissasembly.Data);
 		}
 	}
-	BuildEnumIR(SliceFromArray(Modules));
+
+	BuildEnumIR();
 
 	VLibStopTimer(&Timers.IR);
 	// END OF IR GENERATION     --------------------------------------------------
@@ -398,6 +399,11 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
+		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
 		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
@@ -408,8 +414,7 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
-		//File->Module->Checker = File->Checker;
+		AnalyzeGlobalVariables(File->Checker, SliceFromArray(File->Nodes), File->Module);
 	}
 
 	int Result = -1;

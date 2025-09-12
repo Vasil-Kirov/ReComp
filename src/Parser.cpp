@@ -2216,6 +2216,25 @@ node *ParseTopLevel(parser *Parser)
 				if(Parser->CurrentlyPublic)
 					Decl->Decl.Flags |= SymbolFlag_Public;
 				Result = Decl;
+
+				if(Parser->Current->Type == T_LINK)
+				{
+					ERROR_INFO;
+					GetToken(Parser);
+					EatToken(Parser, T_EQ, false);
+					token S = EatToken(Parser, T_STR, true);
+					if(LHS->Type != AST_ID)
+					{
+						RaiseError(true, *ErrorInfo, "External link global must be defined as a single variable!");
+					}
+					if(Decl->Decl.Expression)
+					{
+						RaiseError(true, *ErrorInfo, "External link global cannot have an initilizer");
+					}
+					Decl->Decl.LinkName = S.ID;
+					Decl->Decl.Flags |= SymbolFlag_Extern;
+				}
+
 				EatToken(Parser, ';', false);
 			}
 		} break;
@@ -2453,6 +2472,7 @@ node *CopyASTNode(node *N)
 			R->Decl.Type = CopyASTNode(N->Decl.Type);
 			R->Decl.TypeIndex = N->Decl.TypeIndex;
 			R->Decl.Flags = N->Decl.Flags;
+			R->Decl.LinkName = N->Decl.LinkName;
 		} break;
 
 		case AST_CALL:

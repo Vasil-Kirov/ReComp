@@ -40,8 +40,8 @@ add :: fn(arg_arr: *[]$T, item: T) {
         arr.data = cast(*T, (ptr+1));
     }
 
-    (*arr)[arr.count] = item;
     arr.count += 1;
+    (*arr)[arr.count-1] = item;
 }
 
 free :: fn(arg_arr: *[]$T) {

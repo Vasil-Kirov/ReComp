@@ -794,10 +794,6 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 				return IsLHSAssignable(Checker, LHS->Selector.Operand);
 			}
 		} break;
-		case AST_TYPEINFO:
-		{
-			return false;
-		} break;
 		default:
 		{
 			return false;
@@ -2510,7 +2506,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 				case T_ADDROF:
 				{
 					u32 Pointed = AnalyzeExpression(Checker, Expr->Unary.Operand);
-					if(!IsLHSAssignable(Checker, Expr->Unary.Operand))
+					if(!IsLHSAssignable(Checker, Expr->Unary.Operand) && Expr->Unary.Operand->Type != AST_TYPELIST)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Cannot take address of operand");
 					}

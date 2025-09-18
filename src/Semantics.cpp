@@ -47,7 +47,7 @@ slice<std::pair<symbol*, int>> FindSimilarGlobalsInModule(module *Module, string
 	For(Globals)
 	{
 		i32 Distance = DistanceBetweenStrings(Name, *(*it)->Name, MINIMAL_DISTANCE);
-		if(Distance == INT32_MAX || Distance >= (*it)->Name->Size)
+		if(Distance == INT32_MAX || Distance >= MAX(1, ((ssize_t)(*it)->Name->Size)-2))
 			continue;
 
 		int MaxIdx = -1;
@@ -74,6 +74,13 @@ slice<std::pair<symbol*, int>> FindSimilarGlobalsInModule(module *Module, string
 				SWAP(MostSimilar[i], MostSimilar[j]);
 			}
 		}
+	}
+
+	For(MostSimilar)
+	{
+		if(it->second == INT32_MAX)
+			continue;
+		LDEBUG("%s - distance = %d", it->first->Name->Data, it->second);
 	}
 
 	return SliceFromArray(MostSimilar);

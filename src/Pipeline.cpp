@@ -298,7 +298,6 @@ void ParseFile(void *File_)
 {
 	file *File = (file *)File_;
 	parse_result Result = ParseTokens(File, SliceFromArray(ConfigIDs));
-	LDEBUG("%s: node_count %d", File->Name.Data, Result.Nodes.Count);
 
 	CurrentPipeline.ParseResults.Mutex.lock();
 	CurrentPipeline.ParseResults.Results.Push(Result);

@@ -286,3 +286,17 @@ i32 DistanceBetweenStrings(const string &A, const string &B, int Threshold)
 
 }
 
+string QuickBuild(const char *fmt, ...)
+{
+	char Buffer[8192] = {};
+
+	va_list Args;
+	va_start(Args, fmt);
+	
+	vsnprintf(Buffer, 8192, fmt, Args);
+	
+	va_end(Args);
+
+	return MakeString(Buffer);
+}
+

@@ -79,5 +79,7 @@ void PushBuilder(string_builder *Builder, char C);
 void PushBuilderFormated(string_builder *Builder, const char *Format, ...);
 
 string MakeStringSlice(const char *Ptr, size_t Size);
+string QuickBuild(const char *fmt, ...)
+__attribute__((format (printf, 1, 2)));
 
 

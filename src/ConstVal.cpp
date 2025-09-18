@@ -306,6 +306,12 @@ const_value FromInterp(value &Value)
 				V.Type = const_type::String;
 				V.String.Data = DupeType(TheString, string);
 			}
+			else if(HasBasicFlag(T, BasicFlag_Boolean))
+			{
+				V.Type = const_type::Integer;
+				V.Int.IsSigned = false;
+				V.Int.Unsigned = Value.u8;
+			}
 			else
 			{
 				unreachable;

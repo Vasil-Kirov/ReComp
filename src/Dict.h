@@ -70,9 +70,8 @@ struct dict {
 		Data.Push(Item);
 		return true;
 	}
-	bool Contains(string Key)
+	bool Contains(string Key, u32 Hash)
 	{
-		u32 Hash = murmur3_32((const u8 *)Key.Data, Key.Size, SEED);
 		ForArray(Idx, Keys)
 		{
 			if(Keys[Idx].Hash == Hash)
@@ -83,6 +82,11 @@ struct dict {
 		}
 
 		return false;
+	}
+	bool Contains(string Key)
+	{
+		u32 Hash = murmur3_32((const u8 *)Key.Data, Key.Size, SEED);
+		return Contains(Key, Hash);
 	}
 	T* GetUnstablePtr(string Key)
 	{

@@ -152,9 +152,9 @@ struct node
 		struct {
 			node *Expression;
 			slice<node *> Cases;
-			u32 MatchType; // Set by semantic analyzer
+			u32 SwitchType; // Set by semantic analyzer
 			u32 ReturnType; // Set by semantic analyzer
-		} Match;
+		} Switch;
 		struct {
 			node *Value;
 			slice<node *> Body;

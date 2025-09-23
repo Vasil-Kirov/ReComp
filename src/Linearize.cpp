@@ -71,8 +71,8 @@ int Linearizer::LinearizeNode(node *Node)
 		} break;
 		case AST_SWITCH:
 		{
-			Result.Left = LinearizeNode(Node->Match.Expression);
-			Result.Right = LinearizeBody(Node->Match.Cases);
+			Result.Left = LinearizeNode(Node->Switch.Expression);
+			Result.Right = LinearizeBody(Node->Switch.Cases);
 		} break;
 		case AST_LISTITEM:
 		{

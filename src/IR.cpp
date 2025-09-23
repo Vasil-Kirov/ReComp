@@ -530,25 +530,35 @@ PUSH_PTR:
 	Args.Push(Pass);
 }
 
-u32 BuildIRIntMatch(block_builder *Builder, node *Node)
+struct switch_context
+{
+	u32 ResultReg;
+	u32 Matcher;
+	slice<u32> CaseBlocks;
+	slice<u32> CaseValues;
+	u32 Default;
+	u32 StartBlock;
+	basic_block After;
+};
+
+switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_SWITCH);
-
 	u32 Result = -1;
-	if(Node->Match.ReturnType != INVALID_TYPE)
+	if(Node->Switch.ReturnType != INVALID_TYPE)
 		Result = PushInstruction(Builder,
-			Instruction(OP_ALLOC, -1, Node->Match.ReturnType, Builder));
+			Instruction(OP_ALLOC, -1, Node->Switch.ReturnType, Builder));
 
 	u32 StartBlock = Builder->CurrentBlock.ID;
 
-	u32 Matcher = BuildIRFromExpression(Builder, Node->Match.Expression);
+	u32 Matcher = BuildIRFromExpression(Builder, Node->Switch.Expression);
 	basic_block After = AllocateBlock(Builder);
 	dynamic<u32> CaseBlocks = {};
 	dynamic<u32> OnValues = {};
 	u32 Default = -1;
-	ForArray(Idx, Node->Match.Cases)
+	ForArray(Idx, Node->Switch.Cases)
 	{
-		node *Case = Node->Match.Cases[Idx];
+		node *Case = Node->Switch.Cases[Idx];
 		if(Case->Case.Value == NULL)
 		{
 			OnValues.Push(0);
@@ -571,11 +581,11 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 	}
 
 	Builder->YieldReturn.Push({.ToBlockID = After.ID, .ValueStore = Result});
-	ForArray(Idx, Node->Match.Cases)
+	ForArray(Idx, Node->Switch.Cases)
 	{
 		basic_block CaseBlock = AllocateBlock(Builder);
 		Terminate(Builder, CaseBlock);
-		node *Case = Node->Match.Cases[Idx];
+		node *Case = Node->Switch.Cases[Idx];
 		ForArray(BodyIdx, Case->Case.Body)
 		{
 			node *Node = Case->Case.Body[BodyIdx];
@@ -606,31 +616,42 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 	Builder->YieldReturn.Pop();
 	Terminate(Builder, After);
 
+	return (switch_context) {Result, Matcher,
+		SliceFromArray(CaseBlocks), SliceFromArray(OnValues),
+		Default, StartBlock, After};
+}
+
+u32 BuildIRIntMatch(block_builder *Builder, node *Node)
+{
+	Assert(Node->Type == AST_SWITCH);
+
+	switch_context c = BuildIRGenericSwitchPart(Builder, Node);
+
 	for(int i = 0; i < Builder->Function->Blocks.Count; ++i)
 	{
-		if(Builder->Function->Blocks[i].ID == StartBlock)
+		if(Builder->Function->Blocks[i].ID == c.StartBlock)
 		{
 			ir_switchint *Info = NewType(ir_switchint);
-			Info->OnValues = SliceFromArray(OnValues);
-			Info->Cases    = SliceFromArray(CaseBlocks);
-			Info->Default  = Default;
-			Info->After    = After.ID;
-			Info->Matcher  = Matcher;
-			instruction I = Instruction(OP_SWITCHINT, (u64)Info, Node->Match.ReturnType, Builder);
+			Info->OnValues = c.CaseValues;
+			Info->Cases    = c.CaseBlocks;
+			Info->Default  = c.Default;
+			Info->After    = c.After.ID;
+			Info->Matcher  = c.Matcher;
+			instruction I = Instruction(OP_SWITCHINT, (u64)Info, Node->Switch.ReturnType, Builder);
 			Builder->Function->Blocks.Data[i].Code.Push(I);
 			break;
 		}
 	}
 
-	if(Result != -1)
+	if(c.ResultReg != -1)
 	{
-		if(IsLoadableType(Node->Match.ReturnType))
+		if(IsLoadableType(Node->Switch.ReturnType))
 		{
-			Result = PushInstruction(Builder,
-					Instruction(OP_LOAD, 0, Result, Node->Match.ReturnType, Builder));
+			c.ResultReg = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, c.ResultReg, Node->Switch.ReturnType, Builder));
 		}
 	}
-	return Result;
+	return c.ResultReg;
 }
 
 void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, string BonusMessage)
@@ -704,23 +725,81 @@ void BuildAssertExpr(block_builder *Builder, u32 Expr, const error_info *Info, s
 	Terminate(Builder, After);
 }
 
+u32 BuildIRStringMatch(block_builder *Builder, node *Node)
+{
+	switch_context c = BuildIRGenericSwitchPart(Builder, Node);
+
+	basic_block Start = AllocateBlock(Builder);
+	For(Builder->Function->Blocks)
+	{
+		if(it->ID == c.StartBlock)
+		{
+			Builder->CurrentBlock = *it;
+			Builder->CurrentBlock.HasTerminator = false;
+			PushInstruction(Builder, Instruction(OP_JMP, Start.ID, Basic_type, Builder));
+			Builder->CurrentBlock.HasTerminator = true;
+			*it = Builder->CurrentBlock;
+
+			Builder->CurrentBlock = Start;
+			break;
+		}
+	}
+
+	ForArray(Idx, c.CaseValues)
+	{
+		u32 Cmp = BuildStringCompare(Builder, c.Matcher, c.CaseValues[Idx]);
+
+		basic_block After;
+		if(Idx + 1 != c.CaseValues.Count)
+		{
+			After = AllocateBlock(Builder);
+		}
+		else if(c.Default != -1)
+		{
+			PushInstruction(Builder, Instruction(OP_IF, c.CaseBlocks[Idx], c.CaseBlocks[c.Default], Cmp, Basic_bool));
+			Terminate(Builder, c.After);
+			break;
+		}
+		else
+		{
+			After = c.After;
+		}
+		PushInstruction(Builder, Instruction(OP_IF, c.CaseBlocks[Idx], After.ID, Cmp, Basic_bool));
+		Terminate(Builder, After);
+	}
+
+	if(c.ResultReg != -1)
+	{
+		if(IsLoadableType(Node->Switch.ReturnType))
+		{
+			c.ResultReg = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, c.ResultReg, Node->Switch.ReturnType, Builder));
+		}
+	}
+	return c.ResultReg;
+}
+
 u32 BuildIRSwitch(block_builder *Builder, node *Node)
 {
 	Assert(Node->Type == AST_SWITCH);
-	Assert(Node->Match.Cases.Count != 0);
+	Assert(Node->Switch.Cases.Count != 0);
 	//u32 Matcher = BuildIRFromExpression(Builder, Node->Match.Expression);
 
 	u32 Result = -1;
 
-	const type *MT = GetType(Node->Match.MatchType);
+	const type *MT = GetType(Node->Switch.SwitchType);
 	if(HasBasicFlag(MT, BasicFlag_Integer))
 	{
 		Result = BuildIRIntMatch(Builder, Node);
 	}
 	else if(MT->Kind == TypeKind_Enum)
 	{
-		Node->Match.MatchType = MT->Enum.Type;
+		Node->Switch.SwitchType = MT->Enum.Type;
 		Result = BuildIRIntMatch(Builder, Node);
+	}
+	else if(IsString(MT))
+	{
+		Result = BuildIRStringMatch(Builder, Node);
 	}
 	else
 	{
@@ -1877,7 +1956,7 @@ u32 BuildLogicalOr(block_builder *Builder, node *Left, node *Right)
 			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
 }
 
-u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=false)
+u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq)
 {
 	u32 LeftCount = PushInstruction(Builder, 
 			Instruction(OP_INDEX, Left, 0, Basic_string, Builder));
@@ -1904,13 +1983,13 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=fa
 	u32 IsCount = PushInstruction(Builder, 
 			Instruction(OP_EQEQ, LeftCount, RightCount, Basic_int, Builder));
 
+	// if count == other_count {
+	//		memcmp
+	// } else {
+	//		neq
+	// }
 	if(IsNeq)
 	{
-		// if count == other_count {
-		//		memcmp
-		// } else {
-		//		neq
-		// }
 		PushInstruction(Builder, 
 				Instruction(OP_IF, EvaluateRight.ID, TrueBlock.ID, IsCount, Basic_bool));
 	}

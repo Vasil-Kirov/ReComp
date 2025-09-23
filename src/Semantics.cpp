@@ -1281,7 +1281,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_SWITCH:
 		{
-			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Match.Expression);
+			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Switch.Expression);
 			const type *ExprType = GetType(ExprTypeIdx);
 			if(IsUntyped(ExprType))
 			{
@@ -1292,24 +1292,24 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(!IsTypeMatchable(ExprType))
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Type %s cannot be used for a match expression", GetTypeName(ExprType));
+				RaiseError(true, *Expr->ErrorInfo, "Type %s cannot be used for a switch expression", GetTypeName(ExprType));
 			}
-			if(Expr->Match.Cases.Count == 0)
+			if(Expr->Switch.Cases.Count == 0)
 			{
-				RaiseError(false, *Expr->ErrorInfo, "`match` expression has no cases");
+				RaiseError(false, *Expr->ErrorInfo, "`switch` expression has no cases");
 			}
 
 			Checker->AutoEnum.Push(ExprTypeIdx);
 
 			b32 FoundDefault = false;
-			ForArray(Idx, Expr->Match.Cases)
+			ForArray(Idx, Expr->Switch.Cases)
 			{
-				node *Case = Expr->Match.Cases[Idx];
+				node *Case = Expr->Switch.Cases[Idx];
 				if(Case->Case.Value->Type == AST_ID && *Case->Case.Value->ID.Name == STR_LIT("_"))
 				{
 					if(FoundDefault)
 					{
-						RaiseError(false, *Case->ErrorInfo, "Multiple default cases in match");
+						RaiseError(false, *Case->ErrorInfo, "Multiple default cases in switch");
 					}
 					FoundDefault = true;
 					// default:
@@ -1328,7 +1328,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 
 							u32 CaseTypeIdx = AnalyzeExpression(Checker, *it);
-							TypeCheckAndPromote(Checker, (*it)->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, it, "Cannot match expression of type %s with case of type %s");
+							TypeCheckAndPromote(Checker, (*it)->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, it, "Cannot switch expression of type %s with case of type %s");
 						}
 					}
 					else
@@ -1339,7 +1339,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						}
 
 						u32 CaseTypeIdx = AnalyzeExpression(Checker, Case->Case.Value);
-						TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot match expression of type %s with case of type %s");
+						TypeCheckAndPromote(Checker, Case->ErrorInfo, ExprTypeIdx, CaseTypeIdx, NULL, &Case->Case.Value, "Cannot switch expression of type %s with case of type %s");
 					}
 				}
 			}
@@ -1352,13 +1352,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			u32 WasYieldT = Checker->YieldT;
 
 			Checker->Scope.Push(AllocScope(Expr, Checker->Scope.TryPeek()));
-			ForArray(Idx, Expr->Match.Cases)
+			ForArray(Idx, Expr->Switch.Cases)
 			{
 				Checker->YieldT = INVALID_TYPE;
-				node *Case = Expr->Match.Cases[Idx];
+				node *Case = Expr->Switch.Cases[Idx];
 				if(!Case->Case.Body.IsValid())
 				{
-					RaiseError(false, *Case->ErrorInfo, "Missing body for case in match statement");
+					RaiseError(false, *Case->ErrorInfo, "Missing body for case in switch statement");
 					continue;
 				}
 
@@ -1383,7 +1383,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 					else if(Checker->YieldT != INVALID_TYPE && Result != INVALID_TYPE)
 					{
-						Result = TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Checker->YieldT, NULL, Checker->YieldExpr, "match expected a yield of type %s based on previous cases, but got type %s");
+						Result = TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Checker->YieldT, NULL, Checker->YieldExpr, "switch expected a yield of type %s based on previous cases, but got type %s");
 					}
 				}
 				CheckBodyForUnreachableCode(Case->Case.Body);
@@ -1393,12 +1393,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Checker->YieldT = WasYieldT;
 			Checker->YieldExpr = WasYieldExpr;
-			Expr->Match.MatchType = ExprTypeIdx;
-			Expr->Match.ReturnType = Result;
+			Expr->Switch.SwitchType = ExprTypeIdx;
+			Expr->Switch.ReturnType = Result;
 
-			if(IsUntyped(Expr->Match.ReturnType))
+			if(IsUntyped(Expr->Switch.ReturnType))
 			{
-				Checker->UntypedStack.Push(&Expr->Match.ReturnType);
+				Checker->UntypedStack.Push(&Expr->Switch.ReturnType);
 			}
 		} break;
 		case AST_RESERVED:

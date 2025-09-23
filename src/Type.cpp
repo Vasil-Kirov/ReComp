@@ -1925,7 +1925,7 @@ b32 IsTypeMatchable(const type *T)
 {
 	if(T->Kind == TypeKind_Basic)
 	{
-		return HasBasicFlag(T, BasicFlag_Integer) || HasBasicFlag(T, BasicFlag_Float);
+		return HasBasicFlag(T, BasicFlag_Integer) || HasBasicFlag(T, BasicFlag_Float) || IsString(T);
 	}
 
 	return T->Kind == TypeKind_Enum;

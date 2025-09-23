@@ -143,8 +143,8 @@ node *MakePointerDiff(const error_info *ErrorInfo, node *Left, node *Right, u32 
 node *MakeSwitch(const error_info *ErrorInfo, node *Expression, slice<node *> Cases)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_SWITCH);
-	Result->Match.Expression = Expression;
-	Result->Match.Cases = Cases;
+	Result->Switch.Expression = Expression;
+	Result->Switch.Cases = Cases;
 
 	return Result;
 }
@@ -2601,10 +2601,10 @@ node *CopyASTNode(node *N)
 
 		case AST_SWITCH:
 		{
-			R->Match.Expression = CopyASTNode(N->Match.Expression);
-			R->Match.Cases = CopyNodeSlice(N->Match.Cases);
-			R->Match.MatchType = N->Match.MatchType;
-			R->Match.ReturnType = N->Match.ReturnType;
+			R->Switch.Expression = CopyASTNode(N->Switch.Expression);
+			R->Switch.Cases = CopyNodeSlice(N->Switch.Cases);
+			R->Switch.SwitchType = N->Switch.SwitchType;
+			R->Switch.ReturnType = N->Switch.ReturnType;
 		} break;
 
 		case AST_CASE:

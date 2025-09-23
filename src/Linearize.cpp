@@ -69,7 +69,7 @@ int Linearizer::LinearizeNode(node *Node)
 			Result.Left = LinearizeNode(Node->Case.Value);
 			Result.Right = LinearizeBody(Node->Case.Body);
 		} break;
-		case AST_MATCH:
+		case AST_SWITCH:
 		{
 			Result.Left = LinearizeNode(Node->Match.Expression);
 			Result.Right = LinearizeBody(Node->Match.Cases);

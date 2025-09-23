@@ -80,7 +80,7 @@ enum token_type
 	T_PWDIF  = -47,
 	T_CHAR   = -48,
 	T_ENUM   = -49,
-	T_MATCH  = -50,
+	T_SWITCH = -50,
 	T_INTR   = -60,
 	T_DEFER  = -61,
 	T_LINK   = -62,
@@ -108,6 +108,7 @@ enum token_type
 	T_FILE_LOCATION = -84,
 	T_STATIC = -85,
 	T_NORETURN = -86,
+	T_CASE = -87,
 };
 
 struct token

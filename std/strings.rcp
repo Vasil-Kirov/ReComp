@@ -19,17 +19,17 @@ to_int :: fn (str: string) -> int {
 
         res *= 10;
         
-        val := match c {
-            '0': yield 0;
-            '1': yield 1;
-            '2': yield 2;
-            '3': yield 3;
-            '4': yield 4;
-            '5': yield 5;
-            '6': yield 6;
-            '7': yield 7;
-            '8': yield 8;
-            '9': yield 9;
+        val := switch c {
+            case '0': yield 0;
+            case '1': yield 1;
+            case '2': yield 2;
+            case '3': yield 3;
+            case '4': yield 4;
+            case '5': yield 5;
+            case '6': yield 6;
+            case '7': yield 7;
+            case '8': yield 8;
+            case '9': yield 9;
         };
         res += val;
     }
@@ -139,22 +139,22 @@ advance :: fn(pos: *u8) -> *u8 {
 }
 
 extract_codepoint :: fn (p: *u8, size: int) -> u32 {
-    res := match size {
-		1: {
+    res := switch size {
+		case 1: {
 			yield cast(u32, *p);
 		}
-		2: {
+		case 2: {
 			First := *p & 0b0001_1111;
 			Second := *(p+1) & 0b0011_1111;
 			yield (First as u32) << 6 | Second as u32;
 		}
-		3: {
+		case 3: {
 			First := *p & 0b0000_1111;
 			Second := *(p+1) & 0b0011_1111;
 			Third := *(p+2) & 0b0011_1111;
 			yield (First as u32) << 12 | (Second as u32) << 6 | Third as u32;
 		}
-		4: {
+		case 4: {
 			First := *p & 0b0000_0111;
 			Second := *(p+1) & 0b0011_1111;
 			Third := *(p+2) & 0b0011_1111;

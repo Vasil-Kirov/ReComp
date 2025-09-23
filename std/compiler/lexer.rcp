@@ -93,8 +93,8 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 		c := peek_char(lexer);
 		finish_token := false;
 
-		match state {
-			.Default: {
+		switch state {
+			case .Default: {
 				if is_space(c) {
 
 				}
@@ -121,7 +121,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 				}
 			}
 
-			.Number: {
+			case .Number: {
 				if is_digit(c) {}
 				else if c == '.' {
 					if found_digit_dot {
@@ -136,7 +136,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 				}
 			}
 
-			.SpecialNumber: {
+			case .SpecialNumber: {
 				at_idx := at - token.str.data;
 				if !is_id_char(c) {
 					if at_idx == 1 && is_digit(c)
@@ -171,7 +171,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 					}
 				}
 			}
-			.String: {
+			case .String: {
 				if c == '"' {
 					advance(lexer);
 					finish_token = true;
@@ -180,7 +180,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 					advance(lexer);
 				}
 			}
-			.CharLit: {
+			case .CharLit: {
 				at_idx := at - token.str.data;
 				if c == '\'' {
 					advance(lexer);
@@ -193,12 +193,12 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 					advance(lexer);
 				}
 			}
-			.Identifier: {
+			case .Identifier: {
 				if !is_id_char(c) && !is_digit(c) {
 					finish_token = true;
 				}
 			}
-			.Operator: {
+			case .Operator: {
 				// @NOTE: Always try to parse an operator at once for simplicity
 				finish_token = true;
 				if at == lexer.end {
@@ -339,7 +339,7 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 	add_keyword(lexer, "enum",          .Enum);
 	add_keyword(lexer, "union",         .Union);
 	add_keyword(lexer, "defer",         .Defer);
-	add_keyword(lexer, "match",         .Match);
+	add_keyword(lexer, "switch",        .Switch);
 	add_keyword(lexer, "size_of",       .SizeOf);
 	add_keyword(lexer, "type_of",       .TypeOf);
 	add_keyword(lexer, "void",          .Void);
@@ -481,7 +481,7 @@ enum TokenType: i16 {
 	PWDIf           = -47,
 	Char            = -48,
 	Enum            = -49,
-	Match           = -50,
+	Switch          = -50,
 	Intrinsic       = -60,
 	Defer           = -61,
 	Link            = -62,

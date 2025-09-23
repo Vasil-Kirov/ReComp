@@ -2,34 +2,59 @@ module parser;
 
 _ :: #import mem;
 lex :: #import "lexer.rcp";
+base :: #import base;
 #import array;
 #import os;
 
-enum NodeType {
-	Invalid,
+enum OpCode {
+	Nop,
+	Var,
+	Name,
+	Function,
+	Block,
 }
 
-struct Node {
-	type: NodeType,
+struct Instruction {
+	op: OpCode,
+	reg: union {
+		lr: struct {
+			left: u32,
+			right: u32,
+		},
+		big_reg: u64,
+		ptr: ?*,
+	},
+	result: u32,
+	type_idx: u32,
 	location: Location,
 };
 
-alloc_node :: fn(parser: *Parser, type: NodeType, location: Location) -> *Node {
-	node := make_type(Node, parser.alloc);
-	if node == null {
+make_instr :: fn(parser: *Parser, type: OpCode, location: Location) -> Instruction {
+	instr := make_type(Instruction, parser.alloc);
+	if instr == null {
 		stdout := os.stdout();
 		error := "Failed to allocate memory for parsing node";
 		os.write(stdout, error.data, error.count);
 		os.abort();
 	}
-	node.type = type;
-	node.location = location;
-	return node;
+	instr.op = type;
+	instr.location = location;
+	return instr;
 }
 
-parse_tokens :: fn(tokens: []Token, node_allocator: *Allocator) -> []*Node, []string {
+parse_tokens :: fn(tokens: []Token, allocator: *Allocator) -> []*Node, []string {
 	if tokens.count == 0
 		return .{}, .{};
+
+	// @TODO: check for null and return error
+	global_body: Body;
+	global_body.instructions = array.create(Instruction, allocator);
+	#assert global_body.instructions.data;
+
+
+	builder := Builder {
+		current_body = &global_body;
+	}
 
 	parser := Parser {
 		tokens = tokens,
@@ -37,34 +62,40 @@ parse_tokens :: fn(tokens: []Token, node_allocator: *Allocator) -> []*Node, []st
 		current_token = &tokens[0],
 		alloc = node_allocator,
 		errors = array.create(string, node_allocator);
+		current_builder = &builder;
 	};
 
     result := array.create(*Node, parser.alloc);
 
 	for {
-		node := parse_top_level(&parser);
-		if node {
-			array.add(&result, node);
+		node, got_something := parse_top_level(&parser);
+		if got_something {
+			array.add(&global_body, node);
 		}
 	}
 
 	return result, parser.errors;
 }
 
-parse_top_level :: fn(parser: *Parser) -> ?*Node {
-	result := null as ?*Node;
-	
+parse_top_level :: fn(parser: *Parser) -> Instruction, bool {
 	match parser.current_token.type {
 
 	}
-
-	return result;
 }
 
 
 #private
 
+struct Body {
+	instructions: []Instruction
+}
+
+struct Builder {
+	current_body: *Body,
+}
+
 struct Parser {
+	builder: *Builder,
 	tokens: []Token,
 	at: int,
 	current_token: *Token,

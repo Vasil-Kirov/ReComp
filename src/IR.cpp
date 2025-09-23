@@ -532,7 +532,7 @@ PUSH_PTR:
 
 u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 {
-	Assert(Node->Type == AST_MATCH);
+	Assert(Node->Type == AST_SWITCH);
 
 	u32 Result = -1;
 	if(Node->Match.ReturnType != INVALID_TYPE)
@@ -704,9 +704,9 @@ void BuildAssertExpr(block_builder *Builder, u32 Expr, const error_info *Info, s
 	Terminate(Builder, After);
 }
 
-u32 BuildIRMatch(block_builder *Builder, node *Node)
+u32 BuildIRSwitch(block_builder *Builder, node *Node)
 {
-	Assert(Node->Type == AST_MATCH);
+	Assert(Node->Type == AST_SWITCH);
 	Assert(Node->Match.Cases.Count != 0);
 	//u32 Matcher = BuildIRFromExpression(Builder, Node->Match.Expression);
 
@@ -910,9 +910,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			
 		} break;
-		case AST_MATCH:
+		case AST_SWITCH:
 		{
-			Result = BuildIRMatch(Builder, Node);
+			Result = BuildIRSwitch(Builder, Node);
 		} break;
 		case AST_RESERVED:
 		{

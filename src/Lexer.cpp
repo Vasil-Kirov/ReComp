@@ -636,7 +636,8 @@ void InitializeLexer()
 	AddKeyword("enum",   T_ENUM);
 	AddKeyword("union",  T_UNION);
 	AddKeyword("defer",  T_DEFER);
-	AddKeyword("match",  T_MATCH);
+	AddKeyword("switch",  T_SWITCH);
+	AddKeyword("case",    T_CASE);
 	AddKeyword("size_of", T_SIZEOF);
 	AddKeyword("type_of", T_TYPEOF);
 	AddKeyword("void", T_VOID);

@@ -140,9 +140,9 @@ node *MakePointerDiff(const error_info *ErrorInfo, node *Left, node *Right, u32 
 	return Result;
 }
 
-node *MakeMatch(const error_info *ErrorInfo, node *Expression, slice<node *> Cases)
+node *MakeSwitch(const error_info *ErrorInfo, node *Expression, slice<node *> Cases)
 {
-	node *Result = AllocateNode(ErrorInfo, AST_MATCH);
+	node *Result = AllocateNode(ErrorInfo, AST_SWITCH);
 	Result->Match.Expression = Expression;
 	Result->Match.Cases = Cases;
 
@@ -1392,7 +1392,7 @@ node *ParseOperand(parser *Parser)
 				ParseBody(Parser, Result->Fn.Body);
 			}
 		} break;
-		case T_MATCH:
+		case T_SWITCH:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
@@ -1404,9 +1404,10 @@ node *ParseOperand(parser *Parser)
 
 			auto ParseFn = [](parser *Parser) -> node* {
 				ERROR_INFO;
-				if(Parser->Current->Type == T_ENDSCOPE)
+				if(Parser->Current->Type != T_CASE)
 					return NULL;
 
+				EatToken(Parser, T_CASE, true);
 
 				dynamic<node *> List = {};
 				node *Value = NULL;
@@ -1448,7 +1449,7 @@ node *ParseOperand(parser *Parser)
 			slice<node *> Cases = Delimited(Parser, 0, ParseFn);
 
 			EatToken(Parser, T_ENDSCOPE, true);
-			Result = MakeMatch(ErrorInfo, Expr, Cases);
+			Result = MakeSwitch(ErrorInfo, Expr, Cases);
 		} break;
 		case T_OPENBRACKET:
 		{
@@ -2598,7 +2599,7 @@ node *CopyASTNode(node *N)
 			R->Item.Expression = CopyASTNode(N->Item.Expression);
 		} break;
 
-		case AST_MATCH:
+		case AST_SWITCH:
 		{
 			R->Match.Expression = CopyASTNode(N->Match.Expression);
 			R->Match.Cases = CopyNodeSlice(N->Match.Cases);

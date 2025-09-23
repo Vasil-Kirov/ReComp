@@ -184,31 +184,31 @@ get_struct_alignment :: fn(st: type) -> int {
 
 get_type_alignment :: fn(t: type) -> int {
     ti := type_info(t);
-    result := match ti.kind {
-        .Basic: {
+    result := switch ti.kind {
+        case .Basic: {
             if t == string
                 yield 8;
             yield get_basic_type_size(ti.t.basic);
         }
-        .Function: {
+        case .Function: {
             yield 8;
         }
-        .Pointer: {
+        case .Pointer: {
             yield 8;
         }
-        .Slice: {
+        case .Slice: {
             yield 8;
         }
-        .Array: {
+        case .Array: {
             yield get_type_alignment(ti.t.array.t);
         }
-        .Enum: {
+        case .Enum: {
             yield get_type_alignment(ti.t.enum_.t);
         }
-        .Struct: {
+        case .Struct: {
             yield get_struct_alignment(t);
         }
-        .Vector: {
+        case .Vector: {
             yield cast(int, ti.t.vector.elem_count * 4);
         }
     };
@@ -246,29 +246,29 @@ get_struct_size :: fn(st: type) -> int {
 
 get_type_size :: fn(t: type) -> int {
     ti := type_info(t);
-    result := match ti.kind {
-        .Basic: {
+    result := switch ti.kind {
+        case .Basic: {
             yield get_basic_type_size(ti.t.basic);
         }
-        .Function: {
+        case .Function: {
             yield get_register_bit_count();
         }
-        .Pointer: {
+        case .Pointer: {
             yield get_register_bit_count();
         }
-        .Array: {
+        case .Array: {
             yield get_type_size(ti.t.array.t) * ti.t.array.member_count as int;
         }
-        .Slice: {
+        case .Slice: {
             yield get_register_bit_count() / 4;
         }
-        .Enum: {
+        case .Enum: {
             yield get_type_size(ti.t.enum_.t);
         }
-        .Struct: {
+        case .Struct: {
             yield get_struct_size(t);
         }
-        .Vector: {
+        case .Vector: {
             yield cast(int, ti.t.vector.elem_count * 4);
         }
     };

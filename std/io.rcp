@@ -91,14 +91,14 @@ read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 #private
 
 print_typetype :: fn(b: *Builder, info: *TypeInfo) {
-    match info.kind {
-        TypeKind.Invalid: {
+    switch info.kind {
+        case TypeKind.Invalid: {
             builder_append(b, "invalid");
         }
-        TypeKind.Basic: {
+        case TypeKind.Basic: {
             builder_append(b, info.t.basic.name);
         }
-        TypeKind.Function: {
+        case TypeKind.Function: {
             builder_append(b, "fn(");
             args := info.t.function.args_t;
             for i, arg in args {
@@ -117,48 +117,47 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
                 }
             }
         }
-        TypeKind.Struct: {
+        case TypeKind.Struct: {
             builder_append(b, info.t.struct_.name);
         }
-        TypeKind.Pointer: {
+        case TypeKind.Pointer: {
             builder_append(b, "*");
             print_typetype(b, type_info(info.t.pointer.pointee));
         }
-        TypeKind.Array: {
+        case TypeKind.Array: {
             builder_append_u8(b, '[');
             format_uint(b, info.t.array.member_count);
             builder_append_u8(b, ']');
             print_typetype(b, type_info(info.t.array.t));
         }
-        TypeKind.Slice: {
+        case TypeKind.Slice: {
             builder_append(b, "[]");
             print_typetype(b, type_info(info.t.slice.t));
         }
-        TypeKind.Vector: {
+        case TypeKind.Vector: {
             vect := info.t.vector;
             builder_append_u8(b, '<');
-            match vect.kind {
-                .Float: {
+            switch vect.kind {
+                case .Float: {
                     builder_append(b, "f32x");
                 }
-                .Int: {
+                case .Int: {
                     builder_append(b, "i32x");
                 }
-                .UInt: {
+                case .UInt: {
                     builder_append(b, "u32x");
                 }
             };
             format_uint(b, vect.elem_count);
             builder_append_u8(b, '>');
         }
-        TypeKind.Enum: {
+        case TypeKind.Enum: {
             builder_append(b, info.t.enum_.name);
         }
-        TypeKind.Generic: {
+        case TypeKind.Generic: {
             builder_append(b, info.t.generic.name);
         }
     };
-
 }
 
 
@@ -226,10 +225,10 @@ print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
 
 print_type :: fn(b: *Builder, arg: base.Arg) {
     t := type_info(arg.t);
-    match t.kind {
-        base.TypeKind.Invalid: {
+    switch t.kind {
+        case base.TypeKind.Invalid: {
         }
-        TypeKind.Basic: {
+        case TypeKind.Basic: {
             basic := t.t.basic;
             if basic.kind == BasicKind.Bool {
                 if *cast(*bool, arg.val) {
@@ -306,9 +305,9 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
                 builder_append_u32(b, '%');
             }
         }
-        TypeKind.Function: {
+        case TypeKind.Function: {
         }
-        TypeKind.Struct: {
+        case TypeKind.Struct: {
             st := t.t.struct_;
             builder_append(b, st.name);
             builder_append(b, " { ");
@@ -331,11 +330,11 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             }
             builder_append(b, " }");
         }
-        TypeKind.Pointer: {
+        case TypeKind.Pointer: {
 			num: uint = *cast(*uint, arg.val);
 	 		format_uint(b, num);
         }
-        TypeKind.Array: {
+        case TypeKind.Array: {
             at := t.t.array;
             builder_append_u32(b, '[');
             format_uint(b, at.member_count);
@@ -351,7 +350,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             }
             builder_append(b, " }");
         }
-        TypeKind.Slice: {
+        case TypeKind.Slice: {
 			st := t.t.slice;
 			count := *cast(*int, arg.val);
 			data := cast(*u8, *(cast(*uint, arg.val)+1));
@@ -367,22 +366,22 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
 			}
 			builder_append(b, " }");
         }
-        TypeKind.Vector: {
+        case TypeKind.Vector: {
             vect := t.t.vector;
             at := arg.val as *u8;
             builder_append(b, "{ ");
             for i in vect.elem_count {
                 if i != 0 builder_append(b, ", ");
-                match vect.kind {
-                    .Float: {
+                switch vect.kind {
+                    case .Float: {
                         num := *cast(*f32, at);
                         format_float(f32, b, num, FLOAT_ROUND_AT);
                     }
-                    .Int: {
+                    case .Int: {
                         num := *cast(*i32, at);
                         format_int(b, num);
                     }
-                    .UInt: {
+                    case .UInt: {
                         num := *cast(*u32, at);
                         format_uint(b, num);
                     }
@@ -391,14 +390,14 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             }
             builder_append(b, " }");
         }
-        TypeKind.Enum: {
+        case TypeKind.Enum: {
             e := t.t.enum_;
             size := get_type_size(e.t);
-            val := match size {
-                1: { yield (*cast(*i8 , arg.val)) as int; }
-                2: { yield (*cast(*i16, arg.val)) as int; }
-                4: { yield (*cast(*i32, arg.val)) as int; }
-                8: { yield (*cast(*i64, arg.val)) as int; }
+            val := switch size {
+                case 1: { yield (*cast(*i8 , arg.val)) as int; }
+                case 2: { yield (*cast(*i16, arg.val)) as int; }
+                case 4: { yield (*cast(*i32, arg.val)) as int; }
+                case 8: { yield (*cast(*i64, arg.val)) as int; }
             };
 
             for m in e.members {
@@ -408,7 +407,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
                 }
             }
         }
-        TypeKind.Generic: {
+        case TypeKind.Generic: {
         }
     };
 }

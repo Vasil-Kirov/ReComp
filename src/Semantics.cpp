@@ -1279,7 +1279,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Expr->TypeInfoLookup.Type = TypeInfoType;
 			Result = GetPointerTo(TypeInfoType);
 		} break;
-		case AST_MATCH:
+		case AST_SWITCH:
 		{
 			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Match.Expression);
 			const type *ExprType = GetType(ExprTypeIdx);
@@ -2936,7 +2936,7 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 		// like:
 		// Foo := 0xFF_FF_FF_FF;
 		// Bar := @i32 Foo;
-		// This also happens in the AST_MATCH type checking
+		// This also happens in the AST_SWITCH type checking
 		Type = UntypedGetType(T);
 		FillUntypedStack(Checker, Type);
 	}
@@ -3642,7 +3642,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 
 			while(Current)
 			{
-				if(Current->ScopeNode->Type == AST_MATCH)
+				if(Current->ScopeNode->Type == AST_SWITCH)
 					MatchError = true;
 				else if(Current->ScopeNode->Type == AST_FOR)
 				{
@@ -3746,7 +3746,7 @@ RetErr:
 
 			while(Current)
 			{
-				if(Current->ScopeNode->Type == AST_MATCH)
+				if(Current->ScopeNode->Type == AST_SWITCH)
 				{
 					FoundYieldScope = true;
 					break;

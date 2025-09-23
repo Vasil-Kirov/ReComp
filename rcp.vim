@@ -19,8 +19,9 @@ syn match rcpSIdentifier  "\%([^[:cntrl:][:space:][:punct:][:digit:]]\|_\)\%([^[
 syn match rcpSFuncCall "\w\(\w\)*("he=e-1,me=e-1
 
 " Strings
-syn region rcpSString      start=+c"+ skip=+\\\\\|\\"+ end=+"+
-syn region rcpSString      start=+"+ skip=+\\\\\|\\"+ end=+"+
+syn region rcpSString      start=+c"+  skip=+\\\\\|\\"+ end=+"+
+syn region rcpSString      start=+"+   skip=+\\\\\|\\"+ end=+"+
+syn region rcpSString      start=+```+ skip=+\\\\\|\\"+ end=+```+
 
 " Strings
 syn region rcpSChar      start=+c'+ skip=+\\\\\|\\'+ end=+'+

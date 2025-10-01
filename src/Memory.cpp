@@ -59,7 +59,7 @@ ArenaAllocate(ap_memory *Arena, u64 Size, b32 NoZeroOut)
 {
 	Arena->Current = Align16(Arena->Current);
 	void *Result = Arena->Current;
-	Arena->Current = (char *)Arena->Current + Size;
+	Arena->Current = (u8 *)Result + Size;
 	while((char *)Arena->Current >= (char *)Arena->End)
 	{
 		if(Arena->ChunkIndex * Arena->ChunkSize > Arena->MaxSize)

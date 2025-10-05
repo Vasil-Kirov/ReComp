@@ -4087,7 +4087,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 			node *Node = Nodes[I];
 			if(Node->Decl.Type)
 			{
-				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type);
+				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type, false);
 				if(T != Basic_type)
 					continue;
 			}

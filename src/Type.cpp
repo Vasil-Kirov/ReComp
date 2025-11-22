@@ -1490,8 +1490,10 @@ b32 IsRetTypePassInPointer(u32 Type)
 	const type *RetType = GetType(Type);
 	if(RetType->Kind == TypeKind_Slice)
 		return true;
+	if(RetType->Kind == TypeKind_Function)
+		return false;
 
-	b32 IsComplex = (!IsLoadableType(RetType) && RetType->Kind != TypeKind_Function);
+	b32 IsComplex = !IsLoadableType(RetType);
 	if(!IsComplex)
 		return false;
 	int Size = GetTypeSize(RetType);

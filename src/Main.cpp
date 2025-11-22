@@ -575,8 +575,9 @@ main(int ArgCount, char *Args[])
 					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
 				}
 			}
-			else
+			if(Info->Arch == Arch_Wasm32 || Info->Arch == Arch_Wasm64)
 			{
+				PTarget = platform_target::Wasm;
 			}
 
 			using pt = platform_target;
@@ -589,6 +590,10 @@ main(int ArgCount, char *Args[])
 				case pt::UnixBased:
 				{
 					ConfigIDs.Push(STR_LIT("Unix"));
+				} break;
+				case pt::Wasm:
+				{
+					ConfigIDs.Push(STR_LIT("WASM"));
 				} break;
 			}
 
@@ -610,6 +615,25 @@ main(int ArgCount, char *Args[])
 			else if(Info->Arch == Arch_arm64)
 			{
 				ConfigIDs.Push(STR_LIT("arm64"));
+			}
+			else if(Info->Arch == Arch_Wasm32)
+			{
+				RegisterBitSize = 32;
+				ConfigIDs.Push(STR_LIT("wasm32"));
+				if(Info->TargetTriple.Data == NULL)
+				{
+					Info->TargetTriple.Data = "wasm32-unknown-unknown";
+					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+				}
+			}
+			else if(Info->Arch == Arch_Wasm64)
+			{
+				ConfigIDs.Push(STR_LIT("wasm64"));
+				if(Info->TargetTriple.Data == NULL)
+				{
+					Info->TargetTriple.Data = "wasm64-unknown-unknown";
+					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+				}
 			}
 
 			if(Info->Link.Count > 0)
@@ -688,6 +712,10 @@ main(int ArgCount, char *Args[])
 			case pt::UnixBased:
 			{
 				ConfigIDs.Push(STR_LIT("Unix"));
+			} break;
+			case pt::Wasm:
+			{
+				ConfigIDs.Push(STR_LIT("WASM"));
 			} break;
 		}
 		CommandLine.Flags |= CF_DebugInfo;

@@ -11,16 +11,17 @@ struct type;
 struct scope;
 #define INVALID_TYPE UINT32_MAX
 
-#if _WIN32
-#define MAX_PARAMETER_SIZE 8
-#else
+//#if _WIN32
+//#define MAX_PARAMETER_SIZE 8
+//#else
 #define MAX_PARAMETER_SIZE 16
-#endif
+//#endif
 
 enum class platform_target
 {
 	Windows,
 	UnixBased,
+	Wasm,
 };
 
 enum type_kind

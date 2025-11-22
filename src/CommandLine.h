@@ -30,10 +30,12 @@ enum compile_flags
 
 enum arch
 {
-	Arch_x86_64	= 0b000,
-	Arch_x86	= 0b001,
-	Arch_arm32	= 0b010,
-	Arch_arm64	= 0b100,
+	Arch_x86_64	= 0b00000,
+	Arch_x86	= 0b00001,
+	Arch_arm32	= 0b00010,
+	Arch_arm64	= 0b00100,
+	Arch_Wasm32	= 0b01000,
+	Arch_Wasm64	= 0b10000,
 };
 
 struct command_line

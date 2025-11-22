@@ -2887,11 +2887,24 @@ void FixFunctionComplexParameter(u32 TIdx, const type *T, dynamic<u32>& Args, lo
 	}
 
 	Assert(T->Kind == TypeKind_Struct);
+	Assert(T->Struct.Members.Count > 0);
 	int Size = GetTypeSize(T);
 	if(Size > MAX_PARAMETER_SIZE)
 	{
 		*As = LoadAs_Normal;
 		Args.Push(GetPointerTo(TIdx));
+		return;
+	}
+	if(PTarget == platform_target::Wasm)
+	{
+		if(T->Struct.Members.Count > 1 || Size > 8 || !IsLoadableType(T->Struct.Members[0].Type))
+		{
+			*As = LoadAs_Normal;
+			Args.Push(GetPointerTo(TIdx));
+			return;
+		}
+		*As = LoadAs_Int;
+		Args.Push(T->Struct.Members[0].Type);
 		return;
 	}
 
@@ -3034,7 +3047,27 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
-			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && PTarget != platform_target::Windows)
+			if(PTarget == platform_target::Wasm)
+			{
+				if(RT->Kind == TypeKind_Struct)
+				{
+					if(RT->Struct.Members.Count == 1 && IsLoadableType(RT->Struct.Members[0].Type))
+					{
+						Return = RT->Struct.Members[0].Type;
+					}
+					else
+					{
+						*RetInPtr = true;
+						FnArgs.Push(GetPointerTo(Returns));
+					}
+				}
+				else
+				{
+					*RetInPtr = true;
+					FnArgs.Push(GetPointerTo(Returns));
+				}
+			}
+			else if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
 			{
 				Return = AllFloatsStructToReturnType(RT);
 			}
@@ -3053,7 +3086,8 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 		}
 	}
 
-	for (int i = 0; i < T->Function.ArgCount; ++i) {
+	for (int i = 0; i < T->Function.ArgCount; ++i)
+	{
 		const type *ArgType = GetType(T->Function.Args[i]);
 		arg_location Location;
 		Location.Start = FnArgs.Count;

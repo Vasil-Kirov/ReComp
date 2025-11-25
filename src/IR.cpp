@@ -3994,7 +3994,7 @@ INSIDE_EQ:
 		{
 			PushBuilderFormated(Builder, "SPILL %%%d", Instr.Right);
 		} break;
-		case OP_TOPHYSICAL:
+		case OP_COPYPHYSICAL:
 		{
 			const char *Names[] = {"rax", "rbx", "rcx", "rdx"};
 			const char *Name = "unknown";

@@ -52,7 +52,8 @@ enum op
 	OP_DEBUGINFO,
 	OP_SWITCHINT,
 	OP_SPILL,
-	OP_TOPHYSICAL,
+	OP_COPYPHYSICAL,
+	OP_COPYTOPHYSICAL,
 	OP_PTRDIFF,
 	OP_ZEROUT,
 
@@ -302,6 +303,7 @@ void BuildEnumIR();
 u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=false);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
+inline instruction Instruction(op Op, u32 Left, u32 Right, u32 ResultRegister, u32 Type);
 u32 PushInstruction(block_builder *Builder, instruction I);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
 function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,

@@ -235,21 +235,19 @@ format_int :: fn(b: *Builder, num_in: int) {
     }
 }
 
-format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
-	if num_in == inf {
+format_float :: fn(ft: type, b: *Builder, num: ft, round_at: i32) {
+	if num == inf {
 		builder_append(b, "INF");
 		return;
 	}
-	if num_in == -inf {
+	if num == -inf {
 		builder_append(b, "-INF");
 		return;
 	}
-	if num_in == nan {
+	if num == nan {
 		builder_append(b, "NaN");
 		return;
 	}
-
-    num := num_in;
 
     if ft != f32 && ft != f64 {
         return;
@@ -268,7 +266,7 @@ format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
 
     num += 0.5 / cast(ft, round_at);
     int_part := cast(i32, num);
-    frac_part := cast(i32, (num - cast(ft, int_part)) * round_at);
+    frac_part := num - int_part as f32; //cast(i32, (num - cast(ft, int_part)) * round_at);
 
     if is_neg {
         builder_append_u8(b, '-');
@@ -285,13 +283,23 @@ format_float :: fn(ft: type, b: *Builder, num_in: ft, round_at: i32) {
     }
 
     if frac_part != 0 {
-        // print leading 0s
-        tmp = frac_part;
-        for tmp * 10 < round_at {
+		size_before := b.data.count;
+		tmp := (frac_part * round_at) as int;
+		digits_copy := digits;
+		for tmp {
+			tmp /= 10;
+			digits_copy -= 1;
+		}
+		for i in digits_copy {
+			builder_append_u8(b, '0');
+		}
+
+        format_int(b, (frac_part * round_at) as int);
+		written := b.data.count - size_before;
+		for written < digits {
             builder_append_u8(b, '0');
-            tmp *= 10;
-        }
-        format_int(b, frac_part);
+			written -= 1;
+		}
     }
     else {
         for i := 1; i < round_at; i *= 10 {

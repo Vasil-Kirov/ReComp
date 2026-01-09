@@ -209,6 +209,7 @@ function GenerateFakeFunctionForGlobalExpression(node *Expression, module *Modul
 		FakeFn.FakeFunction = true;
 		block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
 		PushErrorInfo(&Builder, ErrInfoNode);
+		PushStepLocation(&Builder, ErrInfoNode);
 		BuildIRFromExpression(&Builder, Expression);
 		Terminate(&Builder, {});
 		FakeFn.LastRegister = Builder.LastRegister;
@@ -275,6 +276,19 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 		Assert(false);
 	}
 	return NULL;
+}
+
+void PushStepLocation(block_builder *Builder, node *Node)
+{
+	if(Node->ErrorInfo == NULL)
+		return;
+
+	ir_debug_info *Info = NewType(ir_debug_info);
+	Info->type = IR_DBG_STEP_LOCATION;
+	Info->step.Line = Node->ErrorInfo->Range.StartLine;
+	Info->step.Column = Node->ErrorInfo->Range.StartChar;
+	instruction DbgErrI = InstructionDebugInfo(Info);
+	PushInstruction(Builder, DbgErrI);
 }
 
 void PushErrorInfo(block_builder *Builder, node *Node)
@@ -2283,6 +2297,7 @@ void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
 
 	if(HasCondition)
 	{
+		PushStepLocation(Builder, Node);
 		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr1);
 		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
 	}
@@ -2403,7 +2418,6 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	uint CurrentContinue = Builder->ContinueBlockID;
 	// Body
 	{
-
 		Builder->BreakBlockID = End.ID;
 		Builder->ContinueBlockID = Incr.ID;
 
@@ -2523,6 +2537,8 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 	// Increment
 	{
+		PushStepLocation(Builder, Node);
+
 		u32 I = PushInstruction(Builder, 
 				Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
 		
@@ -2572,6 +2588,7 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 
 	if(Node->For.Expr2)
 	{
+		PushStepLocation(Builder, Node);
 		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr2);
 		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
 	}
@@ -2588,7 +2605,10 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 	BuildIRBody(Node->For.Body, Builder, Incr);
 
 	if(Node->For.Expr3)
+	{
+		PushStepLocation(Builder, Node);
 		BuildIRFromExpression(Builder, Node->For.Expr3);
+	}
 
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, End);
@@ -2703,6 +2723,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			if((g_CompileFlags & CF_DisableAssert) == 0)
 			{
+				PushStepLocation(Builder, Node);
+
 				u32 Cond = BuildIRFromExpression(Builder, Node->Assert.Expr);
 				BuildAssertExpr(Builder, Cond, Node->ErrorInfo);
 			}
@@ -2718,10 +2740,14 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_DECL:
 		{
+			PushStepLocation(Builder, Node);
+
 		    BuildIRFromDecleration(Builder, Node);
 		} break;
 		case AST_RETURN:
 		{
+			PushStepLocation(Builder, Node);
+
 		    u32 Expression = -1;
 		    u32 Type = Node->Return.TypeIdx;
 
@@ -2773,6 +2799,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_YIELD:
 		{
+			PushStepLocation(Builder, Node);
+
 			yield_info Info = Builder->YieldReturn.Peek();
 			if(Node->TypedExpr.Expr)
 			{
@@ -2786,6 +2814,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_IF:
 		{
+			PushStepLocation(Builder, Node);
+
 		    Builder->Scope.Push({});
 		    u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
 		    basic_block ThenBlock = AllocateBlock(Builder);
@@ -2809,18 +2839,24 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		case AST_BREAK:
 		{
+			PushStepLocation(Builder, Node);
+
 			PushDefferedInstructions(Builder);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_CONTINUE:
 		{
+			PushStepLocation(Builder, Node);
+
 			PushDefferedInstructions(Builder);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
 		case AST_FOR:
 		{
+			PushStepLocation(Builder, Node);
+
 		    Builder->Scope.Push({});
 		    using ft = for_type;
 		    switch(Node->For.Kind)
@@ -2846,6 +2882,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		} break;
 		default:
 		{
+			PushStepLocation(Builder, Node);
+
 		    BuildIRFromExpression(Builder, Node, false, false);
 		} break;
 	}
@@ -2859,6 +2897,8 @@ void BuildIRBody(dynamic<node *> &Body, block_builder *Builder, basic_block Then
 	}
 	if(!Builder->CurrentBlock.HasTerminator)
 	{
+		if(Body.Count > 0)
+			PushStepLocation(Builder, Body[Body.Count-1]);
 		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
 	}
 	Terminate(Builder, Then);
@@ -3148,6 +3188,7 @@ function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 
 		Builder.Module = Module;
 
 		PushErrorInfo(&Builder, Node);
+		PushStepLocation(&Builder, Node);
 
 		ForArray(Idx, Args)
 		{
@@ -3982,10 +4023,11 @@ INSIDE_EQ:
 				{
 					PushBuilderFormated(Builder, "DEBUG_VAR_INFO %s Line=%d, Type=%s", Info->var.Name.Data, Info->var.LineNo, GetTypeName(Info->var.TypeID));
 				} break;
-				case IR_DBG_ERROR_INFO:
+				case IR_DBG_ERROR_INFO: break;
+				case IR_DBG_STEP_LOCATION:
 				{
-					auto err_i = Info->err_i.ErrorInfo;
-					PushBuilderFormated(Builder, "DEBUG_LOC_INFO Line=%d", err_i->Range.StartLine);
+					auto s = Info->step;
+					PushBuilderFormated(Builder, "DEBUG_LOC_INFO Line=%d Col=%d", s.Line, s.Column);
 				} break;
 				case IR_DBG_SCOPE:
 				{

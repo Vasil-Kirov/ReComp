@@ -145,6 +145,7 @@ enum ir_debug_type
 	IR_DBG_VAR,
 	IR_DBG_SCOPE,
 	IR_DBG_ERROR_INFO,
+	IR_DBG_STEP_LOCATION,
 };
 
 struct ir_debug_info
@@ -159,10 +160,14 @@ struct ir_debug_info
 		} var;
 		struct {
 			int LineNo;
-		} loc;
+		} scope;
 		struct {
 			const error_info *ErrorInfo;
 		} err_i;
+		struct {
+			u32 Line;
+			u32 Column;
+		} step;
 	};
 };
 
@@ -327,6 +332,7 @@ function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 
 		slice<import> Imported);
 b32 CanGetPointerAfterSize(const type *T, int Size);
 void PushErrorInfo(block_builder *Builder, node *Node);
+void PushStepLocation(block_builder *Builder, node *Node);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
 int GetPointerPassIdx(u32 TypeIdx, uint Size);

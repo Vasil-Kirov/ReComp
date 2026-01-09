@@ -103,17 +103,19 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 			LLVMDIBuilderInsertDeclareRecordAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 			//LLVMDIBuilderInsertDeclareAtEnd(gen->dbg, LLVM, m_info, Expr, gen->CurrentLocation, gen->blocks[gen->CurrentBlock].Block);
 		} break;
-		case IR_DBG_ERROR_INFO:
+		case IR_DBG_ERROR_INFO: break;
+		case IR_DBG_STEP_LOCATION:
 		{
 			if(gen->CurrentScope == NULL)
 				return;
-			auto err_i = Info->err_i.ErrorInfo;
-			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, err_i->Range.StartLine, 0, gen->CurrentScope, NULL);
+
+			auto s = Info->step;
+			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, s.Line, s.Column, gen->CurrentScope, NULL);
 			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
 		} break;
 		case IR_DBG_SCOPE:
 		{
-			gen->CurrentScope = LLVMDIBuilderCreateLexicalBlock(gen->dbg, gen->CurrentScope, gen->f_dbg, Info->loc.LineNo, 0);
+			gen->CurrentScope = LLVMDIBuilderCreateLexicalBlock(gen->dbg, gen->CurrentScope, gen->f_dbg, Info->scope.LineNo, 0);
 		} break;
 	}
 }
@@ -1884,7 +1886,7 @@ void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName
 	char *Error = NULL;
 
 #if 1
-	if(LLVMVerifyModule(Mod, LLVMReturnStatusAction, &Error))
+	if(LLVMVerifyModule(Mod, LLVMPrintMessageAction, &Error))
 	{
 		LERROR("Couldn't Verify LLVM Module: %s", Error);
 		LLVMDisposeMessage(Error);

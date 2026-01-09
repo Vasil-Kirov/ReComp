@@ -83,6 +83,12 @@ struct slice {
 		return Data[Index];
 	}
 	b32 IsValid() const { return Data != NULL; }
+	T Last()
+	{
+		if(Count == 0)
+			return NULL;
+		return Data[Count-1];
+	}
 };
 
 typedef int (*sort_fn)(void *, const void*, const void*);

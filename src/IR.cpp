@@ -278,17 +278,22 @@ const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Erro
 	return NULL;
 }
 
+void PushStepLocation(block_builder *Builder, u32 Line, u32 Col)
+{
+	ir_debug_info *Info = NewType(ir_debug_info);
+	Info->type = IR_DBG_STEP_LOCATION;
+	Info->step.Line = Line;
+	Info->step.Column = Col;
+	instruction DbgErrI = InstructionDebugInfo(Info);
+	PushInstruction(Builder, DbgErrI);
+}
+
 void PushStepLocation(block_builder *Builder, node *Node)
 {
 	if(Node->ErrorInfo == NULL)
 		return;
 
-	ir_debug_info *Info = NewType(ir_debug_info);
-	Info->type = IR_DBG_STEP_LOCATION;
-	Info->step.Line = Node->ErrorInfo->Range.StartLine;
-	Info->step.Column = Node->ErrorInfo->Range.StartChar;
-	instruction DbgErrI = InstructionDebugInfo(Info);
-	PushInstruction(Builder, DbgErrI);
+	PushStepLocation(Builder, Node->ErrorInfo->Range.StartLine, Node->ErrorInfo->Range.StartChar);
 }
 
 void PushErrorInfo(block_builder *Builder, node *Node)
@@ -600,6 +605,8 @@ switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 		basic_block CaseBlock = AllocateBlock(Builder);
 		Terminate(Builder, CaseBlock);
 		node *Case = Node->Switch.Cases[Idx];
+		PushStepLocation(Builder, Case);
+
 		ForArray(BodyIdx, Case->Case.Body)
 		{
 			node *Node = Case->Case.Body[BodyIdx];
@@ -608,6 +615,9 @@ switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 
 		if(!Builder->CurrentBlock.HasTerminator)
 		{
+			if(Case->Case.Body.Count > 0)
+				PushStepLocation(Builder, Case->Case.Body.Last());
+
 			PushInstruction(Builder,
 					Instruction(OP_JMP, After.ID, Basic_type, Builder));
 		}
@@ -620,6 +630,7 @@ switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 			{
 				basic_block Fallthrough = AllocateBlock(Builder);
 				Terminate(Builder, Fallthrough);
+				PushStepLocation(Builder, Case);
 
 				PushInstruction(Builder,
 						Instruction(OP_JMP, CaseBlock.ID, Basic_type, Builder));
@@ -629,6 +640,7 @@ switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 	}
 	Builder->YieldReturn.Pop();
 	Terminate(Builder, After);
+	PushStepLocation(Builder, Node);
 
 	return (switch_context) {Result, Matcher,
 		SliceFromArray(CaseBlocks), SliceFromArray(OnValues),
@@ -735,8 +747,11 @@ void BuildAssertExpr(block_builder *Builder, u32 Expr, const error_info *Info, s
 	basic_block After = AllocateBlock(Builder);
 	PushInstruction(Builder, Instruction(OP_IF, After.ID, AssertFailed.ID, Expr, Basic_bool));
 	Terminate(Builder, AssertFailed);
+	PushStepLocation(Builder, Info->Range.StartLine, Info->Range.StartChar);
+
 	BuildAssertFailed(Builder, Info, BonusMessage);
 	Terminate(Builder, After);
+	PushStepLocation(Builder, Info->Range.StartLine, Info->Range.StartChar);
 }
 
 u32 BuildIRStringMatch(block_builder *Builder, node *Node)
@@ -744,6 +759,8 @@ u32 BuildIRStringMatch(block_builder *Builder, node *Node)
 	switch_context c = BuildIRGenericSwitchPart(Builder, Node);
 
 	basic_block Start = AllocateBlock(Builder);
+	PushStepLocation(Builder, Node);
+
 	For(Builder->Function->Blocks)
 	{
 		if(it->ID == c.StartBlock)
@@ -761,7 +778,7 @@ u32 BuildIRStringMatch(block_builder *Builder, node *Node)
 
 	ForArray(Idx, c.CaseValues)
 	{
-		u32 Cmp = BuildStringCompare(Builder, c.Matcher, c.CaseValues[Idx]);
+		u32 Cmp = BuildStringCompare(Builder, c.Matcher, c.CaseValues[Idx], Node);
 
 		basic_block After;
 		if(Idx + 1 != c.CaseValues.Count)
@@ -772,6 +789,7 @@ u32 BuildIRStringMatch(block_builder *Builder, node *Node)
 		{
 			PushInstruction(Builder, Instruction(OP_IF, c.CaseBlocks[Idx], c.CaseBlocks[c.Default], Cmp, Basic_bool));
 			Terminate(Builder, c.After);
+
 			break;
 		}
 		else
@@ -844,6 +862,8 @@ u32 BuildRun(block_builder *Builder, node *Node)
 	}
 
 	Terminate(Builder, Save);
+	PushStepLocation(Builder, Node);
+
 	Builder->RunIndexes.Push(run_location{Save.ID, (uint)Save.Code.Count});
 	return PushInstruction(Builder, Instruction(OP_RUN, 0, RunBlock.ID, Node->Run.TypeIdx, Builder));
 }
@@ -936,12 +956,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			Result = PushAlloc(Node->IfX.TypeIdx, Builder);
 		    PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, Condition, Basic_bool));
 			Terminate(Builder, ThenBlock);
+			PushStepLocation(Builder, Node);
+
 
 			u32 TrueExpr = BuildIRFromExpression(Builder, Node->IfX.True);
 			PushInstruction(Builder, InstructionStore(Result, TrueExpr, Node->IfX.TypeIdx));
 			PushInstruction(Builder, 
 					Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
 			Terminate(Builder, ElseBlock);
+			PushStepLocation(Builder, Node);
 
 			u32 FalseExpr = BuildIRFromExpression(Builder, Node->IfX.False);
 			PushInstruction(Builder, InstructionStore(Result, FalseExpr, Node->IfX.TypeIdx));
@@ -949,6 +972,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
 
 			Terminate(Builder, EndBlock);
+			PushStepLocation(Builder, Node);
 
 			if(!IsLHS)
 			{
@@ -1912,23 +1936,30 @@ u32 BuildLogicalAnd(block_builder *Builder, node *Left, node *Right)
 			Instruction(OP_IF, EvaluateRight.ID, FalseBlock.ID, LeftResult, Basic_bool));
 
 	Terminate(Builder, EvaluateRight);
+	PushStepLocation(Builder, Left);
+
 	u32 RightResult = BuildIRFromExpression(Builder, Right);
 	PushInstruction(Builder, 
 			Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, RightResult, Basic_bool));
 
 	Terminate(Builder, TrueBlock);
+	PushStepLocation(Builder, Left);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, FalseBlock);
+	PushStepLocation(Builder, Left);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, After);
+	PushStepLocation(Builder, Left);
 
 	return PushInstruction(Builder, 
 			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
@@ -1948,29 +1979,37 @@ u32 BuildLogicalOr(block_builder *Builder, node *Left, node *Right)
 			Instruction(OP_IF, TrueBlock.ID, EvaluateRight.ID, LeftResult, Basic_bool));
 
 	Terminate(Builder, EvaluateRight);
+	PushStepLocation(Builder, Left);
+
 	u32 RightResult = BuildIRFromExpression(Builder, Right);
 	PushInstruction(Builder, 
 			Instruction(OP_IF, TrueBlock.ID, FalseBlock.ID, RightResult, Basic_bool));
 
 	Terminate(Builder, TrueBlock);
+	PushStepLocation(Builder, Left);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, FalseBlock);
+	PushStepLocation(Builder, Left);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, After);
+	PushStepLocation(Builder, Left);
+
 
 	return PushInstruction(Builder, 
 			Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
 }
 
-u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq)
+u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, node *Node, b32 IsNeq)
 {
 	u32 LeftCount = PushInstruction(Builder, 
 			Instruction(OP_INDEX, Left, 0, Basic_string, Builder));
@@ -2014,6 +2053,8 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq)
 	}
 
 	Terminate(Builder, EvaluateRight);
+	PushStepLocation(Builder, Node);
+
 	u32 u8ptr = GetPointerTo(Basic_u8);
 	LeftData = PushInstruction(Builder,
 			Instruction(OP_LOAD, 0, LeftData, u8ptr, Builder));
@@ -2039,18 +2080,24 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq)
 	}
 
 	Terminate(Builder, TrueBlock);
+	PushStepLocation(Builder, Node);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(1, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, FalseBlock);
+	PushStepLocation(Builder, Node);
+
 	PushInstruction(Builder, 
 			InstructionStore(ResultAlloc, PushInt(0, Builder, Basic_bool), Basic_bool));
 	PushInstruction(Builder, 
 			Instruction(OP_JMP, After.ID, Basic_type, Builder));
 
 	Terminate(Builder, After);
+	PushStepLocation(Builder, Node);
+
 
 	return PushInstruction(Builder, 
 							Instruction(OP_LOAD, 0, ResultAlloc, Basic_bool, Builder));
@@ -2159,7 +2206,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			{
 				if(IsString(T))
 				{
-					return BuildStringCompare(Builder, Left, Right);
+					return BuildStringCompare(Builder, Left, Right, Node);
 				}
 				else
 				{
@@ -2170,7 +2217,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			{
 				if(IsString(T))
 				{
-					return BuildStringCompare(Builder, Left, Right, true);
+					return BuildStringCompare(Builder, Left, Right, Node, true);
 				}
 				else
 				{
@@ -2294,10 +2341,10 @@ void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
 	basic_block End   = AllocateBlock(Builder);
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, Cond);
+	PushStepLocation(Builder, Node);
 
 	if(HasCondition)
 	{
-		PushStepLocation(Builder, Node);
 		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr1);
 		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
 	}
@@ -2307,6 +2354,7 @@ void BuildIRForLoopWhile(block_builder *Builder, node *Node, b32 HasCondition)
 	}
 
 	Terminate(Builder, Then);
+	PushStepLocation(Builder, Node);
 
 	uint CurrentBreak = Builder->BreakBlockID;
 	uint CurrentContinue = Builder->ContinueBlockID;
@@ -2389,6 +2437,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	}
 
 	Terminate(Builder, Cond);
+	PushStepLocation(Builder, Node);
 	
 	// Condition
 	{
@@ -2413,6 +2462,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		}
 	}
 	Terminate(Builder, Then);
+	PushStepLocation(Builder, Node);
 
 	uint CurrentBreak = Builder->BreakBlockID;
 	uint CurrentContinue = Builder->ContinueBlockID;
@@ -2570,6 +2620,8 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	}
 	Terminate(Builder, End);
+	PushStepLocation(Builder, Node);
+
 	Builder->BreakBlockID = CurrentBreak;
 	Builder->ContinueBlockID = CurrentContinue;
 }
@@ -2585,10 +2637,10 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 		BuildIRFunctionLevel(Builder, Node->For.Expr1);
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, Cond);
+	PushStepLocation(Builder, Node);
 
 	if(Node->For.Expr2)
 	{
-		PushStepLocation(Builder, Node);
 		u32 CondExpr = BuildIRFromExpression(Builder, Node->For.Expr2);
 		PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, CondExpr, Basic_bool));
 	}
@@ -2597,6 +2649,7 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 		PushInstruction(Builder, Instruction(OP_JMP, Then.ID, Basic_type, Builder));
 	}
 	Terminate(Builder, Then);
+	PushStepLocation(Builder, Node);
 
 	uint CurrentBreak = Builder->BreakBlockID;
 	uint CurrentContinue = Builder->ContinueBlockID;
@@ -2612,6 +2665,7 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 
 	PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
 	Terminate(Builder, End);
+	PushStepLocation(Builder, Node);
 	Builder->BreakBlockID = CurrentBreak;
 	Builder->ContinueBlockID = CurrentContinue;
 }
@@ -2823,6 +2877,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		    basic_block EndBlock  = AllocateBlock(Builder);
 		    PushInstruction(Builder, Instruction(OP_IF, ThenBlock.ID, ElseBlock.ID, IfExpression, Basic_bool));
 		    Terminate(Builder, ThenBlock);
+			PushStepLocation(Builder, Node);
 		    BuildIRBody(Node->If.Body, Builder, EndBlock);
 
 		    Builder->CurrentBlock = ElseBlock;
@@ -2834,6 +2889,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		    {
 		  	  PushInstruction(Builder, Instruction(OP_JMP, EndBlock.ID, Basic_type, Builder));
 		  	  Terminate(Builder, EndBlock);
+			  PushStepLocation(Builder, Node);
 		    }
 		    Builder->Scope.Pop();
 		} break;

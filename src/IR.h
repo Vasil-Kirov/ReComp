@@ -322,7 +322,7 @@ extern const char *phyregs[];
 
 ir BuildIR(file *File);
 void BuildEnumIR();
-u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=false);
+u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, node *Node, b32 IsNeq=false);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
 inline instruction Instruction(op Op, u32 Left, u32 Right, u32 ResultRegister, u32 Type);

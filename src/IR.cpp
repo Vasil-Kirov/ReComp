@@ -637,7 +637,7 @@ u32 BuildIRIntMatch(block_builder *Builder, node *Node)
 			Info->Default  = c.Default;
 			Info->After    = c.After.ID;
 			Info->Matcher  = c.Matcher;
-			instruction I = Instruction(OP_SWITCHINT, (u64)Info, Node->Switch.ReturnType, Builder);
+			instruction I = Instruction(OP_SWITCHINT, (void*)Info, Node->Switch.ReturnType, Builder, 0);
 			Builder->Function->Blocks.Data[i].Code.Push(I);
 			break;
 		}
@@ -663,7 +663,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, stri
 	string_builder b = MakeBuilder();
 	PushBuilderFormated(&b, "--- ASSERTION FAILED ---\n\n%s(%d):\n%s%s%s\n", ErrorInfo->FileName, ErrorInfo->Range.StartLine, FirstPart.Data, SecondPart.Data, ThirdPart.Data);
 	if(BonusMessage.Size != 0)
-		PushBuilderFormated(&b, "%.*s\n", BonusMessage.Size, BonusMessage.Data);
+		PushBuilderFormated(&b, "%.*s\n", (int)BonusMessage.Size, BonusMessage.Data);
 
 	string S = MakeString(b);
 	string *Message = DupeType(S, string);
@@ -688,7 +688,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, stri
 	Call = NewType(call_info);
 	Call->Operand = StdOut;
 	Call->Args = {};
-	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
 
 	u32 Write = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
 	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
@@ -697,7 +697,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, stri
 	Call->ErrorInfo = ErrorInfo;
 	Call->Operand = Write;
 	Call->Args = SliceFromConst({Handle, Data, Count});
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+	PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
 
 	PushDebugBreak(Builder);
 
@@ -707,7 +707,7 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, stri
 	Call->ErrorInfo = ErrorInfo;
 	Call->Operand = Abort;
 	Call->Args = {};
-	PushInstruction(Builder, Instruction(OP_CALL, (u64)Call, FnT, Builder));
+	PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
 
 	PushInstruction(Builder, Instruction(OP_UNREACHABLE, 0, Basic_type, Builder));
 }
@@ -2011,7 +2011,7 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq)
 	MemCmpInfo->Count	= RightCount;
 
 	u32 MemCmpResult = PushInstruction(Builder, 
-			Instruction(OP_MEMCMP, (u64)MemCmpInfo, Basic_bool, Builder));
+			Instruction(OP_MEMCMP, (void*)MemCmpInfo, Basic_bool, Builder, 0));
 
 	if(IsNeq)
 	{
@@ -2464,7 +2464,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 					Info->Operand = DerefFn;
 					Info->Args = SliceFromConst({Data});
 					u32 Derefed = PushInstruction(Builder, 
-							Instruction(OP_CALL, (u64)Info, FnT, Builder));
+							Instruction(OP_CALL, (void*)Info, FnT, Builder, 0));
 
 					ItAlloc = BuildIRStoreVariable(Builder, Derefed, Node->For.ItType);
 				}
@@ -2545,7 +2545,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			Info->Operand = AdvanceFn;
 			Info->Args = SliceFromConst({Data});
 			Data = PushInstruction(Builder, 
-					Instruction(OP_CALL, (u64)Info, FnT, Builder));
+					Instruction(OP_CALL, (void*)Info, FnT, Builder, 0));
 
 			PushInstruction(Builder,
 					InstructionStore(StringPtr, Data, GetPointerTo(Basic_u8)));
@@ -2765,7 +2765,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  Call->Args = SliceFromConst({FnName, Taken});
 
 		  	  PushInstruction(Builder,
-		  			  Instruction(OP_CALL, (u64)Call, Builder->Profile->CallbackType, Builder));
+		  			  Instruction(OP_CALL, (void*)Call, Builder->Profile->CallbackType, Builder, 0));
 		    }
 
 		    PushInstruction(Builder, Instruction(OP_RET, Expression, 0, Type, Builder));
@@ -3728,7 +3728,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		case OP_ATOMIC_ADD:
 		{
 			call_info *ci = (call_info *)Instr.BigRegister;
-			PushBuilderFormated(Builder, "atomic add %%%d, %%%d", ci->Args[0], ci->Args[1]);
+			PushBuilderFormated(Builder, "%%%d = atomic add %%%d, %%%d", Instr.Result, ci->Args[0], ci->Args[1]);
 		} break;
 		case OP_GLOBAL:
 		{
@@ -3753,7 +3753,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		} break;
 		case OP_MEMCMP:
 		{
-			ir_memcmp *Info = (ir_memcmp *)Instr.BigRegister;
+			ir_memcmp *Info = (ir_memcmp *)Instr.Ptr;
 			PushBuilderFormated(Builder, "%%%d = MEMCMP (PTR %%%d, PTR %%%d, COUNT %%%d)", Instr.Result, Info->LeftPtr, Info->RightPtr, Info->Count);
 		} break;
 		case OP_ZEROUT:
@@ -3777,7 +3777,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 				case ct::String:
 				{
 					PushBuilderFormated(Builder, "%%%d = %s \"%.*s\"", Instr.Result, GetTypeName(Type),
-							Val->String.Data->Size, Val->String.Data->Data);
+							(int)Val->String.Data->Size, Val->String.Data->Data);
 				} break;
 				case ct::Integer:
 				{
@@ -3871,9 +3871,13 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		{
 			PushBuilderFormated(Builder, "%%%d = ALLOC %s", Instr.Result, GetTypeName(Type));
 		} break;
+		case OP_BITNOT:
+		{
+			PushBuilderFormated(Builder, "%%%d = %s ~%%%d", Instr.Result, GetTypeName(Type), Instr.Right);
+		} break;
 		case OP_ALLOCGLOBAL:
 		{
-			PushBuilderFormated(Builder, "%%%d = GLOBALALLOC %d %s", Instr.Result, Instr.BigRegister, GetTypeName(Type));
+			PushBuilderFormated(Builder, "%%%d = GLOBALALLOC %llu %s", Instr.Result, Instr.BigRegister, GetTypeName(Type));
 		} break;
 		case OP_RET:
 		{
@@ -3884,7 +3888,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		} break;
 		case OP_CALL:
 		{
-			call_info *CallInfo = (call_info *)Instr.BigRegister;
+			call_info *CallInfo = (call_info *)Instr.Ptr;
 			//PushBuilderFormated(Builder, "%%%d = CALL %s", Instr.Result, CallInfo->FnName->Data);
 			PushBuilderFormated(Builder, "%%%d = CALL %%%d(", Instr.Result, CallInfo->Operand);
 			ForArray(AIdx, CallInfo->Args)
@@ -3897,7 +3901,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		} break;
 		case OP_SWITCHINT:
 		{
-			ir_switchint *Info = (ir_switchint *)Instr.BigRegister;
+			ir_switchint *Info = (ir_switchint *)Instr.Ptr;
 			PushBuilderFormated(Builder, "%%%d = switch %%%d [", Instr.Result, Info->Matcher);
 			ForArray(Idx, Info->Cases)
 			{
@@ -3921,7 +3925,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		} break;
 		case OP_JMP:
 		{
-			PushBuilderFormated(Builder, "JMP block_%d", Instr.BigRegister);
+			PushBuilderFormated(Builder, "JMP block_%llu", Instr.BigRegister);
 		} break;
 		case OP_INDEX:
 		{
@@ -3942,7 +3946,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		} break;
 		case OP_ARG:
 		{
-			PushBuilderFormated(Builder, "%%%d = ARG #%d", Instr.Result, Instr.BigRegister);
+			PushBuilderFormated(Builder, "%%%d = ARG #%llu", Instr.Result, Instr.BigRegister);
 		} break;
 
 #define CASE_OP(op, str) \
@@ -3994,13 +3998,15 @@ INSIDE_EQ:
 		{
 			PushBuilderFormated(Builder, "SPILL %%%d", Instr.Right);
 		} break;
+		case OP_COPYTOPHYSICAL:
+		{
+			const char *Name = phyregs[Instr.Result];
+			PushBuilderFormated(Builder, "%s = %%%d", Name, Instr.Right);
+		} break;
 		case OP_COPYPHYSICAL:
 		{
-			const char *Names[] = {"rax", "rbx", "rcx", "rdx"};
-			const char *Name = "unknown";
-			if(Instr.Result < ARR_LEN(Names))
-				Name = Names[Instr.Result];
-			PushBuilderFormated(Builder, "%s = TOPHY %%%d", Name, Instr.Right);
+			const char *Name = phyregs[Instr.Left];
+			PushBuilderFormated(Builder, "%%%d = %s", Instr.Result, Name);
 		} break;
 		case OP_COUNT: unreachable;
 	}
@@ -4011,8 +4017,8 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 	ForArray(I, Block->Code)
 	{
 		instruction Instr = Block->Code[I];
-		if(Instr.Op == OP_DEBUGINFO)
-			continue;
+		//if(Instr.Op == OP_DEBUGINFO)
+		//	continue;
 
 		PushBuilder(Builder, '\t');
 		PushBuilder(Builder, '\t');
@@ -4036,7 +4042,7 @@ string DissasembleFunction(function Fn, int indent)
 	for(int I = 0; I < FnType->Function.ArgCount; ++I)
 	{
 		const type *ArgType = GetType(FnType->Function.Args[I]);
-		PushBuilderFormated(&Builder, "%s #%d", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
+		PushBuilderFormated(&Builder, "%s #%zu", GetTypeName(ArgType), I + Fn.ModuleSymbols.Count);
 		if(I + 1 != FnType->Function.ArgCount)
 			PushBuilder(&Builder, ", ");
 	}
@@ -4107,15 +4113,64 @@ string Dissasemble(ir *IR)
 }
 
 
-#if 0
-void GetUsedRegisters(instruction I, dynamic<u32> &out)
+void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 {
-#define OP_ALL(o) case o: out.Push(I.Result); out.Push(I.Left); out.Push(I.Right); break
-#define OP_RESULT(o) case o: out.Push(I.Result); out.Push(-1); out.Push(-1); break
-#define OP_BR(o) case o: out.Push(I.Result); out.Push(I.BigRegister); out.Push(-1); break
+#define OP_L(o) case o: out[(*count)++] = I.Left;  break
+#define OP_R(o) case o: out[(*count)++] = I.Right; break
+#define OP_LR(o) case o: out[(*count)++] = I.Left; out[(*count)++] = I.Right; break
+#define OP_BR(o) case o: out[(*count)++] = I.BigRegister; break
 
 	switch(I.Op)
 	{
+		OP_LR(OP_MEMCPY);
+		OP_LR(OP_EXTRACT);
+		case OP_INSERT:
+		{
+			if(I.Ptr)
+			{
+				ir_insert *ins = (ir_insert *)I.Ptr;
+				out[(*count)++] = ins->Register;
+				out[(*count)++] = ins->ValueRegister;
+			}
+			else
+			{
+			}
+		} break;
+		case OP_CMPXCHG:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			out[(*count)++] = ci->Args[0];
+			out[(*count)++] = ci->Args[1];
+			out[(*count)++] = ci->Args[2];
+		} break;
+		case OP_ATOMIC_LOAD:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			out[(*count)++] = ci->Args[0];
+		} break;
+		case OP_ATOMIC_ADD:
+		{
+			call_info *ci = (call_info *)I.BigRegister;
+			out[(*count)++] = ci->Args[0];
+			out[(*count)++] = ci->Args[1];
+		} break;
+		case OP_FENCE:
+		case OP_SWITCHINT:
+		{
+			ir_switchint *Info = (ir_switchint*)I.Ptr;
+			out[(*count)++] = Info->Matcher;
+			For(Info->OnValues)
+			{
+				out[(*count)++] = *it;
+			}
+		} break;
+		OP_R(OP_BITNOT);
+		case OP_DEBUG_BREAK:
+		case OP_GLOBAL:
+		case OP_ARG:
+		case OP_ALLOC:
+		case OP_ALLOCGLOBAL:
+		case OP_NULL:
 		case OP_NOP:
 		{
 		} break;
@@ -4127,129 +4182,71 @@ void GetUsedRegisters(instruction I, dynamic<u32> &out)
 		case OP_RDTSC:
 		Assert(false);
 
-		OP_RESULT(OP_CONSTINT);
-		OP_RESULT(OP_CONST);
-		case OP_ZEROUT:
-		{
-			out.Push(I.Right);
-		} break;
+		case OP_ARRAYLIST:
 		case OP_FN:
-		{
-			out.Push(I.Result);
-			out.Push(-1);
-			out.Push(-1);
-			// @TODO: Special handling
-		} break;
-		OP_ALL(OP_ADD);
-		OP_ALL(OP_SUB);
-		OP_ALL(OP_MUL);
-		OP_ALL(OP_DIV);
-		OP_ALL(OP_MOD);
-		case OP_LOAD:
-		{
-			out.Push(I.Result);
-			out.Push(-1);
-			out.Push(I.Right);
-			// Needs special handling for memcpy
-		} break;
-		case OP_STORE:
-		{
-			out.Push(I.Result);
-			out.Push(-1);
-			out.Push(I.Right);
-			// Needs special handling for memcpy
-		} break;
-		case OP_CAST:
-		{
-			out.Push(I.Result);
-			out.Push(I.Left);
-			out.Push(-1);
-		} break;
-		OP_RESULT(OP_ALLOC);
-		OP_BR(OP_ALLOCGLOBAL);
+		case OP_CONSTINT:
+		case OP_CONST:
+		case OP_IF:
+		case OP_JMP:
+		case OP_DEBUGINFO:
+		case OP_COPYPHYSICAL:
+		break;
+
+		OP_R(OP_ZEROUT);
+
+		OP_LR(OP_ADD);
+		OP_LR(OP_SUB);
+		OP_LR(OP_MUL);
+		OP_LR(OP_DIV);
+		OP_LR(OP_MOD);
+
+		OP_R(OP_LOAD);
+		OP_R(OP_STORE);
+		OP_R(OP_BITCAST);
+		OP_R(OP_PTRCAST);
+		OP_L(OP_CAST);
 		case OP_RET:
 		{
 			if(I.Left != -1)
 			{
-				out.Push(-1);
-				out.Push(I.Left);
-				out.Push(-1);
-			}
-			else
-			{
-				out.Push(-1);
-				out.Push(-1);
-				out.Push(-1);
+				out[(*count)++] = I.Left;
 			}
 		} break;
 		case OP_MEMCMP:
 		{
-			// Needs special handling (maybe) (idk basic block stuff)
-			ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
-			out.Push(Info->LeftPtr);
-			out.Push(Info->RightPtr);
-			out.Push(Info->Count);
+			ir_memcmp *Info = (ir_memcmp *)I.Ptr;
+			out[(*count)++] = Info->LeftPtr;
+			out[(*count)++] = Info->RightPtr;
 		} break;
 		case OP_CALL:
 		{
 			// Needs special handling (maybe) (idk basic block stuff)
-			out.Push(I.Result);
-			call_info *Info = (call_info *)I.BigRegister;
-			out.Push(Info->Operand);
-			ForArray(i, Info->Args)
+			call_info *Info = (call_info *)I.Ptr;
+			out[(*count)++] = Info->Operand;
+			For(Info->Args)
 			{
-				out.Push(Info->Operand);
+				out[(*count)++] = *it;
 			}
 		} break;
-		case OP_SWITCHINT:
-		{
-			out.Push(I.Result);
-			// Needs special handling (maybe) (idk basic block stuff)
-		} break;
-		OP_RESULT(OP_IF);
-		case OP_JMP:
-		{
-			out.Push(-1);
-			out.Push(-1);
-			out.Push(-1);
-		} break;
-		OP_ALL(OP_INDEX);
-		case OP_ARRAYLIST:
-		{
-			out.Push(I.Result);
-			out.Push(-1);
-			out.Push(-1);
-			// Needs special handling
-		} break;
-		case OP_MEMSET:
-		{
-			out.Push(-1);
-			out.Push(-1);
-			out.Push(I.Right);
-			// Needs special handling
-			// function call frees all registers
-		} break;
-		OP_RESULT(OP_ARG);
+		OP_LR(OP_INDEX);
+		OP_R(OP_MEMSET);
 
-		OP_ALL(OP_NEQ);
-		OP_ALL(OP_GREAT);
-		OP_ALL(OP_GEQ);
-		OP_ALL(OP_LESS);
-		OP_ALL(OP_LEQ);
-		OP_ALL(OP_SL);
-		OP_ALL(OP_SR);
-		OP_ALL(OP_EQEQ);
-		OP_ALL(OP_AND);
-		OP_ALL(OP_OR);
-		OP_ALL(OP_XOR);
-		case OP_DEBUGINFO:
-		{
-		} break;
-		OP_ALL(OP_PTRDIFF);
+		OP_LR(OP_NEQ);
+		OP_LR(OP_GREAT);
+		OP_LR(OP_GEQ);
+		OP_LR(OP_LESS);
+		OP_LR(OP_LEQ);
+		OP_LR(OP_SL);
+		OP_LR(OP_SR);
+		OP_LR(OP_EQEQ);
+		OP_LR(OP_AND);
+		OP_LR(OP_OR);
+		OP_LR(OP_XOR);
+		OP_LR(OP_PTRDIFF);
+		OP_L(OP_COPYTOPHYSICAL);
+
 		case OP_SPILL:
-		case OP_TOPHYSICAL:
 		case OP_COUNT: unreachable;
 	}
 }
-#endif
 

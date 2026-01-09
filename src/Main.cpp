@@ -42,8 +42,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMPasses.h"
 #include "backend/LLVMC/LLVMTypeInfoGlobal.h"
 
-//#include "backend/RegAlloc.h"
-//#include "backend/x86.h"
+#include "backend/RegAlloc.h"
+#include "backend/x86.h"
 
 #endif
 #include "ConstVal.h"
@@ -84,8 +84,8 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMPasses.cpp"
 #include "backend/LLVMC/LLVMTypeInfoGlobal.cpp"
 
-//#include "backend/RegAlloc.cpp"
-//#include "backend/x86.cpp"
+#include "backend/RegAlloc.cpp"
+#include "backend/x86.cpp"
 
 #endif
 #include "ConstVal.cpp"
@@ -190,10 +190,14 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 	{
 		Args.Push(STR_LIT("/nologo"));
 		Args.Push(STR_LIT("/OUT:a.exe"));
+		if(g_CompileFlags & CF_DebugInfo)
+			Args.Push(STR_LIT("/DEBUG"));
 	}
 	else
 	{
-		Builder += "/nologo /OUT:a.exe /DEBUG ";
+		Builder += "/nologo /OUT:a.exe ";
+		if(g_CompileFlags & CF_DebugInfo)
+			Builder += "/DEBUG";
 	}
 
 	if(Info->EntryPoint.Data)
@@ -412,7 +416,7 @@ main(int ArgCount, char *Args[])
 #endif
 
 	command_line CommandLine = ParseCommandLine(ArgCount, Args);
-	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile == NULL)
+	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile.Data == NULL)
 		return 1;
 
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
@@ -678,20 +682,21 @@ main(int ArgCount, char *Args[])
 
 
 			FileTimer.LLVM = VLibStartTimer("LLVM");
-#if 1
 			RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
-#else
-			slice<reg_reserve_instruction> Reserved = SliceFromConst({
-					reg_reserve_instruction{OP_DIV, SliceFromConst<uint>({0, 3, 0})},
-					});
-
-			reg_allocator r = MakeRegisterAllocator(Reserved, 4);
-			ForArray(fi, FileArray)
+#if 0
 			{
-				ir *IR = FileArray[fi].IR;
-				AllocateRegisters(&r, IR);
-				string Dissasembly = Dissasemble(SliceFromArray(IR->Functions));
-				LWARN("\t----[ALLOCATED]----\t\n[ MODULE %s ]\n\n%s", FileArray[fi].Module->Name.Data, Dissasembly.Data);\
+				InitX86OpUsage();
+				slice<op_reg_usage> u = {OpUsagex86, ARR_LEN(OpUsagex86)};
+
+				slice<uint> FnCallRegisters = SliceFromConst<uint>({
+						2, 3, 6, 7
+				});
+
+				reg_allocator r = MakeRegisterAllocator(u, 11, FnCallRegisters);
+				For(Files)
+				{
+					AllocateRegisters(&r, (*it)->IR);
+				}
 			}
 #endif
 			VLibStopTimer(&FileTimer.LLVM);

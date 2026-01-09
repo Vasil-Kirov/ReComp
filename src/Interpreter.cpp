@@ -2071,7 +2071,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_SWITCHINT:
 			{
-				ir_switchint *Info = (ir_switchint *)I.BigRegister;
+				ir_switchint *Info = (ir_switchint *)I.Ptr;
 				value *Matcher = VM->Registers.GetValue(Info->Matcher);
 				bool Found = false;
 				ForArray(Idx, Info->Cases)
@@ -2532,7 +2532,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_MEMCMP:
 			{
-				ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
+				ir_memcmp *Info = (ir_memcmp *)I.Ptr;
 				value *p1 = VM->Registers.GetValue(Info->LeftPtr);
 				value *p2 = VM->Registers.GetValue(Info->RightPtr);
 				value *count = VM->Registers.GetValue(Info->Count);

@@ -65,14 +65,46 @@ void assembler::Push(operand Operand)
 	PushByte(0x50 | Operand.Register);
 }
 
-void assembler::Add(operand Dst, operand Src)
+void assembler::EncodeInstruction(operand Dst, operand Src, u8 rm_r, u8 rm_imm, u8 r_rm)
 {
-	Assert(Dst.Type == operand_register);
-	Assert(Src.Type == operand_constant);
+	switch(Src.Type)
+	{
+		case operand_offset:
+		{
+			Assert(Dst.Type == operand_register);
+			PushByte(r_rm);
+			EncodeOperands(Dst, Src);
+		} break;
+		case operand_constant:
+		{
+			PushByte(rm_imm);
+			EncodeOperands(Dst, Src);
+			PushU32(Src.Constant);
+		} break;
+		case operand_register:
+		{
+			PushByte(rm_r);
+			EncodeOperands(Dst, Src);
+		} break;
+	}
+}
+
+void assembler::Add(operand Dst, operand Src, bool Lock)
+{
+	//Assert(Dst.Type == operand_register);
+	//Assert(Src.Type == operand_constant);
+	if(Lock)
+	{
+		PushByte(LOCK);
+		Assert(Dst.Type == operand_offset);
+	}
 	PushByte(REX_W);
-	PushByte(0x81);
-	PushByte((MOD_register << 6) | (0 << 3) | Dst.Register);
-	PushU32(Src.Constant);
+	if(Src.Type == operand_constant)
+	{
+		PushByte(0x81);
+		PushByte((MOD_register << 6) | (0 << 3) | Dst.Register);
+		PushU32(Src.Constant);
+	}
 }
 
 void assembler::Sub(operand Dst, operand Src)
@@ -299,6 +331,17 @@ void assembler::Lea64(operand Dst, operand Src)
 		} break;
 		default: unreachable;
 	}
+}
+
+void assembler::RDTSC()
+{
+	PushByte(0x0F);
+	PushByte(0x31);
+}
+
+void assembler::DebugTrap()
+{
+	PushByte(0xF1);
 }
 
 u8 operand::GetRegisterEncoding()

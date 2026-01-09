@@ -76,7 +76,8 @@ i32 DistanceBetweenStrings(const string &A, const string &B, int Threshhold);
 
 void PushBuilder(string_builder *Builder, const char *Data);
 void PushBuilder(string_builder *Builder, char C);
-void PushBuilderFormated(string_builder *Builder, const char *Format, ...);
+void PushBuilderFormated(string_builder *Builder, const char *Format, ...)
+__attribute__((format (printf, 2, 3)));
 
 string MakeStringSlice(const char *Ptr, size_t Size);
 string QuickBuild(const char *fmt, ...)

@@ -1395,7 +1395,7 @@ u32 GetArrayType(u32 Type, u32 ElemCount)
 
 	string_builder Builder = MakeBuilder();
 	string BaseType = GetTypeNameAsString(Type);
-	PushBuilderFormated(&Builder, "[%d]%s", ElemCount, BaseType);
+	PushBuilderFormated(&Builder, "[%d]%s", ElemCount, BaseType.Data);
 
 	string Lookup = MakeString(Builder, Scratch.Allocate(Builder.Size+1));
 

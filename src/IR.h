@@ -228,6 +228,20 @@ struct arg_location
 	int Count;
 };
 
+struct live_interval
+{
+	uint Start;
+	uint End;
+	u32 Virtual;
+};
+
+struct lifespan
+{
+	live_interval Interval;
+	u32 SpilledAt;
+	u32 InRegister;
+};
+
 struct function
 {
 	const string *Name;
@@ -237,6 +251,7 @@ struct function
 	slice<symbol> ModuleSymbols;
 	slice<run_location> Runs;
 	slice<arg_location> Args;
+	slice<lifespan> Lifespans; // For custom backend
 	string ModuleName;
 	u32 LineNo;
 	u32 LastRegister;
@@ -298,6 +313,8 @@ struct ir
 	u32 MaxRegisters;
 };
 
+extern const char *phyregs[];
+
 ir BuildIR(file *File);
 void BuildEnumIR();
 u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, b32 IsNeq=false);
@@ -314,10 +331,11 @@ u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
 int GetPointerPassIdx(u32 TypeIdx, uint Size);
 
-void GetUsedRegisters(instruction I, dynamic<u32> &out);
+void GetUsedRegisters(instruction I, u32 *out, size_t *count);
 u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr);
 
 string Dissasemble(ir *IR);
 string DissasembleFunction(function Fn, int indent);
 void DissasembleInstruction(string_builder *Builder, instruction Instr);
+void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int indent);
 

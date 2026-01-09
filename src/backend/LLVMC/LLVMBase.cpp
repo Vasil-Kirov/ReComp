@@ -1155,7 +1155,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		} break;
 		case OP_SWITCHINT:
 		{
-			ir_switchint *Info = (ir_switchint *)I.BigRegister;
+			ir_switchint *Info = (ir_switchint *)I.Ptr;
 			LLVMValueRef Matcher = gen->map.Get(Info->Matcher);
 			LLVMBasicBlockRef Else = NULL;
 			u32 BlockCount = Info->Cases.Count;
@@ -1290,7 +1290,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_MEMCMP:
 		{
 
-			ir_memcmp *Info = (ir_memcmp *)I.BigRegister;
+			ir_memcmp *Info = (ir_memcmp *)I.Ptr;
 			LLVMValueRef Args[3] = {};
 			Args[0] = gen->map.Get(Info->LeftPtr);
 			Args[1] = gen->map.Get(Info->RightPtr);
@@ -1314,7 +1314,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			RCGenerateDebugInfo(gen, Info);
 		} break;
 		case OP_SPILL:
-		case OP_TOPHYSICAL:
+		case OP_COPYTOPHYSICAL:
+		case OP_COPYPHYSICAL:
 		case OP_COUNT:
 		unreachable;
 	}

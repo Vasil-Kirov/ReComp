@@ -1,8 +1,6 @@
 #pragma once
 #include "Basic.h"
 #include "Log.h"
-
-// Dynamic array that doesn't need / use constructors and destructors
 #include <initializer_list>
 
 // Putting this in the class deletes the default copy constructor
@@ -87,19 +85,26 @@ struct slice {
 	b32 IsValid() const { return Data != NULL; }
 };
 
+typedef int (*sort_fn)(void *, const void*, const void*);
 template <typename T>
 struct array {
 	T *Data;
 	size_t Count;
-	array(size_t _Count)
+	array() = default;
+	array(size_t Count_)
 	{
-		Count = _Count;
+		Count = Count_;
 		Data = (T *)VAlloc(Count * sizeof(T));
 	}
-	array(void *Mem, size_t _Count)
+	array(void *Mem, size_t Count_)
 	{
-		Count = _Count;
+		Count = Count_;
 		Data = (T *)Mem;
+	}
+	array(dynamic<T> Dynamic)
+	{
+		Data = Dynamic.Data;
+		Count = Dynamic.Count;
 	}
 	T operator[](size_t Index) const
 	{
@@ -110,6 +115,22 @@ struct array {
 	{
 		Assert(Index < Count);
 		return Data[Index];
+	}
+	void Sort(sort_fn Fn, void *Ctx)
+	{
+		qsort_s(Data, Count, sizeof(T), Fn, Ctx);
+	}
+	void Reverse()
+	{
+		if(Count < 2)
+			return;
+
+		for(size_t i = Count-1; i >= Count/2; --i)
+		{
+			T tmp = Data[Count-i-1];
+			Data[Count-i-1] = Data[i];
+			Data[i] = tmp;
+		}
 	}
 	void Free()
 	{
@@ -150,6 +171,20 @@ slice<T> SliceFromConst(std::initializer_list<T> List)
 	return Result;
 }
 
+template <typename T>
+array<T> ArrayFromConst(std::initializer_list<T> List)
+{
+	size_t Size = List.size();
+	T *Data = (T *)VAlloc(Size * sizeof(T));
+	memcpy(Data, List.begin(), Size * sizeof(T));
+	array<T> Result;
+	Result.Data = Data;
+	Result.Count = Size;
+	return Result;
+}
+
 #define ForArray(_Index, _Array) for(size_t _Index = 0; _Index < (_Array).Count; ++_Index)
-#define For(_Array) for(auto *it = _Array.Data; (size_t)(it - _Array.Data) < _Array.Count; ++it)
+#define For(_Array) for(auto *it = (_Array).Data; (size_t)(it - (_Array).Data) < (_Array).Count; ++it)
+#define ForN(_Array, Name) for(auto *Name = (_Array).Data; (size_t)(Name - (_Array).Data) < (_Array).Count; ++Name)
+#define ForReverse(_Array) for(auto *it = (_Array).Data+(_Array).Count-1; it >= _Array.Data; --it)
 

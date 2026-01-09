@@ -79,12 +79,14 @@ struct operand
 	u8 GetRegisterEncoding();
 };
 
+const u8 LOCK = 0xF0;
+
 struct assembler
 {
 	void *Code;
 	uint CurrentOffset;
 	uint Size;
-	void Add(operand Dst, operand Src);
+	void Add(operand Dst, operand Src, bool Lock=false);
 	void Sub(operand Dst, operand Src);
 	void Push(operand Op);
 	void Pop(operand Op);
@@ -99,6 +101,9 @@ struct assembler
 	void Peek(operand Register);
 	void EncodeOperands(operand A, operand B);
 	void EncodePrefix(operand Dst, operand Src);
+	void EncodeInstruction(operand Dst, operand Src, u8 rm_r, u8 rm_imm, u8 r_rm);
+	void RDTSC();
+	void DebugTrap();
 };
 
 assembler MakeAssembler(uint MemorySize);

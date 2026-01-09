@@ -7,16 +7,14 @@ enum op_flags : u8
 	OpFlag_LeftIsFixed     = BIT(1),
 	OpFlag_RightIsFixed    = BIT(2),
 	OpFlag_DstIsFixed      = BIT(3),
-	OpFlag_LeftIsUnused    = BIT(4),
-	OpFlag_RightIsUnused   = BIT(5),
-	OpFlag_DstIsUnused     = BIT(6),
-	OpFlag_ComplexArgOp    = BIT(7),
+	OpFlag_DstIsUnused     = BIT(4),
+	OpFlag_ComplexArgOp    = BIT(5),
 };
 
 struct op_reg_usage
 {
 	u8 ResultsFixedCount;
-	op_flags Flags;
+	u8 Flags;
 
 	uint LeftFixed;
 	uint RightFixed;
@@ -30,22 +28,42 @@ struct reg_allocator
 	uint PhysicalRegs;
 };
 
-struct fixed_register_internval
+struct fixed_register_interval
 {
 	uint Register;
 	uint Start;
 	uint End;
+	u32 VirtualReg;
 };
 
-struct lifespan
-{
-	uint Start;
-	uint End;
+enum RegisterIR {
+	RA,
+	RB,
+	RC,
+	RD,
+	RSI,
+	RDI,
+	R8,
+	R9
 };
 
-struct tracker
-{
-	u32 VirtualRegister;
-	lifespan Lifespan;
-};
+/*
+ * x64 registers
+ *
+ * rax = 0
+ * rbx = 1
+ * rcx = 2
+ * rdx = 3
+ * rsi = 4
+ * rdi = 5
+ * r8 = 6
+ * r9 = 7
+ * r10 = 8
+ * r11 = 9
+ * r12 = 10
+ * rbp = 11
+ * rsp = 12
+ *
+ *
+ */
 

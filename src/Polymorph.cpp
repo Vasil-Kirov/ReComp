@@ -61,6 +61,51 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 	return AddType(NewFT);
 }
 
+u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, const type *Gen, dict<u32> &DefinedGenerics)
+{
+	array<struct_generic_argument> NewArgs(Gen->Struct.GenericArguments.Count);
+	ForArray(Idx, Gen->Struct.GenericArguments)
+	{
+		auto it = &Gen->Struct.GenericArguments.Data[Idx];
+		struct_generic_argument Arg = *it;
+		if(IsGeneric(it->DefinedAs))
+		{
+			u32 GenericIdx = GetGenericPart(it->DefinedAs, it->DefinedAs);
+			const type *Gen = GetTypeRaw(GenericIdx);
+			string Name = GetGenericName(Gen);
+			u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
+			if(DefinedPtr == NULL)
+			{
+				// @Note: probably reachable
+				if(PassedStruct)
+					RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
+				else
+					RaiseError(true, *err_i, "Return type is an unresolved polymorphic type");
+			}
+			u32 Defined = *DefinedPtr;
+			Arg.DefinedAs = ToNonGeneric(it->DefinedAs, Defined);
+		}
+		else if(it->DefinedAs == INVALID_TYPE)
+		{
+			if(PassedStruct == nullptr)
+			{
+				RaiseError(true, *err_i, "Function signature returns a generic struct without a type parameter!");
+			}
+			Arg.DefinedAs = PassedStruct->Struct.GenericArguments[Idx].DefinedAs;
+		}
+		NewArgs[Idx] = Arg;
+	}
+	string_builder B = {};
+	for(int i = 0; i < Gen->Struct.Name.Size && Gen->Struct.Name.Data[i] != '<'; ++i)
+	{
+		B += Gen->Struct.Name.Data[i];
+	}
+	slice<struct_member> Members = ResolveGenericStruct(Gen, SliceFromArray(NewArgs), &DefinedGenerics);
+	u32 AsDefined = MakeStruct(MakeString(B), Members, SliceFromArray(NewArgs), Gen->Struct.Flags & ~StructFlag_Generic);
+	DefinedGenerics.Add(Gen->Struct.Name, AsDefined);
+	return AsDefined;
+}
+
 symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 {
 	symbol *FnSym = FindSymbolFromNode(Checker, Call->Call.Fn);
@@ -152,39 +197,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 			if(Gen->Kind == TypeKind_Struct)
 			{
 				const type *PassedStruct = GetType(GetGenericPart(Call->Call.ArgTypes[ArgI], ArgTypeIdx));
-				array<struct_generic_argument> NewArgs(Gen->Struct.GenericArguments.Count);
-				ForArray(Idx, Gen->Struct.GenericArguments)
-				{
-					auto it = &Gen->Struct.GenericArguments.Data[Idx];
-					struct_generic_argument Arg = *it;
-					if(IsGeneric(it->DefinedAs))
-					{
-						u32 GenericIdx = GetGenericPart(it->DefinedAs, it->DefinedAs);
-						const type *Gen = GetTypeRaw(GenericIdx);
-						string Name = GetGenericName(Gen);
-						u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
-						if(DefinedPtr == NULL)
-						{
-							// @Note: probably reachable
-							RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
-						}
-						u32 Defined = *DefinedPtr;
-						Arg.DefinedAs = ToNonGeneric(it->DefinedAs, Defined);
-					}
-					else if(it->DefinedAs == INVALID_TYPE)
-					{
-						Arg.DefinedAs = PassedStruct->Struct.GenericArguments[Idx].DefinedAs;
-					}
-					NewArgs[Idx] = Arg;
-				}
-				string_builder B = {};
-				for(int i = 0; i < Gen->Struct.Name.Size && Gen->Struct.Name.Data[i] != '<'; ++i)
-				{
-					B += Gen->Struct.Name.Data[i];
-				}
-				slice<struct_member> Members = ResolveGenericStruct(Gen, SliceFromArray(NewArgs), &DefinedGenerics);
-				AsDefined = MakeStruct(MakeString(B), Members, SliceFromArray(NewArgs), Gen->Struct.Flags & ~StructFlag_Generic);
-				DefinedGenerics.Add(Gen->Struct.Name, AsDefined);
+				AsDefined = PolymorphGenericStruct(err_i, PassedStruct, Gen, DefinedGenerics);
 				AsDefined = ToNonGeneric(ArgTypeIdx, AsDefined);
 			}
 			else
@@ -213,12 +226,20 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 		{
 			auto err_i = Call->ErrorInfo;
 			u32 GenericIdx = GetGenericPart(*it, *it);
-			string Name = GetGenericName(GetTypeRaw(GenericIdx));
-			u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
-			if(DefinedPtr == NULL)
+			const type *GenT = GetTypeRaw(GenericIdx);
+			if(GenT->Kind == TypeKind_Struct)
 			{
-				// @Note: probably reachable
-				RaiseError(true, *err_i, "return of function is an unresolved polymorphic type");
+				PolymorphGenericStruct(err_i, nullptr, GenT, DefinedGenerics);
+			}
+			else
+			{
+				string Name = GetGenericName(GenT);
+				u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
+				if(DefinedPtr == NULL)
+				{
+					// @Note: probably reachable
+					RaiseError(true, *err_i, "return of function is an unresolved polymorphic type");
+				}
 			}
 		}
 	}

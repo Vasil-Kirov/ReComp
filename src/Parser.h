@@ -41,6 +41,7 @@ enum node_type
 	
 	AST_PTRTYPE,
 	AST_ARRAYTYPE,
+	AST_GENSTRUCTTYPE,
 	AST_FN,
 	AST_GENERIC,
 	AST_TYPEINFO,
@@ -175,6 +176,7 @@ struct node
 		struct {
 			const string *Name;
 			slice<node *> Members;
+			slice<string> TypeParams;
 			b32 IsUnion;
 		} StructDecl;
 		struct {
@@ -271,6 +273,11 @@ struct node
 			node *Expression;
 			u32 Analyzed; // Set by semantic analyzer
 		} ArrayType;
+		struct {
+			node *ID;
+			slice<node*> Args;
+			u32 Analyzed;
+		} GenericStructType;
 		struct {
 			node *Pointed;
 			u32 Flags;

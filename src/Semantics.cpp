@@ -457,6 +457,65 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			}
 			return Type;
 		} break;
+		case AST_GENSTRUCTTYPE:
+		{
+			u32 StructTIdx = GetTypeFromTypeNode(Checker, TypeNode->GenericStructType.ID, false, OutAutoDef);
+			if(StructTIdx == INVALID_TYPE)
+			{
+				if(!Error)
+					return INVALID_TYPE;
+
+				RaiseError(true, *TypeNode->ErrorInfo, "Couldn't parse type for generic arguments");
+				return INVALID_TYPE;
+			}
+			const type *StructT = GetType(StructTIdx);
+			if(StructT->Kind != TypeKind_Struct || (StructT->Struct.Flags & StructFlag_Generic) == 0)
+			{
+				if(!Error)
+					return INVALID_TYPE;
+
+				RaiseError(true, *TypeNode->ErrorInfo, "Expected a generic struct type for generic arguments, instead got %s", GetTypeName(StructT));
+				return INVALID_TYPE;
+			}
+			dynamic<struct_generic_argument> GenArgs = {};
+			int ArgCount = 0;
+			bool IsStillGeneric = false;
+			For(TypeNode->GenericStructType.Args)
+			{
+				b32 IsAutoDefine = false;
+				u32 T = GetTypeFromTypeNode(Checker, *it, Error, &IsAutoDefine);
+				if(OutAutoDef)
+					*OutAutoDef = *OutAutoDef || IsAutoDefine;
+
+				if(IsGeneric(T))
+					IsStillGeneric = true;
+
+				if(T == INVALID_TYPE)
+				{
+					if(!Error)
+						return INVALID_TYPE;
+
+					RaiseError(true, *(*it)->ErrorInfo, "Unknown type in generic argument list");
+					return INVALID_TYPE;
+				}
+				GenArgs.Push(struct_generic_argument{StructT->Struct.GenericArguments[ArgCount++].Name, T, (bool)IsAutoDefine});
+			}
+
+			if(StructT->Struct.GenericArguments.Count != ArgCount)
+			{
+				if(!Error)
+					return INVALID_TYPE;
+				RaiseError(true, *TypeNode->ErrorInfo, "Expeceted %d generic arguments, got %d instead", StructT->Struct.GenericArguments.Count, ArgCount);
+				return INVALID_TYPE;
+			}
+
+			u32 Flags = StructT->Struct.Flags;
+			if(!IsStillGeneric)
+				Flags &= ~StructFlag_Generic;
+			slice<struct_generic_argument> ArgsS = SliceFromArray(GenArgs);
+			slice<struct_member> Members = ResolveGenericStruct(StructT, ArgsS);
+			return MakeStruct(StructT->Struct.Name, Members, ArgsS, Flags);
+		} break;
 		case AST_PTRTYPE:
 		{
 			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error, OutAutoDef);
@@ -1984,61 +2043,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				break;
 			}
 
-			if(Type->Kind == TypeKind_Struct && Type->Struct.Flags & StructFlag_Generic)
+			if(Type->Kind == TypeKind_Struct)
 			{
-				dynamic<struct_member> Members = {};
-				u32 GenericResolved = INVALID_TYPE;
-				ForArray(Idx, Type->Struct.Members)
+				if(Type->Struct.Flags & StructFlag_Generic)
 				{
-					struct_member Member = Type->Struct.Members[Idx];
-					struct_member NewMember = {};
-					NewMember.ID = Member.ID;
-					NewMember.Type = Member.Type;
-					const type *MT = GetType(Member.Type);
-					if(HasBasicFlag(MT, BasicFlag_TypeID))
-					{
-						if(Filled[Idx] == NULL)
-						{
-							RaiseError(false, *Expr->ErrorInfo,
-									"Type field needs to be specified in initialization of struct %s",
-									GetTypeName(Type));
-							Failed = true;
-						}
-						else
-						{
-							node *Expr = Filled[Idx]->Item.Expression;
-							GenericResolved = GetTypeFromTypeNode(Checker, Expr);
-							FillUntypedStack(Checker, GenericResolved);
-						}
-					}
-					Members.Push(NewMember);
+					RaiseError(true, *Expr->ErrorInfo, "Cannot initialize generic struct without type arguments!");
 				}
-
-				if(Failed)
-				{
-					Result = TypeIdx;
-					break;
-				}
-
-				ForArray(Idx, Type->Struct.Members)
-				{
-					struct_member Member = Type->Struct.Members[Idx];
-					const type *MT = GetType(Member.Type);
-					if(IsGeneric(MT))
-					{
-						// @NOTE: This shouldn't be able to happen because it's checked previously
-						Assert(GenericResolved != INVALID_TYPE);
-						u32 NonGeneric = ToNonGeneric(Member.Type, GenericResolved, Member.Type);
-						TypeCheckAndPromote(Checker, Expr->ErrorInfo, NonGeneric, ExprTypes[Idx], NULL,
-								&Filled[Idx]->Item.Expression, "Generic struct member should be type %s but got type %s");
-						Members.Data[Idx].Type = NonGeneric;
-					}
-				}
-
-				TypeIdx = MakeStruct(SliceFromArray(Members), Type->Struct.Name, Type->Struct.Flags & (~StructFlag_Generic));
-			}
-			else if(Type->Kind == TypeKind_Struct)
-			{
 				// Check for 0 initializing non nullable pointer
 				ForArray(Idx, Type->Struct.Members)
 				{
@@ -2400,6 +2410,11 @@ ANALYZE_SLICE_SELECTOR:
 		case AST_ARRAYTYPE:
 		{
 			Expr->ArrayType.Analyzed = GetTypeFromTypeNode(Checker, Expr);
+			Result = Basic_type;
+		} break;
+		case AST_GENSTRUCTTYPE:
+		{
+			Expr->GenericStructType.Analyzed = GetTypeFromTypeNode(Checker, Expr);
 			Result = Basic_type;
 		} break;
 		default:
@@ -3379,18 +3394,16 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 	New.Kind = TypeKind_Struct;
 	New.Struct.Name = *Node->StructDecl.Name;
 
-	array<struct_member> Members {Node->StructDecl.Members.Count};
-	bool NeedToAddGeneric = false;
-
-	For(Node->StructDecl.Members)
+	array<struct_generic_argument> TypeParams(Node->StructDecl.TypeParams.Count);
+	ForArray(Idx, Node->StructDecl.TypeParams)
 	{
-		u32 Type = GetTypeFromTypeNode(Checker, (*it)->Var.TypeNode);
-		if(Type == INVALID_TYPE)
-		{
-			NeedToAddGeneric = true;
-			break;
-		}
+		New.Struct.Flags |= StructFlag_Generic;
+		MakeGeneric(StructScope, Node->StructDecl.TypeParams[Idx]);
+		TypeParams[Idx] = struct_generic_argument{Node->StructDecl.TypeParams[Idx], INVALID_TYPE, false};
 	}
+	New.Struct.GenericArguments = SliceFromArray(TypeParams);
+
+	array<struct_member> Members {Node->StructDecl.Members.Count};
 
 	ForArray(Idx, Node->StructDecl.Members)
 	{
@@ -3431,22 +3444,6 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 			Members.Data[Idx].ID = STR_LIT("base");
 			Members.Data[Idx].Type = Type;
 			continue;
-		}
-
-		if(HasBasicFlag(T, BasicFlag_TypeID))
-		{
-			if(NeedToAddGeneric)
-			{
-				MakeGeneric(StructScope, *Node->StructDecl.Members[Idx]->Var.Name);
-			}
-		}
-		else if(IsGeneric(T))
-		{
-			if(New.Struct.Flags & StructFlag_Generic)
-			{
-				RaiseError(true, *Node->ErrorInfo, "Structs cannot have more than 1 generic type");
-			}
-			New.Struct.Flags |= StructFlag_Generic;
 		}
 
 		Node->StructDecl.Members[Idx]->Var.Type = Type;
@@ -3829,6 +3826,15 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 					New->Struct.SubType = Basic_bool;
 				}
 			}
+
+			array<struct_generic_argument> TypeParams(Node->StructDecl.TypeParams.Count);
+			if(TypeParams.Count > 0)
+				New->Struct.Flags |= StructFlag_Generic;
+			ForArray(Idx, Node->StructDecl.TypeParams)
+			{
+				TypeParams[Idx] = struct_generic_argument{Node->StructDecl.TypeParams[Idx], INVALID_TYPE, false};
+			}
+			New->Struct.GenericArguments = SliceFromArray(TypeParams);
 
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();

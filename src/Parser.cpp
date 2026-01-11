@@ -222,11 +222,12 @@ node *MakeEnum(const error_info *ErrorInfo, const string *Name, slice<node *> It
 	return Result;
 }
 
-node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members, b32 IsUnion)
+node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members, slice<string> GenericTypeParams, b32 IsUnion)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_STRUCTDECL);
 	Result->StructDecl.Name = Name;
 	Result->StructDecl.Members = Members;
+	Result->StructDecl.TypeParams = GenericTypeParams;
 	Result->StructDecl.IsUnion = IsUnion;
 
 	return Result;
@@ -372,6 +373,14 @@ node *MakeArrayType(const error_info *ErrorInfo, node *ID, node *Expression)
 	node *Result = AllocateNode(ErrorInfo, AST_ARRAYTYPE);
 	Result->ArrayType.Type = ID;
 	Result->ArrayType.Expression = Expression;
+	return Result;
+}
+
+node *MakeGenericStructType(const error_info *ErrorInfo, node *ID, slice<node *> Args)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_GENSTRUCTTYPE);
+	Result->GenericStructType.ID = ID;
+	Result->GenericStructType.Args = Args;
 	return Result;
 }
 
@@ -735,6 +744,21 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 		StructName = MakeAnonStructName(ErrorInfo);
 	}
 
+	dynamic<string> TypeParams = {};
+	if(Parser->Current->Type == '<')
+	{
+		GetToken(Parser);
+		while(true)
+		{
+			token T = EatToken(Parser, T_ID, true);
+			TypeParams.Push(*T.ID);
+			if(Parser->Current->Type != ',')
+				break;
+			GetToken(Parser);
+		}
+		EatToken(Parser, '>', true);
+	}
+
 	EatToken(Parser, T_STARTSCOPE, true);
 
 	auto ParseFn = [](parser *P) -> node* {
@@ -771,7 +795,7 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 
 	slice<node *> Members = Delimited(Parser, ',', ParseFn);
 	EatToken(Parser, T_ENDSCOPE, true);
-	return MakeStructDecl(ErrorInfo, Name, Members, IsUnion);
+	return MakeStructDecl(ErrorInfo, Name, Members, SliceFromArray(TypeParams), IsUnion);
 }
 
 node *ParseType(parser *Parser, b32 ShouldError)
@@ -793,6 +817,22 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				if(Name == NULL)
 					Name = &ErrorID;
 				Result = MakeSelector(ErrorInfo, ID, TypeID.ID);
+			}
+			else if(Parser->Current->Type == '<')
+			{
+				GetToken(Parser);
+				slice<node*> Args = Delimited(Parser, ',', [](parser *Parser){
+						return ParseType(Parser, false);
+						});
+				if(Parser->Current->Type != '>' && !ShouldError)
+				{
+					Result = nullptr;
+				}
+				else
+				{
+					EatToken(Parser, '>', false);
+					Result = MakeGenericStructType(ErrorInfo, ID, Args);
+				}
 			}
 			else
 			{
@@ -1275,6 +1315,25 @@ node *ParseAtom(parser *Parser, node *Operand)
 	return Operand;
 }
 
+bool LooksLikeGenericTypeInit(parser *Parser)
+{
+	if(Parser->Current->Type != T_ID)
+		return false;
+	if(PeekToken(Parser, 1).Type != '<')
+		return false;
+
+	u64 RewindTo = Parser->TokenIndex;
+
+	node *Node = ParseType(Parser, false);
+
+	Parser->TokenIndex = RewindTo;
+	Parser->Current = &Parser->Tokens[Parser->TokenIndex];
+
+	if(Node == nullptr || Node->Type != AST_GENSTRUCTTYPE)
+			return false;
+	return true;
+}
+
 node *ParseOperand(parser *Parser)
 {
 	token Token = PeekToken(Parser);
@@ -1481,8 +1540,15 @@ node *ParseOperand(parser *Parser)
 			}
 			else
 			{
-				GetToken(Parser);
-				Result = MakeID(ErrorInfo, Name);
+				if(LooksLikeGenericTypeInit(Parser))
+				{
+					Result = ParseType(Parser);
+				}
+				else
+				{
+					GetToken(Parser);
+					Result = MakeID(ErrorInfo, Name);
+				}
 			}
 		} break;
 		case T_CHAR:
@@ -2547,6 +2613,7 @@ node *CopyASTNode(node *N)
 			R->StructDecl.Name = N->StructDecl.Name;
 			R->StructDecl.Members = CopyNodeSlice(N->StructDecl.Members);
 			R->StructDecl.IsUnion = N->StructDecl.IsUnion;
+			R->StructDecl.TypeParams = N->StructDecl.TypeParams;
 		} break;
 
 		case AST_ENUM:
@@ -2592,6 +2659,13 @@ node *CopyASTNode(node *N)
 		case AST_CONTINUE:
 			// No additional data to copy
 			break;
+
+		case AST_GENSTRUCTTYPE:
+		{
+			R->GenericStructType.Args = CopyNodeSlice(N->GenericStructType.Args);
+			R->GenericStructType.ID = CopyASTNode(N->GenericStructType.ID);
+			R->GenericStructType.Analyzed = N->GenericStructType.Analyzed;
+		} break;
 
 		case AST_LISTITEM:
 		{

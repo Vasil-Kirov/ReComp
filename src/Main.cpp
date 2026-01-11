@@ -43,7 +43,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMTypeInfoGlobal.h"
 
 #include "backend/RegAlloc.h"
-#include "backend/x86.h"
+//#include "backend/x86.h"
 
 #endif
 #include "ConstVal.h"
@@ -85,7 +85,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "backend/LLVMC/LLVMTypeInfoGlobal.cpp"
 
 #include "backend/RegAlloc.cpp"
-#include "backend/x86.cpp"
+//#include "backend/x86.cpp"
 
 #endif
 #include "ConstVal.cpp"

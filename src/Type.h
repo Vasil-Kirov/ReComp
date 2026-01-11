@@ -105,9 +105,17 @@ struct struct_member
 	u32 Type;
 };
 
+struct struct_generic_argument
+{
+	string Name;
+	u32 DefinedAs;
+	bool IsAutoDefine;
+};
+
 struct struct_type
 {
 	slice<struct_member> Members;
+	slice<struct_generic_argument> GenericArguments;
 	string Name;
 	u32 Flags;
 	u32 SubType;
@@ -256,7 +264,7 @@ type *AllocType(type_kind Kind);
 u32 MakeGeneric(scope *Scope, string Name);
 b32 IsGeneric(const type *Type);
 b32 IsGeneric(u32 Type);
-u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve);
+u32 ToNonGeneric(u32 TypeID, u32 Resolve);
 u32 GetGenericPart(u32 Resolved, u32 GenericID);
 u32 ComplexTypeToSizeType(u32 Complex);
 u32 ComplexTypeToSizeType(const type *T);
@@ -265,7 +273,7 @@ u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
 u32 FindEnum(string Name);
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT);
-u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags);
+u32 MakeStruct(string Name, slice<struct_member> Members, slice<struct_generic_argument> GenArgs, u32 Flags);
 void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original, slice<import> Imports, module *Module);
 b32 IsFn(const type *T);
 b32 IsFnOrPtr(const type *T);
@@ -290,7 +298,6 @@ size_t AddGenericReplacement(string Generic, u32 ToReplace);
 void ClearGenericReplacement(size_t To);
 
 b32 IsStructAllFloats(const type *T);
-u32 ResolveGenericStruct(u32 Type, u32 ResolvedStruct);
 b32 IsSigned(const type *T);
 void AddVectorTypes();
 

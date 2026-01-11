@@ -1238,7 +1238,22 @@ string GetTypeNameAsString(const type *Type)
 		} break;
 		case TypeKind_Struct:
 		{
-			return Type->Struct.Name;
+			if(Type->Struct.GenericArguments.Count > 0 && Type->Struct.Flags & StructFlag_Generic)
+			{
+				string_builder Builder = MakeBuilder();
+				Builder += Type->Struct.Name;
+				Builder += '<';
+				ForArray(Idx, Type->Struct.GenericArguments)
+				{
+					if(Idx != 0)
+						Builder += ',';
+					Builder += Type->Struct.GenericArguments[Idx].Name;
+				}
+				Builder += '>';
+				return MakeString(Builder);
+			}
+			else
+				return Type->Struct.Name;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1526,12 +1541,9 @@ b32 IsPassInAsIntType(const type *Type)
 	}
 }
 
-u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
+u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 {
 	const type *Type = GetType(TypeID);
-	const type *AR = GetType(ArgResolve);
-	if(Type->Kind != TypeKind_Generic)
-		Assert(Type->Kind == AR->Kind);
 	u32 Result = TypeID;
 	switch(Type->Kind)
 	{
@@ -1545,7 +1557,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 		{
 			if(Type->Pointer.Pointed == INVALID_TYPE)
 				break;
-			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve, AR->Pointer.Pointed);
+			u32 Pointed = ToNonGeneric(Type->Pointer.Pointed, Resolve);
 			if(Pointed != Type->Pointer.Pointed)
 			{
 				Result = GetPointerTo(Pointed, Type->Pointer.Flags);
@@ -1553,7 +1565,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 		} break;
 		case TypeKind_Array:
 		{
-			u32 AT = ToNonGeneric(Type->Array.Type, Resolve, AR->Array.Type);
+			u32 AT = ToNonGeneric(Type->Array.Type, Resolve);
 			if(AT != Type->Array.Type)
 			{
 				Result = GetArrayType(AT, Type->Array.MemberCount);
@@ -1561,7 +1573,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 		} break;
 		case TypeKind_Slice:
 		{
-			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve, AR->Array.Type);
+			u32 AT = ToNonGeneric(Type->Slice.Type, Resolve);
 			if(AT != Type->Slice.Type)
 			{
 				Result = GetSliceType(AT);
@@ -1578,14 +1590,14 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 			b32 NeedsNew = false;
 			for(int i = 0; i < ArgCount; ++i)
 			{
-				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve, AR->Function.Args[i]);
+				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve);
 				if(NArgs[i] != Type->Function.Args[i])
 					NeedsNew = true;
 			}
 
 			ForArray(Idx, Type->Function.Returns)
 			{
-				u32 RetTypeIdx = ToNonGeneric(Type->Function.Returns[Idx], Resolve, AR->Function.Returns[Idx]);
+				u32 RetTypeIdx = ToNonGeneric(Type->Function.Returns[Idx], Resolve);
 				if(RetTypeIdx != Type->Function.Returns[Idx])
 				{
 					NeedsNew = true;
@@ -1599,7 +1611,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve, u32 ArgResolve)
 				u32 At = 0;
 				For(Type->Function.Returns)
 				{
-					Returns[At] = ToNonGeneric(*it, Resolve, AR->Function.Returns[At]);
+					Returns[At] = ToNonGeneric(*it, Resolve);
 					At++;
 				}
 
@@ -1658,21 +1670,7 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 		} break;
 		case TypeKind_Struct:
 		{
-			if(G->Struct.Flags & StructFlag_Generic)
-			{
-				Result = Resolved;
-			}
-			else
-			{
-				ForArray(Idx, G->Struct.Members)
-				{
-					if(IsGeneric(G->Struct.Members[Idx].Type))
-					{
-						Result = GetGenericPart(T->Struct.Members[Idx].Type, G->Struct.Members[Idx].Type);
-						break;
-					}
-				}
-			}
+			Result = Resolved;
 		} break;
 		case TypeKind_Function:
 		{
@@ -1973,21 +1971,20 @@ b32 IsForeign(const type *T)
 	return (T->Function.Flags & SymbolFlag_Foreign) != 0;
 }
 
-string GetGenericResolvedStructName(const type *T)
+string GetGenericResolvedStructName(string Name, slice<struct_generic_argument> GenericArguments)
 {
-	Assert(T->Kind == TypeKind_Struct);
 	string_builder b = MakeBuilder();
-	b += T->Struct.Name;
+	b += Name;
 	b += '<';
 
 	bool First = true;
-	For(T->Struct.Members)
+	For(GenericArguments)
 	{
 		if(First)
 			First = false;
 		else
-			b += '.';
-		b += GetTypeNameAsString(it->Type);
+			b += ',';
+		b += GetTypeNameAsString(it->DefinedAs);
 	}
 
 	b += '>';
@@ -1995,14 +1992,13 @@ string GetGenericResolvedStructName(const type *T)
 	return MakeString(b);
 }
 
-u32 MakeStruct(slice<struct_member> Members, string Name, u32 Flags)
+u32 MakeStruct(string Name, slice<struct_member> Members, slice<struct_generic_argument> GenArgs, u32 Flags)
 {
 	type *T = AllocType(TypeKind_Struct);
 	T->Struct.Members = Members;
-	T->Struct.Name    = Name;
 	T->Struct.Flags   = Flags;
-
-	T->Struct.Name = GetGenericResolvedStructName(T);
+	T->Struct.GenericArguments = GenArgs;
+	T->Struct.Name    = GetGenericResolvedStructName(Name, GenArgs);
 
 	return AddType(T);
 }

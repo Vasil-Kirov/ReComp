@@ -100,6 +100,11 @@ struct array {
 	array(size_t Count_)
 	{
 		Count = Count_;
+		if(Count == 0)
+		{
+			Data = nullptr;
+			return;
+		}
 		Data = (T *)VAlloc(Count * sizeof(T));
 	}
 	array(void *Mem, size_t Count_)

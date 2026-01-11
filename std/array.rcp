@@ -22,6 +22,11 @@ create :: fn(T: type, allocator: *mem.Allocator) -> []T {
     return res;
 }
 
+capacity :: fn(arr: []$T) -> int {
+    header := cast(*Header, arr.data) - 1;
+	return header.capacity;
+}
+
 add :: fn(arg_arr: *[]$T, item: T) {
     arr := arg_arr;
     header := cast(*Header, arr.data) - 1;

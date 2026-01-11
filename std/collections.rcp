@@ -1,0 +1,44 @@
+module collection;
+
+
+#import array;
+#import mem;
+
+
+struct Stack<T>
+{
+	data: []T,
+	top: int,
+}
+
+
+make_stack :: fn(t: type, alloc: *mem.Allocator) -> Stack<t> {
+	return Stack<t> {
+		data = array.create(t, alloc),
+		top = 0,
+	};
+}
+
+push :: fn(s: *Stack<$t>, elem: t) {
+	using s;
+	if top == data.count {
+		array.add(&data, elem);
+		top += 1;
+	}
+	else {
+		data[top] = elem;
+		top += 1;
+	}
+}
+
+pop :: fn(s: *Stack<$t>) -> t {
+	using s;
+	top -= 1;
+	result := data[top];
+	return result;
+}
+
+
+
+
+

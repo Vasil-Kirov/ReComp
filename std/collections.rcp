@@ -39,7 +39,8 @@ pop :: fn(s: *Stack<$t>) -> t {
 }
 
 free_stack :: fn(s: *Stack<$t>) {
-	array.free(s.data);
+	using s;
+	array.free(&data);
 }
 
 
@@ -49,6 +50,7 @@ struct Queue<T>
 	front: int,
 	size: int,
 	capacity: int,
+	alloc: *mem.Allocator,
 };
 
 make_queue :: fn(t: type, capacity: int, alloc: *mem.Allocator) -> Queue<t> {
@@ -57,6 +59,7 @@ make_queue :: fn(t: type, capacity: int, alloc: *mem.Allocator) -> Queue<t> {
 		front = 0,
 		size = 0,
 		capacity = capacity,
+		alloc = alloc,
 	};
 }
 
@@ -73,6 +76,14 @@ dequeue :: fn(q: *Queue<$t>) -> t {
 	front = (front + 1) % capacity;
 	size -= 1;
 	return result;
+}
+
+free_queue :: fn(q: *Queue<$t>) {
+	using q;
+	mem.destroy_slice(&data, alloc);
+	front = 0;
+	size = 0;
+	capacity = 0;
 }
 
 

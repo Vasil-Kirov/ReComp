@@ -299,6 +299,19 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     return result;
 }
 
+struct Optional<T> {
+	value: T,
+	ok: bool,
+};
+
+ok :: fn(value: $t) -> Optional<t> {
+	return .{value, true};
+}
+
+none :: fn(t: type) -> Optional<t> {
+	return .{};
+}
+
 memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> i32;
 
 main :: fn #link="main.main"() -> i32;

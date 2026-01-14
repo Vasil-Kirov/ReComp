@@ -336,7 +336,7 @@ u32 AddTypeWithName(type *Type, string Name)
 	Type->CachedSize = -1;
 	Type->CachedAlignment = -1;
 	Type->CachedAsPointer = INVALID_TYPE;
-	if(Type->Kind != TypeKind_Generic)
+	if(!IsGeneric(Type))
 	{
 		Type->CachedSize = GetTypeSize(Type);
 		Type->CachedAlignment = GetTypeAlignment(Type);

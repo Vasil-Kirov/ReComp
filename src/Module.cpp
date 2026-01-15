@@ -84,6 +84,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 		}
 	}
 
+
 	string Internal = STR_LIT("internal");
 	string Base = STR_LIT("base");
 	b32 HasInternal = false;
@@ -134,7 +135,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 			LogCompilerError("Error: base module is missing\n");
 			exit(1);
 		}
-		Imports.Push(import{.M = BaseMod, .As = STR_LIT("")});
+		Imports.Push(import{.M = BaseMod, .As = STR_LIT("*")});
 	}
 
 	return SliceFromArray(Imports);

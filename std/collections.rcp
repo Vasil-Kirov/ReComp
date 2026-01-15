@@ -12,7 +12,9 @@ struct Stack<T>
 }
 
 
-make_stack :: fn(t: type, alloc: *mem.Allocator) -> Stack<t> {
+make_stack :: fn(t: type, alloc: *mem.Allocator = null) -> Stack<t> {
+	if alloc == null
+		alloc = &mem.temp_alloc;
 	return Stack<t> {
 		data = array.create(t, alloc),
 		top = 0,
@@ -53,7 +55,9 @@ struct Queue<T>
 	alloc: *mem.Allocator,
 };
 
-make_queue :: fn(t: type, capacity: int, alloc: *mem.Allocator) -> Queue<t> {
+make_queue :: fn(t: type, capacity: int, alloc: *mem.Allocator = null) -> Queue<t> {
+	if alloc == null
+		alloc = &mem.temp_alloc;
 	return Queue<t> {
 		data = mem.make_slice(t, capacity, alloc),
 		front = 0,

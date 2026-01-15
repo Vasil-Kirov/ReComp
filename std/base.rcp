@@ -312,6 +312,13 @@ none :: fn(t: type) -> Optional<t> {
 	return .{};
 }
 
+value_or :: fn(opt: Optional<$t>, none: t) -> t {
+	if opt.ok {
+		return opt.value;
+	}
+	return none;
+}
+
 memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> i32;
 
 main :: fn #link="main.main"() -> i32;

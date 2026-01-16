@@ -1,9 +1,13 @@
 module main
 
+n :: fn(T: type, x: T, y: T) -> T {
+	return x + y;
+}
+
 get_num :: fn(T: type, m: T) -> T {
     x: T = 10;
     y: T = 20;
-    return (x + y) * m;
+    return n(T, x, y) * m;
 }
 
 get_other_num :: fn(m: $T) -> T {

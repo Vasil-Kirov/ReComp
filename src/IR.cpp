@@ -981,6 +981,43 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Instruction(OP_LOAD, 0, Result, Node->IfX.TypeIdx, Builder));
 			}
 		} break;
+		case AST_POSTOP:
+		{
+			u32 T = Node->PostOp.TypeIdx;
+			u32 Location = BuildIRFromExpression(Builder, Node->PostOp.Operand, true);
+			Result = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Location, T, Builder));
+
+			u32 ToStore = -1;
+			if(Node->PostOp.Type == T_PPLUS)
+			{
+				if(GetType(T)->Kind == TypeKind_Pointer)
+				{
+					u32 One = PushInt(1, Builder, Basic_int);
+					ToStore = PushInstruction(Builder, Instruction(OP_INDEX, Result, One, T, Builder));
+				}
+				else
+				{
+					u32 One = PushInt(1, Builder, T);
+					ToStore = PushInstruction(Builder, Instruction(OP_ADD, Result, One, T, Builder));
+				}
+			}
+			else
+			{
+				Assert(Node->PostOp.Type == T_MMIN);
+				if(GetType(T)->Kind == TypeKind_Pointer)
+				{
+					u32 One = PushInt(-1, Builder, Basic_int);
+					ToStore = PushInstruction(Builder, Instruction(OP_INDEX, Result, One, T, Builder));
+				}
+				else
+				{
+					u32 One = PushInt(1, Builder, T);
+					ToStore = PushInstruction(Builder, Instruction(OP_SUB, Result, One, T, Builder));
+				}
+			}
+			PushInstruction(Builder, InstructionStore(Location, ToStore, T));
+		} break;
 		case AST_RUN:
 		{
 			Result = BuildRun(Builder, Node);
@@ -1880,6 +1917,44 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					}
 					instruction I = Instruction(OP_SUB, Zero, Expr, Node->Unary.Type, Builder);
 					Result = PushInstruction(Builder, I);
+				} break;
+				case T_MMIN:
+				case T_PPLUS:
+				{
+					u32 T = Node->Unary.Type;
+					u32 Location = BuildIRFromExpression(Builder, Node->Unary.Operand, true);
+					Result = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Location, T, Builder));
+
+					if(Node->Unary.Op == T_PPLUS)
+					{
+						if(GetType(T)->Kind == TypeKind_Pointer)
+						{
+							u32 One = PushInt(1, Builder, Basic_int);
+							Result = PushInstruction(Builder, Instruction(OP_INDEX, Result, One, T, Builder));
+						}
+						else
+						{
+							u32 One = PushInt(1, Builder, T);
+							Result = PushInstruction(Builder, Instruction(OP_ADD, Result, One, T, Builder));
+						}
+					}
+					else
+					{
+						Assert(Node->Unary.Op == T_MMIN);
+						if(GetType(T)->Kind == TypeKind_Pointer)
+						{
+							u32 One = PushInt(-1, Builder, Basic_int);
+							Result = PushInstruction(Builder, Instruction(OP_INDEX, Result, One, T, Builder));
+						}
+						else
+						{
+							u32 One = PushInt(1, Builder, T);
+							Result = PushInstruction(Builder, Instruction(OP_SUB, Result, One, T, Builder));
+						}
+					}
+
+					PushInstruction(Builder, InstructionStore(Location, Result, T));
 				} break;
 				case T_BITNOT:
 				{

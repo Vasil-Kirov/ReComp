@@ -67,6 +67,7 @@ enum node_type
 	AST_PTRDIFF,
 	AST_LIST,
 	AST_VAR,
+	AST_POSTOP,
 
 	AST_EMBED,
 	AST_ASSERT,
@@ -85,6 +86,11 @@ struct node
 			const string *Name;
 			u32 Type; // Only set if it's a type id by the semantic analyzer
 		} ID;
+		struct {
+			node *Operand;
+			token_type Type;
+			u32 TypeIdx; // Set by semantic analyzer
+		} PostOp; // ++ / --
 		struct {
 			node *Expr;
 			node *True;

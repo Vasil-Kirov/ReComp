@@ -35,6 +35,15 @@ node *MakeFileLocation(const error_info *ErrorInfo)
 	return Result;
 }
 
+node *MakePostOp(const error_info *ErrorInfo, node *Operand, token_type Type)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_POSTOP);
+	Result->PostOp.Operand = Operand;
+	Result->PostOp.Type = Type;
+
+	return Result;
+}
+
 node *MakeRun(const error_info *ErrorInfo, slice<node *> Body)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_RUN);
@@ -1254,6 +1263,13 @@ node *ParseAtom(parser *Parser, node *Operand)
 		token FirstToken = PeekToken(Parser);
 		switch(FirstToken.Type)
 		{
+			case T_MMIN:
+			case T_PPLUS:
+			{
+				ERROR_INFO;
+				GetToken(Parser);
+				Operand = MakePostOp(ErrorInfo, Operand, FirstToken.Type);
+			} break;
 			case T_OPENPAREN:
 			{
 				Operand = ParseFunctionCall(Parser, Operand);
@@ -1602,6 +1618,8 @@ node *ParseUnary(parser *Parser)
 	ERROR_INFO;
 	switch(Token.Type)
 	{
+		case T_PPLUS:
+		case T_MMIN:
 		case T_MINUS:
 		case T_BANG:
 		case T_QMARK:
@@ -2685,6 +2703,13 @@ node *CopyASTNode(node *N)
 		{
 			R->Case.Value = CopyASTNode(N->Case.Value);
 			R->Case.Body = CopyNodeSlice(N->Case.Body);
+		} break;
+
+		case AST_POSTOP:
+		{
+			R->PostOp.Operand = CopyASTNode(N->PostOp.Operand);
+			R->PostOp.Type = N->PostOp.Type;
+			R->PostOp.TypeIdx = N->PostOp.TypeIdx;
 		} break;
 
 		case AST_DEFER:

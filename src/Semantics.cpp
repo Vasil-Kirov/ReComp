@@ -1247,6 +1247,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_POSTOP:
+		{
+			const char *op = "incremented";
+			if(Expr->PostOp.Type == T_MMIN)
+				op = "decremented";
+			if(!IsLHSAssignable(Checker, Expr->Unary.Operand))
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Expression cannot be %s.", op);
+			}
+			u32 T = AnalyzeExpression(Checker, Expr->PostOp.Operand);
+			if(!HasBasicFlag(GetType(T), BasicFlag_Integer) && GetType(T)->Kind != TypeKind_Pointer)
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Operator can only be used on integers and pointers, but expression is of type %s.", GetTypeName(T));
+			}
+			Expr->PostOp.TypeIdx = T;
+			Result = T;
+		} break;
 		case AST_FILE_LOCATION:
 		{
 			Result = FindStruct(STR_LIT("base.FileLocation"));
@@ -2456,6 +2473,24 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					Expr->Unary.Type = TypeIdx;
 
 					Result = TypeIdx;
+				} break;
+				case T_MMIN:
+				case T_PPLUS:
+				{
+					const char *op = "incremented";
+					if(Expr->Unary.Op == T_MMIN)
+						op = "decremented";
+					if(!IsLHSAssignable(Checker, Expr->Unary.Operand))
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Expression cannot be %s.", op);
+					}
+					u32 T = AnalyzeExpression(Checker, Expr->Unary.Operand);
+					if(!HasBasicFlag(GetType(T), BasicFlag_Integer) && GetType(T)->Kind != TypeKind_Pointer)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Operator can only be used on integers and pointers, but expression is of type %s.", GetTypeName(T));
+					}
+					Expr->Unary.Type = T;
+					Result = T;
 				} break;
 				case T_BANG:
 				{

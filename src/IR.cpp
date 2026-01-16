@@ -849,6 +849,8 @@ u32 BuildRun(block_builder *Builder, node *Node)
 	basic_block RunBlock = AllocateBlock(Builder);
 	basic_block Save = Builder->CurrentBlock;
 	Builder->CurrentBlock = RunBlock;
+	PushStepLocation(Builder, Node);
+
 	For(Node->Run.Body)
 	{
 		BuildIRFunctionLevel(Builder, *it);
@@ -862,7 +864,6 @@ u32 BuildRun(block_builder *Builder, node *Node)
 	}
 
 	Terminate(Builder, Save);
-	PushStepLocation(Builder, Node);
 
 	Builder->RunIndexes.Push(run_location{Save.ID, (uint)Save.Code.Count});
 	return PushInstruction(Builder, Instruction(OP_RUN, 0, RunBlock.ID, Node->Run.TypeIdx, Builder));

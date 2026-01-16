@@ -2573,7 +2573,7 @@ node *CopyASTNode(node *N)
 		case AST_FN:
 		{
 			R->Fn.Name = N->Fn.Name;
-			R->Fn.Name = N->Fn.LinkName;
+			R->Fn.LinkName = N->Fn.LinkName;
 			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
 			R->Fn.ReturnTypes = CopyNodeSlice(N->Fn.ReturnTypes);
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);

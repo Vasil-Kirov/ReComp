@@ -1543,7 +1543,7 @@ b32 IsPassInAsIntType(const type *Type)
 
 u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 {
-	const type *Type = GetType(TypeID);
+	const type *Type = GetTypeRaw(TypeID);
 	u32 Result = TypeID;
 	switch(Type->Kind)
 	{
@@ -1551,7 +1551,7 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		case TypeKind_Vector:
 		case TypeKind_Basic:
 		{
-			return TypeID;
+			Result = Resolve;
 		} break;
 		case TypeKind_Pointer:
 		{

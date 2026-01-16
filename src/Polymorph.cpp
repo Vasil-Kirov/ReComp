@@ -30,7 +30,7 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 	for(int ArgI = 0; ArgI < Old->Function.ArgCount; ++ArgI)
 	{
 		u32 TypeIdx = Old->Function.Args[ArgI];
-		const type *T = GetType(TypeIdx);
+		const type *T = GetTypeRaw(TypeIdx);
 		if(IsGeneric(T))
 		{
 			string Name = GetGenericName(GetTypeRaw(GetGenericPart(TypeIdx, TypeIdx)));
@@ -188,7 +188,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 
 		auto err_i = Call->Call.Args[ArgI]->ErrorInfo;
 		u32 ArgTypeIdx = FnT->Function.Args[ArgI];
-		const type *T = GetType(ArgTypeIdx);
+		const type *T = GetTypeRaw(ArgTypeIdx);
 		if(IsGeneric(T))
 		{
 			u32 GenericIdx = GetGenericPart(ArgTypeIdx, ArgTypeIdx);
@@ -278,11 +278,28 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	auto b = MakeBuilder();
 	b.printf("%s<%s>", FnSym->Name->Data, GetTypeName(NonGeneric));
 	string GenericName = MakeString(b);
+
 	NewFnNode->Fn.Flags = NewFnNode->Fn.Flags & ~SymbolFlag_Generic;
 	NewFnNode->Fn.Name = DupeType(GenericName, string);
 	NewFnNode->Fn.TypeIdx = NonGeneric;
+
+	// @THREADING
+	symbol *NewSym = CreateFunctionSymbol(FnSym->Checker, NewFnNode);
+	FnSym->Generated.Push(generic_generated{.T = NonGeneric, .S = NewSym});
+	bool Success = FnSym->Checker->Module->Globals.Add(GenericName, NewSym);
+	if(!Success)
+	{
+		symbol *s = FnSym->Checker->Module->Globals[GenericName];
+		RaiseError(true, *Call->ErrorInfo, "--- COMPILER BUG ---\nCouldn't add generic function %s.\nTypes %s | %s", GenericName.Data, GetTypeName(NonGeneric), GetTypeName(s->Type));
+	}
+	Assert(Success);
+	// @THREADING
+
 	AnalyzeFunctionBody(FnSym->Checker, NewFnNode->Fn.Body, NewFnNode, NonGeneric, FnSym->Node);
-	NewFnNode->Fn.AlreadyAnalyzed = true;
+
+	symbol *s = FnSym->Checker->Module->Globals[GenericName];
+	s->Node->Fn.AlreadyAnalyzed = true;
+	//NewFnNode->Fn.AlreadyAnalyzed = true;
 
 	ClearGenericReplacement(Before);
 
@@ -292,17 +309,6 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	}
 
 	SetBonusMessage(LastBonusMessage);
-	// @THREADING
-	symbol *NewSym = CreateFunctionSymbol(FnSym->Checker, NewFnNode);
-	FnSym->Generated.Push(generic_generated{.T = NonGeneric, .S = NewSym});
-	bool Success = FnSym->Checker->Module->Globals.Add(*NewFnNode->Fn.Name, NewSym);
-	if(!Success)
-	{
-		symbol *s = FnSym->Checker->Module->Globals[*NewFnNode->Fn.Name];
-		RaiseError(true, *Call->ErrorInfo, "--- COMPILER BUG ---\nCouldn't add generic function %s.\nTypes %s | %s", NewFnNode->Fn.Name->Data, GetTypeName(NonGeneric), GetTypeName(s->Type));
-	}
-	Assert(Success);
-	// @THREADING
 	FnSym->Checker->Nodes->Push(NewFnNode);
 	return NewSym;
 }

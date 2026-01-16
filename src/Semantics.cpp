@@ -1554,7 +1554,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 					if(CallType->Function.ArgCount <= Idx)
 					{
-						if(IsUntyped(ExprType))
+						if(ExprTypeIdx == INVALID_TYPE)
+						{
+							RaiseError(true, *Expr->Call.Args[Idx]->ErrorInfo,
+									"Argument to var arg function is of type void.");
+						}
+						else if(IsUntyped(ExprType))
 						{
 							if(ExprType->Basic.Flags & BasicFlag_Float)
 							{

@@ -2,7 +2,7 @@
 
 DEFINES="-D_CRT_SECURE_NO_WARNINGS -DDEBUG -DCM_LINUX"
 LIBS=$(llvm-config --ldflags --libs)
-LIBS+=' -ldyncall_s'
+LIBS+=' -L../libs -ldyncall_s'
 
 
 if [[ "$1" == "rel" ]]

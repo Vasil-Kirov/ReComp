@@ -129,7 +129,17 @@ struct array {
 	}
 	void Sort(sort_fn Fn, void *Ctx)
 	{
+#ifdef CM_LINUX
+		auto NewCallback = [](const void *A, const void *B, void *CtxIn) {
+			void **Ctx = (void **)CtxIn;
+			return ((sort_fn)Ctx[0])(Ctx[1], A, B);
+
+		};
+    		void *Pack[2] = { (void*)Fn, Ctx };
+		qsort_r(Data, Count, sizeof(T), NewCallback, Pack);
+#else
 		qsort_s(Data, Count, sizeof(T), Fn, Ctx);
+#endif
 	}
 	void Reverse()
 	{

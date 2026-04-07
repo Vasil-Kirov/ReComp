@@ -172,14 +172,14 @@ string RunCommand(const char *Command)
 	return MakeString(Builder);
 }
 
-string FindObjectFiles()
+slice<string> FindObjectFiles()
 {
-	string_builder Builder = MakeBuilder();
+	dynamic<string> Objs = {};
 	// Builder += RunCommand("find / -name crt1.o 2>/dev/null");
 	// Builder += RunCommand("find / -name crti.o 2>/dev/null");
-	Builder += "/usr/lib64/crt1.o ";
+	Objs.Push(STR_LIT("/usr/lib64/crt1.o"));
 	//Builder += "/usr/lib64/crti.o ";
 
-	return MakeString(Builder);
+	return SliceFromArray(Objs);
 }
 

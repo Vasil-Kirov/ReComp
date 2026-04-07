@@ -276,19 +276,58 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 
 	if(Info->EntryPoint.Count != 0)
 		Entry = string { .Data = Info->EntryPoint.Data, .Size = Info->EntryPoint.Count };
-	Builder += "ld -e ";
-	Builder += Entry;
-	if(CompileFlags & CF_NoLibC)
+	if(LinkCommand.Type == LCT_List)
 	{
-		Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		Command = STR_LIT("ld");
+		Args.Push(STR_LIT("ld"));
+		Args.Push(STR_LIT("-e"));
+		Args.Push(Entry);
 	}
 	else
 	{
-		Builder += " -lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
-		Builder += FindObjectFiles();
+		Builder += "ld -e ";
+		Builder += Entry;
+		Builder += ' ';
 	}
-	Builder += SystemCallObj;
-	Builder += ' ';
+	slice<string> ObjFiles = FindObjectFiles();
+	if(CompileFlags & CF_NoLibC)
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(STR_LIT("-o"));
+			Args.Push(STR_LIT("a"));
+			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
+		}
+		else
+		{
+			Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		}
+	}
+	else
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(STR_LIT("-lc"));
+			Args.Push(STR_LIT("-o"));
+			Args.Push(STR_LIT("a"));
+			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
+			For(ObjFiles)
+				Args.Push(*it);
+			Args.Push(SystemCallObj);
+		}
+		else
+		{
+			Builder += "-lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+			For(ObjFiles)
+			{
+				Builder += *it;
+				Builder += " ";
+			}
+
+			Builder += SystemCallObj;
+			Builder += ' ';
+		}
+	}
 #else
 #error Implement Link Command
 #endif
@@ -785,6 +824,17 @@ main(int ArgCount, char *Args[])
 				else
 				{
 					LogCompilerError("Error: Couldn't spawn process for link command: %s", GetLastError());
+				}
+#elif CM_LINUX
+				array<char *> Args(Link.List.Args.Count);
+				ForArray(Idx, Args)
+				{
+					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
+				}
+				pid_t pid = fork();
+				if(pid == 0)
+				{
+					execv(Link.List.Command.Data, Args.Data);
 				}
 #else
 #error Implement a way to invoke a proces with the link command

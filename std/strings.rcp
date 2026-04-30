@@ -121,6 +121,35 @@ substr :: fn(original: string, from: int, to_excl: int) -> string {
     return r;
 }
 
+starts_with :: fn(s: string, start: string) -> bool {
+	return s.count >= start.count && substr(s, 0, start.count) == start;
+}
+
+ends_with :: fn(s: string, end: string) -> bool {
+	return s.count >= end.count && substr(s, s.count-end.count, end.count) == end;
+}
+
+find_str :: fn(hay: string, needle: string) -> string {
+	hay := hay;
+	for hay.count >= needle.count {
+		cmp := substr(hay, 0, needle.count);
+		if cmp == needle
+			return hay;
+		hay = substr(hay, 1, hay.count-1);
+	}
+	return "";
+}
+
+contains :: fn(s: string, other: string) -> bool {
+	return find_str(s, other) != "";
+}
+
+strip :: fn(s: string, prefix: string) -> string {
+	if starts_with(s, prefix)
+		return substr(s, prefix.count, s.count-prefix.count);
+	return s;
+}
+
 get_codepoint_size :: fn(codepoint: *u8) -> int {
     p := codepoint;
 	SIZE4 :: 0b1111_0000 as u8;

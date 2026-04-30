@@ -3,14 +3,17 @@
 #include "Semantics.h"
 #include "Type.h"
 #include "VString.h"
+#include "DumpInfo.h"
 
-struct binary_blob
-{
-	dynamic<u8> Buf;
-};
+string DumpFileName = {};
 
 binary_blob StartOutput()
 {
+#if CM_LINUX
+	DumpFileName = STR_LIT("/tmp/rcp.dump");
+#else
+#error Unimplemented default dump file name
+#endif
 	return binary_blob {};
 };
 
@@ -70,7 +73,7 @@ void DumpTypeTable(binary_blob *Blob)
 
 void WriteBlobToFile(binary_blob *Blob)
 {
-	PlatformWriteFile("rcp.dump", Blob->Buf.Data, Blob->Buf.Count);
+	PlatformWriteFile(DumpFileName.Data, Blob->Buf.Data, Blob->Buf.Count);
 }
 
 void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg)
@@ -86,7 +89,7 @@ void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg
 	b.Size += 4;
 	b += ErrorMsg;
 	b += "..";
-	PlatformWriteFile("rcp.dump", (u8 *)b.Data.Data, b.Size);
+	PlatformWriteFile(DumpFileName.Data, (u8 *)b.Data.Data, b.Size);
 }
 
 

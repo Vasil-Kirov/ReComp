@@ -11,6 +11,7 @@
 #include "Interpreter.h"
 #include "CommandLine.h"
 #include "Globals.h"
+#include "DumpInfo.h"
 #include <mutex>
 
 pipeline CurrentPipeline = {};
@@ -242,8 +243,21 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		Analyze((*it)->Checker, (*it)->Nodes);
 	}
 
+
 	VLibStopTimer(&Timers.TypeCheck);
 	// END OF TYPE CHECKING     --------------------------------------------------
+	if(DumpingInfo)
+	{
+		binary_blob Blob = StartOutput();
+		DumpString(&Blob, STR_LIT(":Types\n"));
+		DumpTypeTable(&Blob);
+
+		DumpString(&Blob, STR_LIT(":Modules\n"));
+		For(Modules)
+			DumpModule(&Blob, *it);
+
+		WriteBlobToFile(&Blob);
+	}
 
 	if(HasErroredOut())
 		exit(1);

@@ -31,14 +31,14 @@ LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
 	auto LLVMu8 = LLVMIntTypeInContext(gen->ctx, 8);
 	size_t Size = String->Size;
-	if(Size == 0)
+	if(Size == 0 && String->Data)
 		Size = strlen(String->Data);
 
 	auto Chars = array<LLVMValueRef>(Size+1);
-	ForArray(Idx, Chars)
+    for (size_t Idx = 0; Idx < Chars.Count-1; ++Idx)
 	{
-		Chars[Idx] = LLVMConstInt(LLVMu8, String->Data[Idx], false);
-	}
+        Chars[Idx] = LLVMConstInt(LLVMu8, String->Data[Idx], false);
+    }
 	Chars[Size] = LLVMConstNull(LLVMu8);
 
 	auto ArrayType = LLVMArrayType(LLVMu8, Size+1);

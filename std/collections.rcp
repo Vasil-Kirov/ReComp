@@ -33,11 +33,22 @@ push :: fn(s: *Stack<$t>, elem: t) {
 	}
 }
 
-pop :: fn(s: *Stack<$t>) -> t {
+pop :: fn(s: *Stack<$t>) -> Optional<t> {
 	using s;
-	top -= 1;
-	result := data[top];
-	return result;
+
+	if top > 0 {
+		top -= 1;
+		return ok(data[top]);
+	}
+	return none(t);
+}
+
+peek :: fn(s: *Stack<$t>) -> Optional<t> {
+	using s;
+
+	if top > 0
+		return ok(data[top-1]);
+	return none(t);
 }
 
 free_stack :: fn(s: *Stack<$t>) {

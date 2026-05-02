@@ -249,10 +249,11 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	if(DumpingInfo)
 	{
 		binary_blob Blob = StartOutput();
-		DumpString(&Blob, STR_LIT(":Types\n"));
+		DumpString(&Blob, STR_LIT(":TYPE\n"));
 		DumpTypeTable(&Blob);
 
-		DumpString(&Blob, STR_LIT(":Modules\n"));
+		DumpString(&Blob, STR_LIT(":MODS\n"));
+		DumpU32(&Blob, Modules.Count);
 		For(Modules)
 			DumpModule(&Blob, *it);
 

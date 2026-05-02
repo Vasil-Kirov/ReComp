@@ -12,6 +12,7 @@ extern bool DumpingInfo;
 extern string DumpFileName;
 binary_blob StartOutput();
 
+void DumpU32(binary_blob *Blob, u32 Num);
 void DumpModule(binary_blob *Blob, module* M);
 void DumpTypeTable(binary_blob *Blob);
 void WriteBlobToFile(binary_blob *Blob);

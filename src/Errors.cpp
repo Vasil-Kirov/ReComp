@@ -48,7 +48,7 @@ void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlig
 		AdvanceString(&Code);
 	}
 
-	char AtChar = 1;
+	u32 AtChar = 1;
 
 	while(AtChar < ErrorInfo.Range.StartChar)
 	{
@@ -151,10 +151,12 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 
 	if(DumpingInfo)
 	{
+		// @TODO: Output multiple errors
 		void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg);
 		WriteStringError(ErrorInfo.FileName, ErrorInfo.Range.StartLine, FinalFormat);
 		VFree(FinalFormat);
-		return;
+		exit(1);
+		//return;
 	}
 
 	

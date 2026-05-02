@@ -312,7 +312,12 @@ none :: fn(t: type) -> Optional<t> {
 	return .{};
 }
 
-value_or :: fn(opt: Optional<$t>, none: t) -> t {
+unwrap :: fn(opt: Optional<$t>) -> t {
+	#assert opt.ok;
+	return opt.value;
+}
+
+val_or :: fn(opt: Optional<$t>, none: t) -> t {
 	if opt.ok {
 		return opt.value;
 	}

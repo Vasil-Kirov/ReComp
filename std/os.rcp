@@ -164,25 +164,30 @@ assert :: fn(cond: bool, reason: string) {
     }
 
     read_stdin_line :: fn(buffer: *, size: u32) -> u32 {
+		buf := cast(*u8, buffer);
         handle := GetStdHandle(STD_INPUT_HANDLE);
-        control := CONSOLE_READCONSOLE_CONTROL {
-            dwCtrlWakeupMask = (1 << '\n'),
-        };
 
         if handle == null {
             return 0;
         }
+		count := cast(u32, 0);
+		for count < size {
+			c := cast(u8, 0);
+			read := 0 as u32;
+			ReadFile(handle, &c, 1, &read, null);
+			if read != 1 continue;
+			if c == '\n' {
+				break;
+			}
+			buf[count] = c;
+			count += 1;
+		}
+		if count > 0 && buf[count-1] == '\r' {
+			buf[count-1] = 0;
+			count--;
+		}
+		return count;
 
-        read := 0 as u32;
-        if ReadConsoleA(?handle, buffer, size, &read, &control) == false {
-            return 0;
-        }
-
-        as_chars := buffer as *u8;
-
-        // remove /r/n
-        as_chars[read-2] = 0;
-        return read - 2;
     }
 }
 #elif Unix {

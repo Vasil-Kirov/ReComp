@@ -341,12 +341,12 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
             builder_append_u32(b, ']');
             builder_append(b, "{ ");
 
-            align := get_type_alignment(at.t);
+            size := get_type_size(at.t);
             elem := arg.val as *u8;
             for i in at.member_count {
                 if i != 0 builder_append(b, ", ");
                 print_type(b, .{at.t, elem});
-                elem += align;
+                elem += size;
             }
             builder_append(b, " }");
         }
@@ -357,12 +357,12 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
 			builder_append(b, "[]");
 			builder_append(b, "{ ");
 
-			align := get_type_alignment(st.t);
+			size := get_type_size(st.t);
 
 			for i in count {
 				if i != 0 builder_append(b, ", ");
 				print_type(b, .{st.t, data});
-				data += align;
+				data += size;
 			}
 			builder_append(b, " }");
         }

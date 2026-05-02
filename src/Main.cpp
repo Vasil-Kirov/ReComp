@@ -709,6 +709,9 @@ main(int ArgCount, char *Args[])
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;
 
+			if(DumpingInfo)
+				return 0;
+
 			// Remake vm to evaluate enums with new info
 
 			VMBuildTimer2 = VLibStartTimer("VM");
@@ -774,6 +777,9 @@ main(int ArgCount, char *Args[])
 		slice<file*> Files = r.Files;
 		ModuleArray = r.Modules;
 		FileTimer = r.Timers;
+
+		if(DumpingInfo)
+			return 0;
 		
 		MakeInterpreter(BuildVM, ModuleArray, 100);
 		if(HasErroredOut())

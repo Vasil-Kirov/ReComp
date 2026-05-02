@@ -294,6 +294,32 @@ void FlowTypeEvaluateBlock(FlowState *flow, slice<basic_block> Blocks, flow_bran
 						flow->NullLocations[it->Result][BlockID] = true;
 					}
 				}
+				/*
+				else if(T->Kind == TypeKind_Slice)
+				{
+					const type *ElemType = GetType(T->Slice.Type);
+					if(IsOptionalPointer(ElemType))
+					{
+						flow->NullLocations[it->Result][BlockID] = true;
+					}
+				}
+				else if(T->Kind == TypeKind_Array)
+				{
+					const type *ElemType = GetType(T->Array.Type);
+					if(IsOptionalPointer(ElemType))
+					{
+						flow->NullLocations[it->Result][BlockID] = true;
+					}
+				}
+				*/
+				else if(T->Kind == TypeKind_Pointer)
+				{
+					const type *ElemType = GetType(T->Pointer.Pointed);
+					if(IsOptionalPointer(ElemType))
+					{
+						flow->NullLocations[it->Result][BlockID] = true;
+					}
+				}
 				if(IsRegisterLoadedNullable(LoadedNullables, it->Left))
 				{
 					if(T->Kind == TypeKind_Struct)

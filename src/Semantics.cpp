@@ -2229,7 +2229,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						}
 						else
 						{
-							RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
+							if(TypeIdx == INVALID_TYPE && HasErroredOut())
+							{}
+							else
+								RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
 							Result = TypeIdx;;
 						}
 					} break;
@@ -2325,8 +2328,11 @@ ANALYZE_SLICE_SELECTOR:
 					} break;
 					default:
 					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s",
-								GetTypeName(Type));
+						if(TypeIdx == INVALID_TYPE && HasErroredOut())
+						{}
+						else
+							RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s",
+									GetTypeName(Type));
 						Result = TypeIdx;
 					} break;
 				}

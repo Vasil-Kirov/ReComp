@@ -5,7 +5,11 @@
 #include "VString.h"
 #include "DumpInfo.h"
 
+// @THREADING: PUT MUTEXES EVERYWHERE HERE
+
 string DumpFileName = {};
+binary_blob GlobalBlob = {};
+dynamic<error_dump> ErrorsToDump = {};
 
 binary_blob StartOutput()
 {
@@ -64,6 +68,18 @@ void DumpModule(binary_blob *Blob, module* M)
 	}
 }
 
+void DumpFile(binary_blob *Blob, file *File)
+{
+	DumpString(Blob, File->Name);
+	DumpString(Blob, File->Module->Name);
+	DumpU32(Blob, File->Imported.Count);
+	For(File->Imported)
+	{
+		DumpString(Blob, it->M->Name);
+		DumpString(Blob, it->As);
+	}
+}
+
 void DumpTypeTable(binary_blob *Blob)
 {
 	uint TypeCount = GetTypeCount();
@@ -91,20 +107,33 @@ void DumpTypeTable(binary_blob *Blob)
 
 void WriteBlobToFile(binary_blob *Blob)
 {
+	if(Blob == NULL)
+	{
+		if(GlobalBlob.Buf.Data)
+			Blob = &GlobalBlob;
+		else
+			return;
+	}
+	DumpString(Blob, STR_LIT(":ERRS\n"));
+	DumpU32(Blob, ErrorsToDump.Count);
+	For(ErrorsToDump)
+	{
+		DumpError(Blob, *it);
+	}
 	PlatformDeleteFile(DumpFileName.Data);
 	PlatformWriteFile(DumpFileName.Data, Blob->Buf.Data, Blob->Buf.Count);
 }
 
-void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg)
+void DumpError(binary_blob *Blob, error_dump Error)
 {
-	string FileString = string {FileName, strlen(FileName)};
-	string ErrorString = string {ErrorMsg, strlen(ErrorMsg)};
-	binary_blob Blob = StartOutput();
-	DumpString(&Blob, STR_LIT(":ERRS\n"));
-	DumpString(&Blob, FileString);
-	DumpU32(&Blob, LineNumber);
-	DumpString(&Blob, ErrorString);
-	WriteBlobToFile(&Blob);
+	string ErrorString = string {Error.Message, strlen(Error.Message)};
+	DumpString(Blob, ErrorString);
+	DumpString(Blob, Error.Code);
+	DumpLocation(Blob, &Error.ErrI);
 }
 
+void AddErrorToDump(error_dump Error)
+{
+	ErrorsToDump.Push(Error);
+}
 

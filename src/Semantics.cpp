@@ -513,7 +513,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			if(!IsStillGeneric)
 				Flags &= ~StructFlag_Generic;
 			slice<struct_generic_argument> ArgsS = SliceFromArray(GenArgs);
-			slice<struct_member> Members = ResolveGenericStruct(StructT, ArgsS);
+			slice<struct_member> Members = ResolveGenericStruct(StructT, ArgsS, NULL);
 			return MakeStruct(StructT->Struct.Name, Members, ArgsS, Flags);
 		} break;
 		case AST_PTRTYPE:
@@ -3692,11 +3692,11 @@ void AnalyzeNode(checker *Checker, node *Node)
 			{
 				if(MatchError)
 				{
-					RaiseError(false, *Node->ErrorInfo, "Invalid context for break, not a for loop to break out of a match statement use return instead");
+					RaiseError(false, *Node->ErrorInfo, "Invalid context for break, not a for loop. To break out of a switch statement use yield instead.");
 				}
 				else
 				{
-					RaiseError(false, *Node->ErrorInfo, "Invalid context for break, not a for loop");
+					RaiseError(false, *Node->ErrorInfo, "Invalid context for break, not a for loop.");
 				}
 			}
 		} break;
@@ -4064,7 +4064,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *M
 	Checker->Module = Module;
 	Checker->Scope = {};
 	Checker->CurrentFnReturnTypeIdx = {};
-	Checker->Scope.Push(AllocScope(NULL));
+	//Checker->Scope.Push(AllocScope(NULL));
 
 	slice<node *> Nodes = SliceFromArray(*NodesPtr);
 

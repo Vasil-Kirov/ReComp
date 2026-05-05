@@ -34,8 +34,11 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 		if(IsGeneric(T))
 		{
 			string Name = GetGenericName(GetTypeRaw(GetGenericPart(TypeIdx, TypeIdx)));
-			u32 Resolved = DefinedGenerics[Name];
-			TypeIdx = ToNonGeneric(TypeIdx, Resolved);
+			if(DefinedGenerics.Contains(Name))
+			{
+				u32 Resolved = DefinedGenerics[Name];
+				TypeIdx = ToNonGeneric(TypeIdx, Resolved);
+			}
 		}
 		NewFT->Function.Args[ArgI] = TypeIdx;
 	}
@@ -47,8 +50,15 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 		if(IsGeneric(*it))
 		{
 			string Name = GetGenericName(GetTypeRaw(GetGenericPart(*it, *it)));
-			u32 Resolved = DefinedGenerics[Name];
-			Returns[At++] = ToNonGeneric(*it, Resolved);
+			if(DefinedGenerics.Contains(Name))
+			{
+				u32 Resolved = DefinedGenerics[Name];
+				Returns[At++] = ToNonGeneric(*it, Resolved);
+			}
+			else
+			{
+				Returns[At++] = *it;
+			}
 		}
 		else
 		{
@@ -61,7 +71,38 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 	return AddType(NewFT);
 }
 
-u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, const type *Gen, dict<u32> &DefinedGenerics)
+void FinishStructPolymorph(type *T)
+{
+
+	For(T->Struct.Members)
+	{
+		const type *MemT = GetTypeRaw(it->Type);
+		if(IsGeneric(MemT))
+		{
+			Assert(MemT->Kind == TypeKind_Struct);
+			array<struct_generic_argument> Args = {};
+			ForArray(Idx, MemT->Struct.GenericArguments)
+			{
+				auto Arg = MemT->Struct.GenericArguments[Idx];
+				Assert(Arg.DefinedAs == INVALID_TYPE);
+				ForN(T->Struct.GenericArguments, g)
+				{
+					if(g->Name == Arg.Name)
+					{
+						Arg.DefinedAs = g->DefinedAs;
+						break;
+					}
+				}
+				Assert(Arg.DefinedAs != INVALID_TYPE);
+				Args[Idx] = Arg;
+			}
+			//PolymorphGenericStruct();
+		}
+	}
+
+}
+
+u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, const type *Gen, dict<u32> &DefinedGenerics, u32 ArgTypeIdx)
 {
 	array<struct_generic_argument> NewArgs(Gen->Struct.GenericArguments.Count);
 	ForArray(Idx, Gen->Struct.GenericArguments)
@@ -76,6 +117,8 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 			u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
 			if(DefinedPtr == NULL)
 			{
+				if(!IsGeneric(GetType(ArgTypeIdx)))
+					return ArgTypeIdx;
 				// @Note: probably reachable
 				if(PassedStruct)
 					RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
@@ -103,6 +146,17 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 	slice<struct_member> Members = ResolveGenericStruct(Gen, SliceFromArray(NewArgs), &DefinedGenerics);
 	u32 AsDefined = MakeStruct(MakeString(B), Members, SliceFromArray(NewArgs), Gen->Struct.Flags & ~StructFlag_Generic);
 	DefinedGenerics.Add(Gen->Struct.Name, AsDefined);
+
+
+	type *Defined = LockTypeModify(AsDefined);
+
+
+
+
+	UnlockTypeModify(Defined);
+
+
+	
 	return AsDefined;
 }
 
@@ -122,7 +176,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	for(int ArgI = 0; ArgI < FnT->Function.ArgCount; ++ArgI)
 	{
 		u32 ArgTypeIdx = FnT->Function.Args[ArgI];
-		const type *T = GetType(ArgTypeIdx);
+		const type *T = GetTypeRaw(ArgTypeIdx);
 		auto Arg = FnSym->Node->Fn.Args[ArgI]->Var;
 		if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
@@ -197,8 +251,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 			if(Gen->Kind == TypeKind_Struct)
 			{
 				const type *PassedStruct = GetType(GetGenericPart(Call->Call.ArgTypes[ArgI], ArgTypeIdx));
-				AsDefined = PolymorphGenericStruct(err_i, PassedStruct, Gen, DefinedGenerics);
-				AsDefined = ToNonGeneric(ArgTypeIdx, AsDefined);
+				AsDefined = PolymorphGenericStruct(err_i, PassedStruct, Gen, DefinedGenerics, ArgTypeIdx);
+				if(AsDefined != ArgTypeIdx)
+					AsDefined = ToNonGeneric(ArgTypeIdx, AsDefined);
 			}
 			else
 			{
@@ -206,8 +261,15 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 				u32 *DefinedPtr = DefinedGenerics.GetUnstablePtr(Name);
 				if(DefinedPtr == NULL)
 				{
-					// @Note: probably reachable
-					RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
+					if(!IsGeneric(GetType(ArgTypeIdx)))
+					{
+						AsDefined = ArgTypeIdx;
+					}
+					else
+					{
+						// @Note: probably reachable
+						RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
+					}
 				}
 				else
 				{
@@ -229,7 +291,7 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 			const type *GenT = GetTypeRaw(GenericIdx);
 			if(GenT->Kind == TypeKind_Struct)
 			{
-				PolymorphGenericStruct(err_i, nullptr, GenT, DefinedGenerics);
+				PolymorphGenericStruct(err_i, nullptr, GenT, DefinedGenerics, *it);
 			}
 			else
 			{
@@ -322,28 +384,50 @@ slice<struct_member> ResolveGenericStruct(const type *StructT, slice<struct_gene
 		if(IsGeneric(m.Type))
 		{
 			const type *G = GetTypeRaw(GetGenericPart(m.Type, m.Type));
-			Assert(G->Kind == TypeKind_Generic);
-
-			u32 Resolved = INVALID_TYPE;
-			int i = 0;
-			if(ParameterTypes && ParameterTypes->Contains(G->Generic.Name))
+			if(G->Kind == TypeKind_Struct)
 			{
-				Resolved = ParameterTypes->operator[](G->Generic.Name);
-			}
-			if(Resolved == INVALID_TYPE)
-			{
-				For(StructT->Struct.GenericArguments)
+#if 0
+				if(m.Type == StructIdx)
 				{
-					if(it->Name == G->Generic.Name)
-					{
-						Resolved = GenArgs[i].DefinedAs;
-						break;
-					}
-					i++;
+					*IsRecursiveGeneric = true;
+					m.Type = ToNonGeneric(m.Type, INVALID_TYPE);
 				}
+				else
+				{
+					slice<struct_member> Members = ResolveGenericStruct(m.Type, G, GenArgs, ParameterTypes, IsRecursiveGeneric);
+					string_builder B = {};
+					for(int i = 0; i < G->Struct.Name.Size && G->Struct.Name.Data[i] != '<'; ++i)
+					{
+						B += G->Struct.Name.Data[i];
+					}
+					u32 AsDefined = MakeStruct(MakeString(B), Members, GenArgs, G->Struct.Flags & ~StructFlag_Generic);
+					m.Type = ToNonGeneric(m.Type, AsDefined);
+				}
+#endif
 			}
-			Assert(Resolved != INVALID_TYPE);
-			m.Type = ToNonGeneric(m.Type, Resolved);
+			else
+			{
+				Assert(G->Kind == TypeKind_Generic);
+
+				u32 Resolved = INVALID_TYPE;
+				if(ParameterTypes && ParameterTypes->Contains(G->Generic.Name))
+				{
+					Resolved = ParameterTypes->operator[](G->Generic.Name);
+				}
+				if(Resolved == INVALID_TYPE)
+				{
+					For(GenArgs)
+					{
+						if(it->Name == G->Generic.Name)
+						{
+							Resolved = it->DefinedAs;
+							break;
+						}
+					}
+				}
+				Assert(Resolved != INVALID_TYPE);
+				m.Type = ToNonGeneric(m.Type, Resolved);
+			}
 		}
 		Members[Idx] = m;
 	}

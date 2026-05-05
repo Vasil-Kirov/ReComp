@@ -358,6 +358,17 @@ u32 AddType(type *Type)
 	return AddTypeWithName(Type, TypeString);
 }
 
+type *LockTypeModify(u32 TypeIdx)
+{
+	TypeMutex.lock();
+	return TypeTable[TypeIdx];
+}
+
+void UnlockTypeModify(type *)
+{
+	TypeMutex.unlock();
+}
+
 void FillOpaqueStruct(u32 TypeIdx, type T)
 {
 	TypeMutex.lock();

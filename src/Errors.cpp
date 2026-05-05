@@ -1,5 +1,6 @@
 #include "Errors.h"
 #include "Basic.h"
+#include "DumpInfo.h"
 #include "Log.h"
 #include "Platform.h"
 #include <atomic>
@@ -121,10 +122,18 @@ string GetInfoRegionWhole(error_info Info)
 	return MakeString(b);
 }
 
-bool
-HasErroredOut()
+bool HasErroredOut()
 {
 	return Errors != 0;
+}
+
+void ExitIfErroredOut()
+{
+	if (HasErroredOut()) {
+		if(DumpingInfo)
+			WriteBlobToFile(NULL);
+		exit(1);
+	}
 }
 
 void
@@ -151,11 +160,16 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 
 	if(DumpingInfo)
 	{
+		error_dump Error = {
+			.ErrI = ErrorInfo,
+			.Code = Highlight,
+			.Message = strdup(FinalFormat),
+		};
+		AddErrorToDump(Error);
 		// @TODO: Output multiple errors
-		void WriteStringError(const char *FileName, int LineNumber, const char *ErrorMsg);
-		WriteStringError(ErrorInfo.FileName, ErrorInfo.Range.StartLine, FinalFormat);
-		VFree(FinalFormat);
-		exit(1);
+		//WriteStringError(ErrorInfo.FileName, ErrorInfo.Range.StartLine, FinalFormat);
+		//VFree(FinalFormat);
+		//exit(1);
 		//return;
 	}
 
@@ -176,7 +190,11 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 
 	ErrorMutex.unlock();
 	if(Abort || Errors > 4)
+	{
+		if(DumpingInfo)
+			WriteBlobToFile(NULL);
 		exit(1);
+	}
 }
 
 

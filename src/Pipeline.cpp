@@ -152,6 +152,8 @@ void ResetPipelineState()
 pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint)
 {
 	ResetPipelineState();
+	binary_blob Blob = StartOutput();
+	GlobalBlob = Blob;
 
 	timers Timers = {};
 
@@ -172,8 +174,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		TryDoWork(CurrentPipeline.Queue);
 	}
 
-	if(HasErroredOut())
-		exit(1);
+	ExitIfErroredOut();
 
 	dynamic<module*> Modules = {};
 
@@ -212,16 +213,14 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		File->Checker->Imported	= File->Imported;
 	}
 
-	if(HasErroredOut())
-		exit(1);
+	ExitIfErroredOut();
 
 	CurrentModules = SliceFromArray(Modules);
 	slice<file *> Files = SliceFromArray(FileArray);
 
 	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint);
 
-	if(HasErroredOut())
-		exit(1);
+	ExitIfErroredOut();
 
 	bool FoundInternal = false;
 	For(Modules)
@@ -248,7 +247,6 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	// END OF TYPE CHECKING     --------------------------------------------------
 	if(DumpingInfo)
 	{
-		binary_blob Blob = StartOutput();
 		DumpString(&Blob, STR_LIT(":TYPE\n"));
 		DumpTypeTable(&Blob);
 
@@ -257,11 +255,17 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		For(Modules)
 			DumpModule(&Blob, *it);
 
+		DumpString(&Blob, STR_LIT(":FILE\n"));
+		DumpU32(&Blob, Files.Count);
+		For(Files)
+		{
+			DumpFile(&Blob, *it);
+		}
+
 		WriteBlobToFile(&Blob);
 	}
 
-	if(HasErroredOut())
-		exit(1);
+	ExitIfErroredOut();
 
 	// START OF IR GENERATION   --------------------------------------------------
 	Timers.IR = VLibStartTimer("IR");
@@ -300,6 +304,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	VLibStopTimer(&Timers.FlowTyping);
 	// START OF FLOW TYPING     --------------------------------------------------
 
+	GlobalBlob = {};
 	return pipeline_result {
 		.Files = Files,
 		.Modules = SliceFromArray(Modules),
@@ -407,8 +412,7 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 		CheckForRecursiveStructs(File->Checker, SliceFromArray(File->Nodes));
 	}
 
-	if(HasErroredOut())
-		exit(1);
+	ExitIfErroredOut();
 
 	ForArray(Idx, Files)
 	{

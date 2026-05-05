@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEFINES="-D_CRT_SECURE_NO_WARNINGS -DDEBUG -DCM_LINUX"
-LIBS=$(llvm-config --ldflags --libs)
+LIBS=$(llvm-config-20 --ldflags --libs)
 LIBS+=' -L../libs -ldyncall_s'
 
 

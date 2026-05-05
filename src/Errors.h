@@ -49,6 +49,9 @@ CountError();
 bool
 HasErroredOut();
 
+void
+ExitIfErroredOut();
+
 extern string BonusErrorMessage;
 
 #endif // _ERRORS_H

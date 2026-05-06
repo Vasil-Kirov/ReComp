@@ -47,6 +47,15 @@ enum RegisterIR {
 	R9
 };
 
+struct successor_block
+{
+	basic_block Block;
+	dynamic<u32> Predecessors;
+	slice<u32> Successors;
+};
+
+slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks);
+
 /*
  * x64 registers
  *

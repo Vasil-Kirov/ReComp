@@ -4191,8 +4191,8 @@ void DissasembleBasicBlock(string_builder *Builder, basic_block *Block, int inde
 	ForArray(I, Block->Code)
 	{
 		instruction Instr = Block->Code[I];
-		//if(Instr.Op == OP_DEBUGINFO)
-		//	continue;
+		if(Instr.Op == OP_DEBUGINFO)
+			continue;
 
 		PushBuilder(Builder, '\t');
 		PushBuilder(Builder, '\t');

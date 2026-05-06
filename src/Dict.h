@@ -120,5 +120,70 @@ struct dict {
 	}
 };
 
+template <typename T>
+struct map_int {
+	dynamic<int> Keys;
+	dynamic<T> Data;
+	T Default = T{};
+	int Bottom = 0;
+
+	bool Add(int Key, T Item)
+	{
+		if(Contains(Key))
+			return false;
+
+		Keys.Push(Key);
+		Data.Push(Item);
+		return true;
+	}
+	bool Contains(int Key)
+	{
+		ForArray(Idx, Keys)
+		{
+			if(Keys[Idx] == Key)
+				return true;
+		}
+		return false;
+	}
+	T* GetUnstablePtr(int Key)
+	{
+		ForArray(Idx, Keys)
+		{
+			if(Keys[Idx] == Key)
+			{
+				return &Data.Data[Idx];
+			}
+		}
+		return NULL;
+	}
+	T operator[](int Key) const
+	{
+		T* Ptr = GetUnstablePtr(Key);
+		if(Ptr)
+			return *Ptr;
+		return Default;
+	}
+	T& operator[](int Key)
+	{
+		ForArray(Idx, Keys)
+		{
+			if(Keys[Idx] == Key)
+			{
+				return Data.Data[Idx];
+			}
+		}
+		unreachable;
+	}
+	void Free()
+	{
+		Keys.Free();
+		Data.Free();
+	}
+	void Clear()
+	{
+		Keys.Count = Bottom;
+		Data.Count = Bottom;
+	}
+};
 
 

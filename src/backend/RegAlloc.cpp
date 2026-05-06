@@ -26,13 +26,6 @@ struct liveness
 	slice<u32> Kill;
 };
 
-struct successor_block
-{
-	basic_block Block;
-	dynamic<u32> Predecessors;
-	slice<u32> Successors;
-};
-
 void PostorderSort(array<successor_block> Blocks, u32 BlockID, std::unordered_set<u32> &Visited, dynamic<successor_block> &Sort)
 {
 	if(Visited.count(BlockID))
@@ -94,8 +87,8 @@ slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks)
 				default: {}break;
 			}
 		}
-		SBlocks[BlockIdx].Block = Block;
-		SBlocks[BlockIdx].Successors = Successors;
+		SBlocks[Block.ID].Block = Block;
+		SBlocks[Block.ID].Successors = Successors;
 	}
 
 	

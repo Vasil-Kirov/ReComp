@@ -69,7 +69,7 @@ assert :: fn(cond: bool, reason: string) {
         written: u32;
         if handle != null {
 			if handle != INVALID_HANDLE_VALUE {
-				WriteFile(?handle, data, count, &written, null);
+				WriteFile(handle, data, count, &written, null);
 			}
         }
     }

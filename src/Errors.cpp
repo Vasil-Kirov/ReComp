@@ -163,7 +163,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 		error_dump Error = {
 			.ErrI = ErrorInfo,
 			.Code = Highlight,
-			.Message = strdup(FinalFormat),
+			.Message = _strdup(FinalFormat),
 		};
 		AddErrorToDump(Error);
 		// @TODO: Output multiple errors

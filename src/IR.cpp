@@ -568,9 +568,10 @@ switch_context BuildIRGenericSwitchPart(block_builder *Builder, node *Node)
 		Result = PushInstruction(Builder,
 			Instruction(OP_ALLOC, -1, Node->Switch.ReturnType, Builder));
 
+	// @NOTE: IT IS REALLY IMPORTANT FOR Matcher to be BEFORE StartBlock, since BuildIRFromExpression CAN terminate the current block (like if there is a assertion)
+	u32 Matcher = BuildIRFromExpression(Builder, Node->Switch.Expression);
 	u32 StartBlock = Builder->CurrentBlock.ID;
 
-	u32 Matcher = BuildIRFromExpression(Builder, Node->Switch.Expression);
 	basic_block After = AllocateBlock(Builder);
 	dynamic<u32> CaseBlocks = {};
 	dynamic<u32> OnValues = {};
@@ -1589,7 +1590,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			{
 				if((g_CompileFlags & CF_DisableAssert) == 0)
 				{
-					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+					u32 IndexV = Index;
+					if(Node->Index.IndexExprType != Basic_int)
+						IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
 
 					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Index.OperandType, Builder));
 					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
@@ -1608,7 +1611,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			{
 				if((g_CompileFlags & CF_DisableAssert) == 0)
 				{
-					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+					u32 IndexV = Index;
+					if(Node->Index.IndexExprType != Basic_int)
+						IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
 
 					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Basic_string, Builder));
 					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
@@ -1627,7 +1632,9 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			{
 				if((g_CompileFlags & CF_DisableAssert) == 0 && Type->Kind == TypeKind_Array)
 				{
-					u32 IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
+					u32 IndexV = Index;
+					if(Node->Index.IndexExprType != Basic_int)
+						IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
 
 					u32 Count = PushInt(Type->Array.MemberCount, Builder);
 					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, Count, Basic_bool, Builder));

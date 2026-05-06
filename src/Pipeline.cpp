@@ -153,7 +153,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 {
 	ResetPipelineState();
 	binary_blob Blob = StartOutput();
-	GlobalBlob = Blob;
+	GlobalBlob = &Blob;
 
 	timers Timers = {};
 
@@ -304,7 +304,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	VLibStopTimer(&Timers.FlowTyping);
 	// START OF FLOW TYPING     --------------------------------------------------
 
-	GlobalBlob = {};
+	GlobalBlob = NULL;
 	return pipeline_result {
 		.Files = Files,
 		.Modules = SliceFromArray(Modules),

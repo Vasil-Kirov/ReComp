@@ -18,7 +18,7 @@ struct error_dump
 
 extern bool DumpingInfo;
 extern string DumpFileName;
-extern binary_blob GlobalBlob;
+extern binary_blob *GlobalBlob;
 binary_blob StartOutput();
 
 void DumpU32(binary_blob *Blob, u32 Num);

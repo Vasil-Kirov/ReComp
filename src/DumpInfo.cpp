@@ -8,7 +8,7 @@
 // @THREADING: PUT MUTEXES EVERYWHERE HERE
 
 string DumpFileName = {};
-binary_blob GlobalBlob = {};
+binary_blob *GlobalBlob = NULL;
 dynamic<error_dump> ErrorsToDump = {};
 
 binary_blob StartOutput()
@@ -109,8 +109,8 @@ void WriteBlobToFile(binary_blob *Blob)
 {
 	if(Blob == NULL)
 	{
-		if(GlobalBlob.Buf.Data)
-			Blob = &GlobalBlob;
+		if(GlobalBlob)
+			Blob = GlobalBlob;
 		else
 			return;
 	}

@@ -31,6 +31,8 @@ OPTIONS:
 		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
 	--no-thread
 		Disables multi threading
+	--substitute-file original_name.rcp new_name.rcp
+		Substitue a file parsed from the build script with a different one. Useful for tooling
 )#";
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
@@ -56,9 +58,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--file"),
 		STR_LIT("--dump-info"),
 		STR_LIT("--no-thread"),
+		STR_LIT("--substitute-file"),
 	};
 	bool HasPrintedHelp = false;
 
+	dynamic<file_substitute> Substitutes = {};
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
 	dynamic<string> IRModules = {};
@@ -140,6 +144,20 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			Result.Flags |= CommandFlag_nothread;
 			NoThreads = true;
 		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[11]))
+		{
+			if(i + 2 >= ArgCount)
+			{
+				LogCompilerError("Expected 2 file names after --substitute-file");
+				RET_EMPTY(command_line);
+			}
+			file_substitute Sub = {};
+			i++;
+			Sub.Original = Args[i];
+			i++;
+			Sub.Substitute = Args[i];
+			Substitutes.Push(Sub);
+		}
 		else
 		{
 			if(Result.BuildFile.Data != NULL)
@@ -166,6 +184,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
 	Result.IRModules = SliceFromArray(IRModules);
+	Result.Substitutes = SliceFromArray(Substitutes);
 
 	GlobalIRModules = Result.IRModules;
 	return Result;

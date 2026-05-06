@@ -1,4 +1,5 @@
 #pragma once
+#include "CommandLine.h"
 #include "Dynamic.h"
 #include "Parser.h"
 #include "VString.h"
@@ -35,6 +36,8 @@ struct pipeline_result {
 	timers Timers;
 	int EntryFileIdx;
 };
+
+extern slice<file_substitute> Substitutes;
 
 string FindFile(string FileName, string RelativePath = STR_LIT(""));
 bool PipelineDoFile(string GivenPath, string RelativePath = STR_LIT(""));

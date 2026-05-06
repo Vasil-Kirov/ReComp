@@ -16,6 +16,7 @@
 
 pipeline CurrentPipeline = {};
 std::mutex PipelineMutex;
+slice<file_substitute> Substitutes;
 
 struct lookup_paths {
 	std::mutex Mutex;
@@ -330,24 +331,33 @@ void ParseFile(void *File_)
 
 void LexFile(void *FilePath_)
 {
-	string *FilePath = (string *)FilePath_;
-	string FileData = ReadEntireFile(*FilePath);
+	string FilePath = *(string *)FilePath_;
+	string ReadPath = FilePath;
+	For(Substitutes)
+	{
+		if(it->Original == FilePath)
+		{
+			ReadPath = it->Substitute;
+			break;
+		}
+	}
+	string FileData = ReadEntireFile(ReadPath);
 	if(FileData.Data == NULL)
 	{
-		LogCompilerError("Couldn't find file: %.*s\n", FilePath->Size, FilePath->Data);
+		LogCompilerError("Couldn't find file: %.*s\n", FilePath.Size, FilePath.Data);
 		CountError();
 		return;
 	}
 
 	error_info ErrorInfo = {};
 	ErrorInfo.Data = DupeType(FileData, string);
-	ErrorInfo.FileName = FilePath->Data;
+	ErrorInfo.FileName = FilePath.Data;
 	ErrorInfo.Range.StartLine = 1;
 	ErrorInfo.Range.EndLine = 1;
 	ErrorInfo.Range.EndLine = 1;
 	ErrorInfo.Range.EndChar = 1;
 	file *f = StringToTokens(FileData, ErrorInfo);
-	f->Name = *FilePath;
+	f->Name = FilePath;
 
 	if(!HasErroredOut())
 	{

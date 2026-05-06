@@ -459,6 +459,7 @@ main(int ArgCount, char *Args[])
 		return 1;
 
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
+	Substitutes = CommandLine.Substitutes;
 
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
 	StdLibDir.Size--;

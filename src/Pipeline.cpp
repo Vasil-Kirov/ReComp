@@ -218,6 +218,17 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	CurrentModules = SliceFromArray(Modules);
 	slice<file *> Files = SliceFromArray(FileArray);
 
+	if(DumpingInfo)
+	{
+		DumpString(&Blob, STR_LIT(":FILE\n"));
+		DumpU32(&Blob, Files.Count);
+		For(Files)
+		{
+			DumpFile(&Blob, *it);
+		}
+	}
+
+
 	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint);
 
 	ExitIfErroredOut();
@@ -254,13 +265,6 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		DumpU32(&Blob, Modules.Count);
 		For(Modules)
 			DumpModule(&Blob, *it);
-
-		DumpString(&Blob, STR_LIT(":FILE\n"));
-		DumpU32(&Blob, Files.Count);
-		For(Files)
-		{
-			DumpFile(&Blob, *it);
-		}
 
 		WriteBlobToFile(&Blob);
 	}

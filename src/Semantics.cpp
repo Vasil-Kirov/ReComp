@@ -2696,6 +2696,11 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			Expr->Binary.ExpressionType = Left;
 		}
 
+		if(Left == INVALID_TYPE && HasErroredOut())
+			return Right;
+		if(Right == INVALID_TYPE && HasErroredOut())
+			return Left;
+
 		const type *LeftType = GetType(Left);
 		const type *RightType = GetType(Right);
 
@@ -2951,6 +2956,8 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 
 		if(ExprType == INVALID_TYPE)
 		{
+			if(HasErroredOut())
+				return ExprType;
 			RaiseError(true, *Node->ErrorInfo, "Expression does not give a value for the assignment");
 		}
 		const type *ExprTypePointer = GetType(ExprType);

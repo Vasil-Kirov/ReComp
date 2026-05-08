@@ -41,6 +41,7 @@ type BasicTypes[] = {
 
 	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_auto,   0,                                            -1, STR_LIT("auto")}},
 	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_module, 0,                                            -1, STR_LIT("module")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_error,  0,                                            -1, STR_LIT("error")}},
 };
 
 #pragma clang diagnostic pop
@@ -117,7 +118,7 @@ void AddVectorTypes()
 }
 
 type **TypeTable = InitializeTypeTable();
-dict<u32> TypeMap = { .Default = INVALID_TYPE };
+dict<u32> TypeMap = { .Default = Basic_error };
 std::mutex TypeMutex = {};
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
@@ -262,7 +263,7 @@ u32 GetTypeForMultiReturn(slice<u32> Returns)
 	u32 T = TypeMap[Lookup];
 
 	TypeMutex.unlock();
-	if(T != INVALID_TYPE)
+	if(T != Basic_error)
 		return T;
 
 	array<struct_member> Members(Returns.Count);
@@ -323,7 +324,7 @@ u32 AddTypeWithName(type *Type, string Name)
 	TypeMutex.lock();
 	
 	u32 Lookup = TypeMap[Name];
-	if(Lookup != INVALID_TYPE && Type->Kind != TypeKind_Generic) {
+	if(Lookup != Basic_error && Type->Kind != TypeKind_Generic) {
 
 		TypeMutex.unlock();
 		return Lookup;
@@ -766,6 +767,11 @@ b32 IsCastValid(const type *From, const type *To)
 
 b32 TypesMustMatch(const type *Left, const type *Right)
 {
+	if(IsErrorT(Left) || IsErrorT(Right))
+	{
+		Assert(HasErroredOut());
+		return true;
+	}
 	// I think this is fine?
 	if(Left->Kind == TypeKind_Generic || Right->Kind == TypeKind_Generic)
 		return true;
@@ -858,6 +864,11 @@ b32 TypesMustMatch(const type *Left, const type *Right)
 	unreachable;
 }
 
+b32 IsErrorT(const type *T)
+{
+	return T->Kind == TypeKind_Basic && T->Basic.Kind == Basic_error;
+}
+
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment)
 {
 	UNUSED(IsAssignment);
@@ -869,6 +880,15 @@ b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment)
 
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment)
 {
+	if(IsErrorT(Left) || IsErrorT(Right))
+	{
+		Assert(HasErroredOut());
+		if(!IsErrorT(Left))
+			*PotentialPromotion = Left;
+		if(!IsErrorT(Right))
+			*PotentialPromotion = Right;
+		return true;
+	}
 	if(Left->Kind == TypeKind_Generic || Right->Kind == TypeKind_Generic)
 	{
 		if(Left->Kind == Right->Kind)
@@ -1183,7 +1203,7 @@ b32 IsLoadableType(u32 TypeIdx)
 
 string GetTypeNameAsString(u32 Type)
 {
-	if(Type == INVALID_TYPE)
+	if(Type == Basic_error)
 		return STR_LIT("");
 
 	return GetTypeNameAsString(GetType(Type));
@@ -1348,7 +1368,7 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 
 		TypeMutex.lock();
 		u32 TLookUp = TypeMap[Lookup];
-		if(TLookUp != INVALID_TYPE)
+		if(TLookUp != Basic_error)
 		{
 			if(Flags == 0)
 			{
@@ -1370,7 +1390,7 @@ u32 GetPointerTo(u32 TypeIdx, u32 Flags)
 			T = TypeMap[STR_LIT("*")];
 		TypeMutex.unlock();
 
-		if(T != INVALID_TYPE)
+		if(T != Basic_error)
 			return T;
 	}
 
@@ -1406,7 +1426,7 @@ u32 GetSliceType(u32 Type)
 	TypeMutex.lock();
 	u32 T = TypeMap[Lookup];
 	TypeMutex.unlock();
-	if(T != INVALID_TYPE)
+	if(T != Basic_error)
 		return T;
 
 	type *SliceType = AllocType(TypeKind_Slice);
@@ -1428,7 +1448,7 @@ u32 GetArrayType(u32 Type, u32 ElemCount)
 	TypeMutex.lock();
 	u32 T = TypeMap[Lookup];
 	TypeMutex.unlock();
-	if(T != INVALID_TYPE)
+	if(T != Basic_error)
 		return T;
 
 	type *ArrayType = AllocType(TypeKind_Array);
@@ -1455,7 +1475,7 @@ u32 GetOptional(const type *Pointer)
 		TypeMutex.lock();
 		u32 T = TypeMap[Lookup];
 		TypeMutex.unlock();
-		if(T != INVALID_TYPE)
+		if(T != Basic_error)
 			return T;
 	}
 	else
@@ -1463,7 +1483,7 @@ u32 GetOptional(const type *Pointer)
 		TypeMutex.lock();
 		u32 T = TypeMap[STR_LIT("?*")];
 		TypeMutex.unlock();
-		if(T != INVALID_TYPE)
+		if(T != Basic_error)
 			return T;
 	}
 
@@ -1490,7 +1510,7 @@ u32 GetNonOptional(const type *OptionalPointer)
 		TypeMutex.lock();
 		u32 T = TypeMap[Lookup];
 		TypeMutex.unlock();
-		if(T != INVALID_TYPE)
+		if(T != Basic_error)
 			return T;
 	}
 	else
@@ -1498,7 +1518,7 @@ u32 GetNonOptional(const type *OptionalPointer)
 		TypeMutex.lock();
 		u32 T = TypeMap[STR_LIT("*")];
 		TypeMutex.unlock();
-		if(T != INVALID_TYPE)
+		if(T != Basic_error)
 			return T;
 	}
 
@@ -1653,11 +1673,11 @@ b32 IsGeneric(u32 Type)
 
 u32 GetGenericPart(u32 Resolved, u32 GenericID)
 {
-	u32 Result = INVALID_TYPE;
+	u32 Result = Basic_error;
 	const type *T = GetType(Resolved);
 	const type *G = GetTypeRaw(GenericID);
 	if(G->Kind != TypeKind_Generic && T->Kind != G->Kind)
-		return INVALID_TYPE;
+		return Basic_error;
 
 	switch(G->Kind)
 	{

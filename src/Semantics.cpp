@@ -18,6 +18,9 @@ extern u32 TypeCount;
 
 void FillUntypedStack(checker *Checker, u32 Type)
 {
+	if(Type == Basic_error)
+		return;
+
 	const type *TypePtr = GetType(Type);
 	if(IsGeneric(TypePtr))
 		return;
@@ -154,7 +157,7 @@ u32 FindEnumTypeNoModuleRenaming(const string *NamePtr)
 			}
 		}
 	}
-	return INVALID_TYPE;
+	return Basic_error;
 }
 
 u32 FindStructTypeNoModuleRenaming(const string *NamePtr)
@@ -171,7 +174,7 @@ u32 FindStructTypeNoModuleRenaming(const string *NamePtr)
 			}
 		}
 	}
-	return INVALID_TYPE;
+	return Basic_error;
 }
 
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
@@ -189,11 +192,11 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 
 	string AsModule = StructToModuleName(N, ModuleName);
 	u32 FoundOnMap = LookupNameOnTypeMap(&AsModule);
-	if(FoundOnMap != INVALID_TYPE)
+	if(FoundOnMap != Basic_error)
 		return FoundOnMap;
 
 	FoundOnMap = LookupNameOnTypeMap(Name);
-	if(FoundOnMap != INVALID_TYPE)
+	if(FoundOnMap != Basic_error)
 		return FoundOnMap;
 
 	for(int I = 0; I < TypeCount; ++I)
@@ -272,7 +275,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 			} break;
 		}
 	}
-	return INVALID_TYPE;
+	return Basic_error;
 }
 
 u32 FillFunctionArgumentType(checker *Checker, node *Arg, b32 Error, b32 *OutAutoDef)
@@ -284,7 +287,7 @@ u32 FillFunctionArgumentType(checker *Checker, node *Arg, b32 Error, b32 *OutAut
 			RaiseError(true, *Arg->ErrorInfo, "Expected a valid default expression!");
 		}
 		u32 T = AnalyzeExpression(Checker, Arg->Var.Default);
-		if(T == INVALID_TYPE || IsGeneric(T))
+		if(T == Basic_error || IsGeneric(T))
 		{
 			RaiseError(true, *Arg->Var.Default->ErrorInfo, "Unable to evaluate type of expression in function default argument!");
 		}
@@ -381,7 +384,7 @@ slice<default_value> GetDefaultValues(checker *Checker, slice<node *> Vars, u32 
 		if(it->Var.Default != NULL)
 		{
 			u32 Type = VarTypes[I];
-			Assert(Type != INVALID_TYPE);
+			Assert(Type != Basic_error);
 
 			Checker->AutoEnum.Push(Type);
 
@@ -423,19 +426,19 @@ u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
 		if(it->As == NoNamespace)
 		{
 			u32 Got = FindType(Checker, Name, &it->M->Name);
-			if(Got != INVALID_TYPE)
+			if(Got != Basic_error)
 			{
 				return Got;
 			}
 		}
 	}
-	return INVALID_TYPE;
+	return Basic_error;
 }
 
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAutoDef)
 {
 	if(TypeNode == NULL)
-		return INVALID_TYPE;
+		return Basic_error;
 
 	switch(TypeNode->Type)
 	{
@@ -443,39 +446,39 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		{
 			const string *Name = TypeNode->ID.Name;
 			u32 Type = FindType(Checker, Name);
-			if(Type == INVALID_TYPE)
+			if(Type == Basic_error)
 				Type = FindTypeNoNamespaceImport(Checker, Name);
 
-			if(Type == INVALID_TYPE)
+			if(Type == Basic_error)
 			{
 
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				// @NOTE: is this a good idea?
 				RaiseError(false, *TypeNode->ErrorInfo, "Type \"%s\" is not defined", Name->Data);
-				return Basic_int;
+				return Basic_error;
 			}
 			return Type;
 		} break;
 		case AST_GENSTRUCTTYPE:
 		{
 			u32 StructTIdx = GetTypeFromTypeNode(Checker, TypeNode->GenericStructType.ID, false, OutAutoDef);
-			if(StructTIdx == INVALID_TYPE)
+			if(StructTIdx == Basic_error)
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 
 				RaiseError(true, *TypeNode->ErrorInfo, "Couldn't parse type for generic arguments");
-				return INVALID_TYPE;
+				return Basic_error;
 			}
 			const type *StructT = GetType(StructTIdx);
 			if(StructT->Kind != TypeKind_Struct || (StructT->Struct.Flags & StructFlag_Generic) == 0)
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 
 				RaiseError(true, *TypeNode->ErrorInfo, "Expected a generic struct type for generic arguments, instead got %s", GetTypeName(StructT));
-				return INVALID_TYPE;
+				return Basic_error;
 			}
 			dynamic<struct_generic_argument> GenArgs = {};
 			int ArgCount = 0;
@@ -490,13 +493,13 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				if(IsGeneric(T))
 					IsStillGeneric = true;
 
-				if(T == INVALID_TYPE)
+				if(T == Basic_error)
 				{
 					if(!Error)
-						return INVALID_TYPE;
+						return Basic_error;
 
 					RaiseError(true, *(*it)->ErrorInfo, "Unknown type in generic argument list");
-					return INVALID_TYPE;
+					return Basic_error;
 				}
 				GenArgs.Push(struct_generic_argument{StructT->Struct.GenericArguments[ArgCount++].Name, T, (bool)IsAutoDefine});
 			}
@@ -504,9 +507,9 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			if(StructT->Struct.GenericArguments.Count != ArgCount)
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(true, *TypeNode->ErrorInfo, "Expeceted %d generic arguments, got %d instead", StructT->Struct.GenericArguments.Count, ArgCount);
-				return INVALID_TYPE;
+				return Basic_error;
 			}
 
 			u32 Flags = StructT->Struct.Flags;
@@ -518,17 +521,19 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		} break;
 		case AST_PTRTYPE:
 		{
+			if(TypeNode->PointerType.Pointed == NULL)
+				return GetPointerTo(INVALID_TYPE, TypeNode->PointerType.Flags);
 			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error, OutAutoDef);
-			if(TypeNode->PointerType.Pointed != NULL && Pointed == INVALID_TYPE && !Error)
-				return INVALID_TYPE;
+			if(TypeNode->PointerType.Pointed != NULL && Pointed == Basic_error && !Error)
+				return Basic_error;
 			return GetPointerTo(Pointed, TypeNode->PointerType.Flags);
 		} break;
 		case AST_ARRAYTYPE:
 		{
 			uint Size = 0;
 			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type, Error, OutAutoDef);
-			if(MemberType == INVALID_TYPE)
-				return INVALID_TYPE;
+			if(MemberType == Basic_error)
+				return Basic_error;
 			if(TypeNode->ArrayType.Expression)
 			{
 				node *Expr = TypeNode->ArrayType.Expression;
@@ -568,8 +573,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				ForArray(Idx, TypeNode->Fn.ReturnTypes)
 				{
 					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx], Error, OutAutoDef);
-					if(Returns[Idx] == INVALID_TYPE)
-						return INVALID_TYPE;
+					if(Returns[Idx] == Basic_error)
+						return Basic_error;
 				}
 
 				FnType->Function.Returns = SliceFromArray(Returns);
@@ -590,14 +595,14 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				{
 					FnType->Function.Flags |= SymbolFlag_VarFunc;
 					if(Idx + 1 != TypeNode->Fn.Args.Count)
-						return INVALID_TYPE;
+						return Basic_error;
 					FnType->Function.ArgCount-=1;
 					continue;
 				}
 				FnType->Function.Args[Idx] = FillFunctionArgumentType(Checker, Arg, Error, OutAutoDef);
 
-				if(FnType->Function.Args[Idx] == INVALID_TYPE)
-					return INVALID_TYPE;
+				if(FnType->Function.Args[Idx] == Basic_error)
+					return Basic_error;
 			}
 			FnType->Function.DefaultValues = GetDefaultValues(Checker, TypeNode->Fn.Args, FnType->Function.Args);
 			
@@ -609,25 +614,25 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			if(Operand == NULL)
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(true, *TypeNode->ErrorInfo, "Cannot infer type for `.` selector");
 			}
 			if(Operand->Type != AST_ID)
 			{
 				u32 Type = GetTypeFromTypeNode(Checker, Operand, Error, OutAutoDef);
-				if(Type != INVALID_TYPE)
+				if(Type != Basic_error)
 				{
 					if(GetType(Type)->Kind != TypeKind_Enum)
 					{
 						if(!Error)
-							return INVALID_TYPE;
+							return Basic_error;
 						RaiseError(false, *TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
 					}
 
 					return Type;
 				}
 				else if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(true, *Operand->ErrorInfo, "Expected module name in selector");
 			}
 			import Import;
@@ -635,15 +640,15 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			if(!FindImportedModule(Checker->Imported, SearchName, &Import))
 			{
 				u32 Type = FindType(Checker, &SearchName, &Checker->Module->Name);
-				if(Type == INVALID_TYPE)
+				if(Type == Basic_error)
 					Type = FindTypeNoNamespaceImport(Checker, &SearchName); 
 
-				if(Type != INVALID_TYPE)
+				if(Type != Basic_error)
 				{
 					if(GetType(Type)->Kind != TypeKind_Enum)
 					{
 						if(!Error)
-							return INVALID_TYPE;
+							return Basic_error;
 						RaiseError(false, *TypeNode->ErrorInfo, "Cannot use `.` selector on type %s", GetTypeName(Type));
 					}
 
@@ -651,14 +656,14 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				}
 
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(true, *Operand->ErrorInfo, "Couldn't find module `%s`", Operand->ID.Name->Data);
 			}
 			u32 Type = FindType(Checker, TypeNode->Selector.Member, &Import.M->Name);
-			if(Type == INVALID_TYPE)
+			if(Type == Basic_error)
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(true, *TypeNode->ErrorInfo, "Type \"%s\" is not defined in module %s", TypeNode->Selector.Member->Data, TypeNode->Selector.Operand->ID.Name->Data);
 			}
 			return Type;
@@ -667,12 +672,12 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		{
 			// @HACK
 			if(!Error)
-				return INVALID_TYPE;
+				return Basic_error;
 
 			if(!Checker->Scope.TryPeek() || (Checker->Scope.Peek()->ScopeNode->Type != AST_FN))
 			{
 				if(!Error)
-					return INVALID_TYPE;
+					return Basic_error;
 				RaiseError(false, *TypeNode->ErrorInfo, "Declaring generic type outside of function arguments is not allowed");
 			}
 			if(OutAutoDef)
@@ -713,13 +718,13 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				if(TypeNode->Unary.Operand == NULL)
 					return GetPointerTo(INVALID_TYPE);
 				u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->Unary.Operand, Error, OutAutoDef);
-				if(Pointed == INVALID_TYPE)
+				if(Pointed == Basic_error)
 				{
 					if(Error)
 					{
 						RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
 					}
-					return INVALID_TYPE;
+					return Basic_error;
 				}
 				return GetPointerTo(Pointed);
 			}
@@ -727,13 +732,13 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			{
 				// @TODO:
 				u32 Pointer = GetTypeFromTypeNode(Checker, TypeNode->Unary.Operand, Error, OutAutoDef);
-				if(Pointer == INVALID_TYPE)
+				if(Pointer == Basic_error)
 				{
 					if(Error)
 					{
 						RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
 					}
-					return INVALID_TYPE;
+					return Basic_error;
 				}
 				const type *Pt = GetType(Pointer);
 				if(Pt->Kind != TypeKind_Pointer)
@@ -742,7 +747,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 					{
 						RaiseError(true, *TypeNode->ErrorInfo, "Cannot use ? on a non pointer type.");
 					}
-					return INVALID_TYPE;
+					return Basic_error;
 				}
 				return GetOptional(Pt);
 			}
@@ -752,7 +757,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				{
 					RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
 				}
-				return INVALID_TYPE;
+				return Basic_error;
 			}
 		} break;
 		default:
@@ -761,7 +766,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			{
 				RaiseError(true, *TypeNode->ErrorInfo, "Expected valid type!");
 			}
-			return INVALID_TYPE;
+			return Basic_error;
 		} break;
 	}
 }
@@ -867,11 +872,12 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 	}
 }
 
-u32 GetVariable(checker *Checker, const string *ID)
+u32 GetVariable(checker *Checker, const string *ID, bool *Found)
 {
 	// @Note: find the last instance of the variable (for shadowing)
 	const symbol *Symbol = FindSymbol(Checker, ID);
-	return Symbol ? Symbol->Type : INVALID_TYPE;
+	*Found = Symbol ? true : false;
+	return Symbol ? Symbol->Type : Basic_error;
 }
 
 scope *AllocScope(node *Node, scope *Parent)
@@ -939,7 +945,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		u32 T = GetTypeFromTypeNode(Checker, FnNode->Fn.Args[I]->Var.TypeNode, false);
-		if(T == INVALID_TYPE)
+		if(T == Basic_error)
 		{
 			NeedToAddGeneric = true;
 			break;
@@ -950,7 +956,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		For(FnNode->Fn.ReturnTypes)
 		{
 			u32 T = GetTypeFromTypeNode(Checker, *it, false);
-			if(T == INVALID_TYPE)
+			if(T == Basic_error)
 			{
 				NeedToAddGeneric = true;
 				break;
@@ -1171,13 +1177,14 @@ b32 IsConstant(checker *Checker, node *Expr)
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
 {
-	u32 Result = INVALID_TYPE;
+	u32 Result = Basic_error;
 	switch(Expr->Type)
 	{
 		case AST_ID:
 		{
-			Result = GetVariable(Checker, Expr->ID.Name);
-			if(Result == INVALID_TYPE)
+			bool Found = false;
+			Result = GetVariable(Checker, Expr->ID.Name, &Found);
+			if(!Found)
 			{
 				symbol *Sym = Checker->Module->Globals[*Expr->ID.Name];
 				if(Sym)
@@ -1187,7 +1194,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 
 				string NoNamespace = STR_LIT("*");
-				if(Result == INVALID_TYPE)
+				if(Result == Basic_error)
 				{
 					For(Checker->Imported)
 					{
@@ -1203,7 +1210,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						}
 					}
 				}
-				if(Result == INVALID_TYPE)
+				if(Result == Basic_error)
 				{
 					import Import;
 					string Name = *Expr->ID.Name;
@@ -1212,10 +1219,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						Result = Basic_module;
 					}
 				}
-				if(Result == INVALID_TYPE)
+				if(Result == Basic_error)
 				{
 					u32 Find = FindType(Checker, Expr->ID.Name);
-					if(Find != INVALID_TYPE)
+					if(Find != Basic_error)
 					{
 						Result = Basic_type;
 						Expr->ID.Type = Find;
@@ -1227,7 +1234,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							if(it->As == NoNamespace)
 							{
 								u32 Got = FindType(Checker, Expr->ID.Name, &it->M->Name);
-								if(Got != INVALID_TYPE)
+								if(Got != Basic_error)
 								{
 									Result = Basic_type;
 									Expr->ID.Type = Got;
@@ -1237,10 +1244,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						}
 					}
 				}
-				if(Result == INVALID_TYPE)
+				if(Result == Basic_error)
 				{
 					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
-					return INVALID_TYPE;
+					return Basic_error;
 				}
 			}
 			const type *Type = GetType(Result);
@@ -1504,13 +1511,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_CALL:
 		{
 			u32 CallTypeIdx = AnalyzeExpression(Checker, Expr->Call.Fn);
-			if(CallTypeIdx == INVALID_TYPE)
-				return INVALID_TYPE;
+			if(CallTypeIdx == Basic_error)
+				return Basic_error;
 
 			const type *CallType = GetType(CallTypeIdx);
 			if(!IsCallable(CallType))
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Trying to call a non function type \"%s\"", GetTypeName(CallType));
+				RaiseError(false, *Expr->ErrorInfo, "Trying to call a non function type \"%s\"", GetTypeName(CallType));
+				return Basic_error;
 			}
 			if(CallType->Kind == TypeKind_Pointer)
 				CallType = GetType(CallType->Pointer.Pointed);
@@ -1727,7 +1735,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			b32 Failed = false;
 
 			u32 From = AnalyzeExpression(Checker, Expr->Cast.Expression);
-			Assert(To != INVALID_TYPE && From != INVALID_TYPE);
+			if(From == Basic_error)
+			{
+				Result = To;
+				break;
+			}
+			if(To == Basic_error)
+			{
+				Result = To;
+				break;
+			}
+			Assert(To != Basic_error && From != Basic_error);
 			const type *ToType = GetType(To);
 			const type *FromType = GetType(From);
 			if(Expr->Cast.IsBitCast)
@@ -1781,7 +1799,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_TYPELIST:
 		{
-			u32 TypeIdx = INVALID_TYPE;
+			u32 TypeIdx = Basic_error;
 			if(Expr->TypeList.TypeNode == NULL)
 			{
 				for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
@@ -1795,16 +1813,23 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 				}
 
-				if(TypeIdx == INVALID_TYPE)
+				if(TypeIdx == Basic_error)
 				{
-					RaiseError(true, *Expr->ErrorInfo, "Cannot infer type list type from this expression");
+					RaiseError(false, *Expr->ErrorInfo, "Cannot infer type list type from this expression");
+					Result = Basic_error;
+					break;
 				}
 			}
 			else
 			{
 				TypeIdx = GetTypeFromTypeNode(Checker, Expr->TypeList.TypeNode);
+				if(TypeIdx == Basic_error)
+				{
+					Result = Basic_error;
+					break;
+				}
 			}
-			Assert(TypeIdx != INVALID_TYPE);
+			Assert(TypeIdx != Basic_error);
 			const type *Type = GetType(TypeIdx);
 			bool Failed = false;
 			u64 MaxElements = 0;
@@ -1923,7 +1948,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				node *Item = Expr->TypeList.Items[Idx];
 				const string *NamePtr = Item->Item.Name;
 				Assert(Item->Type == AST_LISTITEM);
-				u32 WantType = INVALID_TYPE;
+				u32 WantType = Basic_error;
 				int MemberIdx = Idx;
 				switch(Type->Kind)
 				{
@@ -2003,7 +2028,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								continue;
 							}
 						}
-						u32 Type = INVALID_TYPE;
+						u32 Type = Basic_error;
 						if(MemberIdx == 1)
 							Type = GetPointerTo(Basic_u8);
 						else
@@ -2025,7 +2050,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				u32 ItemType = AnalyzeExpression(Checker, Item->Item.Expression);
 				Checker->AutoEnum.Pop();
 
-				u32 PromotedUntyped = INVALID_TYPE;
+				u32 PromotedUntyped = Basic_error;
 				switch(Type->Kind)
 				{
 					case TypeKind_Vector:
@@ -2039,7 +2064,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						Filled[MemberIdx] = Item;
 						ExprTypes[MemberIdx] = ItemType;
-						PromotedUntyped = INVALID_TYPE;
+						PromotedUntyped = Basic_error;
 						if(!IsGeneric(WantType))
 							PromotedUntyped = TypeCheckAndPromote(Checker, Item->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
 					} break;
@@ -2055,7 +2080,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 
 				// @Note: Is there a point to this check?
-				if(PromotedUntyped != INVALID_TYPE)
+				if(PromotedUntyped != Basic_error)
 					FillUntypedStack(Checker, PromotedUntyped);
 			}
 
@@ -2088,14 +2113,14 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		} break;
 		case AST_SELECTOR:
 		{
-			u32 TypeIdx = INVALID_TYPE;
+			u32 TypeIdx = Basic_error;
 			if(Expr->Selector.Operand)
 			{
 				TypeIdx = AnalyzeExpression(Checker, Expr->Selector.Operand);
 			}
 			else
 			{
-				u32 EnumT = INVALID_TYPE;
+				u32 EnumT = Basic_error;
 				for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
 				{
 					const type *T = GetType(Checker->AutoEnum.Data[i]);
@@ -2106,12 +2131,20 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 				}
 
-				if(EnumT == INVALID_TYPE)
+				if(EnumT == Basic_error)
 				{
-					RaiseError(true, *Expr->ErrorInfo, "Cannot infer enum type from this expression");
+					RaiseError(false, *Expr->ErrorInfo, "Cannot infer enum type from this expression");
+					Result = Basic_error;
+					break;
 				}
 
 				TypeIdx = EnumT;
+			}
+
+			if(TypeIdx == Basic_error)
+			{
+				Result = Basic_error;
+				break;
 			}
 
 			const type *Type = NULL;
@@ -2125,7 +2158,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					const string *ModuleName = Expr->Selector.Operand->ID.Name;
 					u32 t = FindType(Checker, Expr->Selector.Member, ModuleName);
-					if(t == INVALID_TYPE)
+					if(t == Basic_error)
 					{
 						Assert(M);
 						RaiseErrorForMissingSymbol(M, *Expr->Selector.Member, Expr->ErrorInfo, false);
@@ -2134,7 +2167,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								"Cannot find public symbol %s in module %s",
 								Expr->Selector.Member->Data, Expr->Selector.Operand->ID.Name->Data);
 								*/
-						return INVALID_TYPE;
+						return Basic_error;
 					}
 					Result = Basic_type;
 					Expr->Selector.Type = Basic_type;
@@ -2178,7 +2211,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							u32 TIdx = FindType(Checker, Expr->Selector.Operand->ID.Name);
 #endif
 							u32 TIdx = GetTypeFromTypeNode(Checker, Expr);
-							if(TIdx == INVALID_TYPE)
+							if(TIdx == Basic_error)
 							{
 								RaiseError(true, *Expr->ErrorInfo, "Invalid `.`! Cannot use selector on a typeid");
 							}
@@ -2191,7 +2224,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								break;
 							}
 
-							Result = INVALID_TYPE;
+							Result = Basic_error;
 							ForArray(Idx, T->Enum.Members)
 							{
 								if(T->Enum.Members[Idx].Name == *Expr->Selector.Member)
@@ -2203,7 +2236,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 									break;
 								}
 							}
-							if(Result == INVALID_TYPE)
+							if(Result == Basic_error)
 							{
 								RaiseError(false, *Expr->ErrorInfo, "No member named %s in enum %s; Invalid `.` selector",
 										Expr->Selector.Member->Data, GetTypeName(T));
@@ -2229,7 +2262,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						}
 						else
 						{
-							if(TypeIdx == INVALID_TYPE && HasErroredOut())
+							if(TypeIdx == Basic_error && HasErroredOut())
 							{}
 							else
 								RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s", GetTypeName(Type));
@@ -2256,7 +2289,7 @@ ANALYZE_SLICE_SELECTOR:
 					} break;
 					case TypeKind_Enum:
 					{
-						Result = INVALID_TYPE;
+						Result = Basic_error;
 						ForArray(Idx, Type->Enum.Members)
 						{
 							if(Type->Enum.Members[Idx].Name == *Expr->Selector.Member)
@@ -2266,7 +2299,7 @@ ANALYZE_SLICE_SELECTOR:
 								break;
 							}
 						}
-						if(Result == INVALID_TYPE)
+						if(Result == Basic_error)
 						{
 							RaiseError(false, *Expr->ErrorInfo, "No member named %s in enum %s; Invalid `.` selector",
 									Expr->Selector.Member->Data, GetTypeName(Type));
@@ -2291,7 +2324,7 @@ ANALYZE_SLICE_SELECTOR:
 					} // fallthrough
 					case TypeKind_Struct:
 					{
-						Result = INVALID_TYPE;
+						Result = Basic_error;
 						ForArray(Idx, Type->Struct.Members)
 						{
 							if(Type->Struct.Members[Idx].ID == *Expr->Selector.Member)
@@ -2301,7 +2334,7 @@ ANALYZE_SLICE_SELECTOR:
 								break;
 							}
 						}
-						if(Result == INVALID_TYPE)
+						if(Result == Basic_error)
 						{
 							if(Type->Struct.SubType != INVALID_TYPE)
 							{
@@ -2318,7 +2351,7 @@ ANALYZE_SLICE_SELECTOR:
 								}
 							}
 
-							if(Result == INVALID_TYPE)
+							if(Result == Basic_error)
 							{
 								RaiseError(true, *Expr->ErrorInfo,
 										"No member named %s in struct %s; Invalid `.` selector",
@@ -2328,7 +2361,7 @@ ANALYZE_SLICE_SELECTOR:
 					} break;
 					default:
 					{
-						if(TypeIdx == INVALID_TYPE && HasErroredOut())
+						if(TypeIdx == Basic_error && HasErroredOut())
 						{}
 						else
 							RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on %s",
@@ -2460,7 +2493,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 	{
 		case AST_UNARY:
 		{
-			u32 Result = INVALID_TYPE;
+			u32 Result = Basic_error;
 			switch(Expr->Unary.Op)
 			{
 				case T_MINUS:
@@ -2543,7 +2576,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 
 					// @TODO: Getting rid of this in favor of flow typing!
 					// Right now it just does nothing so make it raise an error in the future to remove it
-					if(Result == INVALID_TYPE)
+					if(Result == Basic_error)
 						Result = PointerIdx;
 
 				} break;
@@ -2566,7 +2599,9 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					}
 					if(Pointer->Pointer.Pointed == INVALID_TYPE)
 					{
-						RaiseError(true, *Expr->ErrorInfo, "Cannot derefrence opaque pointer");
+						RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence opaque pointer");
+						Result = Basic_error;
+						break;
 					}
 					Expr->Unary.Type = Pointer->Pointer.Pointed;
 					Result = Pointer->Pointer.Pointed;
@@ -2675,8 +2710,8 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_BINARY)
 	{
-		u32 Left  = INVALID_TYPE;
-		u32 Right = INVALID_TYPE;
+		u32 Left  = Basic_error;
+		u32 Right = Basic_error;
 		if(Expr->Binary.Op == T_LAND || Expr->Binary.Op == T_LOR)
 		{
 			Left = AnalyzeBooleanExpression(Checker, &Expr->Binary.Left);
@@ -2695,11 +2730,6 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 
 			Expr->Binary.ExpressionType = Left;
 		}
-
-		if(Left == INVALID_TYPE && HasErroredOut())
-			return Right;
-		if(Right == INVALID_TYPE && HasErroredOut())
-			return Left;
 
 		const type *LeftType = GetType(Left);
 		const type *RightType = GetType(Right);
@@ -2730,7 +2760,7 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			}
 			if(X->Pointer.Pointed == INVALID_TYPE)
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Cannot perform pointer arithmetic on an opaque pointer");
+				RaiseError(false, *Expr->ErrorInfo, "Cannot perform pointer arithmetic on an opaque pointer");
 			}
 		}
 
@@ -2938,7 +2968,7 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	u32 Type = GetTypeFromTypeNode(Checker, Node->Decl.Type);
 	if(Node->Decl.Expression)
 	{
-		if(Type != INVALID_TYPE)
+		if(Type != Basic_error)
 			Checker->AutoEnum.Push(Type);
 
 		u32 ExprType = AnalyzeExpression(Checker, Node->Decl.Expression);
@@ -2951,18 +2981,16 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 			}
 		}
 
-		if(Type != INVALID_TYPE)
+		if(Type != Basic_error)
 			Checker->AutoEnum.Pop();
 
 		if(ExprType == INVALID_TYPE)
 		{
-			if(HasErroredOut())
-				return ExprType;
 			RaiseError(true, *Node->ErrorInfo, "Expression does not give a value for the assignment");
 		}
 		const type *ExprTypePointer = GetType(ExprType);
 
-		if(Type != INVALID_TYPE)
+		if(Type != Basic_error)
 		{
 			const type *TypePointer = GetType(Type);
 			const type *Promotion = NULL;
@@ -2991,9 +3019,9 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	}
 	else
 	{
-		if(Type == INVALID_TYPE)
+		if(Type == Basic_error)
 		{
-			RaiseError(true, *Node->ErrorInfo, "Expected either type or expression in variable declaration");
+			RaiseError(false, *Node->ErrorInfo, "Expected either type or expression in variable declaration");
 		}
 	}
 
@@ -3177,7 +3205,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 				T = GetType(TypeIdx);
 				FillUntypedStack(Checker, TypeIdx);
 			}
-			u32 ItType = INVALID_TYPE;
+			u32 ItType = Basic_error;
 			if(T->Kind == TypeKind_Array)
 				ItType = T->Array.Type;
 			else if(T->Kind == TypeKind_Slice)
@@ -3343,7 +3371,7 @@ u32 FixPotentialFunctionPointer(u32 Type)
 void AnalyzeEnum(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindEnumTypeNoModuleRenaming(Node->StructDecl.Name);
-	Assert(OpaqueType != INVALID_TYPE);
+	Assert(OpaqueType != Basic_error);
 	if(Node->Enum.Items.Count == 0)
 	{
 		RaiseError(false, *Node->ErrorInfo, "Empty enums are not allowed");
@@ -3359,11 +3387,11 @@ void AnalyzeEnum(checker *Checker, node *Node)
 	//}
 
 
-	u32 Type = INVALID_TYPE;
+	u32 Type = Basic_error;
 	if(Node->Enum.Type)
 	{
 		Type = GetTypeFromTypeNode(Checker, Node->Enum.Type);
-		Assert(Type != INVALID_TYPE);
+		Assert(Type != Basic_error);
 		const type *T = GetType(Type);
 		if(!HasBasicFlag(T, BasicFlag_Integer))
 		{
@@ -3437,7 +3465,7 @@ void AnalyzeEnum(checker *Checker, node *Node)
 void AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
-	Assert(OpaqueType != INVALID_TYPE);
+	Assert(OpaqueType != Basic_error);
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
 	Checker->Scope.Push(StructScope);
 
@@ -4153,7 +4181,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 			if(Node->Decl.LHS->Type != AST_ID)
 				continue;
 			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, false);
-			if(T == INVALID_TYPE)
+			if(T == Basic_error)
 				continue;
 
 			string Name = *Node->Decl.LHS->ID.Name;
@@ -4273,7 +4301,7 @@ string *MakeGenericName(checker *Checker, string BaseName, u32 FnTypeNonGeneric,
 		if(IsGeneric(FG->Function.Args[i]))
 		{
 			u32 ResolvedGenericID = GetGenericPart(T->Function.Args[i], FG->Function.Args[i]);
-			if(ResolvedGenericID == INVALID_TYPE)
+			if(ResolvedGenericID == Basic_error)
 			{
 				// @NOTE: I think this is checked earilier but just to be sure
 				RaiseError(true, *ErrorNode->ErrorInfo, "Invalid type for generic declaration");

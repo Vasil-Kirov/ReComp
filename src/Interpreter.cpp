@@ -223,6 +223,7 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 				case Basic_UntypedInteger:
 				case Basic_auto:
 				case Basic_module:
+				case Basic_error:
 				Assert(false);
 			}
 		} break;
@@ -447,6 +448,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 					case Basic_UntypedInteger:
 					case Basic_auto:
 					case Basic_module:
+					case Basic_error:
 					Assert(false);
 				}
 			} break;
@@ -867,6 +869,7 @@ value PerformCast(value *Value, const type *From, u32 ToIdx, b32 IsBitCast, void
 				case Basic_UntypedInteger:
 				case Basic_auto:
 				case Basic_module:
+				case Basic_error:
 				unreachable;
 				case Basic_bool:
 				{
@@ -1178,6 +1181,7 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 					case Basic_string:
 					case Basic_UntypedFloat:
 					case Basic_UntypedInteger:
+					case Basic_error:
 					unreachable;
 					case Basic_type:
 					case Basic_int:
@@ -2209,7 +2213,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				if(!IsPointerTagged(Operand->ptr))
 				{
 					value Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
-					if(I.Type != INVALID_TYPE)
+					if(I.Type != Basic_error && I.Type != INVALID_TYPE)
 					{
 						const type *T = GetType(I.Type);
 						if(IsFnOrPtr(T) && IsPointerTagged(Result.ptr))
@@ -2926,7 +2930,7 @@ void DoRuns(interpreter *VM, ir *IR)
 				DoAbort = true;
 				continue;
 			}
-			if(RunI.Type != INVALID_TYPE)
+			if(RunI.Type != INVALID_TYPE && RunI.Type != Basic_error)
 			{
 				Result.Result.Type = RunI.Type;
 				const_value ConstVal = FromInterp(Result.Result);

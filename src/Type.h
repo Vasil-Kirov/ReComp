@@ -67,6 +67,7 @@ enum basic_kind
 	Basic_type,
 	Basic_auto,
 	Basic_module,
+	Basic_error,
 };
 
 enum basic_flags
@@ -294,6 +295,7 @@ void WriteFunctionReturnType(string_builder *b, slice<u32> Returns);
 b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx);
 void AddNameToTypeMap(const string *Name, u32 T);
 u32 LookupNameOnTypeMap(const string *Name);
+b32 IsErrorT(const type *T);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 

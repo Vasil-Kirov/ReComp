@@ -230,6 +230,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				case Basic_UntypedInteger:
 				case Basic_auto:
 				case Basic_module:
+				case Basic_error:
 				Assert(false);
 			}
 		} break;

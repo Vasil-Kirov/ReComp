@@ -58,6 +58,7 @@ for test in tests:
     c_end_time = time()
 
     full_path = dir_path + '/tests/' + test + '/' + exe_name
+    pdb_path = dir_path + '/tests/' + test + '/a.pdb'
     if not os.path.isfile(full_path):
         print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Time: {c_end_time - c_start_time:.2f}s')
         print(f'Output: {stderr.decode()}\n{stdout.decode()}')
@@ -75,6 +76,7 @@ for test in tests:
         else:
             print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Got: {process.returncode}')
     remove_file(full_path)
+    remove_file(pdb_path)
 
     os.chdir('..')
 

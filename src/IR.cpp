@@ -4094,6 +4094,11 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 				}
 			}
 			*Builder += ']';
+			if(Info->Default != -1)
+			{
+				Builder->printf(" default=block_%d,", Info->Default);
+			}
+			Builder->printf(" after=block_%d", Info->After);
 		} break;
 		case OP_RUN:
 		{

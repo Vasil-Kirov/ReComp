@@ -17,6 +17,7 @@
 #include "Dynamic.h"
 #include "Threading.h"
 #include "LLVMPasses.h"
+#include "backend/RegAlloc.h"
 #include "llvm-c/Core.h"
 #include "llvm-c/DebugInfo.h"
 #include "llvm-c/Types.h"
@@ -1416,9 +1417,36 @@ void RCGenerateFunction(generator *gen, function fn)
 		}
 	}
 
-	ForArray(Idx, fn.Blocks)
+
+	auto BlocksSorted = SortBasicBlocks(SliceFromArray(fn.Blocks));
+	if(BlocksSorted.Count < fn.Blocks.Count)
 	{
-		basic_block Block = fn.Blocks[Idx];
+		array<successor_block> NewBlocks = array<successor_block>(BlocksSorted, fn.Blocks.Count);
+		int Added = 0;
+		For(fn.Blocks)
+		{
+			bool Found = false;
+			ForArray(Idx, BlocksSorted)
+			{
+				if(BlocksSorted[Idx].Block.ID == it->ID)
+				{
+					Found = true;
+					break;
+				}
+			}
+			if(!Found)
+			{
+				NewBlocks[BlocksSorted.Count+Added] = {*it};
+				Added++;
+			}
+			if(Added+BlocksSorted.Count == fn.Blocks.Count)
+				break;
+		}
+		BlocksSorted = SliceFromArray(NewBlocks);
+	}
+	ForArray(Idx, BlocksSorted)
+	{
+		basic_block Block = BlocksSorted[Idx].Block;
 		RCSetBlock(gen, Block.ID);
 		ForArray(InstrIdx, Block.Code)
 		{

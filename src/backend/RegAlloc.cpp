@@ -71,7 +71,7 @@ slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks)
 				case OP_SWITCHINT:
 				{
 					ir_switchint *Info = (ir_switchint *)i.Ptr;
-					array<u32> SArray(Info->Cases.Count + (Info->Default != -1 ? 1 : 0));
+					array<u32> SArray(Info->Cases.Count + 1);
 					ForArray(CaseIdx, Info->Cases)
 					{
 						SArray[CaseIdx] = Info->Cases[CaseIdx];
@@ -82,6 +82,8 @@ slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks)
 						SArray[Info->Cases.Count] = Info->Default;
 						SBlocks[Info->Default].Predecessors.Push(Block.ID);
 					}
+					SArray[Info->Cases.Count] = Info->After;
+					SBlocks[Info->After].Predecessors.Push(Info->After);
 					Successors = SliceFromArray(SArray);
 				} break;
 				default: {}break;
@@ -90,6 +92,38 @@ slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks)
 		SBlocks[Block.ID].Block = Block;
 		SBlocks[Block.ID].Successors = Successors;
 	}
+
+	// @NOTE: Was thinking of making switch cases predecesors to the after block but that should happen automatically if they're not terminated, so probably should just delete this.
+#if 0
+	ForArray(BlockIdx, Blocks)
+	{
+		auto Block = Blocks[BlockIdx];
+		if(Block.Code.Count > 0)
+		{
+			auto i = Block.Code[Block.Code.Count-1];
+			if(i.Op == OP_SWITCHINT)
+			{
+				ir_switchint *Info = (ir_switchint *)i.Ptr;
+				For(Info->Cases)
+				{
+					array<u32> NewBlocks(SBlocks[*it].Successors.Count+1);
+					for(size_t i = 0; i < NewBlocks.Count-1; ++i)
+						NewBlocks[i] = SBlocks[*it].Successors[i];
+					NewBlocks[NewBlocks.Count-1] = Info->After;
+					VFree(SBlocks[*it].Successors.Data);
+					SBlocks[*it].Successors = SliceFromArray(NewBlocks);
+				}
+				if(Info->Default != -1)
+				{
+					array<u32> NewBlocks(SBlocks[Info->After].Predecessors.Count+1);
+					for(size_t i = 0; i < NewBlocks.Count-1; ++i)
+						NewBlocks[i] = SBlocks[Info->After].Predecessors[i];
+					NewBlocks[NewBlocks.Count-1] = Block.ID;
+				}
+			}
+		}
+	}
+#endif
 
 	
 

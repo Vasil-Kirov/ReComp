@@ -523,6 +523,8 @@ main(int ArgCount, char *Args[])
 		ConfigIDs.Push(STR_LIT("x86"));
 		ConfigIDs.Push(STR_LIT("x64"));
 
+		bool WasDumpingInfo = DumpingInfo;
+		DumpingInfo = false;
 		{
 			dynamic<string> FileNames = {};
 			FileNames.Push(CommandLine.BuildFile);
@@ -535,6 +537,7 @@ main(int ArgCount, char *Args[])
 			// Clear run-time defines
 			ConfigIDs = {};
 		}
+		DumpingInfo = WasDumpingInfo;
 
 		BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
 

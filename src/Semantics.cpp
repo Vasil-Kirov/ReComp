@@ -1,6 +1,7 @@
 #include "Semantics.h"
 #include "CommandLine.h"
 #include "ConstVal.h"
+#include "DumpInfo.h"
 #include "Dynamic.h"
 #include "Errors.h"
 #include "Globals.h"
@@ -276,6 +277,20 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 		}
 	}
 	return Basic_error;
+}
+
+void PopScope(checker *Checker, const error_info *End)
+{
+	scope *Scope = Checker->Scope.Pop();
+	if(DumpingInfo && End && Scope->Symbols.Data.Count > 0)
+	{
+		scope_dump S = {
+			.From = Scope->ScopeNode->ErrorInfo,
+			.To = End,
+			.Symbols = SliceFromArray(Scope->Symbols.Data),
+		};
+		AddScopeToDump(S);
+	}
 }
 
 u32 FillFunctionArgumentType(checker *Checker, node *Arg, b32 Error, b32 *OutAutoDef)
@@ -1078,7 +1093,10 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		Body.Push(MakeReturn(Body[Body.Count-1]->ErrorInfo, NULL));
 	}
 
-	Checker->Scope.Pop();
+	const error_info *End = NULL;
+	if(Body.Count > 0)
+		End = Body[Body.Count-1]->ErrorInfo;
+	PopScope(Checker, End);
 	Checker->CurrentFnReturnTypeIdx = Save;
 }
 
@@ -1470,7 +1488,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					}
 				}
 				CheckBodyForUnreachableCode(Case->Case.Body);
-				Checker->Scope.Pop();
+				const error_info *End = NULL;
+				if(Case->Case.Body.Count > 0)
+					End = Case->Case.Body[Case->Case.Body.Count-1]->ErrorInfo;
+				PopScope(Checker, End);
 			}
 			Checker->Scope.Pop();
 
@@ -3161,15 +3182,24 @@ u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr)
 void AnalyzeIf(checker *Checker, node *Node)
 {
 	Checker->Scope.Push(AllocScope(Node, Checker->Scope.TryPeek()));
+
 	AnalyzeBooleanExpression(Checker, &Node->If.Expression);
 	slice<node *> IfBody = SliceFromArray(Node->If.Body); 
 	AnalyzeInnerBody(Checker, IfBody);
+
+	Assert(Node->If.Body.Count > 0);
+	PopScope(Checker, Node->If.Body.Last()->ErrorInfo);
+
 	if(Node->If.Else.IsValid())
 	{
+		Assert(Node->If.Else.Count > 0);
+		Checker->Scope.Push(AllocScope(Node->If.Else[0], Checker->Scope.TryPeek()));
+
 		slice<node *> IfElse = SliceFromArray(Node->If.Else); 
 		AnalyzeInnerBody(Checker, IfElse);
+
+		PopScope(Checker, Node->If.Else.Last()->ErrorInfo);
 	}
-	Checker->Scope.Pop();
 }
 
 void AnalyzeFor(checker *Checker, node *Node)
@@ -3321,12 +3351,14 @@ void AnalyzeFor(checker *Checker, node *Node)
 		} break;
 	}
 
+	const error_info *End = NULL;
 	if(Node->For.Body.IsValid())
 	{
 		slice<node *> ForBody = SliceFromArray(Node->For.Body);
 		AnalyzeInnerBody(Checker, ForBody);
+		End = ForBody.Last()->ErrorInfo;
 	}
-	Checker->Scope.Pop();
+	PopScope(Checker, End);
 }
 
 u32 FixPotentialFunctionPointer(u32 Type)
@@ -3848,7 +3880,7 @@ RetErr:
 				{
 					RaiseError(false, *Node->ErrorInfo, "Unexpected scope closing }");
 				}
-				Checker->Scope.Pop();
+				PopScope(Checker, Node->ErrorInfo);
 			}
 		} break;
 		case AST_RUN:

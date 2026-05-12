@@ -25,6 +25,11 @@ struct dynamic {
 			Capacity = NewCapacity;
 		}
 	}
+	T Last() const
+	{
+		Assert(Count != 0);
+		return Data[Count-1];
+	}
 	T *GetLast() const
 	{
 		Assert(Count != 0);
@@ -116,6 +121,13 @@ struct array {
 	{
 		Data = Dynamic.Data;
 		Count = Dynamic.Count;
+	}
+	array(slice<T> Slice, size_t NewCount)
+	{
+		Count = NewCount;
+		Data = (T*)VAlloc(Count * sizeof(T));
+		for(size_t i = 0; i < Slice.Count; ++i)
+			Data[i] = Slice[i];
 	}
 	T operator[](size_t Index) const
 	{

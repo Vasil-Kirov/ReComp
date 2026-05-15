@@ -1,5 +1,7 @@
 BITS 64
 
+section .note.GNU-stack progbits
+
 section .text
 	global syscall
 

@@ -753,6 +753,9 @@ main(int ArgCount, char *Args[])
 	}
 	else
 	{
+		// @TODO: maybe actually check the host machine?
+		ConfigIDs.Push(STR_LIT("x64"));
+		ConfigIDs.Push(STR_LIT("x86"));
 		using pt = platform_target;
 		switch(PTarget)
 		{

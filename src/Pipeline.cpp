@@ -98,6 +98,17 @@ string FindFile(string FileName, string RelativePath)
 	}
 
 	Lookups.Mutex.unlock();
+
+#if _WIN32
+	if(!PathIsRelativeA(FileName.Data))
+#elif CM_LINUX
+	if(FileName.Size > 0 && FileName.Data[0] == '/')
+#endif
+	{
+		if(PlatformIsPathValid(FileName.Data))
+			return FileName;
+	}
+
 	return STR_LIT("");
 }
 

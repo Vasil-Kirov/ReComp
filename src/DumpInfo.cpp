@@ -1,3 +1,4 @@
+#include "IPC.h"
 #include "Module.h"
 #include "Platform.h"
 #include "Semantics.h"
@@ -11,6 +12,7 @@ string DumpFileName = {};
 binary_blob *GlobalBlob = NULL;
 dynamic<error_dump> ErrorsToDump = {};
 dynamic<scope_dump> ScopesToDump = {};
+bool AlreadyPipedInfo = false;
 
 binary_blob StartOutput()
 {
@@ -176,8 +178,11 @@ void DumpTypeTable(binary_blob *Blob)
 	}
 }
 
-void WriteBlobToFile(binary_blob *Blob)
+void PipeInfoBlob(binary_blob *Blob)
 {
+	if(AlreadyPipedInfo)
+		return;
+
 	if(Blob == NULL)
 	{
 		if(GlobalBlob)
@@ -200,8 +205,12 @@ void WriteBlobToFile(binary_blob *Blob)
 			DumpScope(Blob, *it);
 		}
 	}
-	PlatformDeleteFile(DumpFileName.Data);
-	PlatformWriteFile(DumpFileName.Data, Blob->Buf.Data, Blob->Buf.Count);
+
+	IPCSendMessage(Blob->Buf.Data, Blob->Buf.Count);
+	AlreadyPipedInfo = true;
+	
+	//PlatformDeleteFile(DumpFileName.Data);
+	//PlatformWriteFile(DumpFileName.Data, Blob->Buf.Data, Blob->Buf.Count);
 }
 
 void DumpError(binary_blob *Blob, error_dump Error)

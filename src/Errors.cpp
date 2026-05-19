@@ -131,7 +131,7 @@ void ExitIfErroredOut()
 {
 	if (HasErroredOut()) {
 		if(DumpingInfo)
-			WriteBlobToFile(NULL);
+			PipeInfoBlob(NULL);
 		exit(1);
 	}
 }
@@ -196,7 +196,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	if(Abort || Errors > 4)
 	{
 		if(DumpingInfo)
-			WriteBlobToFile(NULL);
+			PipeInfoBlob(NULL);
 		exit(1);
 	}
 }

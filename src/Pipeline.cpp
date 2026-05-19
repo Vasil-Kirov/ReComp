@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include "FlowTyping.h"
+#include "IPC.h"
 #include "Lexer.h"
 #include "Memory.h"
 #include "Module.h"
@@ -13,6 +14,10 @@
 #include "Globals.h"
 #include "DumpInfo.h"
 #include <mutex>
+
+#if _WIN32
+#include <shlwapi.h>
+#endif
 
 pipeline CurrentPipeline = {};
 std::mutex PipelineMutex;
@@ -306,7 +311,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		For(Modules)
 			DumpModule(&Blob, *it);
 
-		WriteBlobToFile(&Blob);
+		PipeInfoBlob(&Blob);
 	}
 
 	ExitIfErroredOut();
@@ -371,21 +376,24 @@ void ParseFile(void *File_)
 void LexFile(void *FilePath_)
 {
 	string FilePath = *(string *)FilePath_;
-	string ReadPath = FilePath;
+	string FileData = {};
 	For(Substitutes)
 	{
 		if(it->Original == FilePath)
 		{
-			ReadPath = it->Substitute;
+			FileData = it->SubContents;
 			break;
 		}
 	}
-	string FileData = ReadEntireFile(ReadPath);
 	if(FileData.Data == NULL)
 	{
-		LogCompilerError("Couldn't find file: %.*s\n", FilePath.Size, FilePath.Data);
-		CountError();
-		return;
+		FileData = ReadEntireFile(FilePath);
+		if(FileData.Data == NULL)
+		{
+			LogCompilerError("Couldn't find file: %.*s\n", FilePath.Size, FilePath.Data);
+			CountError();
+			return;
+		}
 	}
 
 	error_info ErrorInfo = {};

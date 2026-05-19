@@ -38,6 +38,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.h"
 #include "Pipeline.h"
 #include "FlowTyping.h"
+#include "IPC.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -80,6 +81,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.cpp"
 #include "Pipeline.cpp"
 #include "FlowTyping.cpp"
+#include "IPC.cpp"
 
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -455,8 +457,22 @@ main(int ArgCount, char *Args[])
 	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile.Data == NULL)
 		return 1;
 
+	if(CommandLine.IPC)
+	{
+		IPCWritePipe = CommandLine.WritePipe;
+		IPCReadPipe = CommandLine.ReadPipe;
+	}
+
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
-	Substitutes = CommandLine.Substitutes;
+	if(CommandLine.Substitutes.Count > 0 && CommandLine.IPC) {
+		array<file_substitute> FileSubstitutes(CommandLine.Substitutes.Count);
+		size_t At = 0;
+		For(CommandLine.Substitutes)
+		{
+			FileSubstitutes[At++] = file_substitute {*it, IPCReadSubstituteFile(*it)};
+		}
+		Substitutes = SliceFromArray(FileSubstitutes);
+	}
 
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
 	StdLibDir.Size--;

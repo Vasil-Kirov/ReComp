@@ -37,6 +37,11 @@ struct pipeline_result {
 	int EntryFileIdx;
 };
 
+struct file_substitute {
+	string Original;
+	string SubContents;
+};
+
 extern slice<file_substitute> Substitutes;
 
 string FindFile(string FileName, string RelativePath = STR_LIT(""));

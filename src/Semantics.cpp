@@ -1962,8 +1962,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				break;
 			}
 
-			node *Filled[4096*8] = {};
-			u32 ExprTypes[4096*8] = {};
+			array<bool> Filled(8192);
+			//u32 ExprTypes[4096*8] = {};
 			ForArray(Idx, Expr->TypeList.Items)
 			{
 				node *Item = Expr->TypeList.Items[Idx];
@@ -2078,13 +2078,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					case TypeKind_Slice:
 					case TypeKind_Array: 
 					{
-						Filled[Idx] = Item;
+						Filled[Idx] = true;
 						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "Type list expected items of type %s but got incompatible type %s");
 					} break;
 					case TypeKind_Struct:
 					{
-						Filled[MemberIdx] = Item;
-						ExprTypes[MemberIdx] = ItemType;
+						Filled[MemberIdx] = true;
+						//ExprTypes[MemberIdx] = ItemType;
 						PromotedUntyped = Basic_error;
 						if(!IsGeneric(WantType))
 							PromotedUntyped = TypeCheckAndPromote(Checker, Item->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "Struct member in type list is of type %s but the expression is of type %s");
@@ -2093,8 +2093,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						Assert(HasBasicFlag(Type, BasicFlag_String));
 
-						Filled[MemberIdx] = Item;
-						ExprTypes[MemberIdx] = ItemType;
+						Filled[MemberIdx] = true;;
+						//ExprTypes[MemberIdx] = ItemType;
 						PromotedUntyped = TypeCheckAndPromote(Checker, Expr->ErrorInfo, WantType, ItemType, NULL, &Item->Item.Expression, "string type list expected type %s but got %s");
 					} break;
 					default: unreachable;
@@ -2123,12 +2123,13 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					struct_member Member = Type->Struct.Members[Idx];
 					const type *MT = GetType(Member.Type);
 					if(MT->Kind == TypeKind_Pointer && (MT->Pointer.Flags & PointerFlag_Optional) == 0 &&
-							Filled[Idx] == NULL)
+							!Filled[Idx])
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Trying to 0 initialize struct member %s which is a non nullable pointer, to use a struct literal of type %s, specify the member with a valid address.", Member.ID.Data, GetTypeName(Type));
 					}
 				}
 			}
+			Filled.Free();
 			Expr->TypeList.Type = TypeIdx;
 			Result = TypeIdx;
 		} break;
@@ -4160,7 +4161,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *M
 	}
 }
 
-void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module)
+void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -4169,11 +4170,6 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module)
 			string Name = *Nodes[I]->Enum.Name;
 			type *New = AllocType(TypeKind_Enum);
 			New->Enum.Name = Name;
-
-			if(Name == "main.X")
-			{
-				LDEBUG("HERE");
-			}
 
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();

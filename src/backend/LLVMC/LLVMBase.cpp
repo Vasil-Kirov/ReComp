@@ -1005,10 +1005,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Pointer = gen->map.Get(I.Right);
 			Assert(Pointer);
 			Assert(LLVMType);
-			if(T->Kind == TypeKind_Vector)
-			{
-				LDEBUG("HERE");
-			}
 
 			if(IsLoadableType(T))
 			{

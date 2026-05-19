@@ -27,13 +27,16 @@ OPTIONS:
 		Print the location of the interpreter, useful for debugging crashes
 	--file name
 		Compile single code file instead of build file
-	--dump-info
-		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
+	--ipc write_pipe read_pipe
+		For tools, pass ids for communication pipes, compiler will dump info to write_pipe
 	--no-thread
 		Disables multi threading
-	--substitute-file original_name.rcp new_name.rcp
-		Substitue a file parsed from the build script with a different one. Useful for tooling
+	--substitute-file original_name.rcp
+		Substitue a file parsed from the build script, --ipc needs to be specified for this, compiler will write the file name to write_pipe and then read its contents.
 )#";
+
+//	--dump-info
+//		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
 {
@@ -56,13 +59,13 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--log"),
 		STR_LIT("--interp-trace"),
 		STR_LIT("--file"),
-		STR_LIT("--dump-info"),
+		STR_LIT("--ipc"),
 		STR_LIT("--no-thread"),
 		STR_LIT("--substitute-file"),
 	};
 	bool HasPrintedHelp = false;
 
-	dynamic<file_substitute> Substitutes = {};
+	dynamic<string> Substitutes = {};
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
 	dynamic<string> IRModules = {};
@@ -137,6 +140,16 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[9]))
 		{
+			if(i + 2 >= ArgCount)
+			{
+				LogCompilerError("Expected 2 pipe ids after --ipc");
+				RET_EMPTY(command_line);
+			}
+			i++;
+			Result.WritePipe = strtoull(Args[i].Data, NULL, 10);
+			i++;
+			Result.ReadPipe = strtoull(Args[i].Data, NULL, 10);
+			Result.IPC = true;
 			Result.Flags |= CommandFlag_dumpinfo;
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[10]))
@@ -146,17 +159,13 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[11]))
 		{
-			if(i + 2 >= ArgCount)
+			if(i + 1 >= ArgCount)
 			{
-				LogCompilerError("Expected 2 file names after --substitute-file");
+				LogCompilerError("Expected a file name after --substitute-file");
 				RET_EMPTY(command_line);
 			}
-			file_substitute Sub = {};
 			i++;
-			Sub.Original = Args[i];
-			i++;
-			Sub.Substitute = Args[i];
-			Substitutes.Push(Sub);
+			Substitutes.Push(Args[i]);
 		}
 		else
 		{

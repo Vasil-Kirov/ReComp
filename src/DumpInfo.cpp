@@ -123,17 +123,12 @@ void DumpTypeTable(binary_blob *Blob)
 			} break;
 			case TypeKind_Function:
 			{
-				auto b = MakeBuilder();
-				b += '(';
+				DumpU32(Blob, T->Function.Returns.Count);
+				For(T->Function.Returns)
+					DumpU32(Blob, *it);
+				DumpU32(Blob, T->Function.ArgCount);
 				for(int i = 0; i < T->Function.ArgCount; ++i)
-				{
-					if(i != 0)
-						b += ", ";
-					PushBuilderFormated(&b, "%s", GetTypeName(T->Function.Args[i]));
-				}
-				b += ')';
-
-				DumpString(Blob, MakeString(b));
+					DumpU32(Blob, T->Function.Args[i]);
 			} break;
 			case TypeKind_Array:
 			{

@@ -29,6 +29,19 @@ binary_blob StartOutput()
 	return binary_blob {};
 };
 
+void DumpU64(binary_blob *Blob, u64 Num)
+{
+	Blob->Buf.Push((u8)(0xFF & (Num)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 8)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 16)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 24)));
+
+	Blob->Buf.Push((u8)(0xFF & (Num >> 32)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 40)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 48)));
+	Blob->Buf.Push((u8)(0xFF & (Num >> 56)));
+}
+
 void DumpU32(binary_blob *Blob, u32 Num)
 {
 	Blob->Buf.Push((u8)(0xFF & (Num)));
@@ -121,6 +134,47 @@ void DumpTypeTable(binary_blob *Blob)
 				b += ')';
 
 				DumpString(Blob, MakeString(b));
+			} break;
+			case TypeKind_Array:
+			{
+				DumpU32(Blob, T->Array.Type);
+				DumpU32(Blob, T->Array.MemberCount);
+			} break;
+			case TypeKind_Basic:
+			{
+				DumpU32(Blob, T->Basic.Kind);
+				DumpU32(Blob, T->Basic.Flags);
+				DumpU32(Blob, T->Basic.Size);
+				DumpString(Blob, T->Basic.Name);
+			} break;
+			case TypeKind_Pointer:
+			{
+				DumpU32(Blob, T->Pointer.Pointed);
+				DumpU32(Blob, T->Pointer.Flags);
+			} break;
+			case TypeKind_Slice:
+			{
+				DumpU32(Blob, T->Slice.Type);
+			} break;
+			case TypeKind_Vector:
+			{
+				DumpU32(Blob, T->Vector.Kind);
+				DumpU32(Blob, T->Vector.ElementCount);
+			} break;
+			case TypeKind_Enum:
+			{
+				DumpString(Blob, T->Enum.Name);
+				DumpU32(Blob, T->Enum.Members.Count);
+				For(T->Enum.Members)
+				{
+					DumpString(Blob, it->Name);
+					DumpU64(Blob, it->Value.Int.IsSigned ? it->Value.Int.Signed : it->Value.Int.Unsigned);
+				}
+				DumpU32(Blob, T->Enum.Type);
+			} break;
+			case TypeKind_Generic:
+			{
+				DumpString(Blob, T->Generic.Name);
 			} break;
 			default: {} break;
 		}

@@ -1962,8 +1962,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				break;
 			}
 
-			node *Filled[4096] = {};
-			u32 ExprTypes[4096] = {};
+			node *Filled[4096*8] = {};
+			u32 ExprTypes[4096*8] = {};
 			ForArray(Idx, Expr->TypeList.Items)
 			{
 				node *Item = Expr->TypeList.Items[Idx];
@@ -4170,9 +4170,14 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module)
 			type *New = AllocType(TypeKind_Enum);
 			New->Enum.Name = Name;
 
+			if(Name == "main.X")
+			{
+				LDEBUG("HERE");
+			}
+
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();
-			string SymbolName = StructToModuleName(Name, Module->Name);
+			string SymbolName = Name;//StructToModuleName(Name, Module->Name);
 			for(int i = 0; i < Count; ++i)
 			{
 				const type *T = GetType(i);
@@ -4419,6 +4424,7 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 								GetTypeName(T));
 					}
 				}
+
 				AnalyzeFunctionBody(Checker, Node->Fn.Body, Node, Node->Fn.TypeIdx);
 			}
 		}

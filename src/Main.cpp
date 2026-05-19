@@ -496,6 +496,9 @@ main(int ArgCount, char *Args[])
 
 	CreatePipeline();
 
+	bool NeedToRestoreForAfterFunction = false;
+	saved_type_table BuildTimeTypeTable = {};
+
 	dynamic<timers> Timers = {};
 	slice<module*> ModuleArray = {};
 	compile_info *Info = NewType(compile_info);
@@ -705,6 +708,8 @@ main(int ArgCount, char *Args[])
 				EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
 			}
 
+			BuildTimeTypeTable = SaveTypeTableAndReset();
+			NeedToRestoreForAfterFunction = true;
 			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint);
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
@@ -716,11 +721,13 @@ main(int ArgCount, char *Args[])
 			// Remake vm to evaluate enums with new info
 
 			VMBuildTimer2 = VLibStartTimer("VM");
+
 			interpreter ComptimeVM = {};
 			MakeInterpreter(ComptimeVM, ModuleArray, 0);
 			PlatformClearSignalHandler();
 			if(HasErroredOut())
 				exit(1);
+
 			VLibStopTimer(&VMBuildTimer2);
 
 
@@ -862,6 +869,8 @@ main(int ArgCount, char *Args[])
 	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
 	if(AfterFunction)
 	{
+		if(NeedToRestoreForAfterFunction)
+			RestoreTypeTable(BuildTimeTypeTable);
 		if(InterpreterTrace)
 			LINFO("Interpreting after_link function");
 

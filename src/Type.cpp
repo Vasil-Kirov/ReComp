@@ -122,6 +122,44 @@ dict<u32> TypeMap = { .Default = Basic_error };
 std::mutex TypeMutex = {};
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
+struct saved_type_table
+{
+	slice<type*> Pointers;
+	dict<u32> Dictionary;
+};
+
+saved_type_table SaveTypeTableAndReset()
+{
+	size_t SavedTypeCount = TypeCount-BasicTypesCount;
+	array<type*> Table(SavedTypeCount);
+
+	for(size_t I = 0; I < SavedTypeCount; ++I)
+	{
+		Table[I] = TypeTable[I+BasicTypesCount];
+	}
+	TypeCount = BasicTypesCount;
+	for(size_t I = 0; I < TypeCount; ++I)
+	{
+		TypeTable[I]->CachedSize = NOT_DEFINED;
+		TypeTable[I]->CachedAlignment = NOT_DEFINED;
+		TypeTable[I]->CachedAsPointer = INVALID_TYPE;
+	}
+	saved_type_table Result = { SliceFromArray(Table), TypeMap };
+	TypeMap = { .Default = Basic_error };
+	NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
+	return Result;
+}
+
+void RestoreTypeTable(saved_type_table Saved)
+{
+	for(size_t I = 0; I < Saved.Pointers.Count; ++I)
+	{
+		TypeTable[I+BasicTypesCount] = Saved.Pointers[I];
+	}
+	TypeCount = BasicTypesCount+Saved.Pointers.Count;
+	TypeMap = Saved.Dictionary;
+}
+
 void AddNameToTypeMap(const string *Name, u32 T)
 {
 	TypeMap.Add(*Name, T);

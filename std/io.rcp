@@ -87,9 +87,6 @@ read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
 	return string { read, buf };
 }
 
-// PRIVATE SECTION
-#private
-
 print_typetype :: fn(b: *Builder, info: *TypeInfo) {
     switch info.kind {
         case TypeKind.Invalid: {
@@ -160,6 +157,8 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
     };
 }
 
+// PRIVATE SECTION
+#private
 
 is_digit :: fn(c: u32) -> bool {
     return c >= '0' && c <= '9';

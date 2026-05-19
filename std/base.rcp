@@ -53,6 +53,7 @@ enum BasicKind {
 	Type,
 	Auto,
 	Module,
+	Error,
 }
 
 enum BasicFlag: u32{

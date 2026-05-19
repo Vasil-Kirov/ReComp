@@ -1,9 +1,17 @@
-#include "Dynamic.h"
 #include "Memory.h"
-#include "vlib.h"
-#include <cstddef>
-#include <sys/types.h>
 static b32 _MemoryInitializer = InitializeMemory();
+
+#if defined(_WIN32)
+#include "Win32.cpp"
+#define MICROSOFT_CRAZINESS_IMPLEMENTATION
+#include "microsoft_craziness.h"
+
+#elif defined(CM_LINUX)
+#include "Linux.cpp"
+#else
+#error unsupported platform
+#endif
+
 
 #include "Module.h"
 #include "Log.h"
@@ -89,17 +97,6 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #endif
 #include "ConstVal.cpp"
-
-#if defined(_WIN32)
-#include "Win32.cpp"
-#define MICROSOFT_CRAZINESS_IMPLEMENTATION
-#include "microsoft_craziness.h"
-
-#elif defined(CM_LINUX)
-#include "Linux.cpp"
-#else
-#error unsupported platform
-#endif
 
 #ifdef __cplusplus
 extern "C"

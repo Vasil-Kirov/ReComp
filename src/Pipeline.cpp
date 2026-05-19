@@ -60,6 +60,23 @@ string GetLookupPathsPrintable(string FileName, string RelativePath)
 	return MakeString(b);
 }
 
+#if _WIN32
+
+string Win32FixPathBackslashes(string Path)
+{
+	auto b = MakeBuilder();
+	for(size_t i = 0; i < Path.Size; ++i)
+	{
+		if(Path.Data[i] == '/')
+			b += '\\';
+		else
+			b += Path.Data[i];
+	}
+	return MakeString(b);
+}
+
+#endif
+
 string FindFile(string FileName, string RelativePath)
 {
 	scratch_arena Arena = {};
@@ -77,6 +94,9 @@ string FindFile(string FileName, string RelativePath)
 		{
 			Lookups.Mutex.unlock();
 			string Result = MakeString(GotAbsolute);
+#if _WIN32
+			Result = Win32FixPathBackslashes(Result);
+#endif
 			return Result;
 		}
 		memset(GotAbsolute, 0, MAX_PATH_LEN);
@@ -92,6 +112,9 @@ string FindFile(string FileName, string RelativePath)
 			{
 				Lookups.Mutex.unlock();
 				string Result = MakeString(GotAbsolute);
+#if _WIN32
+			Result = Win32FixPathBackslashes(Result);
+#endif
 				return Result;
 			}
 		}
@@ -106,7 +129,12 @@ string FindFile(string FileName, string RelativePath)
 #endif
 	{
 		if(PlatformIsPathValid(FileName.Data))
+		{
+#if _WIN32
+			FileName = Win32FixPathBackslashes(FileName);
+#endif
 			return FileName;
+		}
 	}
 
 	return STR_LIT("");

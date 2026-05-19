@@ -372,7 +372,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 	u32 RCPTypeSlice = GetSliceType(RCPTypeInfo);
 	LLVMTypeRef TypeTableType = ConvertToLLVMType(gen, RCPTypeSlice);
 	LLVMValueRef TypeTable = LLVMAddGlobal(gen->mod, TypeTableType, "base.type_table");
-	LLVMSetGlobalConstant(TypeTable, true);
+	LLVMSetGlobalConstant(TypeTable, false);
 
 	LLVMValueRef TypeSliceValues[] = {
 		LLVMConstInt(IntType, TypeCount, false),

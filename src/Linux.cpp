@@ -23,6 +23,36 @@ struct linux_signal_handler
 
 thread_local linux_signal_handler HandleContext = {};
 
+bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
+{
+	u32 Total = 0;
+	const u8 *p = (const u8 *)Data;
+	while(Total < Size)
+	{
+		ssize_t Written = write(Pipe, p+Total, Size-Total);
+		if(Written == -1)
+			return false;
+		Total += Written;
+	}
+	return true;
+}
+
+bool PlatformReadPipe(u64 Pipe, void *Data, u32 Size)
+{
+	u32 Total = 0;
+	u8 *p = (u8 *)Data;
+	while(Total < Size)
+	{
+		ssize_t Read = read(Pipe, p+Total, Size-Total);
+		if(Read == -1)
+			return false;
+		if(Read == 0)
+			return true;
+		Total += Read;
+	}
+	return true;
+}
+
 bool PlatformIsPathValid(const char *Path)
 {
 	return access(Path, F_OK) != -1;

@@ -119,7 +119,11 @@ print_typetype :: fn(b: *Builder, info: *TypeInfo) {
         }
         case TypeKind.Pointer: {
             builder_append(b, "*");
-            print_typetype(b, type_info(info.t.pointer.pointee));
+	    if info.t.pointer.pointee as u32 == 0xFFFF_FFFF {
+	    	builder_append(b, "void");
+	    } else {
+		print_typetype(b, type_info(info.t.pointer.pointee));
+	    }
         }
         case TypeKind.Array: {
             builder_append_u8(b, '[');

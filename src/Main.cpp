@@ -732,7 +732,10 @@ main(int ArgCount, char *Args[])
 			FileTimer = r.Timers;
 
 			if(DumpingInfo)
-				return 0;
+			{
+				IPCSetModules(r.Modules);
+				IPCListenAndServe();
+			}
 
 			// Remake vm to evaluate enums with new info
 

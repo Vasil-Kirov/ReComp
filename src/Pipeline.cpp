@@ -311,6 +311,12 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		For(Modules)
 			DumpModule(&Blob, *it);
 
+		DumpString(&Blob, STR_LIT(":TOKS\n"));
+		DumpU32(&Blob, Files.Count);
+		For(Files)
+			DumpFileTokens(&Blob, *it);
+
+
 		PipeInfoBlob(&Blob);
 	}
 

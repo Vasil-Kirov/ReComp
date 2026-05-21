@@ -38,4 +38,5 @@ void DumpScope(binary_blob *Blob, scope_dump Symbol);
 void AddErrorToDump(error_dump Error);
 void AddScopeToDump(scope_dump Symbol);
 void PipeInfoBlob(binary_blob *Blob);
+void DumpFileTokens(binary_blob *Blob, file *File);
 

@@ -250,6 +250,26 @@ void DumpScope(binary_blob *Blob, scope_dump Scope)
 	}
 }
 
+void DumpFileTokens(binary_blob *Blob, file *File)
+{
+	size_t TokenCount = ArrLen(File->Tokens);
+	DumpString(Blob, File->Name);
+	DumpU64(Blob, TokenCount);
+	for(size_t i = 0; i < TokenCount; ++i)
+	{
+		token T = File->Tokens[i];
+		DumpU32(Blob, T.ErrorInfo.Range.StartLine);
+		DumpU32(Blob, T.ErrorInfo.Range.StartChar);
+		DumpU32(Blob, T.ErrorInfo.Range.EndLine);
+		DumpU32(Blob, T.ErrorInfo.Range.EndChar);
+		DumpU32(Blob, T.Type);
+		if(T.Type == T_ID)
+		{
+			DumpString(Blob, *T.ID);
+		}
+	}
+}
+
 void AddErrorToDump(error_dump Error)
 {
 	ErrorsToDump.Push(Error);

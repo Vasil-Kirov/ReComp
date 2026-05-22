@@ -1,6 +1,8 @@
 #include "Memory.h"
 static b32 _MemoryInitializer = InitializeMemory();
 
+#define VLIB_IMPLEMENTATION
+
 #if defined(_WIN32)
 #include "Win32.cpp"
 #define MICROSOFT_CRAZINESS_IMPLEMENTATION

@@ -43,7 +43,7 @@ AllocateMemory(u64 Size, i8 Index);
 
 void ResetArena(ap_memory *Arena);
 
-void *ToArena(void *, u64 Size, i8 Index);
+void *ToArena(const void *Data, u64 Size, i8 Index);
 
 void FreeAllArenas();
 
@@ -52,7 +52,7 @@ void FreeArena(ap_memory *Arena);
 #define AllocatePermanent(SIZE)  AllocateMemory((SIZE), PERM_INDEX)
 #define AllocateString(SIZE) (char *)AllocateMemory((SIZE), STR_INDEX)
 #define NewType(Type) (Type *)AllocatePermanent(sizeof(Type))
-#define DupeType(Data, Type) (Type *)ToArena((void *)&Data, sizeof(Type), PERM_INDEX)
+#define DupeType(Data, Type) (Type *)ToArena((const void *)&Data, sizeof(Type), PERM_INDEX)
 
 inline void *
 Align16(void *Address)

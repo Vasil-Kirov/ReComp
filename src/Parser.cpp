@@ -825,7 +825,11 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				string *Name = TypeID.ID;
 				if(Name == NULL)
 					Name = &ErrorID;
-				Result = MakeSelector(ErrorInfo, ID, TypeID.ID);
+
+				error_info *NewInfo = DupeType(ErrorInfo, error_info);
+				NewInfo->Range.EndLine = TypeID.ErrorInfo.Range.EndLine;
+				NewInfo->Range.EndChar = TypeID.ErrorInfo.Range.EndChar;
+				Result = MakeSelector(NewInfo, ID, TypeID.ID);
 			}
 			else if(Parser->Current->Type == '<')
 			{

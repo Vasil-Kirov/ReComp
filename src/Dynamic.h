@@ -74,7 +74,15 @@ struct dynamic {
 		Count = 0;
 		Capacity = 0;
 	}
-	b32 IsValid() const { return Data != NULL; }
+	b32 IsValid() const { return Data != nullptr; }
+	T *begin()
+	{
+		return Data;
+	}
+	T *end()
+	{
+		return Data+Count;
+	}
 };
 
 template <typename T>
@@ -93,6 +101,14 @@ struct slice {
 		if(Count == 0)
 			return NULL;
 		return Data[Count-1];
+	}
+	T *begin()
+	{
+		return Data;
+	}
+	T *end()
+	{
+		return Data+Count;
 	}
 };
 

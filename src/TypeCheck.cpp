@@ -266,6 +266,7 @@ void TypeCheck::CheckUnary(int Idx, u32 TIdx, u32 OperandFlags)
 			if(Pointer->Kind != TypeKind_Pointer)
 			{
 				RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
+				FillType(Idx, Basic_error);
 				return;
 			}
 			if(Pointer->Pointer.Flags & PointerFlag_Optional)
@@ -275,7 +276,8 @@ void TypeCheck::CheckUnary(int Idx, u32 TIdx, u32 OperandFlags)
 			}
 			if(Pointer->Pointer.Pointed == INVALID_TYPE)
 			{
-				RaiseError(true, *Expr->ErrorInfo, "Cannot derefrence opaque pointer");
+				RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence opaque pointer");
+				FillType(Idx, Basic_error);
 				return;
 			}
 			FillType(Idx, Pointer->Pointer.Pointed);

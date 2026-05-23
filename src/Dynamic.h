@@ -102,11 +102,11 @@ struct slice {
 			return NULL;
 		return Data[Count-1];
 	}
-	T *begin()
+	T *begin() const
 	{
 		return Data;
 	}
-	T *end()
+	T *end() const
 	{
 		return Data+Count;
 	}

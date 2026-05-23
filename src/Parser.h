@@ -324,7 +324,7 @@ struct parse_result
 node *AllocateNode(const error_info *ErrorInfo, node_type Type);
 node *ParseNode(parser *Parser, b32 ExpectSemicolon=true);
 node *ParseUnary(parser *Parser);
-node *ParseExpression(parser *Parser);
+node *ParseExpression(parser *Parser, int CurrentPrecedence=-999);
 node *ParseFunctionType(parser *Parser);
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);

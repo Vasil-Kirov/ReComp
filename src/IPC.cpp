@@ -71,6 +71,7 @@ void IPCListenAndServe()
 		exit(0);
 	}
 	IPCSendMessage("0", 1);
+	DontExit = true;
 	bool Running = true;
 	while(Running)
 	{

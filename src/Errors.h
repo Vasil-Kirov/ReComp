@@ -19,6 +19,7 @@ struct error_info
 	range Range;
 };
 
+extern bool DontExit;
 
 #if 0
 void

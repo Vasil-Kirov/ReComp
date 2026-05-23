@@ -56,7 +56,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 			}
 			if(!Found)
 			{
-				RaiseError(true, *ri.ErrorInfo, "Couldn't find imported file %.*s",
+				RaiseError(false, *ri.ErrorInfo, "Couldn't find imported file %.*s",
 						ri.FileName.Size, ri.FileName.Data);
 			}
 		}
@@ -79,7 +79,7 @@ slice<import> ResolveImports(slice<needs_resolving_import> ResolveImports, dynam
 			}
 			if(!Found)
 			{
-				RaiseError(true, *ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
+				RaiseError(false, *ri.ErrorInfo, "Couldn't find imported module %s", ri.Name.Data);
 			}
 		}
 	}

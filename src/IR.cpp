@@ -1025,8 +1025,20 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 		} break;
 		case AST_LIST:
 		{
+			u32 Type = Node->List.WholeType;
+			if(IsLHS)
+			{
+				const type *T = GetType(Type);
+				Assert(T->Kind == TypeKind_Struct);
+				dynamic<u32> Ptrs = {};
+				for(const struct_member& Mem : T->Struct.Members)
+				{
+					Ptrs.Push(GetPointerTo(Mem.Type));
+				}
+				Type = ReturnsToType(SliceFromArray(Ptrs));
+			}
 			u32 ResultPtr = PushInstruction(Builder,
-					Instruction(OP_ALLOC, -1, Node->List.WholeType, Builder));
+					Instruction(OP_ALLOC, -1, Type, Builder));
 			array<u32> Expressions(Node->List.Nodes.Count);
 			ForArray(Idx, Node->List.Nodes)
 			{
@@ -1034,9 +1046,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			ForArray(Idx, Expressions)
 			{
+				u32 MemT = Node->List.Types[Idx];
+				if(IsLHS)
+					MemT = GetPointerTo(MemT);
 				u32 MemPtr = PushInstruction(Builder, 
-						Instruction(OP_INDEX, ResultPtr, Idx, Node->List.WholeType, Builder));
-				PushInstruction(Builder, InstructionStore(MemPtr, Expressions[Idx], Node->List.Types[Idx]));
+						Instruction(OP_INDEX, ResultPtr, Idx, Type, Builder));
+				PushInstruction(Builder, InstructionStore(MemPtr, Expressions[Idx], MemT));
 			}
 
 			Result = ResultPtr;
@@ -2187,6 +2202,29 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, node *Node, 
 
 }
 
+u32 BuildListStore(block_builder *Builder, u32 LHS, u32 RHS, u32 T)
+{
+	const type *Type = GetType(T);
+	Assert(Type->Kind == TypeKind_Struct);
+	uint At = 0;
+	for(const struct_member& Mem : Type->Struct.Members)
+	{
+		u32 LeftP = PushInstruction(Builder, 
+				Instruction(OP_INDEX, LHS, At, T, Builder));
+		u32 RightP = PushInstruction(Builder, 
+				Instruction(OP_INDEX, RHS, At, T, Builder));
+		u32 Left = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, LeftP, GetPointerTo(Mem.Type), Builder));
+		u32 Right = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, RightP, Mem.Type, Builder));
+		PushInstruction(Builder, 
+				InstructionStore(Left, Right, Mem.Type));
+
+		At++;
+	}
+	return RHS;
+}
+
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 NeedResult)
 {
 	if(Node->Type == AST_BINARY)
@@ -2217,6 +2255,7 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			T = GetType(Type);
 		}
 
+		u32 ListRes = -1;
 		instruction I;
 		switch((int)Node->Binary.Op)
 		{
@@ -2242,11 +2281,18 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			} break;
 			case '=':
 			{
-				I = InstructionStore(Left, Right, Type);
-				if(NeedResult && !IsLHS)
+				if(IsTypeMultiReturn(GetType(Type)))
 				{
-					PushInstruction(Builder, I);
-					I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
+					ListRes = BuildListStore(Builder, Left, Right, Type);
+				}
+				else
+				{
+					I = InstructionStore(Left, Right, Type);
+					if(NeedResult && !IsLHS)
+					{
+						PushInstruction(Builder, I);
+						I = Instruction(OP_LOAD, 0, I.Result, I.Type, Builder);
+					}
 				}
 			} break;
 			case '&':
@@ -2315,6 +2361,9 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 		};
 
 		PushErrorInfo(Builder, Node);
+		if(ListRes != -1)
+			return ListRes;
+
 		PushInstruction(Builder, I);
 		return I.Result;
 	}

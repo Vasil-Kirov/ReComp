@@ -8,6 +8,7 @@
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
+bool DontExit = false;
 std::atomic<uint> Errors = {};
 
 void SetBonusMessage(string S)
@@ -170,11 +171,6 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 #endif
 		};
 		AddErrorToDump(Error);
-		// @TODO: Output multiple errors
-		//WriteStringError(ErrorInfo.FileName, ErrorInfo.Range.StartLine, FinalFormat);
-		//VFree(FinalFormat);
-		//exit(1);
-		//return;
 	}
 
 	
@@ -193,7 +189,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	VFree(FinalFormat);
 
 	ErrorMutex.unlock();
-	if(Abort || Errors > 4)
+	if((Abort || Errors > 4) && !DontExit)
 	{
 		if(DumpingInfo)
 			PipeInfoBlob(NULL);

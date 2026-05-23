@@ -14,28 +14,36 @@ struct windows_signal_handler
 
 thread_local windows_signal_handler SignalHandlerGlobal = {};
 
-void PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
+bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
 {
 	DWORD Total = 0;
 	const u8 *p = (const u8 *)Data;
 	while(Total < Size)
 	{
 		DWORD Written = 0;
-		WriteFile((HANDLE)Pipe, p+Total, Size-Total, &Written, 0);
+		if (!WriteFile((HANDLE)Pipe, p+Total, Size-Total, &Written, 0))
+		{
+			return false;
+		}
 		Total += Written;
 	}
+	return true;
 }
 
-void PlatformReadPipe(u64 Pipe, void *Data, u32 Size)
+bool PlatformReadPipe(u64 Pipe, void *Data, u32 Size)
 {
 	DWORD Total = 0;
 	u8 *p = (u8 *)Data;
 	while(Total < Size)
 	{
 		DWORD Read = 0;
-		ReadFile((HANDLE)Pipe, p+Total, Size-Total, &Read, 0);
+		if (!ReadFile((HANDLE)Pipe, p+Total, Size-Total, &Read, 0))
+		{
+			return false;
+		}
 		Total += Read;
 	}
+	return true;
 }
 
 bool PlatformIsPathValid(const char *Path)

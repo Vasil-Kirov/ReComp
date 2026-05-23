@@ -1305,7 +1305,7 @@ node *ParseAtom(parser *Parser, node *Operand)
 					{
 						ERROR_INFO;
 						GetToken(Parser);
-						node *N = ParseExpression(Parser);
+						node *N = ParseExpression(Parser, -19);
 						if(!N)
 						{
 							RaiseError(false, *ErrorInfo, "Invalid item after comma in list");
@@ -1762,11 +1762,6 @@ node *ParseExpression(parser *Parser, int CurrentPrecedence)
 		LHS = MakeBinary(ErrorInfo, LHS, RHS, BinaryOp.Type);
 	}
 	return LHS;
-}
-
-node *ParseExpression(parser *Parser)
-{
-	return ParseExpression(Parser, -999);
 }
 
 node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, b32 IsStatic=false)

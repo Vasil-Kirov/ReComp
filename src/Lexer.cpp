@@ -57,7 +57,8 @@ char AdvanceC(string *String, error_info *Error)
 {
 	if(String->Size == 0)
 	{
-		RaiseError(true, *Error, "Unexpected end of file"); 
+		RaiseError(false, *Error, "Unexpected end of file"); 
+		return '\0';
 	}
 	char Result = *String->Data;
 	if(Result == '\n')
@@ -102,19 +103,13 @@ void SkipWhiteSpace(string *String, error_info *ErrorInfo)
 file *StringToTokens(string String, error_info ErrorInfo)
 {
 	file Result = {};
-#if 0
-	token ModuleName = GetNextToken(&String, &ErrorInfo);
-	if(ModuleName.Type != T_ID)
-	{
-		RaiseError(true, ModuleName.ErrorInfo, "Expected module name at the start of file"); 
-	}
-	*OutModuleName = *ModuleName.ID;
-#endif
 	token *Tokens = ArrCreate(token);
 	while(String.Size > 0)
 	{
 		token Token = GetNextToken(&String, &ErrorInfo);
 		ArrPush(Tokens, Token);
+		if(Token.Type == T_EOF)
+			break;
 	}
 
 	Result.Tokens = Tokens;
@@ -134,7 +129,10 @@ token TokinizeCompilerDirective(string *String, error_info *ErrorInfo)
 	string ID = MakeString(Start, End - Start);
 	token_type TokenType = GetKeyword(ID);
 	if(TokenType == T_ID)
-		RaiseError(true, *ErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
+	{
+		RaiseError(false, *ErrorInfo, "Incorrect compiler directive \"%s\"", ID.Data);
+		TokenType = T_EOF;
+	}
 
 	token Token = {};
 	Token.Type = TokenType;
@@ -166,9 +164,9 @@ token TokinizeIdentifier(string *String, error_info *ErrorInfo)
 token TokinizeNumber(string *String, error_info *ErrorInfo)
 {
 	//error_info StartErrorInfo = *ErrorInfo;
-
 	if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'b')
 	{
+		bool HasErrored = false;
 		string_builder Builder = MakeBuilder();
 		Builder += AdvanceC(String, ErrorInfo);
 		Builder += AdvanceC(String, ErrorInfo);
@@ -185,7 +183,8 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 				break;
 			if(c != '0' && c != '1')
 			{
-				RaiseError(true, *ErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
+				RaiseError(false, *ErrorInfo, "Binary number contains a character that's neither 0 nor 1: %c", c);
+				HasErrored = true;
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -193,14 +192,18 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(true, *ErrorInfo, "Invalid binary number");
+			RaiseError(false, *ErrorInfo, "Invalid binary number");
+			HasErrored = true;
 		}
 
 		string Number = MakeString(Builder);
+		if(HasErrored)
+			return MakeToken(T_EOF, *ErrorInfo, NULL);
 		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
 	}
 	else if(PeekC(String) == '0' && PeekCAhead(String, 1) == 'x')
 	{
+		bool HasErrored = false;
 		string_builder Builder = MakeBuilder();
 		Builder += AdvanceC(String, ErrorInfo);
 		Builder += AdvanceC(String, ErrorInfo);
@@ -220,7 +223,8 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 			{}
 			else
 			{
-				RaiseError(true, *ErrorInfo, "Invalid character in hex number: %c", c);
+				RaiseError(false, *ErrorInfo, "Invalid character in hex number: %c", c);
+				HasErrored = true;
 			}
 			Builder += c;
 			AdvanceC(String, ErrorInfo);
@@ -228,10 +232,13 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(true, *ErrorInfo, "Invalid hex number");
+			RaiseError(false, *ErrorInfo, "Invalid hex number");
+			HasErrored = true;
 		}
 
 		string Number = MakeString(Builder);
+		if(HasErrored)
+			return MakeToken(T_EOF, *ErrorInfo, NULL);
 		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
 	}
 	else
@@ -257,7 +264,13 @@ token TokinizeRawStringAndText(string *String, error_info *ErrorInfo)
 	const char *StringStart = String->Data;
 	while(true)
 	{
-		SkipWhiteSpace(String, ErrorInfo);
+		if(String->Size > 0)
+			SkipWhiteSpace(String, ErrorInfo);
+		if(String->Size == 0)
+		{
+			RaiseError(false, *ErrorInfo, "Unterminated raw string literal");
+			return MakeToken(T_EOF, *ErrorInfo, NULL);
+		}
 		if(String->Data[0] == '`')
 		{
 			if(String->Size >= 3)
@@ -379,7 +392,7 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 	AdvanceC(String, ErrorInfo);
 
 	string_builder Builder = MakeBuilder();
-	while(PeekC(String) != '"')
+	while(String->Size > 0 && PeekC(String) != '"')
 	{
 		char Next = AdvanceC(String, ErrorInfo);
 		if(Next == '\\')
@@ -393,7 +406,12 @@ token TokinizeString(string *String, error_info *ErrorInfo, b32 CString)
 			PushBuilder(&Builder, Next);
 		}
 	}
-	AdvanceC(String, ErrorInfo);
+	char Term = AdvanceC(String, ErrorInfo);
+	if(Term != '"')
+	{
+		RaiseError(false, *ErrorInfo, "Unterminated string literal");
+		return MakeToken(T_EOF, *ErrorInfo, NULL);
+	}
 	string Tokinized = STR_LIT("");
 	if(Builder.Size > 0)
 		Tokinized = MakeString(Builder);
@@ -444,6 +462,7 @@ u32 ExtractCodepoint(const char *P, uint Size)
 token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 {
 	//error_info StartErrorInfo = *ErrorInfo;
+	bool HasErrored = false;
 	char c = AdvanceC(String, ErrorInfo);
 	Assert(c == '\'');
 	u64 result = 0;
@@ -451,11 +470,18 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 	const char *Start = String->Data;
 	while(String->Data[0] != '\'')
 	{
-		if (i >= 4)
+		if (i >= 4 && !HasErrored)
 		{
-			RaiseError(true, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+			RaiseError(false, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+			HasErrored = true;
 		}
 		char c = AdvanceC(String, ErrorInfo);
+		if(c == '\0' && String->Size == 0)
+		{
+			RaiseError(false, *ErrorInfo, "Unterminated char literal");
+			HasErrored = true;
+			break;
+		}
 		if(c == '\\')
 		{
 			char escaped = AdvanceC(String, ErrorInfo);
@@ -464,15 +490,17 @@ token TokinizeCharLiteral(string *String, error_info *ErrorInfo)
 
 		i++;
 	}
-	if (i > 4)
+	if (i > 4 && !HasErrored)
 	{
-		RaiseError(true, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+		RaiseError(false, *ErrorInfo, "Char literal is too large. It can be a maximum of 4 bytes");
+		HasErrored = true;
 	}
-
-	result = ExtractCodepoint(Start, i);
-
 	char end = AdvanceC(String, ErrorInfo);
-	Assert(end == '\'')
+	Assert(end == '\'');
+
+	if(HasErrored)
+		return MakeToken(T_EOF, *ErrorInfo, NULL);
+	result = ExtractCodepoint(Start, i);
 	return MakeToken(T_CHAR, *ErrorInfo, (string *)(u64)result);
 }
 

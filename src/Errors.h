@@ -47,6 +47,9 @@ GetInfoRegionWhole(error_info Info);
 void
 CountError();
 
+uint
+GetNumErrors();
+
 bool
 HasErroredOut();
 

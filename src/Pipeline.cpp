@@ -225,13 +225,17 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 
 	For(CurrentPipeline.ParseResults.Results)
 	{
-		AddModule(Modules, it->File, it->ModuleName);
+		if(it->ModuleName != "")
+			AddModule(Modules, it->File, it->ModuleName);
 	}
 
 	array<file*> FileArray{CurrentPipeline.ParseResults.Results.Count};
 	ForArray(Idx, CurrentPipeline.ParseResults.Results)
 	{
 		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
+		if(pr.ModuleName == "")
+			continue;
+
 		file *File = pr.File;
 		File->Nodes = pr.Nodes;
 		File->Checker = NewType(checker);
@@ -253,6 +257,9 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	ForArray(Idx, CurrentPipeline.ParseResults.Results)
 	{
 		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
+		if(pr.ModuleName == "")
+			continue;
+
 		file *File = FileArray[Idx];
 		File->Imported = ResolveImports(pr.Imports, Modules, SliceFromArray(FileArray));
 		File->Checker->Imported	= File->Imported;

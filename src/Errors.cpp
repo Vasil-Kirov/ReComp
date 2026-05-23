@@ -32,10 +32,14 @@ b32 IsBetween(i64 A, i64 L, i64 R)
 	return A > L && A < R;
 }
 
-void
-CountError()
+void CountError()
 {
 	++Errors;
+}
+
+uint GetNumErrors()
+{
+	return Errors.load();
 }
 
 void GetErrorSegments(error_info ErrorInfo, string *OutFirst, string *OutHighlight, string *OutThird)

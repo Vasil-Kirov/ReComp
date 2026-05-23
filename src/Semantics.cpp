@@ -734,7 +734,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			type *New = AllocType(TypeKind_Struct);
 			New->Struct.Name = *TypeNode->StructDecl.Name;
 			u32 Result = AddType(New);
-			AnalyzeStructDeclaration(Checker, TypeNode);
+			if(!AnalyzeStructDeclaration(Checker, TypeNode))
+				Result = Basic_error;
 			return Result;
 		} break;
 		case AST_UNARY:
@@ -1685,6 +1686,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(CallType->Function.Flags & SymbolFlag_Generic)
 			{
 				symbol *s = GenerateFunctionFromPolymorphicCall(Checker, Expr);
+				if(!s)
+				{
+					Result = Basic_error;
+					break;
+				}
 				const string *FnName = s->Name;
 
 				if(Checker->Module->Name != s->Checker->Module->Name)
@@ -3133,7 +3139,7 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 				RaiseError(false, *(*it)->ErrorInfo,
 						"Only identifiers are allowed in the left-hand side list of declaration");
 			}
-			else
+			else if(!NoAdd)
 			{
 				AddVariable(Checker, (*it)->ErrorInfo, T->Struct.Members[At++].Type, (*it)->ID.Name, Node, Node->Decl.Flags);
 			}
@@ -3143,8 +3149,9 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	{
 		if(T->Kind == TypeKind_Struct && T->Struct.Flags & StructFlag_FnReturn)
 		{
-			RaiseError(true, *Node->ErrorInfo,
+			RaiseError(false, *Node->ErrorInfo,
 					"Right-hand side of expression gives multiple values but left-hand side handles only 1");
+			NoAdd = true;
 		}
 
 		if(!NoAdd)
@@ -3155,7 +3162,7 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 	else
 	{
 		// @NOTE: I don't think there is any way to get here
-		RaiseError(true, *Node->ErrorInfo, "Invalid left-hand side of declaration");
+		RaiseError(false, *Node->ErrorInfo, "Invalid left-hand side of declaration");
 	}
 
 
@@ -3288,15 +3295,6 @@ void AnalyzeFor(checker *Checker, node *Node)
 				ItType = T->Slice.Type;
 			else if(HasBasicFlag(T, BasicFlag_String))
 			{
-
-				/*
-				 * There is a way now :)
-				 *
-				if(g_CompileFlags & CF_Standalone)
-				{
-					RaiseError(true, *Node->ErrorInfo, "Cannot perform utf-8 string iteration in a standalone build");
-				}
-				*/
 				ItType = Basic_u32;
 			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))
@@ -3325,7 +3323,8 @@ void AnalyzeFor(checker *Checker, node *Node)
 				}
 				else
 				{
-					RaiseError(true, *it->ErrorInfo, "Invalid expression at for in loop. Expected a name for the iterator");
+					RaiseError(false, *it->ErrorInfo, "Invalid expression at for in loop. Expected a name for the iterator");
+					return;
 				}
 			}
 			else
@@ -3334,7 +3333,10 @@ void AnalyzeFor(checker *Checker, node *Node)
 				auto List = Node->For.Expr1->List;
 				if(List.Nodes.Count != 2)
 				{
-					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Expected exactly 2 names in list in for in iteration. First is the name of the index, second is the name of the iterator");
+					RaiseError(false, *Node->For.Expr1->ErrorInfo, "Expected exactly 2 names in list in for in iteration. First is the name of the index, second is the name of the iterator");
+					if(List.Nodes.Count < 2)
+						return;
+					List.Nodes.Count = 2;
 				}
 
 				const string *Names[2] = {};
@@ -3369,7 +3371,11 @@ void AnalyzeFor(checker *Checker, node *Node)
 							}
 						}
 						if(Error)
-							RaiseError(true, *it->ErrorInfo, "Expected a name for the iterator");
+						{
+							RaiseError(false, *it->ErrorInfo, "Expected a name for the iterator");
+							string Tmp = STR_LIT("");
+							Names[Idx] = DupeType(Tmp, string);
+						}
 					}
 					else
 					{
@@ -3380,10 +3386,12 @@ void AnalyzeFor(checker *Checker, node *Node)
 				{}
 				else
 				{
-					RaiseError(true, *Node->For.Expr1->ErrorInfo, "Iterating variable of type %s doesn't accept multiple iteration names", GetTypeName(T));
+					RaiseError(false, *Node->For.Expr1->ErrorInfo, "Iterating variable of type %s doesn't accept multiple iteration names", GetTypeName(T));
 				}
-				AddVariable(Checker, List.Nodes[0]->ErrorInfo, Basic_int, Names[0], List.Nodes[0], 0);
-				AddVariable(Checker, List.Nodes[1]->ErrorInfo, ItType,    Names[1], List.Nodes[1], 0);
+				if(*Names[0] != "")
+					AddVariable(Checker, List.Nodes[0]->ErrorInfo, Basic_int, Names[0], List.Nodes[0], 0);
+				if(*Names[1] != "")
+					AddVariable(Checker, List.Nodes[1]->ErrorInfo, ItType,    Names[1], List.Nodes[1], 0);
 			}
 			Node->For.ItType = ItType;
 			Node->For.ArrayType = TypeIdx;
@@ -3455,15 +3463,6 @@ void AnalyzeEnum(checker *Checker, node *Node)
 		RaiseError(false, *Node->ErrorInfo, "Empty enums are not allowed");
 		return;
 	}
-
-	// @NOTE: Probably not needed?
-	//u32 AlreadyDefined = FindType(Checker, Node->Enum.Name);
-	//if(AlreadyDefined != INVALID_TYPE)
-	//{
-	//	RaiseError(true, *Node->ErrorInfo, "Enum %s is a redefinition, original type is %s",
-	//			Node->Enum.Name->Data, GetTypeName(AlreadyDefined));
-	//}
-
 
 	u32 Type = Basic_error;
 	if(Node->Enum.Type)
@@ -3540,7 +3539,7 @@ void AnalyzeEnum(checker *Checker, node *Node)
 	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType, Checker->Imported, Checker->Module);
 }
 
-void AnalyzeStructDeclaration(checker *Checker, node *Node)
+bool AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != Basic_error);
@@ -3580,23 +3579,33 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 		{
 			if(Idx != 0)
 			{
-				RaiseError(true, *Member->ErrorInfo, "Subtype declaration needs to come before any struct members, the base type is layed out at the start of the struct");
+				RaiseError(false, *Member->ErrorInfo, "Subtype declaration needs to come before any struct members, the base type is layed out at the start of the struct");
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 			if(T->Kind != TypeKind_Struct)
 			{
-				RaiseError(true, *Member->ErrorInfo, "Cannot subtype non struct type %s", GetTypeName(T));
+				RaiseError(false, *Member->ErrorInfo, "Cannot subtype non struct type %s", GetTypeName(T));
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 			if(T->Struct.SubType != INVALID_TYPE)
 			{
-				RaiseError(true, *Member->ErrorInfo, "Multi-level subtyping is not allowed");
+				RaiseError(false, *Member->ErrorInfo, "Multi-level subtyping is not allowed");
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 			if(SubTypes != INVALID_TYPE)
 			{
-				RaiseError(true, *Member->ErrorInfo, "Cannot subtype multiple types! Trying to subtype %s while already subtyping %s", GetTypeName(T), GetTypeName(SubTypes));
+				RaiseError(false, *Member->ErrorInfo, "Cannot subtype multiple types! Trying to subtype %s while already subtyping %s", GetTypeName(T), GetTypeName(SubTypes));
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 			if(IsGeneric(SubTypes))
 			{
-				RaiseError(true, *Member->ErrorInfo, "Cannot subtype a generic");
+				RaiseError(false, *Member->ErrorInfo, "Cannot subtype a generic");
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 
 			SubTypes = Type;
@@ -3618,8 +3627,10 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 		{
 			if(*Node->StructDecl.Members[Idx]->Var.Name == *Node->StructDecl.Members[j]->Var.Name)
 			{
-				RaiseError(true, *Node->ErrorInfo, "Invalid struct declaration, members #%d and #%d have the same name `%s`",
+				RaiseError(false, *Node->ErrorInfo, "Invalid struct declaration, members #%d and #%d have the same name `%s`",
 						Idx, j, Node->StructDecl.Members[Idx]->Var.Name->Data);
+				ErrorOutType(OpaqueType);
+				return false;
 			}
 		}
 	}
@@ -3631,12 +3642,13 @@ void AnalyzeStructDeclaration(checker *Checker, node *Node)
 		if(Node->StructDecl.Members.Count == 0)
 			RaiseError(false, *Node->ErrorInfo, "Empty unions are not allowed");
 		if(SubTypes != INVALID_TYPE)
-			RaiseError(true, *Node->ErrorInfo, "Unions cannot use subtyping");
+			RaiseError(false, *Node->ErrorInfo, "Unions cannot use subtyping");
 		New.Struct.Flags |= StructFlag_Union;
 	}
 
 	FillOpaqueStruct(OpaqueType, New);
 	Checker->Scope.Pop();
+	return true;
 }
 
 b32 IsNodeEndScope(node *Node)
@@ -3755,15 +3767,6 @@ void AnalyzeNode(checker *Checker, node *Node)
 		} break;
 		case AST_ASSERT:
 		{
-			/*
-			 * There is a way now :)
-			 *
-			if(g_CompileFlags & CF_Standalone)
-			{
-				// @TODO: Have a way to specify assert needed functionality to enable it
-				RaiseError(true, *Node->ErrorInfo, "Cannot use #assert in a standalone build");
-			}
-			*/
 			AnalyzeBooleanExpression(Checker, &Node->Assert.Expr);
 		} break;
 		case AST_USING:
@@ -3998,6 +4001,7 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();
 			string SymbolName = StructToModuleName(Name, Module->Name);
+			bool Error = false;
 			for(int i = 0; i < Count; ++i)
 			{
 				const type *T = GetType(i);
@@ -4005,19 +4009,24 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 				{
 					if(T->Struct.Name == SymbolName)
 					{
-						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+						RaiseError(false, *Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+						Error = true;
+						break;
 					}
 				}
 				else if(T->Kind == TypeKind_Enum)
 				{
 					if(T->Enum.Name == SymbolName)
 					{
-						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+						RaiseError(false, *Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+						Error = true;
+						break;
 					}
 				}
 			}
 
-			AddType(New);
+			if(!Error)
+				AddType(New);
 		}
 	}
 }
@@ -4093,7 +4102,7 @@ void AddGlobalVariable(checker *Checker, const string *Name, const string *LinkN
 	{
 		symbol *Redifined = Checker->Module->Globals[*Name];
 		Assert(Redifined);
-		RaiseError(true, *Node->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+		RaiseError(false, *Node->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
 				Name->Data,
 				Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 	}
@@ -4130,7 +4139,10 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 			}
 			else if(Node->Decl.LHS->Type == AST_LIST)
 			{
-				RaiseError(true, *Node->ErrorInfo, "Multi-variable declaration is not allowed in global scope"); 
+				RaiseError(false, *Node->ErrorInfo, "Multi-variable declaration is not allowed in global scope"); 
+				continue;
+
+#if 0
 				const type *T = GetType(Type);
 				if(T->Kind != TypeKind_Struct || (T->Struct.Flags & StructFlag_FnReturn) == 0)
 				{
@@ -4144,7 +4156,7 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 				{
 					if((*it)->Type != AST_ID)
 					{
-						RaiseError(true, *(*it)->ErrorInfo,
+						RaiseError(, *(*it)->ErrorInfo,
 								"Only identifiers are allowed in the left-hand side list of declaration");
 					}
 					string Name = *(*it)->ID.Name;
@@ -4160,18 +4172,19 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 					{
 						symbol *Redifined = Checker->Module->Globals[Name];
 						Assert(Redifined);
-						RaiseError(true, *Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
+						RaiseError(, *Nodes[I]->ErrorInfo, "Variable %s redifines other symbol in file %s at (%d:%d)",
 								Name.Data,
 								Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 					}
 
 				}
 
+#endif
 			}
 			else
 			{
 				// @NOTE: I don't think there is any way to get here
-				RaiseError(true, *Node->ErrorInfo, "Invalid left-hand side of declaration");
+				RaiseError(false, *Node->ErrorInfo, "Invalid left-hand side of declaration");
 			}
 		}
 	}
@@ -4198,7 +4211,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *M
 			{
 				symbol *Redifined = Checker->Module->Globals[*Node->Fn.Name];
 				Assert(Redifined);
-				RaiseError(true, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
+				RaiseError(false, *Nodes[I]->ErrorInfo, "Function %s redifines other symbol in file %s at (%d:%d)",
 						Node->Fn.Name->Data,
 						Redifined->Node->ErrorInfo->FileName, Redifined->Node->ErrorInfo->Range.StartLine, Redifined->Node->ErrorInfo->Range.StartChar);
 			}
@@ -4219,6 +4232,7 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();
 			string SymbolName = Name;//StructToModuleName(Name, Module->Name);
+			bool Error = false;
 			for(int i = 0; i < Count; ++i)
 			{
 				const type *T = GetType(i);
@@ -4226,14 +4240,18 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
 				{
 					if(T->Struct.Name == SymbolName)
 					{
-						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+						RaiseError(false, *Nodes[I]->ErrorInfo, "Redifinition of struct %s", Name.Data);
+						Error = true;
+						break;
 					}
 				}
 				else if(T->Kind == TypeKind_Enum)
 				{
 					if(T->Enum.Name == SymbolName)
 					{
-						RaiseError(true, *Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+						RaiseError(false, *Nodes[I]->ErrorInfo, "Redifinition of enum %s as struct", Name.Data);
+						Error = true;
+						break;
 					}
 				}
 			}
@@ -4288,7 +4306,7 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
-			AnalyzeStructDeclaration(Checker, Nodes[I]);
+			Nodes[I]->StructDecl.IsError = !AnalyzeStructDeclaration(Checker, Nodes[I]);
 		}
 	}
 }
@@ -4301,6 +4319,9 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
 			node *Node = Nodes[I];
+			if(Node->StructDecl.IsError)
+				continue;
+
 			u32 TypeIdx = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
 			{
@@ -4319,6 +4340,9 @@ void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes)
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
 			node *Node = Nodes[I];
+			if(Node->StructDecl.IsError)
+				continue;
+
 			u32 TypeIdx = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
 			{
@@ -4382,7 +4406,8 @@ string *MakeGenericName(checker *Checker, string BaseName, u32 FnTypeNonGeneric,
 			if(ResolvedGenericID == Basic_error)
 			{
 				// @NOTE: I think this is checked earilier but just to be sure
-				RaiseError(true, *ErrorNode->ErrorInfo, "Invalid type for generic declaration");
+				RaiseError(false, *ErrorNode->ErrorInfo, "Invalid type for generic declaration");
+				continue;
 			}
 			const type *RG = GetType(ResolvedGenericID);
 			if(RG->Kind == TypeKind_Struct)

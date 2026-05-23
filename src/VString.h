@@ -20,6 +20,14 @@ struct string
 
 		return memcmp(this->Data, B, BLen) == 0;
 	}
+	bool operator!=(const char *B) const
+	{
+		auto BLen = CStrLen(B);
+		if(this->Size != BLen)
+			return true;
+
+		return memcmp(this->Data, B, BLen) != 0;
+	}
 	bool operator==(const string& B) const
 	{
 		if(this->Size != B.Size)

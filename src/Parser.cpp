@@ -412,10 +412,13 @@ node *MakeConstant(const error_info *ErrorInfo, const_value Value)
 
 token GetToken(parser *Parser)
 {
+	if(Parser->Current->Type == T_EOF)
+		return *Parser->Current;
+
 	token Token = Parser->Tokens[Parser->TokenIndex++];
 	if(Token.Type == T_EOF)
 	{
-		RaiseError(true, Token.ErrorInfo, "Unexpected End of File");
+		RaiseError(false, Token.ErrorInfo, "Unexpected End of File");
 	}
 	Parser->Current = &Parser->Tokens[Parser->TokenIndex];
 	return Token;
@@ -428,7 +431,8 @@ token PeekToken(parser *Parser, int Depth)
 		token Token = Parser->Tokens[Parser->TokenIndex + i];
 		if(Token.Type == T_EOF)
 		{
-			RaiseError(true, Token.ErrorInfo, "Unexpected End of File");
+			RaiseError(false, Token.ErrorInfo, "Unexpected End of File");
+			return Token;
 		}
 	}
 
@@ -441,7 +445,7 @@ token PeekToken(parser *Parser)
 	return PeekToken(Parser, 0);
 }
 
-token EatToken(parser *Parser, token_type Type, b32 Abort)
+token EatToken(parser *Parser, token_type Type)
 {
 	token Token = PeekToken(Parser);
 	if(Token.Type != Type)
@@ -455,22 +459,22 @@ token EatToken(parser *Parser, token_type Type, b32 Abort)
 			else
 				Name = MakeString(GetTokenName(LastToken.Type));
 
-			RaiseError(Abort, LastToken.ErrorInfo,
+			RaiseError(false, LastToken.ErrorInfo,
 					"Expected %s after %.*s", GetTokenName(Type), Name.Size, Name.Data);
 		}
 		else
 		{
-			RaiseError(Abort, Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
+			RaiseError(false, Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
 		}
-		return token {};
+		return token {T_EOF};
 	}
 	GetToken(Parser);
 	return Token;
 }
 
-token EatToken(parser *Parser, char C, b32 Abort)
+token EatToken(parser *Parser, char C)
 {
-	return EatToken(Parser, (token_type)C, Abort);
+	return EatToken(Parser, (token_type)C);
 }
 
 parse_result ParseTokens(file *F, slice<string> ConfigIDs)
@@ -493,15 +497,15 @@ parse_result ParseTokens(file *F, slice<string> ConfigIDs)
 	if(Parser.Current->Type != T_MODULE)
 	{
 		RaiseError(false, Parser.Current->ErrorInfo, "Expected module keyword at the start of file");
-		return parse_result {};
+		return parse_result {.File=F};
 	}
-	EatToken(&Parser, T_MODULE, true);
+	EatToken(&Parser, T_MODULE);
 	if(Parser.Current->Type != T_ID)
 	{
 		RaiseError(false, Parser.Current->ErrorInfo, "Expected module name at the start of file");
-		return parse_result {};
+		return parse_result {.File=F};
 	}
-	Parser.ModuleName = *EatToken(&Parser, T_ID, true).ID;
+	Parser.ModuleName = *EatToken(&Parser, T_ID).ID;
 
 	size_t TokenCount = ArrLen(F->Tokens);
 	// @Note: + 1 because the last token is EOF, we don't want to try and parse it
@@ -547,25 +551,32 @@ void ParseImport(parser *Parser, const string *NewStyleName)
 
 	if(Parser->Current->Type == T_ID)
 	{
-		token T = EatToken(Parser, T_ID, true);
+		token T = EatToken(Parser, T_ID);
 		DirectName = *T.ID;
 	}
 	else
 	{
-		token T = EatToken(Parser, T_STR, true);
-		FileName = *T.ID;
-		RelativePath = MakeString(T.ErrorInfo.FileName);
-		if(FileName.Size == 0)
+		token T = EatToken(Parser, T_STR);
+		if(T.Type != T_STR)
 		{
-			RaiseError(false, T.ErrorInfo, "Empty string after #import is not valid");
 			Failed = true;
 		}
-		else if(!PipelineDoFile(FileName, RelativePath))
+		else
 		{
-			string Checked = GetLookupPathsPrintable(FileName, RelativePath);
-			RaiseError(false, T.ErrorInfo, "Cannot find imported file %.*s\nChecked paths:\n%.*s",
-					FileName.Size, FileName.Data, Checked.Size, Checked.Data);
-			Failed = true;
+			FileName = *T.ID;
+			RelativePath = MakeString(T.ErrorInfo.FileName);
+			if(FileName.Size == 0)
+			{
+				RaiseError(false, T.ErrorInfo, "Empty string after #import is not valid");
+				Failed = true;
+			}
+			else if(!PipelineDoFile(FileName, RelativePath))
+			{
+				string Checked = GetLookupPathsPrintable(FileName, RelativePath);
+				RaiseError(false, T.ErrorInfo, "Cannot find imported file %.*s\nChecked paths:\n%.*s",
+						FileName.Size, FileName.Data, Checked.Size, Checked.Data);
+				Failed = true;
+			}
 		}
 	}
 
@@ -587,7 +598,15 @@ void ParseImport(parser *Parser, const string *NewStyleName)
 		}
 		else
 		{
-			As = EatToken(Parser, T_ID, true).ID;
+			token T = EatToken(Parser, T_ID);
+			if(T.Type != T_ID)
+			{
+				Failed = true;
+			}
+			else
+			{
+				As = T.ID;
+			}
 		}
 	}
 
@@ -631,7 +650,7 @@ node *ParseArrayType(parser *Parser)
 		Expression = ParseExpression(Parser);
 	}
 
-	EatToken(Parser, T_CLOSEBRACKET, true);
+	EatToken(Parser, T_CLOSEBRACKET);
 	node *ID = ParseType(Parser);
 	if(ID == NULL)
 	{
@@ -697,28 +716,31 @@ node *ParseEnum(parser *Parser)
 	node *TypeNode = NULL;
 	if(Parser->Current->Type == T_DECL)
 	{
-		EatToken(Parser, T_DECL, true);
+		EatToken(Parser, T_DECL);
 		TypeNode = ParseType(Parser);
 	}
 
-	EatToken(Parser, T_STARTSCOPE, true);
+	if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+		return NULL;
 	auto ParseEnumMembers = [](parser *Parser) -> node* {
 		if(Parser->Current->Type == T_ENDSCOPE)
 			return NULL;
 
 		ERROR_INFO;
-		token Name = EatToken(Parser, T_ID, true);
+		token Name = EatToken(Parser, T_ID);
+		if(Name.Type != T_ID)
+			return NULL;
 		node *Expression = NULL;
 		if(Parser->Current->Type == T_EQ)
 		{
-			EatToken(Parser, T_EQ, true);
+			EatToken(Parser, T_EQ);
 			Expression = ParseExpression(Parser);
 		}
 		return MakeListItem(ErrorInfo, Name.ID, Expression);
 	};
 
 	slice<node *> Items = Delimited(Parser, ',', ParseEnumMembers);
-	EatToken(Parser, T_ENDSCOPE, true);
+	EatToken(Parser, T_ENDSCOPE);
 
 	string *Name = StructToModuleNamePtr(*EnumName, Parser->ModuleName);
 
@@ -759,16 +781,19 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 		GetToken(Parser);
 		while(true)
 		{
-			token T = EatToken(Parser, T_ID, true);
+			token T = EatToken(Parser, T_ID);
+			if(T.Type != T_ID)
+				break;
 			TypeParams.Push(*T.ID);
 			if(Parser->Current->Type != ',')
 				break;
 			GetToken(Parser);
 		}
-		EatToken(Parser, '>', true);
+		EatToken(Parser, '>');
 	}
 
-	EatToken(Parser, T_STARTSCOPE, true);
+	if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+		return NULL;
 
 	auto ParseFn = [](parser *P) -> node* {
 		if(P->Current->Type == T_ENDSCOPE)
@@ -782,11 +807,11 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 			return MakeVar(ErrorInfo, NULL, Type, NULL);
 		}
 
-		token ID = EatToken(P, T_ID, false);
+		token ID = EatToken(P, T_ID);
 		string *MemberName = ID.ID;
 		if(ID.Type != T_ID)
 			MemberName = &ErrorID;
-		EatToken(P, T_DECL, false);
+		EatToken(P, T_DECL);
 		node *Type = ParseType(P);
 		node *Default = NULL;
 		if(P->Current->Type == T_EQ)
@@ -803,7 +828,8 @@ node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
 	auto Name = StructToModuleNamePtr(*StructName, Parser->ModuleName);
 
 	slice<node *> Members = Delimited(Parser, ',', ParseFn);
-	EatToken(Parser, T_ENDSCOPE, true);
+	if(EatToken(Parser, T_ENDSCOPE).Type != T_ENDSCOPE)
+		return NULL;
 	return MakeStructDecl(ErrorInfo, Name, Members, SliceFromArray(TypeParams), IsUnion);
 }
 
@@ -821,7 +847,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			if(Parser->Current->Type == T_DOT)
 			{
 				GetToken(Parser);
-				token TypeID = EatToken(Parser, T_ID, false);
+				token TypeID = EatToken(Parser, T_ID);
 				string *Name = TypeID.ID;
 				if(Name == NULL)
 					Name = &ErrorID;
@@ -843,7 +869,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				}
 				else
 				{
-					EatToken(Parser, '>', false);
+					EatToken(Parser, '>');
 					Result = MakeGenericStructType(ErrorInfo, ID, Args);
 				}
 			}
@@ -894,7 +920,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token ID = EatToken(Parser, T_ID, false);
+			token ID = EatToken(Parser, T_ID);
 			string *Name = ID.ID;
 			if(Name == NULL)
 				Name = &ErrorID;
@@ -938,7 +964,8 @@ void SkipPwdIf(parser *Parser, const error_info *ErrorInfo)
 			depth--;
 		else if(Type == T_EOF)
 		{
-			RaiseError(true, *ErrorInfo, "#if is not terminated");
+			RaiseError(false, *ErrorInfo, "#if is not terminated");
+			return;
 		}
 		GetToken(Parser);
 	}
@@ -951,8 +978,11 @@ node *ParsePwdIf(parser *Parser)
 	{
 		ERROR_INFO;
 		GetToken(Parser);
-		token ID = EatToken(Parser, T_ID, true);
-		EatToken(Parser, T_STARTSCOPE, true);
+		token ID = EatToken(Parser, T_ID);
+		if(ID.Type != T_ID)
+			return NULL;
+		if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+			return NULL;
 		b32 IsTrue = false;
 		ForArray(Idx, Parser->ConfigIDs)
 		{
@@ -974,7 +1004,8 @@ node *ParsePwdIf(parser *Parser)
 			if(Parser->Current->Type == T_PWDELSE)
 			{
 				GetToken(Parser);
-				EatToken(Parser, T_STARTSCOPE, true);
+				if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+					return NULL;
 				Result = MakeScope(ErrorInfo, true);
 				Parser->ScopeLevel++;
 				break;
@@ -989,14 +1020,16 @@ node *ParsePwdIf(parser *Parser)
 node *ParseFunctionArgument(parser *Parser)
 {
 	ERROR_INFO;
-	token ID = EatToken(Parser, T_ID, true);
-	EatToken(Parser, ':', false);
+	token ID = EatToken(Parser, T_ID);
+	if(ID.Type != T_ID)
+		return NULL;
+	EatToken(Parser, ':');
 	node *Type = NULL;
 	node *Default = NULL;
 	if(Parser->Current->Type == T_VARARG)
 	{
 		Type = (node *)0x1;
-		EatToken(Parser, T_VARARG, true);
+		EatToken(Parser, T_VARARG);
 	}
 	else
 	{
@@ -1038,8 +1071,8 @@ u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
 				if(Check.T == T_LINK)
 				{
 					GetToken(Parser);
-					EatToken(Parser, T_EQ, false);
-					token Name = EatToken(Parser, T_STR, false);
+					EatToken(Parser, T_EQ);
+					token Name = EatToken(Parser, T_STR);
 					if(Name.ID)
 						*LinkName = Name.ID;
 					else
@@ -1063,16 +1096,20 @@ node *ParseFunctionType(parser *Parser)
 {
 	ERROR_INFO;
 	u32 Flags = 0;
-	EatToken(Parser, T_FN, true);
+	if(EatToken(Parser, T_FN).Type != T_FN)
+		return NULL;
 
 	const string *LinkName = NULL;
 	Flags |= ParseFunctionFlags(Parser, &LinkName);
 
-	EatToken(Parser, '(', true);
+	if(EatToken(Parser, '(').Type != (token_type)'(')
+		return NULL;
+
 	slice<node *> Args{};
 	if(PeekToken(Parser).Type != T_CLOSEPAREN)
 		Args = Delimited(Parser, ',', ParseFunctionArgument);
-	EatToken(Parser, ')', true);
+
+	EatToken(Parser, ')');
 
 	dynamic<node *> ReturnTypes = {};
 	if(PeekToken(Parser).Type == T_ARR)
@@ -1084,7 +1121,7 @@ node *ParseFunctionType(parser *Parser)
 				GetToken(Parser);
 				ReturnTypes.Push(ParseType(Parser));
 			} while(Parser->Current->Type == T_COMMA);
-			EatToken(Parser, T_CLOSEPAREN, true);
+			EatToken(Parser, T_CLOSEPAREN);
 		}
 		else
 		{
@@ -1097,32 +1134,40 @@ node *ParseFunctionType(parser *Parser)
 	return MakeFunction(ErrorInfo, LinkName, Args, SliceFromArray(ReturnTypes), Flags);
 }
 
-void ParseBody(parser *Parser, dynamic<node *> &OutBody)
+bool ParseBody(parser *Parser, dynamic<node *> &OutBody)
 {
 	ERROR_INFO;
 	uint EnterLevel = Parser->ScopeLevel;
 
-	EatToken(Parser, T_STARTSCOPE, true);
+	if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+		return false;
 	OutBody.Push(MakeScope(ErrorInfo, true));
 
 	Parser->ScopeLevel++;
-	while(true)
+	int ErrorsIncremented = 0;
+	do
 	{
+		uint ErrorsAtStart = GetNumErrors();
 		node *Node = ParseNode(Parser);
 		if(Node)
 			OutBody.Push(Node);
-		if(Parser->ScopeLevel == EnterLevel)
+		else
 		{
-			break;
+			uint ErrorsAtEnd = GetNumErrors();
+			if(ErrorsAtEnd > ErrorsAtStart)
+				ErrorsIncremented++;
+			else
+				ErrorsIncremented = 0;
 		}
-	}
+	} while(Parser->ScopeLevel != EnterLevel && ErrorsIncremented < 2);
+	return ErrorsIncremented < 2;
 }
 
-void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
+bool ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
 {
 	if(PeekToken(Parser).Type == T_STARTSCOPE)
 	{
-		ParseBody(Parser, OutBody);
+		return ParseBody(Parser, OutBody);
 	}
 	else
 	{
@@ -1130,6 +1175,7 @@ void ParseMaybeBody(parser *Parser, dynamic<node *> &OutBody)
 		if(Node)
 			OutBody.Push(Node);
 	}
+	return true;
 }
 
 node *ParseFunctionCall(parser *Parser, node *Operand)
@@ -1146,8 +1192,9 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 	Parser->NoStructLists = false;
 	Parser->NoItemLists = true;
 	dynamic<node *> Args = {};
-	EatToken(Parser, T_OPENPAREN, true);
-	while(PeekToken(Parser).Type != T_CLOSEPAREN)
+	if(EatToken(Parser, T_OPENPAREN).Type != T_OPENPAREN)
+		return NULL;
+	while(PeekToken(Parser).Type != T_CLOSEPAREN && PeekToken(Parser).Type != T_EOF)
 	{
 		Args.Push(ParseExpression(Parser));
 		token Next = PeekToken(Parser);
@@ -1159,13 +1206,13 @@ node *ParseFunctionCall(parser *Parser, node *Operand)
 		{
 			ERROR_INFO;
 			RaiseError(false, *ErrorInfo, "Improper argument formatting\nProper arguments example: call(arg1, arg2)");
-			while(PeekToken(Parser).Type != ')')
+			while(PeekToken(Parser).Type != ')' && PeekToken(Parser).Type != T_EOF)
 			{
 				GetToken(Parser);
 			}
 		}
 	}
-	EatToken(Parser, T_CLOSEPAREN, true);
+	EatToken(Parser, T_CLOSEPAREN);
 
 	Parser->NoStructLists = SaveSLists;
 	Parser->NoItemLists = SaveILists;
@@ -1181,9 +1228,10 @@ node *ParseIndex(parser *Parser, node *Operand)
 		Operand = MakeID(ErrorInfo, &ErrorID);
 	}
 
-	EatToken(Parser, T_OPENBRACKET, true);
+	if(EatToken(Parser, T_OPENBRACKET).Type != T_OPENBRACKET)
+		return NULL;
 	node *IndexExpression = ParseExpression(Parser);
-	EatToken(Parser, T_CLOSEBRACKET, true);
+	EatToken(Parser, T_CLOSEBRACKET);
 
 	return MakeIndex(ErrorInfo, Operand, IndexExpression);
 }
@@ -1208,15 +1256,15 @@ node *ParseList(parser *Parser, node *Operand)
 			if(PeekToken(Parser, 1).Type == T_EQ)
 			{
 				ErrorInfo = &Parser->Tokens[Parser->TokenIndex+1].ErrorInfo;
-				token ID = EatToken(Parser, T_ID, false);
-				if(ID.Type == 0)
+				token ID = EatToken(Parser, T_ID);
+				if(ID.Type == T_EOF)
 				{
 					GetToken(Parser);
 					Name = &ErrorID;
 				}
 				else
 					Name = ID.ID;
-				EatToken(Parser, T_EQ, true);
+				EatToken(Parser, T_EQ);
 			}
 			node *Expression = ParseExpression(Parser);
 			return MakeListItem(ErrorInfo, Name, Expression);
@@ -1224,14 +1272,15 @@ node *ParseList(parser *Parser, node *Operand)
 		slice<node *> Items = Delimited(Parser, ',', ParseListItems);
 		Result = MakeTypeList(ErrorInfo, Operand, Items);
 	}
-	EatToken(Parser, T_ENDSCOPE, true);
+	EatToken(Parser, T_ENDSCOPE);
 	return Result;
 }
 
 node *ParseSelectors(parser *Parser, node *Operand)
 {
 	ERROR_INFO;
-	EatToken(Parser, T_DOT, true);
+	if(EatToken(Parser, T_DOT).Type != T_DOT)
+		return NULL;
 	if(Parser->Current->Type == T_STARTSCOPE && Operand == NULL)
 	{
 		return ParseList(Parser, Operand);
@@ -1240,7 +1289,7 @@ node *ParseSelectors(parser *Parser, node *Operand)
 	{
 		while(true)
 		{
-			token ID = EatToken(Parser, T_ID, false);
+			token ID = EatToken(Parser, T_ID);
 			string *Name = NULL;
 			if(ID.Type == 0)
 				Name = &ErrorID;
@@ -1252,7 +1301,7 @@ node *ParseSelectors(parser *Parser, node *Operand)
 			if(Parser->Current->Type != T_DOT)
 				break;
 			ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo;
-			EatToken(Parser, T_DOT, true);
+			EatToken(Parser, T_DOT);
 		}
 
 		return Operand;
@@ -1382,7 +1431,10 @@ node *ParseOperand(parser *Parser)
 				GetToken(Parser);
 			}
 			node *IfTrue = ParseExpression(Parser);
-			EatToken(Parser, T_ELSE, true);
+			if(EatToken(Parser, T_ELSE).Type != T_ELSE)
+			{
+				break;
+			}
 			node *IfFalse = ParseExpression(Parser);
 			Result = MakeIfX(ErrorInfo, IfExpr, IfTrue, IfFalse);
 		} break;
@@ -1392,8 +1444,9 @@ node *ParseOperand(parser *Parser)
 			GetToken(Parser);
 
 			node *Expr = ParseOperand(Parser);
-			if(Expr == NULL) {
-				RaiseError(true, *ErrorInfo, "Expected type operand after type_info");
+			if(Expr == NULL)
+			{
+				RaiseError(false, *ErrorInfo, "Expected type operand after type_info");
 			}
 			Result = MakeTypeInfo(ErrorInfo, Expr);
 		} break;
@@ -1419,14 +1472,16 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			EatToken(Parser, '(', true);
+			if(EatToken(Parser, '(').Type != '(')
+				break;
 			auto WasNoItemLists = Parser->NoItemLists;
 			Parser->NoItemLists = true;
 
 			node *Type = ParseType(Parser);
-			EatToken(Parser, ',', true);
+			if(EatToken(Parser, ',').Type != ',')
+				break;
 			node *Expr = ParseExpression(Parser);
-			EatToken(Parser, ')', true);
+			EatToken(Parser, ')');
 
 			Parser->NoItemLists = WasNoItemLists;
 			Result = MakeCast(ErrorInfo, Expr, Type, INVALID_TYPE, INVALID_TYPE);
@@ -1436,14 +1491,18 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token T = EatToken(Parser, T_STR, true);
+			token T = EatToken(Parser, T_STR);
+			if(T.Type != T_STR)
+				break;
 			Result = MakeEmbed(ErrorInfo, T.ID, false);
 		} break;
 		case T_EMBED_STR:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token T = EatToken(Parser, T_STR, true);
+			token T = EatToken(Parser, T_STR);
+			if(T.Type != T_STR)
+				break;
 			Result = MakeEmbed(ErrorInfo, T.ID, true);
 		} break;
 		case T_TYPEOF:
@@ -1464,11 +1523,14 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			Result = ParseFunctionType(Parser);
+			if(!Result)
+				break;
 			string Name = MakeLambdaName(ErrorInfo);
 			Result->Fn.Name = DupeType(Name, string);
 			if((int)PeekToken(Parser).Type == T_STARTSCOPE)
 			{
-				ParseBody(Parser, Result->Fn.Body);
+				if(!ParseBody(Parser, Result->Fn.Body))
+					Result = NULL;
 			}
 		} break;
 		case T_SWITCH:
@@ -1479,14 +1541,16 @@ node *ParseOperand(parser *Parser)
 			Parser->NoStructLists = true;
 			node *Expr = ParseExpression(Parser);
 			Parser->NoStructLists = NoStructLists;
-			EatToken(Parser, T_STARTSCOPE, true);
+			if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
+				break;
 
 			auto ParseFn = [](parser *Parser) -> node* {
 				ERROR_INFO;
 				if(Parser->Current->Type != T_CASE)
 					return NULL;
 
-				EatToken(Parser, T_CASE, true);
+				if(EatToken(Parser, T_CASE).Type != T_CASE)
+					return NULL;
 
 				dynamic<node *> List = {};
 				node *Value = NULL;
@@ -1496,14 +1560,14 @@ node *ParseOperand(parser *Parser)
 						if(Value == NULL)
 						{
 							RaiseError(false, Parser->Current->ErrorInfo, "Expected case value before comma");
-							EatToken(Parser, ',', false);
+							EatToken(Parser, ',');
 							continue;
 						}
 						else
 						{
 							if(!List.IsValid())
 								List.Push(Value);
-							EatToken(Parser, ',', false);
+							EatToken(Parser, ',');
 						}
 
 					}
@@ -1519,15 +1583,16 @@ node *ParseOperand(parser *Parser)
 					Value = MakeList(ErrorInfo, SliceFromArray(List));
 				}
 
-				EatToken(Parser, ':', false);
+				EatToken(Parser, ':');
 				dynamic<node *> Body = {};
-				ParseMaybeBody(Parser, Body);
+				if(!ParseMaybeBody(Parser, Body))
+					return NULL;
 				return MakeCase(ErrorInfo, Value, SliceFromArray(Body));
 			};
 			
 			slice<node *> Cases = Delimited(Parser, 0, ParseFn);
 
-			EatToken(Parser, T_ENDSCOPE, true);
+			EatToken(Parser, T_ENDSCOPE);
 			Result = MakeSwitch(ErrorInfo, Expr, Cases);
 		} break;
 		case T_OPENBRACKET:
@@ -1600,7 +1665,7 @@ node *ParseOperand(parser *Parser)
 		{
 			GetToken(Parser);
 			Result = ParseExpression(Parser);
-			EatToken(Parser, T_CLOSEPAREN, true);
+			EatToken(Parser, T_CLOSEPAREN);
 		} break;
 		case T_RUN:
 		{
@@ -1658,7 +1723,8 @@ node *ParseUnary(parser *Parser)
 	Parser->NoItemLists = SaveILists;
 	if(!Operand)
 	{
-		RaiseError(true, Token.ErrorInfo, "Expected operand in expression, got %s", GetTokenName(Parser->Current->Type));
+		RaiseError(false, Token.ErrorInfo, "Expected operand in expression, got %s", GetTokenName(Parser->Current->Type));
+		return NULL;
 	}
 	node *Atom = ParseAtom(Parser, Operand);
 	return Atom;
@@ -1826,7 +1892,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, b32 IsStatic=fal
 			}
 			if(LHS->Type != AST_ID)
 			{
-				RaiseError(true, *LHS->ErrorInfo, "Left-hand side of import declaration must be a single identifier.");
+				RaiseError(false, *LHS->ErrorInfo, "Left-hand side of import declaration must be a single identifier.");
 			}
 			else
 			{
@@ -1861,7 +1927,8 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			ERROR_INFO;
 			GetToken(Parser);
 			dynamic<node *> Body = {};
-			ParseMaybeBody(Parser, Body);
+			if(!ParseMaybeBody(Parser, Body))
+				return NULL;
 			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
 			ExpectSemicolon = false;
 		} break;
@@ -1870,8 +1937,10 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			ERROR_INFO;
 			GetToken(Parser);
 			dynamic<node *> Body = {};
-			ParseMaybeBody(Parser, Body);
-			Result = MakeDefer(ErrorInfo, Body);
+			if(!ParseMaybeBody(Parser, Body))
+				Result = NULL;
+			else
+				Result = MakeDefer(ErrorInfo, Body);
 			ExpectSemicolon = false;
 		} break;
 		case T_ASSERT:
@@ -1913,7 +1982,8 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			GetToken(Parser);
 			if(Parser->Current->Type != T_ID)
 			{
-				RaiseError(true, Parser->Current->ErrorInfo, "Expected declaration after #static");
+				RaiseError(false, Parser->Current->ErrorInfo, "Expected declaration after #static");
+				break;
 			}
 			IsParsingStaticVariable = true;
 		}
@@ -1982,12 +2052,20 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			node *IfExpression = ParseExpression(Parser);
 			Parser->NoStructLists = NoStructLists;
 			Result = MakeIf(ErrorInfo, IfExpression);
-			ParseMaybeBody(Parser, Result->If.Body);
-			
-			if(PeekToken(Parser).Type == T_ELSE)
+			if(!ParseMaybeBody(Parser, Result->If.Body))
+			{
+				Result = NULL;
+				if(PeekToken(Parser).Type == T_ELSE)
+				{
+					dynamic<node*> _;
+					ParseMaybeBody(Parser, _);
+				}
+			}
+			else if(PeekToken(Parser).Type == T_ELSE)
 			{
 				GetToken(Parser);
-				ParseMaybeBody(Parser, Result->If.Else);
+				if(!ParseMaybeBody(Parser, Result->If.Else))
+					Result = NULL;
 			}
 
 			ExpectSemicolon = false;
@@ -2010,6 +2088,8 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 				Parser->NoStructLists = true;
 
 				FirstNode = ParseNode(Parser, false);
+				if(!FirstNode)
+					break;
 
 				Parser->NoStructLists = SaveLists;
 
@@ -2022,7 +2102,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 						{}
 						else
 						{
-							RaiseError(true, *FirstNode->ErrorInfo, "Expected names of iterators before `in` keyword");
+							RaiseError(false, *FirstNode->ErrorInfo, "Expected names of iterators before `in` keyword");
 						}
 					}
 					Kind = ft::It;
@@ -2047,14 +2127,14 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 					node *ForIncr = NULL;
 
 					if(ForInit != NULL) {
-						EatToken(Parser, ';', false);
+						EatToken(Parser, ';');
 					}
 
 					b32 nsl = Parser->NoStructLists;
 					Parser->NoStructLists = true;
 					if(PeekToken(Parser).Type != ';')
 						ForExpr = ParseExpression(Parser);
-					EatToken(Parser, ';', false);
+					EatToken(Parser, ';');
 
 					if(PeekToken(Parser).Type != T_STARTSCOPE)
 						ForIncr = ParseExpression(Parser);
@@ -2067,7 +2147,8 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 					ERROR_INFO;
 
 					node *It = FirstNode;
-					EatToken(Parser, T_IN, true);
+					if(EatToken(Parser, T_IN).Type != T_IN)
+						return NULL;
 					b32 nsl = Parser->NoStructLists;
 					Parser->NoStructLists = true;
 					node *Array = ParseExpression(Parser);
@@ -2086,7 +2167,8 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 				} break;
 			}
 
-			ParseMaybeBody(Parser, Result->For.Body);
+			if(!ParseMaybeBody(Parser, Result->For.Body))
+				Result = NULL;
 			ExpectSemicolon = false;
 		} break;
 		case T_STARTSCOPE:
@@ -2121,10 +2203,12 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			GetToken(Parser);
 
 			if(Token.Type == T_PWDELIF)
-				EatToken(Parser, T_ID, false);
+				EatToken(Parser, T_ID);
 
-			EatToken(Parser, T_STARTSCOPE, true);
-			SkipPwdIf(Parser, ErrorInfo);
+			if(EatToken(Parser, T_STARTSCOPE).Type == T_STARTSCOPE)
+			{
+				SkipPwdIf(Parser, ErrorInfo);
+			}
 			ExpectSemicolon = false;
 		} break;
 		case T_SEMICOL:
@@ -2136,7 +2220,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 		} break;
 	}
 	if(ExpectSemicolon)
-		EatToken(Parser, ';', false);
+		EatToken(Parser, ';');
 	return Result;
 }
 
@@ -2169,7 +2253,7 @@ node *ParseTopLevel(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token T = EatToken(Parser, T_STR, false);
+			token T = EatToken(Parser, T_STR);
 			if(T.ID == NULL)
 				return (node *)0x1;
 			DLIB Lib = OpenLibrary(T.ID->Data);
@@ -2188,7 +2272,7 @@ node *ParseTopLevel(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			token T = EatToken(Parser, T_STR, false);
+			token T = EatToken(Parser, T_STR);
 			if(T.ID == NULL)
 				return (node *)0x1;
 
@@ -2231,7 +2315,7 @@ node *ParseTopLevel(parser *Parser)
 		case T_PROFILE:
 		{
 			GetToken(Parser);
-			EatToken(Parser, T_EQ, false);
+			EatToken(Parser, T_EQ);
 			ProfileCallback = ParseExpression(Parser);
 		}
 		// fallthrough
@@ -2240,12 +2324,19 @@ node *ParseTopLevel(parser *Parser)
 			b32 SaveILists = Parser->NoItemLists;
 			Parser->NoItemLists = false;
 			node *LHS = ParseExpression(Parser);
+			if(!LHS)
+			{
+				Parser->NoItemLists = SaveILists;
+				break;
+			}
 			node *Decl = ParseDeclaration(Parser, false, LHS);
 			Parser->NoItemLists = SaveILists;
+			if(!Decl)
+				break;
 			if(Decl == (node *)0x1)
 			{
 				Result = Decl;
-				EatToken(Parser, ';', false);
+				EatToken(Parser, ';');
 			}
 			else if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
 			{
@@ -2271,7 +2362,7 @@ node *ParseTopLevel(parser *Parser)
 				if(Parser->CurrentlyPublic)
 					Fn->Fn.Flags |= SymbolFlag_Public;
 				if(!Fn->Fn.Body.IsValid())
-					EatToken(Parser, ';', false);
+					EatToken(Parser, ';');
 				Result = Fn;
 			}
 			else if(Decl->Decl.Type && Decl->Decl.Type->Type == AST_FN)
@@ -2292,7 +2383,7 @@ node *ParseTopLevel(parser *Parser)
 				if(Parser->CurrentlyPublic)
 					Fn->Fn.Flags |= SymbolFlag_Public;
 				if(!Fn->Fn.Body.IsValid())
-					EatToken(Parser, ';', false);
+					EatToken(Parser, ';');
 				Result = Fn;
 			}
 			else
@@ -2305,21 +2396,23 @@ node *ParseTopLevel(parser *Parser)
 				{
 					ERROR_INFO;
 					GetToken(Parser);
-					EatToken(Parser, T_EQ, false);
-					token S = EatToken(Parser, T_STR, true);
+					EatToken(Parser, T_EQ);
+					token S = EatToken(Parser, T_STR);
+					if(S.Type != T_STR)
+						break;
 					if(LHS->Type != AST_ID)
 					{
-						RaiseError(true, *ErrorInfo, "External link global must be defined as a single variable!");
+						RaiseError(false, *ErrorInfo, "External link global must be defined as a single variable!");
 					}
 					if(Decl->Decl.Expression)
 					{
-						RaiseError(true, *ErrorInfo, "External link global cannot have an initilizer");
+						RaiseError(false, *ErrorInfo, "External link global cannot have an initilizer");
 					}
 					Decl->Decl.LinkName = S.ID;
 					Decl->Decl.Flags |= SymbolFlag_Extern;
 				}
 
-				EatToken(Parser, ';', false);
+				EatToken(Parser, ';');
 			}
 		} break;
 		case T_IMPORT:
@@ -2361,10 +2454,12 @@ node *ParseTopLevel(parser *Parser)
 			token Token = GetToken(Parser);
 
 			if(Token.Type == T_PWDELIF)
-				EatToken(Parser, T_ID, false);
+				EatToken(Parser, T_ID);
 
-			EatToken(Parser, T_STARTSCOPE, true);
-			SkipPwdIf(Parser, ErrorInfo);
+			if(EatToken(Parser, T_STARTSCOPE).Type == T_STARTSCOPE)
+			{
+				SkipPwdIf(Parser, ErrorInfo);
+			}
 			Result = (node *)0x1;
 		} break;
 		case T_SEMICOL:
@@ -2377,8 +2472,10 @@ node *ParseTopLevel(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 			dynamic<node *> Body = {};
-			ParseMaybeBody(Parser, Body);
-			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
+			if(!ParseMaybeBody(Parser, Body))
+				Result = NULL;
+			else
+				Result = MakeRun(ErrorInfo, SliceFromArray(Body));
 		} break;
 		case T_EOF:
 		{
@@ -2631,6 +2728,7 @@ node *CopyASTNode(node *N)
 			R->StructDecl.Members = CopyNodeSlice(N->StructDecl.Members);
 			R->StructDecl.IsUnion = N->StructDecl.IsUnion;
 			R->StructDecl.TypeParams = N->StructDecl.TypeParams;
+			R->StructDecl.IsError = N->StructDecl.IsError;
 		} break;
 
 		case AST_ENUM:

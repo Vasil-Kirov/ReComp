@@ -184,6 +184,7 @@ struct node
 			slice<node *> Members;
 			slice<string> TypeParams;
 			b32 IsUnion;
+			b32 IsError;
 		} StructDecl;
 		struct {
 			node *Expression;

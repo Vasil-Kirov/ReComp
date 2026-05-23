@@ -408,6 +408,13 @@ void UnlockTypeModify(type *)
 	TypeMutex.unlock();
 }
 
+void ErrorOutType(u32 TypeIdx)
+{
+	TypeMutex.lock();
+	*TypeTable[TypeIdx] = *TypeTable[Basic_error];
+	TypeMutex.unlock();
+}
+
 void FillOpaqueStruct(u32 TypeIdx, type T)
 {
 	TypeMutex.lock();

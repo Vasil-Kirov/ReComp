@@ -121,9 +121,15 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 					return ArgTypeIdx;
 				// @Note: probably reachable
 				if(PassedStruct)
-					RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
+				{
+					RaiseError(false, *err_i, "Parameter type is an unresolved polymorphic type");
+					return Basic_error;
+				}
 				else
-					RaiseError(true, *err_i, "Return type is an unresolved polymorphic type");
+				{
+					RaiseError(false, *err_i, "Return type is an unresolved polymorphic type");
+					return Basic_error;
+				}
 			}
 			u32 Defined = *DefinedPtr;
 			Arg.DefinedAs = ToNonGeneric(it->DefinedAs, Defined);
@@ -132,7 +138,8 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 		{
 			if(PassedStruct == nullptr)
 			{
-				RaiseError(true, *err_i, "Function signature returns a generic struct without a type parameter!");
+				RaiseError(false, *err_i, "Function signature returns a generic struct without a type parameter!");
+				return Basic_error;
 			}
 			Arg.DefinedAs = PassedStruct->Struct.GenericArguments[Idx].DefinedAs;
 		}
@@ -151,11 +158,7 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 	type *Defined = LockTypeModify(AsDefined);
 
 
-
-
 	UnlockTypeModify(Defined);
-
-
 	
 	return AsDefined;
 }
@@ -165,7 +168,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	symbol *FnSym = FindSymbolFromNode(Checker, Call->Call.Fn);
 	if(!FnSym)
 	{
-		RaiseError(true, *Call->ErrorInfo, "Couldn't find polymorphic function symbol");
+		RaiseError(false, *Call->ErrorInfo, "Couldn't find polymorphic function symbol");
+		return nullptr;
 	}
 
 	dict<u32> DefinedGenerics = {};
@@ -184,8 +188,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 			if(!DefinedGenerics.Add(*Arg.Name, T))
 			{
 				// @Note: Unreachable?
-				RaiseError(true, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
+				RaiseError(false, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
 						"Redefined polymorphic type %s", Arg.Name->Data);
+				return nullptr;
 			}
 		}
 		else if(IsGeneric(T))
@@ -216,8 +221,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 						if(!DefinedGenerics.Add(Name, Defined->Struct.GenericArguments[Idx].DefinedAs))
 						{
 							// @Note: Unreachable?
-							RaiseError(true, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
+							RaiseError(false, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
 									"Redefined polymorphic type %s", Arg.Name->Data);
+							return nullptr;;
 						}
 					}
 				}
@@ -227,8 +233,9 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 					if(!DefinedGenerics.Add(GetGenericName(GenT), DefineType))
 					{
 						// @Note: Unreachable?
-						RaiseError(true, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
+						RaiseError(false, *FnSym->Node->Fn.Args[ArgI]->ErrorInfo,
 								"Redefined polymorphic type %s", Arg.Name->Data);
+						return nullptr;
 					}
 				}
 			}
@@ -252,6 +259,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 			{
 				const type *PassedStruct = GetType(GetGenericPart(Call->Call.ArgTypes[ArgI], ArgTypeIdx));
 				AsDefined = PolymorphGenericStruct(err_i, PassedStruct, Gen, DefinedGenerics, ArgTypeIdx);
+				if(AsDefined == Basic_error)
+					return nullptr;
 				if(AsDefined != ArgTypeIdx)
 					AsDefined = ToNonGeneric(ArgTypeIdx, AsDefined);
 			}
@@ -268,7 +277,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 					else
 					{
 						// @Note: probably reachable
-						RaiseError(true, *err_i, "Parameter type is an unresolved polymorphic type");
+						RaiseError(false, *err_i, "Parameter type is an unresolved polymorphic type");
+						return nullptr;
 					}
 				}
 				else
@@ -300,7 +310,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 				if(DefinedPtr == NULL)
 				{
 					// @Note: probably reachable
-					RaiseError(true, *err_i, "return of function is an unresolved polymorphic type");
+					RaiseError(false, *err_i, "return of function is an unresolved polymorphic type");
+					return nullptr;
 				}
 			}
 		}
@@ -352,7 +363,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	if(!Success)
 	{
 		symbol *s = FnSym->Checker->Module->Globals[GenericName];
-		RaiseError(true, *Call->ErrorInfo, "--- COMPILER BUG ---\nCouldn't add generic function %s.\nTypes %s | %s", GenericName.Data, GetTypeName(NonGeneric), GetTypeName(s->Type));
+		RaiseError(false, *Call->ErrorInfo, "--- COMPILER BUG ---\nCouldn't add generic function %s.\nTypes %s | %s", GenericName.Data, GetTypeName(NonGeneric), GetTypeName(s->Type));
+		return nullptr;
 	}
 	Assert(Success);
 	// @THREADING

@@ -2206,7 +2206,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value *Operand = VM->Registers.GetValue(CallInfo->Operand);
 				if(Operand->ptr == NULL)
 				{
-					RaiseError(true, *VM->ErrorInfo.Peek(), "Compile time interpreter cannot find called function. If it's in a dynamic library, you can load dynamic libraries for compile time execution using the #load_dl and #load_system_dl directives.");
+					RaiseError(false, *VM->ErrorInfo.Peek(), "Compile time interpreter cannot find called function. If it's in a dynamic library, you can load dynamic libraries for compile time execution using the #load_dl and #load_system_dl directives.");
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 

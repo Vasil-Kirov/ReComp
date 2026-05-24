@@ -8,14 +8,16 @@
 
 // @THREADING: PUT MUTEXES EVERYWHERE HERE
 
-string DumpFileName = {};
 binary_blob *GlobalBlob = NULL;
 dynamic<error_dump> ErrorsToDump = {};
 dynamic<scope_dump> ScopesToDump = {};
 bool AlreadyPipedInfo = false;
+std::unordered_map<node*, selector_info> SelectorInfo = {};
+std::unordered_map<u32, node*> TypeNodeRecord = {};
 
 binary_blob StartOutput()
 {
+	/*
 #if CM_LINUX
 	DumpFileName = STR_LIT("/tmp/rcp.dump");
 #elif _WIN32
@@ -28,6 +30,7 @@ binary_blob StartOutput()
 #else
 #error Unimplemented default dump file name
 #endif
+*/
 	return binary_blob {};
 };
 

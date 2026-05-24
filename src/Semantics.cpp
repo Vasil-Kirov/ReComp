@@ -178,7 +178,7 @@ u32 FindStructTypeNoModuleRenaming(const string *NamePtr)
 	return Basic_error;
 }
 
-u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL)
+u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional)
 {
 	string N = *Name;
 	string ModuleName;
@@ -2199,6 +2199,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				break;
 			}
 
+			u32 DirectTypeIdx = TypeIdx;
 			const type *Type = NULL;
 			Expr->Selector.SubIndex = -1;
 			if(TypeIdx == Basic_module)
@@ -2221,11 +2222,16 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								*/
 						return Basic_error;
 					}
+					SelectorInfo.insert({Expr, selector_info {SELECT_TYPE, {.ModType = t}}});
 					Result = Basic_type;
 					Expr->Selector.Type = Basic_type;
 				}
 				else
 				{
+					if(DumpingInfo)
+					{
+						SelectorInfo.insert({Expr, selector_info {SELECT_MOD_GLOBAL, {.ModGlobal = s}}});
+					}
 					Result = s->Type;
 					Expr->Selector.Type = s->Type;
 					if(GetType(Result)->Kind == TypeKind_Function)
@@ -2361,13 +2367,20 @@ ANALYZE_SLICE_SELECTOR:
 									Expr->Selector.Member->Data, GetTypeName(Type));
 							Result = TypeIdx;
 						}
+						else if(DumpingInfo)
+						{
+							SelectorInfo.insert({Expr, selector_info {SELECT_TYPE, {.ModType = DirectTypeIdx}}});
+						}
 					} break;
 					case TypeKind_Pointer:
 					{
 
 						const type *Pointed = NULL;
 						if(Type->Pointer.Pointed != INVALID_TYPE)
+						{
+							DirectTypeIdx = Type->Pointer.Pointed;
 							Pointed = GetType(Type->Pointer.Pointed);
+						}
 						if(!Pointed || (Pointed->Kind != TypeKind_Struct && Pointed->Kind != TypeKind_Slice))
 						{
 							RaiseError(false, *Expr->ErrorInfo, "Cannot use `.` selector operator on a pointer that doesn't directly point to a struct. %s",
@@ -2415,6 +2428,11 @@ ANALYZE_SLICE_SELECTOR:
 										"No member named %s in struct %s; Invalid `.` selector",
 										Expr->Selector.Member->Data, GetTypeName(Type));
 							}
+						}
+
+						if(Result != Basic_error && DumpingInfo)
+						{
+							SelectorInfo.insert({Expr, selector_info {SELECT_TYPE, {.ModType = DirectTypeIdx}}});
 						}
 					} break;
 					default:
@@ -3454,14 +3472,14 @@ u32 FixPotentialFunctionPointer(u32 Type)
 	}
 }
 
-void AnalyzeEnum(checker *Checker, node *Node)
+u32 AnalyzeEnum(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindEnumTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != Basic_error);
 	if(Node->Enum.Items.Count == 0)
 	{
 		RaiseError(false, *Node->ErrorInfo, "Empty enums are not allowed");
-		return;
+		return Basic_error;
 	}
 
 	u32 Type = Basic_error;
@@ -3537,9 +3555,10 @@ void AnalyzeEnum(checker *Checker, node *Node)
 	}
 
 	FillOpaqueEnum(*Node->Enum.Name, SliceFromArray(Members), Type, OpaqueType, Checker->Imported, Checker->Module);
+	return OpaqueType;
 }
 
-bool AnalyzeStructDeclaration(checker *Checker, node *Node)
+u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 {
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != Basic_error);
@@ -3581,31 +3600,31 @@ bool AnalyzeStructDeclaration(checker *Checker, node *Node)
 			{
 				RaiseError(false, *Member->ErrorInfo, "Subtype declaration needs to come before any struct members, the base type is layed out at the start of the struct");
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 			if(T->Kind != TypeKind_Struct)
 			{
 				RaiseError(false, *Member->ErrorInfo, "Cannot subtype non struct type %s", GetTypeName(T));
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 			if(T->Struct.SubType != INVALID_TYPE)
 			{
 				RaiseError(false, *Member->ErrorInfo, "Multi-level subtyping is not allowed");
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 			if(SubTypes != INVALID_TYPE)
 			{
 				RaiseError(false, *Member->ErrorInfo, "Cannot subtype multiple types! Trying to subtype %s while already subtyping %s", GetTypeName(T), GetTypeName(SubTypes));
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 			if(IsGeneric(SubTypes))
 			{
 				RaiseError(false, *Member->ErrorInfo, "Cannot subtype a generic");
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 
 			SubTypes = Type;
@@ -3630,7 +3649,7 @@ bool AnalyzeStructDeclaration(checker *Checker, node *Node)
 				RaiseError(false, *Node->ErrorInfo, "Invalid struct declaration, members #%d and #%d have the same name `%s`",
 						Idx, j, Node->StructDecl.Members[Idx]->Var.Name->Data);
 				ErrorOutType(OpaqueType);
-				return false;
+				return Basic_error;
 			}
 		}
 	}
@@ -3648,7 +3667,7 @@ bool AnalyzeStructDeclaration(checker *Checker, node *Node)
 
 	FillOpaqueStruct(OpaqueType, New);
 	Checker->Scope.Pop();
-	return true;
+	return OpaqueType;
 }
 
 b32 IsNodeEndScope(node *Node)
@@ -4256,7 +4275,8 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
 				}
 			}
 
-			AddType(New);
+			if(!Error)
+				AddType(New);
 		}
 	}
 }
@@ -4295,7 +4315,11 @@ void AnalyzeEnums(checker *Checker, slice<node *>Nodes)
 	{
 		if(Nodes[I]->Type == AST_ENUM)
 		{
-			AnalyzeEnum(Checker, Nodes[I]);
+			u32 T = AnalyzeEnum(Checker, Nodes[I]);
+			if(T != Basic_error && DumpingInfo)
+			{
+				TypeNodeRecord.insert({T, Nodes[I]});
+			}
 		}
 	}
 }
@@ -4306,7 +4330,12 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
-			Nodes[I]->StructDecl.IsError = !AnalyzeStructDeclaration(Checker, Nodes[I]);
+			u32 T = AnalyzeStructDeclaration(Checker, Nodes[I]);
+			Nodes[I]->StructDecl.IsError = T == Basic_error;
+			if(T != Basic_error && DumpingInfo)
+			{
+				TypeNodeRecord.insert({T, Nodes[I]});
+			}
 		}
 	}
 }

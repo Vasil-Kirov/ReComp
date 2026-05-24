@@ -62,7 +62,7 @@ string VLibReadStringNullTerminated(binary_reader *reader)
 
 string VLibReadString(binary_reader *reader, size_t size)
 {
-	string result = MakeString((const char *)&reader->data[reader->at], size);
+	string result = string {.Data=(const char *)&reader->data[reader->at], .Size=size};
 	reader->at += size;
 	return result;
 }

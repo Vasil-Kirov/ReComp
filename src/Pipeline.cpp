@@ -204,6 +204,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 
 	// START OF PARSING         --------------------------------------------------
 	Timers.Parse = VLibStartTimer("Parsing");
+	if(DumpingInfo)
+		IPCAtStage |= 1 << 0;
 
 	For(InitialFiles)
 	{
@@ -220,6 +222,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 
 	ExitIfErroredOut();
+	if(DumpingInfo)
+		IPCAtStage |= 1 << 1;
 
 	dynamic<module*> Modules = {};
 
@@ -266,6 +270,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 
 	ExitIfErroredOut();
+	if(DumpingInfo)
+		IPCAtStage |= 1 << 2;
 
 	CurrentModules = SliceFromArray(Modules);
 	slice<file *> Files = SliceFromArray(FileArray);
@@ -273,6 +279,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint);
 
 	ExitIfErroredOut();
+	if(DumpingInfo)
+		IPCAtStage |= 1 << 3;
 
 	bool FoundInternal = false;
 	For(Modules)
@@ -298,6 +306,12 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	VLibStopTimer(&Timers.TypeCheck);
 	// END OF TYPE CHECKING     --------------------------------------------------
 
+	if(DumpingInfo)
+	{
+		IPCAtStage |= 1 << 4;
+		IPCSetModules(SliceFromArray(Modules));
+		IPCListenAndServe();
+	}
 	ExitIfErroredOut();
 
 	// START OF IR GENERATION   --------------------------------------------------

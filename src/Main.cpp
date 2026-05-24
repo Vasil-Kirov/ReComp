@@ -728,16 +728,12 @@ main(int ArgCount, char *Args[])
 
 			BuildTimeTypeTable = SaveTypeTableAndReset();
 			NeedToRestoreForAfterFunction = true;
+			if(DumpingInfo)
+				DontExit = true;
 			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint);
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;
-
-			if(DumpingInfo)
-			{
-				IPCSetModules(r.Modules);
-				IPCListenAndServe();
-			}
 
 			// Remake vm to evaluate enums with new info
 

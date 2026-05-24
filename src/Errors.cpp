@@ -1,6 +1,7 @@
 #include "Errors.h"
 #include "Basic.h"
 #include "DumpInfo.h"
+#include "IPC.h"
 #include "Log.h"
 #include "Platform.h"
 #include <atomic>
@@ -136,7 +137,7 @@ void ExitIfErroredOut()
 {
 	if (HasErroredOut()) {
 		if(DumpingInfo)
-			PipeInfoBlob(NULL);
+			IPCListenAndServe();
 		exit(1);
 	}
 }
@@ -196,7 +197,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	if((Abort || Errors > 4) && !DontExit)
 	{
 		if(DumpingInfo)
-			PipeInfoBlob(NULL);
+			IPCListenAndServe();
 		exit(1);
 	}
 }

@@ -85,7 +85,7 @@ b32 IsScopeInOrEq(scope *SearchingFor, scope *S);
 string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
-bool AnalyzeStructDeclaration(checker *Checker, node *Node);
+u32 AnalyzeStructDeclaration(checker *Checker, node *Node);
 void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 bool CheckIntrinsic(string Name);
 symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NULL);
@@ -102,6 +102,7 @@ void AnalyzeEnums(checker *Checker, slice<node *> Nodes);
 void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *ThisModule);
 void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes);
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule);
+u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

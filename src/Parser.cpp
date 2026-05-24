@@ -2841,6 +2841,288 @@ node *CopyASTNode(node *N)
 	return R;
 }
 
+void WalkASTNode(node *N, walker_fn Walker, void *Arg)
+{
+	if(!N || N == (node *)0x1)
+		return;
+
+	if(!Walker(N, Arg))
+		return;
+
+	switch (N->Type)
+	{
+		case AST_INVALID: 
+			unreachable; 
+			break;
+
+		case AST_RUN:
+		{
+			for(node *Node : N->Run.Body)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+		} break;
+
+		case AST_YIELD:
+		{
+			WalkASTNode(N->TypedExpr.Expr, Walker, Arg);
+		} break;
+
+		case AST_USING:
+		{
+			WalkASTNode(N->TypedExpr.Expr, Walker, Arg);
+		} break;
+
+		case AST_ASSERT:
+		{
+			WalkASTNode(N->Assert.Expr, Walker, Arg);
+		} break;
+
+		case AST_VAR:
+		{
+			WalkASTNode(N->Var.TypeNode, Walker, Arg);
+			WalkASTNode(N->Var.Default, Walker, Arg);
+		} break;
+
+		case AST_LIST:
+		{
+			for(node *Node : N->List.Nodes)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+		} break;
+
+		case AST_EMBED:
+		{
+		} break;
+
+		case AST_CHARLIT:
+		{
+		} break;
+
+		case AST_CONSTANT:
+		{
+		} break;
+
+		case AST_BINARY:
+		{
+			WalkASTNode(N->Binary.Left, Walker, Arg);
+			WalkASTNode(N->Binary.Right, Walker, Arg);
+		} break;
+
+		case AST_UNARY:
+		{
+			WalkASTNode(N->Unary.Operand, Walker, Arg);
+		} break;
+
+		case AST_IFX:
+		{
+			WalkASTNode(N->IfX.Expr, Walker, Arg);
+			WalkASTNode(N->IfX.True, Walker, Arg);
+			WalkASTNode(N->IfX.False, Walker, Arg);
+		} break;
+
+		case AST_IF:
+		{
+			WalkASTNode(N->If.Expression, Walker, Arg);
+			for(node *Node : N->If.Body)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+			for(node *Node : N->If.Else)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+		} break;
+
+		case AST_FOR:
+		{
+			WalkASTNode(N->For.Expr1, Walker, Arg);
+			WalkASTNode(N->For.Expr2, Walker, Arg);
+			WalkASTNode(N->For.Expr3, Walker, Arg);
+			for(node *Node : N->For.Body)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+		} break;
+
+		case AST_ID:
+		{
+		} break;
+
+		case AST_DECL:
+		{
+			WalkASTNode(N->Decl.LHS, Walker, Arg);
+			WalkASTNode(N->Decl.Expression, Walker, Arg);
+			WalkASTNode(N->Decl.Type, Walker, Arg);
+		} break;
+
+		case AST_CALL:
+		{
+			WalkASTNode(N->Call.Fn, Walker, Arg);
+			for(node *CArg : N->Call.Args)
+			{
+				WalkASTNode(CArg, Walker, Arg);
+			}
+		} break;
+
+		case AST_RETURN:
+		{
+			WalkASTNode(N->Return.Expression, Walker, Arg);
+		} break;
+
+		case AST_PTRTYPE:
+		{
+			WalkASTNode(N->PointerType.Pointed, Walker, Arg);
+		} break;
+
+		case AST_ARRAYTYPE:
+		{
+			WalkASTNode(N->ArrayType.Type, Walker, Arg);
+			WalkASTNode(N->ArrayType.Expression, Walker, Arg);
+		} break;
+
+		case AST_FN:
+		{
+			for(node *FArg : N->Fn.Args)
+				WalkASTNode(FArg, Walker, Arg);
+			for(node *Ret : N->Fn.ReturnTypes)
+				WalkASTNode(Ret, Walker, Arg);
+			for(node *Node : N->Fn.Body)
+				WalkASTNode(Node, Walker, Arg);
+			WalkASTNode(N->Fn.ProfileCallback, Walker, Arg);
+		} break;
+
+		case AST_CAST:
+		{
+			WalkASTNode(N->Cast.Expression, Walker, Arg);
+			WalkASTNode(N->Cast.TypeNode, Walker, Arg);
+		} break;
+
+		case AST_TYPELIST:
+		{
+			WalkASTNode(N->TypeList.TypeNode, Walker, Arg);
+			for(node *Item : N->TypeList.Items)
+				WalkASTNode(Item, Walker, Arg);
+		} break;
+
+		case AST_INDEX:
+		{
+			WalkASTNode(N->Index.Operand, Walker, Arg);
+			WalkASTNode(N->Index.Expression, Walker, Arg);
+		} break;
+
+		case AST_STRUCTDECL:
+		{
+			for(node *Node : N->StructDecl.Members)
+				WalkASTNode(Node, Walker, Arg);
+		} break;
+
+		case AST_ENUM:
+		{
+			for(node *Node : N->Enum.Items)
+				WalkASTNode(Node, Walker, Arg);
+			WalkASTNode(N->Enum.Type, Walker, Arg);
+		} break;
+
+		case AST_SELECTOR:
+		{
+			WalkASTNode(N->Selector.Operand, Walker, Arg);
+		} break;
+
+		case AST_SIZE:
+		{
+			WalkASTNode(N->Size.Expression, Walker, Arg);
+		} break;
+
+		case AST_TYPEOF:
+		{
+			WalkASTNode(N->TypeOf.Expression, Walker, Arg);
+		} break;
+
+		case AST_GENERIC:
+		{
+		} break;
+
+		case AST_RESERVED:
+		{
+		} break;
+
+		case AST_NOP:
+		case AST_BREAK:
+		case AST_CONTINUE:
+			// No additional data to copy
+			break;
+
+		case AST_GENSTRUCTTYPE:
+		{
+			for(node *Node : N->GenericStructType.Args)
+				WalkASTNode(Node, Walker, Arg);
+			WalkASTNode(N->GenericStructType.ID, Walker, Arg);
+		} break;
+
+		case AST_LISTITEM:
+		{
+			WalkASTNode(N->Item.Expression, Walker, Arg);
+		} break;
+
+		case AST_SWITCH:
+		{
+			WalkASTNode(N->Switch.Expression, Walker, Arg);
+			for(node *Node : N->Switch.Cases)
+				WalkASTNode(Node, Walker, Arg);
+		} break;
+
+		case AST_CASE:
+		{
+			WalkASTNode(N->Case.Value, Walker, Arg);
+			for(node *Node : N->Case.Body)
+				WalkASTNode(Node, Walker, Arg);
+		} break;
+
+		case AST_POSTOP:
+		{
+			WalkASTNode(N->PostOp.Operand, Walker, Arg);
+		} break;
+
+		case AST_DEFER:
+		{
+			for(node *Node : N->Defer.Body)
+				WalkASTNode(Node, Walker, Arg);
+		} break;
+
+		case AST_SCOPE:
+		{
+		} break;
+
+		case AST_TYPEINFO:
+		{
+			WalkASTNode(N->TypeInfoLookup.Expression, Walker, Arg);
+		} break;
+
+		case AST_PTRDIFF:
+		{
+			WalkASTNode(N->PtrDiff.Left, Walker, Arg);
+			WalkASTNode(N->PtrDiff.Right, Walker, Arg);
+		} break;
+
+		case AST_FILE_LOCATION:
+		{
+		} break;
+	}
+}
+
+void WalkAST(slice<node*> Nodes, walker_fn Walker, void *Arg)
+{
+	if(Walker == nullptr)
+		return;
+
+	for(node *N : Nodes)
+	{
+		WalkASTNode(N, Walker, Arg);
+	}
+}
+
 bool IsOpAssignment(token_type Op)
 {
 	switch(Op)

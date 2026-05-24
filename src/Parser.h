@@ -349,6 +349,12 @@ bool IsOpAssignment(token_type Op);
 string MakeLambdaName(const error_info *Info);
 parse_result ParseTokens(file *F, slice<string> ConfigIDs);
 
+
+typedef bool (*walker_fn)(node *Node, void *Arg);
+void WalkAST(slice<node*> Nodes, walker_fn Walker, void *Arg);
+void WalkASTNode(node *N, walker_fn Walker, void *Arg);
+
+
 // @NOTE: USE THE MACRO DON'T TRY TO TAKE THE POINTERS CUZ YOU MIGHT TAKE A STACK POINTER AND THEN IT GET UUUGLY
 #define ERROR_INFO error_info *ErrorInfo = &Parser->Tokens[Parser->TokenIndex].ErrorInfo
 

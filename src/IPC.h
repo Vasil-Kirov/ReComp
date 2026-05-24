@@ -16,7 +16,13 @@ struct ipc_packet
 	slice<u8> Data;
 };
 
+extern uint IPCAtStage;
+
+ __attribute__((noreturn))
+void IPCListenAndServe();
+void IPCSetModules(slice<module*> Modules);
 void IPCSendMessage(const void *Msg, u32 Size);
 string IPCReadSubstituteFile(string OriginalFile);
+extern uint IPCAtStage;
 
 

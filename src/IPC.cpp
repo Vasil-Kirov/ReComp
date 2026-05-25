@@ -713,6 +713,11 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 			if(Behind.Type == RCFT_Selector)
 				PrevType = Behind.SelectorType;
 			const type *T = GetType(PrevType);
+			if(T->Kind == TypeKind_Pointer && T->Pointer.Pointed != INVALID_TYPE && T->Pointer.Pointed != Basic_error)
+			{
+				PrevType = T->Pointer.Pointed;
+				T = GetType(PrevType);
+			}
 			switch(T->Kind)
 			{
 				case TypeKind_Struct:

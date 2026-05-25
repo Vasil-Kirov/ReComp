@@ -496,6 +496,8 @@ completion_result CompleteMakeFnResult(symbol *s)
 		T = GetType(T->Pointer.Pointed);
 	if(T->Kind != TypeKind_Function)
 		return {};
+	if(StringContains(*s->Name, '<'))
+		return {};
 	auto b = MakeBuilder();
 	b += *s->Name;
 	b += '(';
@@ -511,6 +513,12 @@ completion_result CompleteMakeFnResult(symbol *s)
 			b.printf(", %.*s: %s", (int)Arg.Size, Arg.Data, GetTypeName(T->Function.Args[i]));
 		}
 	}
+	if(T->Function.Flags & SymbolFlag_VarFunc)
+	{
+		if(T->Function.ArgCount != 0)
+			b += ", ";
+		b += "...";
+	}
 	b += ')';
 	string Insert = MakeString(b);
 	b = MakeBuilder();
@@ -522,6 +530,12 @@ completion_result CompleteMakeFnResult(symbol *s)
 		if(i != 0)
 			b += ", ";
 		b.printf("%.*s: %s", (int)Arg.Size, Arg.Data, GetTypeName(T->Function.Args[i]));
+	}
+	if(T->Function.Flags & SymbolFlag_VarFunc)
+	{
+		if(T->Function.ArgCount != 0)
+			b += ", ";
+		b += "...";
 	}
 	b += ')';
 	string TypeSpelling = MakeString(b);

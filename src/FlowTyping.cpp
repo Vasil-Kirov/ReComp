@@ -444,6 +444,36 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 					FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
 				}
 			} break;
+			case OP_SWITCHINT:
+			{
+				ir_switchint *OpI = (ir_switchint *)it->Ptr;
+				for(u32 TargetID : OpI->Cases)
+				{
+					flow_block_info *Target = &Flow->Blocks[TargetID];
+					ForN(Info->IsNotNull.Keys, rit)
+					{
+						int Reg = *rit;
+						FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
+					}
+				}
+					if(OpI->Default != -1)
+					{
+						u32 TargetID = OpI->Default;
+						flow_block_info *Target = &Flow->Blocks[TargetID];
+						ForN(Info->IsNotNull.Keys, rit)
+						{
+							int Reg = *rit;
+							FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
+						}
+					}
+					u32 TargetID = OpI->After;
+					flow_block_info *Target = &Flow->Blocks[TargetID];
+					ForN(Info->IsNotNull.Keys, rit)
+					{
+						int Reg = *rit;
+						FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
+					}
+			} break;
 			case OP_IF:
 			{
 				bool SetFromCmp = false;

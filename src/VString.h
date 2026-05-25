@@ -80,6 +80,7 @@ string SliceString(string S, int from, int to);
 bool StringsMatchNoCase(const string &a, const string &b);
 bool StringStartsWith(const string &a, const string b);
 bool StringEndsWith(const string &a, const string b);
+bool StringContains(const string &a, char c);
 i32 DistanceBetweenStrings(const string &A, const string &B, int Threshhold);
 
 void PushBuilder(string_builder *Builder, const char *Data);

@@ -199,6 +199,14 @@ bool StringEndsWith(const string &a, const string b)
 	return memcmp(a.Data + Offset, b.Data, b.Size) == 0;
 }
 
+bool StringContains(const string &a, char c)
+{
+	for(size_t i = 0; i < a.Size; ++i)
+		if(a.Data[i] == c)
+			return true;
+	return false;
+}
+
 split SplitAt(string S, char c)
 {
 	for(int i = 0; i < S.Size; ++i)

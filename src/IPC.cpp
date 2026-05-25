@@ -173,6 +173,8 @@ void IPCListenAndServe()
 		{
 			DumpError(&Blob, e);
 		}
+		IPCSendMessage(Blob.Buf.Data, Blob.Buf.Count);
+		Blob.Buf.Free();
 		exit(0);
 	}
 	DontExit = true;
@@ -183,8 +185,9 @@ void IPCListenAndServe()
 		ipc_packet Packet = IPCGetCMD();
 		switch(Packet.CMD)
 		{
-			case ipc_cmd::NOP:
+			case ipc_cmd::INVALID:
 			{
+				Running = false;
 			} break;
 			case ipc_cmd::FIND_SYMBOL:
 			{
@@ -320,7 +323,7 @@ bool IPCSearchNode(node *N, void *Arg)
 				Find->Module = Import.M;
 				return false;
 			}
-			else if(Import.As == "")
+			else if(Import.As == "*")
 			{
 				symbol **S = Import.M->Globals.GetUnstablePtr(ID);
 				if(S)

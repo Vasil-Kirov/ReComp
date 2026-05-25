@@ -4,7 +4,7 @@
 
 enum class ipc_cmd : u8
 {
-	NOP,
+	INVALID,
 	FIND_SYMBOL,
 	DO_COMPLETION,
 	QUIT,

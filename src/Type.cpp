@@ -279,20 +279,20 @@ void WriteFunctionReturnType(string_builder *b, slice<u32> Returns)
 		return;
 	}
 
-	*b += "{ ";
+	*b += "( ";
 	ForArray(Idx, Returns)
 	{
 		if(Idx != 0)
 			*b +=", ";
 		*b += GetTypeNameAsString(Returns[Idx]);
 	}
-	*b += " }";
+	*b += " )";
 }
 
 u32 GetTypeForMultiReturn(slice<u32> Returns)
 {
 	string_builder b = MakeBuilder();
-	b += "return ";
+	b += "tuple ";
 	WriteFunctionReturnType(&b, Returns);
 
 	TypeMutex.lock();

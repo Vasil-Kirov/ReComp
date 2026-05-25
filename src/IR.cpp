@@ -870,6 +870,18 @@ u32 BuildRun(block_builder *Builder, node *Node)
 	return PushInstruction(Builder, Instruction(OP_RUN, 0, RunBlock.ID, Node->Run.TypeIdx, Builder));
 }
 
+u32 ListTAsLHS(u32 Type)
+{
+	const type *T = GetType(Type);
+	Assert(T->Kind == TypeKind_Struct);
+	dynamic<u32> Ptrs = {};
+	for(const struct_member& Mem : T->Struct.Members)
+	{
+		Ptrs.Push(GetPointerTo(Mem.Type));
+	}
+	return ReturnsToType(SliceFromArray(Ptrs));
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -1028,14 +1040,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 Type = Node->List.WholeType;
 			if(IsLHS)
 			{
-				const type *T = GetType(Type);
-				Assert(T->Kind == TypeKind_Struct);
-				dynamic<u32> Ptrs = {};
-				for(const struct_member& Mem : T->Struct.Members)
-				{
-					Ptrs.Push(GetPointerTo(Mem.Type));
-				}
-				Type = ReturnsToType(SliceFromArray(Ptrs));
+				Type = ListTAsLHS(Type);
 			}
 			u32 ResultPtr = PushInstruction(Builder,
 					Instruction(OP_ALLOC, -1, Type, Builder));
@@ -2204,13 +2209,14 @@ u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, node *Node, 
 
 u32 BuildListStore(block_builder *Builder, u32 LHS, u32 RHS, u32 T)
 {
+	u32 PtrT = ListTAsLHS(T);
 	const type *Type = GetType(T);
 	Assert(Type->Kind == TypeKind_Struct);
 	uint At = 0;
 	for(const struct_member& Mem : Type->Struct.Members)
 	{
 		u32 LeftP = PushInstruction(Builder, 
-				Instruction(OP_INDEX, LHS, At, T, Builder));
+				Instruction(OP_INDEX, LHS, At, PtrT, Builder));
 		u32 RightP = PushInstruction(Builder, 
 				Instruction(OP_INDEX, RHS, At, T, Builder));
 		u32 Left = PushInstruction(Builder,

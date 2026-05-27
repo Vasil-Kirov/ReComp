@@ -8,6 +8,52 @@ _ :: #import str;
 
 FLOAT_ROUND_AT := cast(i32, 100);
 
+enum StreamOp {
+	Close,
+	Read,
+	Write,
+	Seek,
+}
+
+enum StreamError {
+	Ok,
+	InvalidOp,
+	Failed,
+}
+
+struct Stream {
+	func: *fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError),
+	data: ?*void,
+};
+
+io_fn :: fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError) {
+	p := p;
+	n := 0;
+	switch op {
+		// @TODO: errors
+		case .Read:
+		{
+			n = os.read(os.stdin(), &p[0], p.count);
+		}
+		case .Write:
+		{
+			n = os.write(os.stdout(), &p[0], p.count);
+		}
+		case _:
+		{
+			return 0, StreamError.InvalidOp;
+		}
+	};
+	return n, StreamError.Ok;
+}
+
+make_io :: fn() -> Stream {
+	return .{
+		func = io_fn,
+		data = null,
+	};
+}
+
 print :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
     os.print((&builder.data[0]) as *u8 , builder.data.count as u32);
@@ -52,7 +98,7 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
 	return string { read, mem }, true;
 }
 
-readln :: fn(alloc: *mem.Allocator) -> string {
+readln :: fn(s: *Stream, alloc: *mem.Allocator, endl := '\n') -> string {
 	MAX :: 1024;
     mem := alloc.alloc(MAX, alloc);
     if mem == null {
@@ -60,15 +106,20 @@ readln :: fn(alloc: *mem.Allocator) -> string {
         return "";
     }
 
-    buf := (?mem) as *u8;
-    count := os.read_stdin_line(buf, MAX as u32);
-    if count == 0 {
-        return "";
-    }
-    
+    buf := mem as *u8;
+	at := 0;
+	for {
+		p := []u8{0};
+		read, err := s.func(s.data, .Read, p);
+		if err != .Ok || read == 0
+			break;
+		if p[0] == endl break;
+		buf[at++] = p[0];
+	}
+
     res: string;
     res.data = buf;
-    res.count = count as int;
+    res.count = at as int;
 
     return res;
 }

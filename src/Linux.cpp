@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/ioctl.h>
 
 typedef void *(*linux_start_thread)(void*);
 
@@ -39,6 +40,7 @@ bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
 
 bool PlatformReadPipe(u64 Pipe, void *Data, u32 Size)
 {
+	FIONREAD;
 	u32 Total = 0;
 	u8 *p = (u8 *)Data;
 	while(Total < Size)

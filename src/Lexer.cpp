@@ -85,6 +85,8 @@ char PeekCAhead(string *String, int Depth)
 
 char PeekC(string *String)
 {
+	if(String->Size == 0)
+		return '\0';
 	return *String->Data;
 }
 

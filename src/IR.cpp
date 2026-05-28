@@ -309,6 +309,50 @@ void PushErrorInfo(block_builder *Builder, node *Node)
 	Builder->LastErrorInfo = Node->ErrorInfo;
 }
 
+std::pair<u32, u32> StringGetFields(block_builder *Builder, u32 Str, bool Load)
+{
+	u32 Count = PushInstruction(Builder, Instruction(OP_INDEX, Str, 0, Basic_string, Builder));
+	u32 Data = PushInstruction(Builder, Instruction(OP_INDEX, Str, 1, Basic_string, Builder));
+	if(Load)
+	{
+		u32 PtrToElem = GetPointerTo(Basic_u8);
+		Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, Data, PtrToElem, Builder));
+		Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, Count, Basic_int, Builder));
+	}
+
+	return {Data, Count};
+}
+
+std::pair<u32, u32> SliceGetFields(block_builder *Builder, u32 Slice, u32 SliceT, bool Load)
+{
+	u32 Count = PushInstruction(Builder, Instruction(OP_INDEX, Slice, 0, SliceT, Builder));
+	u32 Data = PushInstruction(Builder, Instruction(OP_INDEX, Slice, 1, SliceT, Builder));
+	if(Load)
+	{
+		const type *T = GetType(SliceT);
+		Assert(T->Kind == TypeKind_Slice);
+
+		u32 PtrToElem = GetPointerTo(T->Slice.Type);
+		Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, Data, PtrToElem, Builder));
+		Count = PushInstruction(Builder, Instruction(OP_LOAD, 0, Count, Basic_int, Builder));
+	}
+
+	return {Data, Count};
+}
+
+u32 BuildString(block_builder *Builder, u32 Ptr, u32 Size)
+{
+	u32 Alloc = PushInstruction(Builder,
+			Instruction(OP_ALLOC, -1, Basic_string, Builder));
+	auto [Data, Count] = StringGetFields(Builder, Alloc, false);
+
+	PushInstruction(Builder,
+			InstructionStore(Count, Size, Basic_int));
+	PushInstruction(Builder,
+			InstructionStore(Data, Ptr, GetPointerTo(Basic_u8)));
+	return Alloc;
+}
+
 u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, const type *SliceType = NULL, u32 Alloc = -1)
 {
 	if(SliceType == NULL)
@@ -929,6 +973,79 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
+		} break;
+		case AST_SLICE:
+		{
+			const type *T = GetType(Node->Slice.OperandType);
+			b32 ShouldNotLoad = IsLHS;
+			if(T->Kind == TypeKind_Pointer)
+				ShouldNotLoad = false;
+
+			u32 Operand = BuildIRFromExpression(Builder, Node->Slice.Operand, ShouldNotLoad);
+			u32 From = -1;
+			if(Node->Slice.From != nullptr)
+			{
+				From = BuildIRFromExpression(Builder, Node->Slice.From);
+			}
+			u32 To = -1;
+			if(Node->Slice.To != nullptr)
+			{
+				To = BuildIRFromExpression(Builder, Node->Slice.To);
+			}
+			switch(T->Kind)
+			{
+				case TypeKind_Slice:
+				{
+					u32 ElemP = GetPointerTo(T->Slice.Type);
+					auto [Data, Count] = SliceGetFields(Builder, Operand, Node->Slice.OperandType, true);
+					if(To == -1)
+						To = Count;
+					if(From != -1)
+					{
+						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, ElemP, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+					}
+					Result = BuildSlice(Builder, Data, To, Node->Slice.OperandType);
+				} break;
+				case TypeKind_Array:
+				{
+					if(To == -1)
+						To = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
+					u32 Data = Operand;
+					if(From != -1)
+					{
+						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+					}
+					Result = BuildSlice(Builder, Data, To, GetSliceType(T->Array.Type));
+				} break;
+				case TypeKind_Pointer:
+				{
+					Assert(To != -1);
+					u32 Data = Operand;
+					if(From != -1)
+					{
+						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+					}
+					Result = BuildSlice(Builder, Data, To, GetSliceType(T->Pointer.Pointed));
+				} break;
+				case TypeKind_Basic:
+				{
+					Assert(IsString(T));
+					u32 ElemP = GetPointerTo(Basic_u8);
+					auto [Data, Count] = StringGetFields(Builder, Operand, true);
+					if(To == -1)
+						To = Count;
+					if(From != -1)
+					{
+						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, ElemP, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+					}
+					Result = BuildString(Builder, Data, To);
+				} break;
+				default: unreachable;
+			}
 		} break;
 		case AST_FILE_LOCATION:
 		{
@@ -1608,43 +1725,37 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			b32 DontLoadResult = !IsLoadableType(Node->Index.IndexedType);
 			if(Type->Kind == TypeKind_Slice)
 			{
+				auto [LoadedPtr, LoadedCount] = SliceGetFields(Builder, Operand, Node->Index.OperandType, true);
 				if((g_CompileFlags & CF_DisableAssert) == 0)
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)
 						IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
 
-					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Index.OperandType, Builder));
-					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
 					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, LoadedCount, Basic_bool, Builder));
 					BuildAssertExpr(Builder, AssertCond, Node->ErrorInfo, STR_LIT("Trying to index slice out of bounds!"));
 				}
 
 				u32 PtrToIdxed = GetPointerTo(Node->Index.IndexedType);
-				u32 DataPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Index.OperandType, Builder));
-				u32 LoadedPtr = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, PtrToIdxed, Builder));
 				Result = PushInstruction(Builder, Instruction(OP_INDEX, LoadedPtr, Index, PtrToIdxed, Builder));
 				if(!IsLHS && !Node->Index.ForceNotLoad && !DontLoadResult)
 					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
 			}
 			else if(HasBasicFlag(Type, BasicFlag_String))
 			{
+				auto [LoadedPtr, LoadedCount] = StringGetFields(Builder, Operand, true);
 				if((g_CompileFlags & CF_DisableAssert) == 0)
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)
 						IndexV = PushInstruction(Builder, Instruction(OP_CAST, Index, Node->Index.IndexExprType, Basic_int, Builder));
 
-					u32 CountPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Basic_string, Builder));
-					u32 LoadedCount = PushInstruction(Builder, Instruction(OP_LOAD, 0, CountPtr, Basic_int, Builder));
 					u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, IndexV, LoadedCount, Basic_bool, Builder));
 					BuildAssertExpr(Builder, AssertCond, Node->ErrorInfo, STR_LIT("Trying to index string out of bounds!"));
 				}
 
 				u32 u8ptr = GetPointerTo(Basic_u8);
-				Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Basic_string, Builder));
-				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, u8ptr, Builder));
-				Result = PushInstruction(Builder, Instruction(OP_INDEX, Result, Index, u8ptr, Builder));
+				Result = PushInstruction(Builder, Instruction(OP_INDEX, LoadedPtr, Index, u8ptr, Builder));
 				if(!IsLHS)
 					Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Node->Index.IndexedType, Builder));
 			}

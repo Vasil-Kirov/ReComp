@@ -1289,6 +1289,102 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_SLICE:
+		{
+			u32 Ti = AnalyzeExpression(Checker, Expr->Slice.Operand);
+			const type *T = GetType(Ti);
+			switch(T->Kind)
+			{
+				case TypeKind_Pointer:
+				{
+					if(T->Pointer.Pointed == INVALID_TYPE)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Cannot slice opaque pointer.");
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+					const type *Pointed = GetType(T->Pointer.Pointed);
+					if(Pointed->Kind == TypeKind_Function)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Cannot slice function pointer.");
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+					if(Expr->Slice.To == NULL)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "End of slice must be provided when slicing a pointer.");
+					}
+					Result = GetSliceType(T->Pointer.Pointed);
+				} break;
+				case TypeKind_Array:
+				{
+					Result = GetSliceType(T->Array.Type);
+				} break;
+				case TypeKind_Slice:
+				{
+					Result = Ti;
+				} break;
+				case TypeKind_Basic:
+				{
+					if(IsString(T))
+					{
+						Result = Basic_string;
+					}
+					else
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Cannot slice type %s.", GetTypeName(T));
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+				} break;
+				default:
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Cannot slice type %s.", GetTypeName(T));
+					Result = Basic_error;
+					goto AnalyzeAtomEnd;
+				} break;
+			}
+			u32 FromT = INVALID_TYPE;
+			u32 ToT = INVALID_TYPE;
+			if(Expr->Slice.From)
+			{
+				FromT = AnalyzeExpression(Checker, Expr->Slice.From);
+				if(!HasBasicFlag(GetType(FromT), BasicFlag_Integer))
+				{
+					RaiseError(false, *Expr->Slice.From->ErrorInfo, "Slice expression needs to be of an integral type, this one is of type %s.", GetTypeName(FromT));
+				}
+			}
+			if(Expr->Slice.To)
+			{
+				ToT = AnalyzeExpression(Checker, Expr->Slice.To);
+				if(!HasBasicFlag(GetType(ToT), BasicFlag_Integer))
+				{
+					RaiseError(false, *Expr->Slice.From->ErrorInfo, "Slice expression needs to be of an integral type, this one is of type %s.", GetTypeName(ToT));
+				}
+			}
+			Expr->Slice.ExprT = ToT;
+			if(!IsUntyped(FromT) && FromT != INVALID_TYPE && IsUntyped(ToT))
+			{
+				FillUntypedStack(Checker, FromT);
+				Expr->Slice.ExprT = FromT;
+			}
+			else if(IsUntyped(FromT) && !IsUntyped(ToT) && ToT != INVALID_TYPE)
+			{
+				FillUntypedStack(Checker, FromT);
+				Expr->Slice.ExprT = ToT;
+			}
+			else if(IsUntyped(FromT) || IsUntyped(ToT))
+			{
+				FillUntypedStack(Checker, Basic_int);
+				Expr->Slice.ExprT = Basic_int;
+			}
+			else
+			{
+				Expr->Slice.ExprT = Basic_int;
+			}
+
+			Expr->Slice.OperandType = Ti;
+		} break;
 		case AST_POSTOP:
 		{
 			const char *op = "incremented";
@@ -2458,14 +2554,14 @@ ANALYZE_SLICE_SELECTOR:
 				{
 					if(OperandType->Pointer.Pointed == INVALID_TYPE)
 					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot index opaque pointer");
+						RaiseError(false, *Expr->ErrorInfo, "Cannot index opaque pointer.");
 						Result = Basic_error;
 						goto AnalyzeAtomEnd;
 					}
 					const type *Pointed = GetType(OperandType->Pointer.Pointed);
 					if(Pointed->Kind == TypeKind_Function)
 					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot index function pointer");
+						RaiseError(false, *Expr->ErrorInfo, "Cannot index function pointer.");
 						Result = Basic_error;
 						goto AnalyzeAtomEnd;
 					}
@@ -2487,13 +2583,13 @@ ANALYZE_SLICE_SELECTOR:
 					}
 					else
 					{
-						RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
+						RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s.", GetTypeName(OperandType));
 						Result = OperandTypeIdx;
 					}
 				} break;
 				default:
 				{
-					RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s", GetTypeName(OperandType));
+					RaiseError(false, *Expr->ErrorInfo, "Cannot index type %s.", GetTypeName(OperandType));
 					Result = OperandTypeIdx;
 				} break;
 			}
@@ -2503,7 +2599,7 @@ ANALYZE_SLICE_SELECTOR:
 			const type *ExprType = GetType(ExprTypeIdx);
 			if(ExprType->Kind != TypeKind_Basic || (ExprType->Basic.Flags & BasicFlag_Integer) == 0)
 			{
-				RaiseError(false, *Expr->ErrorInfo, "Indexing expression needs to be of an integer type");
+				RaiseError(false, *Expr->ErrorInfo, "Indexing expression needs to be of an integer type.");
 			}
 			if(IsUntyped(ExprType))
 			{

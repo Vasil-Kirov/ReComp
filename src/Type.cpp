@@ -656,6 +656,8 @@ int GetTypeSize(u32 TypeIdx)
 
 b32 HasBasicFlag(const type *Type, u32 FlagMask)
 {
+	if(IsErrorT(Type))
+		return true;
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & FlagMask);
 }
 

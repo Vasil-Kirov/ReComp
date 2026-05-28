@@ -51,6 +51,7 @@ enum node_type
 	AST_CAST,
 	AST_TYPELIST,
 	AST_INDEX,
+	AST_SLICE,
 	AST_STRUCTDECL,
 	AST_ENUM,
 	AST_SELECTOR,
@@ -232,6 +233,13 @@ struct node
 			u32 IndexExprType;// Set by semantic analyzer
 			b32 ForceNotLoad; // Set by semantic analyzer
 		} Index;
+		struct {
+			node *Operand;
+			node *From;
+			node *To;
+			u32 OperandType;  // Set by semantic analyzer, must be a slice
+			u32 ExprT;  // Set by semantic analyzer, must be integral
+		} Slice;
 		struct {
 			node *Expression;
 			node *TypeNode; // @Nullable, if this is an explicit cast, it's written by the parser

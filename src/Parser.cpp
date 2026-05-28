@@ -28,6 +28,15 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeSliceExpr(const error_info *ErrorInfo, node *Operand, node *From, node *To)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_SLICE);
+	Result->Slice.Operand = Operand;
+	Result->Slice.From = From;
+	Result->Slice.To = To;
+	return Result;
+}
+
 node *MakeFileLocation(const error_info *ErrorInfo)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_FILE_LOCATION);
@@ -1230,7 +1239,27 @@ node *ParseIndex(parser *Parser, node *Operand)
 
 	if(EatToken(Parser, T_OPENBRACKET).Type != T_OPENBRACKET)
 		return NULL;
+
+	if(Parser->Current->Type == ':')
+	{
+		GetToken(Parser);
+		node *To = NULL;
+		if(Parser->Current->Type != ']')
+			To = ParseExpression(Parser);
+		EatToken(Parser, T_CLOSEBRACKET);
+		return MakeSliceExpr(ErrorInfo, Operand, NULL, To);
+	}
+
 	node *IndexExpression = ParseExpression(Parser);
+	if(Parser->Current->Type == ':')
+	{
+		GetToken(Parser);
+		node *To = NULL;
+		if(Parser->Current->Type != ']')
+			To = ParseExpression(Parser);
+		EatToken(Parser, T_CLOSEBRACKET);
+		return MakeSliceExpr(ErrorInfo, Operand, IndexExpression, To);
+	}
 	EatToken(Parser, T_CLOSEBRACKET);
 
 	return MakeIndex(ErrorInfo, Operand, IndexExpression);
@@ -2540,6 +2569,14 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_SLICE:
+		{
+			R->Slice.Operand = CopyASTNode(N->Slice.Operand);
+			R->Slice.From = CopyASTNode(N->Slice.From);
+			R->Slice.To = CopyASTNode(N->Slice.To);
+			R->Slice.ExprT = N->Slice.ExprT;
+		} break;
+
 		case AST_RUN:
 		{
 			R->Run.Body = CopyNodeSlice(N->Run.Body);
@@ -2854,6 +2891,13 @@ void WalkASTNode(node *N, walker_fn Walker, void *Arg)
 		case AST_INVALID: 
 			unreachable; 
 			break;
+
+		case AST_SLICE:
+		{
+			WalkASTNode(N->Slice.Operand, Walker, Arg);
+			WalkASTNode(N->Slice.From, Walker, Arg);
+			WalkASTNode(N->Slice.To, Walker, Arg);
+		} break;
 
 		case AST_RUN:
 		{

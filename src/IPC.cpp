@@ -163,20 +163,22 @@ file *IPCFindFile(string FilePath)
  __attribute__((noreturn))
 void IPCListenAndServe()
 {
+	binary_blob Blob = StartOutput();
+	DumpU32(&Blob, ErrorsToDump.Count);
+	for(const error_dump& e : ErrorsToDump)
+	{
+		DumpError(&Blob, e);
+	}
 	u8 c = (u8)IPCAtStage;
 	IPCSendMessage(&c, 1);
+	IPCSendMessage(Blob.Buf.Data, Blob.Buf.Count);
+	Blob.Buf.Free();
+
 	if((IPCAtStage & (1 << 4)) == 0)
 	{
-		binary_blob Blob = StartOutput();
-		DumpU32(&Blob, ErrorsToDump.Count);
-		for(const error_dump& e : ErrorsToDump)
-		{
-			DumpError(&Blob, e);
-		}
-		IPCSendMessage(Blob.Buf.Data, Blob.Buf.Count);
-		Blob.Buf.Free();
 		exit(0);
 	}
+
 	DontExit = true;
 	scratch_arena Arena = {};
 	bool Running = true;

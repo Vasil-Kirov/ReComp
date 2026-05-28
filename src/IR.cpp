@@ -926,6 +926,20 @@ u32 ListTAsLHS(u32 Type)
 	return ReturnsToType(SliceFromArray(Ptrs));
 }
 
+void BuildSliceAssert(block_builder *Builder, node *Node, u32 From, u32 To, u32 Count)
+{
+	if(From != -1)
+	{
+		u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, From, Count, Basic_bool, Builder));
+		BuildAssertExpr(Builder, AssertCond, Node->Slice.From->ErrorInfo, STR_LIT("Start of slice is out of bounds!"));
+	}
+	if(To != -1)
+	{
+		u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, To, Count, Basic_bool, Builder));
+		BuildAssertExpr(Builder, AssertCond, Node->Slice.To->ErrorInfo, STR_LIT("End of slice is out of bounds!"));
+	}
+}
+
 u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 {
 	u32 Result = -1;
@@ -998,6 +1012,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					u32 ElemP = GetPointerTo(T->Slice.Type);
 					auto [Data, Count] = SliceGetFields(Builder, Operand, Node->Slice.OperandType, true);
+					if((g_CompileFlags & CF_DisableAssert) == 0)
+					{
+						BuildSliceAssert(Builder, Node, From, To, Count);
+					}
 					if(To == -1)
 						To = Count;
 					if(From != -1)
@@ -1012,6 +1030,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					if(To == -1)
 						To = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
 					u32 Data = Operand;
+					if((g_CompileFlags & CF_DisableAssert) == 0)
+					{
+						u32 Count = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
+						BuildSliceAssert(Builder, Node, From, To, Count);
+					}
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
@@ -1035,6 +1058,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Assert(IsString(T));
 					u32 ElemP = GetPointerTo(Basic_u8);
 					auto [Data, Count] = StringGetFields(Builder, Operand, true);
+					if((g_CompileFlags & CF_DisableAssert) == 0)
+					{
+						BuildSliceAssert(Builder, Node, From, To, Count);
+					}
 					if(To == -1)
 						To = Count;
 					if(From != -1)

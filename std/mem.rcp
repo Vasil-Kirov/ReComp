@@ -20,6 +20,10 @@ struct Allocator {
     data: ?*,
 }
 
+get_temp :: fn() -> *Allocator {
+	return &temp_alloc;
+}
+
 reset_temp :: fn() {
     reset_scratch(&temp_alloc);
 }

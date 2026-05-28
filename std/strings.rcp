@@ -1,5 +1,6 @@
 module str
 
+#import io;
 #import mem;
 #import array;
 
@@ -148,6 +149,25 @@ strip :: fn(s: string, prefix: string) -> string {
 	if starts_with(s, prefix)
 		return substr(s, prefix.count, s.count-prefix.count);
 	return s;
+}
+
+split :: fn(s: string, delim: u8, alloc := mem.get_temp()) -> []string {
+	res := array.create(string, alloc);
+	s := s;
+	at := 0;
+	for c in s {
+		if c == delim {
+			it := s[:at];
+			array.add(&res, it);
+			s = s[at+1:];
+			at = -1;
+		}
+		at++;
+	}
+	if s != "" {
+		array.add(&res, s);
+	}
+	return res;
 }
 
 get_codepoint_size :: fn(codepoint: *u8) -> int {

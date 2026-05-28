@@ -773,6 +773,15 @@ b32 IsCastValid(const type *From, const type *To)
 	if(EitherIsReservedType(From, To))
 		return false;
 
+	if(From->Kind == TypeKind_Slice && From->Slice.Type == Basic_u8 && IsString(To))
+		return true;
+
+	if(To->Kind == TypeKind_Slice && To->Slice.Type == Basic_u8 && IsString(From))
+		return true;
+
+	if(From->Kind == TypeKind_Slice || To->Kind == TypeKind_Slice)
+		return false;
+
 	if(From->Kind == TypeKind_Vector || To->Kind == TypeKind_Vector)
 		return false;
 

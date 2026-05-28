@@ -1998,8 +1998,15 @@ BUILD_SLICE_SELECTOR:
 
 			const type *To = GetType(Node->Cast.ToType);
 			const type *From = GetType(Node->Cast.FromType);
-
-			if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
+			if(From->Kind == TypeKind_Slice && From->Slice.Type == Basic_u8 && IsString(To))
+			{
+				Result = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+			}
+			else if(To->Kind == TypeKind_Slice && To->Slice.Type == Basic_u8 && IsString(From))
+			{
+				Result = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
+			}
+			else if(From->Kind == TypeKind_Pointer && To->Kind == TypeKind_Pointer)
 			{
 				u32 Expression = BuildIRFromExpression(Builder, Node->Cast.Expression, IsLHS);
 				Result = PushInstruction(Builder, Instruction(OP_PTRCAST, 0, Expression, Node->Cast.ToType, Builder));

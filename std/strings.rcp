@@ -159,6 +159,8 @@ split :: fn(s: string, delim: u8, alloc := mem.get_temp()) -> []string {
 		if c == delim {
 			it := s[:at];
 			array.add(&res, it);
+			if at+1 >= s.count
+				break;
 			s = s[at+1:];
 			at = -1;
 		}

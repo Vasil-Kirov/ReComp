@@ -13,6 +13,7 @@ enum StreamOp {
 	Read,
 	Write,
 	Seek,
+	Size,
 }
 
 enum StreamError {
@@ -25,6 +26,13 @@ struct Stream {
 	func: *fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError),
 	data: ?*void,
 };
+
+is_op_supported :: fn(supported_ops: []StreamOp, op: StreamOp) -> bool {
+	for sup in supported_ops {
+		if sup == op return true;
+	}
+	return false;
+}
 
 io_fn :: fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError) {
 	p := p;
@@ -54,16 +62,25 @@ make_io :: fn() -> Stream {
 	};
 }
 
+stream_size :: fn(s: *Stream) -> int {
+	n, err := s.func(s.data, .Size, .{});
+	if err != .Ok
+		return 0;
+	return n;
+}
+
 print :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
-    os.print((&builder.data[0]) as *u8 , builder.data.count as u32);
+    res := from_builder(&builder, &mem.temp_alloc);
+    os.print(res.data , res.count as u32);
     array.free(&builder.data);
 }
 
 println :: fn(str: string, args: ...) {
     builder := internal_print(str, args);
     builder_append_u8(&builder, '\n');
-    os.print((&builder.data[0]) as *u8, builder.data.count as u32);
+    res := from_builder(&builder, &mem.temp_alloc);
+    os.print(res.data, res.count as u32);
     array.free(&builder.data);
 }
 
@@ -77,6 +94,19 @@ vsprint :: fn(str: string, args: []Arg) -> string {
     builder := internal_print(str, args);
     res := from_builder(&builder, &mem.temp_alloc);
     return res;
+}
+
+write :: fn(w: *Stream, str: string, args: ...) {
+    builder := internal_print(str, args);
+    res := from_builder(&builder, &mem.temp_alloc);
+	w.func(w.data, .Write, res as []u8);
+}
+
+writeln :: fn(w: *Stream, str: string, args: ...) {
+    builder := internal_print(str, args);
+    builder_append_u8(&builder, '\n');
+    res := from_builder(&builder, &mem.temp_alloc);
+	w.func(w.data, .Write, res as []u8);
 }
 
 read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {

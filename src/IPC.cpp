@@ -180,7 +180,7 @@ void IPCListenAndServe()
 	}
 
 	DontExit = true;
-	scratch_arena Arena = {};
+	scratch_arena Arena = {16};
 	bool Running = true;
 	while(Running)
 	{
@@ -571,11 +571,15 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 							completion_result Result = CompleteMakeFnResult(&s);
 							if((u32)Result.Kind != 0)
 							{
+								if(r.Results.Count > 16)
+									return r;
 								r.Results.Push(Result);
 							}
 						}
 						else
 						{
+							if(r.Results.Count > 16)
+								return r;
 							r.Results.Push(completion_result{Kind, *s.Name, GetTypeNameAsString(s.Type), *s.Name, 1});
 						}
 					}
@@ -596,11 +600,15 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 							completion_result Result = CompleteMakeFnResult(s);
 							if((u32)Result.Kind != 0)
 							{
+								if(r.Results.Count > 16)
+									return r;
 								r.Results.Push(Result);
 							}
 						}
 						else
 						{
+							if(r.Results.Count > 16)
+								return r;
 							r.Results.Push(completion_result{Kind, *s->Name, GetTypeNameAsString(s->Type), *s->Name, 1});
 						}
 					}
@@ -630,11 +638,15 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 									completion_result Result = CompleteMakeFnResult(s);
 									if((u32)Result.Kind != 0)
 									{
+										if(r.Results.Count > 16)
+											return r;
 										r.Results.Push(Result);
 									}
 								}
 								else
 								{
+									if(r.Results.Count > 16)
+										return r;
 									r.Results.Push(completion_result{Kind, *s->Name, GetTypeNameAsString(s->Type), *s->Name, 1});
 								}
 							}
@@ -653,10 +665,14 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 					{
 						if(StringStartsWith(Import.M->Name, ID))
 						{
+							if(r.Results.Count > 16)
+								return r;
 							r.Results.Push(completion_result {cik::Module, Import.M->Name, STR_LIT("module"), Import.M->Name, 1});
 						}
 						if(Import.As != "" && StringStartsWith(Import.As, ID))
 						{
+							if(r.Results.Count > 16)
+								return r;
 							r.Results.Push(completion_result {cik::Module, Import.As, STR_LIT("module"), Import.M->Name, 1});
 						}
 					}
@@ -689,11 +705,15 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 							completion_result Result = CompleteMakeFnResult(s);
 							if((u32)Result.Kind != 0)
 							{
+								if(r.Results.Count > 16)
+									return r;
 								r.Results.Push(Result);
 							}
 						}
 						else
 						{
+							if(r.Results.Count > 16)
+								return r;
 							r.Results.Push(completion_result{Kind, *s->Name, GetTypeNameAsString(s->Type), *s->Name, 1});
 						}
 					}
@@ -733,7 +753,11 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 						if(IsFirst)
 						{
 							if(StringStartsWith(Member.ID, ID))
+							{
+								if(r.Results.Count > 16)
+									return r;
 								r.Results.Push({cik::Field, Member.ID, GetTypeNameAsString(Member.Type)});
+							}
 						}
 						else
 						{
@@ -749,7 +773,11 @@ recurse_completion_found CompleteBehind(file *File, slice<scope_dump> Scopes, re
 						if(IsFirst)
 						{
 							if(StringStartsWith(Member.Name, ID))
+							{
+								if(r.Results.Count > 16)
+									return r;
 								r.Results.Push({cik::EnumMember, Member.Name, GetTypeNameAsString(T->Enum.Type)});
+							}
 						}
 					}
 				} break;

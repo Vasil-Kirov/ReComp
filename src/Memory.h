@@ -26,6 +26,7 @@ struct scratch_arena
 	ap_memory Arena;
 	void *Allocate(u64 Size);
 	scratch_arena();
+	scratch_arena(int Mb);
 	~scratch_arena();
 };
 

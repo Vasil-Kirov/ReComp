@@ -101,6 +101,12 @@ scratch_arena::scratch_arena()
 	Arena.Name = "scratch";
 }
 
+scratch_arena::scratch_arena(int Mb)
+{
+	InitArenaMem(&Arena, MB(Mb), KB(1));
+	Arena.Name = "scratch";
+}
+
 scratch_arena::~scratch_arena()
 {
 	PlatformFreeMemory(Arena.Start, Arena.MaxSize);

@@ -406,11 +406,13 @@ bool IPCSearchNode(node *N, void *Arg)
 	return true;
 }
 
-slice<scope_dump> SortClosestScopes(scratch_arena *Arena, u32 Line, u32 Char)
+slice<scope_dump> SortClosestScopes(scratch_arena *Arena, string File, u32 Line, u32 Char)
 {
 	uint Count = 0;
 	for(scope_dump &Scope : ScopesToDump)
 	{
+		if(File != Scope.From->FileName)
+			continue;
 		range Range = {
 			.StartLine = Scope.From->Range.StartLine,
 			.EndLine = Scope.To->Range.EndLine,
@@ -426,6 +428,8 @@ slice<scope_dump> SortClosestScopes(scratch_arena *Arena, u32 Line, u32 Char)
 	uint At = 0;
 	for(scope_dump &Scope : ScopesToDump)
 	{
+		if(File != Scope.From->FileName)
+			continue;
 		range Range = {
 			.StartLine = Scope.From->Range.StartLine,
 			.EndLine = Scope.To->Range.EndLine,
@@ -457,7 +461,7 @@ slice<scope_dump> SortClosestScopes(scratch_arena *Arena, u32 Line, u32 Char)
 
 find_result IPCFindSymbol(file *File, u32 Line, u32 Char, scratch_arena *Arena)
 {
-	slice<scope_dump> Scopes = SortClosestScopes(Arena, Line, Char);
+	slice<scope_dump> Scopes = SortClosestScopes(Arena, File->Name, Line, Char);
 	find_result Find = {};
 	For(File->Nodes)
 	{
@@ -796,7 +800,7 @@ dynamic<completion_result> DoCompletion(file *File, string Line, int LineNo, int
 	if(Char == 0)
 		return {};
 
-	slice<scope_dump> Scopes = SortClosestScopes(Arena, LineNo, Char);
+	slice<scope_dump> Scopes = SortClosestScopes(Arena, File->Name, LineNo, Char);
 	error_info ErrorInfo = File->Tokens[0].ErrorInfo;
 	ErrorInfo.Range.StartLine = LineNo;
 	ErrorInfo.Range.StartChar = 0;

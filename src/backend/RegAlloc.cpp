@@ -83,7 +83,7 @@ slice<successor_block> SortBasicBlocks(slice<basic_block> Blocks)
 						SBlocks[Info->Default].Predecessors.Push(Block.ID);
 					}
 					SArray[Info->Cases.Count] = Info->After;
-					SBlocks[Info->After].Predecessors.Push(Info->After);
+					SBlocks[Info->After].Predecessors.Push(Block.ID);
 					Successors = SliceFromArray(SArray);
 				} break;
 				default: {}break;

@@ -1,0 +1,152 @@
+module os
+
+#import "win32.rcp"
+#import io;
+#import mem;
+
+alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
+	pass := 0 as u32;
+	rwx := 0 as u32;
+	if flags & .Reserve {
+		pass |= win32.MEM_RESERVE as u32;
+	}
+	if flags & .Commit {
+		pass |= win32.MEM_COMMIT as u32;
+	}
+	if perms == .None
+		rwx |= win32.PAGE_NOACCESS as u32;
+	else if perms == .Read
+		rwx |= win32.PAGE_READONLY as u32;
+	else if perms == .Write
+		rwx |= win32.PAGE_WRITECOPY as u32;
+	else if perms == .Write | .Read
+		rwx |= win32.PAGE_READWRITE as u32;
+	else if perms == .Read | .Exec
+		rwx |= win32.PAGE_EXECUTE_READ as u32;
+	else if perms == .Write | .Exec
+		rwx |= win32.PAGE_EXECUTE_WRITECOPY as u32;
+	else if perms == .Write | .Read | .Exec
+		rwx |= win32.PAGE_EXECUTE_READWRITE as u32;
+	else
+		return null, false;
+
+	p := win32.VirtualAlloc(null, size as uint, pass, rwx);
+	if p
+		return p, true;
+	return p, false;
+}
+
+free :: fn(ptr: *) {
+	win32.VirtualFree(ptr, 0, win32.MEM_RELEASE as u32);
+}
+
+abort :: fn() #no_return {
+    win32.ExitProcess(1);
+    return;
+}
+
+struct StreamHandles
+{
+	write: win32.HANDLE,
+	read: win32.HANDLE,
+	closeable: bool,
+};
+
+std_handles: StreamHandles;
+
+os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (int, io.StreamError) {
+	if stream_data == null
+		return 0, io.StreamError.Failed;
+
+	switch op {
+		case .Write:
+		{
+			at := p.data;
+			written := 0 as u32;
+			for (written as int) < p.count {
+				wrote := 0 as u32;
+				ret := win32.WriteFile(stream_data.write, at+written, p.count as u32 - written, &wrote, null);
+				if !ret
+					return (written+wrote) as int, io.StreamError.Failed;
+				written += wrote;
+			}
+			return written as int, io.StreamError.Ok;
+		}
+		case .Read:
+		{
+			at := p.data;
+			read_total := 0 as u32;
+			for (read_total as int) < p.count {
+				read := 0 as u32;
+				ret := win32.ReadFile(stream_data.read, at + read_total, p.count as u32 - read_total, &read, null);
+				if !ret
+					return (read_total+read) as int, io.StreamError.Failed;
+				read_total += read;
+			}
+			return read_total as int, io.StreamError.Ok;
+		}
+		case .Close:
+		{
+			if !stream_data.closeable
+				return 0, io.StreamError.InvalidOp;
+
+			if stream_data.write != stream_data.read {
+				if stream_data.write != win32.INVALID_HANDLE_VALUE
+					win32.CloseHandle(stream_data.write);
+				if stream_data.read != win32.INVALID_HANDLE_VALUE
+					win32.CloseHandle(stream_data.read);
+			}
+			else {
+				if stream_data.write != win32.INVALID_HANDLE_VALUE
+					win32.CloseHandle(stream_data.write);
+			}
+			return 0, io.StreamError.Ok;
+		}
+		case .Size:
+		{
+			high := 0 as u32;
+			low := win32.GetFileSize(stream_data.read, &high);
+			if low == win32.INVALID_FILE_SIZE {
+				return 0, io.StreamError.Failed;
+			}
+			sz := (low as u64) | ((high as u64) << 32);
+			return sz as int, io.StreamError.Ok;
+		}
+		case _:
+		{
+			return 0, io.StreamError.InvalidOp;
+		}
+	};
+	return 0, io.StreamError.Failed;
+}
+
+make_std_stream :: fn() -> io.Stream {
+	std_handles.write = win32.GetStdHandle(win32.STD_OUTPUT_HANDLE);
+	std_handles.read = win32.GetStdHandle(win32.STD_INPUT_HANDLE);
+	std_handles.closeable = false;
+	return .{ func = os_stream_fn, data = &std_handles };
+}
+
+make_file_stream :: fn(name: string, flags: FileOpenFlags, alloc: *mem.Allocator) -> (io.Stream, bool) {
+	access := 0 as u32;
+	open_f := win32.OPEN_EXISTING as u32;
+	if flags & .Read
+		access |= win32.GENERIC_READ as u32;
+	if flags & .Write
+		access |= win32.GENERIC_WRITE as u32;
+	if flags & .Create
+		open_f = win32.CREATE_NEW as u32;
+	if flags & .Overwrite
+		open_f = win32.CREATE_ALWAYS as u32;
+	handle := win32.CreateFileA(name.data as *i8, access, win32.FILE_SHARE_READ as u32, null, open_f, win32.FILE_ATTRIBUTE_NORMAL as u32, null);
+	if handle == win32.INVALID_HANDLE_VALUE
+		return io.Stream {func=os_stream_fn}, false;
+	data := mem.make_type(StreamHandles, alloc);
+	if data == null
+		return io.Stream {func=os_stream_fn}, false;
+	data.write = handle;
+	data.read = handle;
+	data.closeable = true;
+	return io.Stream { func = os_stream_fn, data = data }, true;
+}
+

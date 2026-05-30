@@ -2,6 +2,7 @@ module internal
 
 #import str;
 #import os;
+#import io;
 
 // This file implements the internals needed for different compiler features
 // You can implement this file yourself by setting "internals_file" in CompileInfo
@@ -14,12 +15,15 @@ deref :: fn(pos: *u8) -> u32 {
 	return str.deref(pos);
 }
 
-stdout :: fn() -> * {
-	return os.stdout();
-}
-
-write :: fn(fd: *, buf: *u8, count: int) -> int {
-	return os.write(fd, buf, count);
+print :: fn(buf: *u8, count: int) -> int {
+	s := os.make_std_stream();
+	b: []u8;
+	b.data = buf;
+	b.count = count;
+	n, err := io.write(&s, b);
+	if err != .Ok
+		return 0;
+	return n;
 }
 
 abort :: fn() {

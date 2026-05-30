@@ -1,5 +1,8 @@
 module win32;
 
+INVALID_HANDLE_VALUE :: cast(?*, ((-1) as u64));
+INVALID_FILE_SIZE :: cast(DWORD, 0xFFFFFFFF);
+
 WIN32 :: 1;
 WIN32_LEAN_AND_MEAN :: 1;
 WINVER :: 0x0a00;
@@ -22400,6 +22403,11 @@ GetApiSetModuleBaseName :: fn(
 SetEnvironmentStringsW :: fn(
 	NewEnvironment: LPWCH
 ) -> BOOL #foreign #link="SetEnvironmentStringsW";
+
+
+STD_INPUT_HANDLE  :: (-10) as u32;
+STD_OUTPUT_HANDLE :: (-11) as u32;
+STD_ERROR_HANDLE  :: (-12) as u32;
 
 GetStdHandle :: fn(
 	nStdHandle: DWORD

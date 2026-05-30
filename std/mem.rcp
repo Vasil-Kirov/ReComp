@@ -28,13 +28,15 @@ reset_temp :: fn() {
     reset_scratch(&temp_alloc);
 }
 
-make_slice :: fn (T: type, count: int, alloc: *Allocator) -> []T {
+make_slice :: fn (T: type, count: int, alloc: *Allocator) -> ([]T, bool) {
     res := []T{};
     ptr := alloc.alloc(count * size_of T, alloc);
+	if !ptr
+		return []T{}, false;
     #assert ptr;
     res.data  = ?ptr;
     res.count = count;
-    return res;
+    return res, true;
 }
 
 make_type :: fn (T: type, alloc: *Allocator) -> ?*T {
@@ -47,7 +49,9 @@ destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
 }
 
 generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
-    ptr := os.alloc(size);
+    ptr, ok := os.alloc(size, .Reserve | .Commit, .Read | .Write);
+	if !ok
+		return null;
 	if ptr != null
 		set(?ptr, 0, size);
     
@@ -105,7 +109,7 @@ no_free :: fn(p: *, this: *Allocator) {
 }
 
 create_scratch :: fn(max_size: int) -> Allocator {
-	mem := os.alloc(max_size + size_of ScratchContext);
+	mem, ok := os.alloc(max_size + size_of ScratchContext, .Reserve | .Commit, .Read | .Write);
 	#assert mem && "Couldn't allocate memory";
     ctx := cast(*ScratchContext, ?mem);
 

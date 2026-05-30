@@ -34,32 +34,8 @@ is_op_supported :: fn(supported_ops: []StreamOp, op: StreamOp) -> bool {
 	return false;
 }
 
-io_fn :: fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError) {
-	p := p;
-	n := 0;
-	switch op {
-		// @TODO: errors
-		case .Read:
-		{
-			n = os.read(os.stdin(), &p[0], p.count);
-		}
-		case .Write:
-		{
-			n = os.write(os.stdout(), &p[0], p.count);
-		}
-		case _:
-		{
-			return 0, StreamError.InvalidOp;
-		}
-	};
-	return n, StreamError.Ok;
-}
-
 make_io :: fn() -> Stream {
-	return .{
-		func = io_fn,
-		data = null,
-	};
+	return os.make_std_stream();
 }
 
 stream_size :: fn(s: *Stream) -> int {
@@ -70,17 +46,19 @@ stream_size :: fn(s: *Stream) -> int {
 }
 
 print :: fn(str: string, args: ...) {
+	s := os.make_std_stream();
     builder := internal_print(str, args);
     res := from_builder(&builder, &mem.temp_alloc);
-    os.print(res.data , res.count as u32);
+	s.func(s.data, .Write, cast([]u8, res));
     array.free(&builder.data);
 }
 
 println :: fn(str: string, args: ...) {
+	s := os.make_std_stream();
     builder := internal_print(str, args);
     builder_append_u8(&builder, '\n');
     res := from_builder(&builder, &mem.temp_alloc);
-    os.print(res.data, res.count as u32);
+	s.func(s.data, .Write, cast([]u8, res));
     array.free(&builder.data);
 }
 
@@ -96,36 +74,51 @@ vsprint :: fn(str: string, args: []Arg) -> string {
     return res;
 }
 
-write :: fn(w: *Stream, str: string, args: ...) {
+writef :: fn(w: *Stream, str: string, args: ...) {
     builder := internal_print(str, args);
     res := from_builder(&builder, &mem.temp_alloc);
 	w.func(w.data, .Write, res as []u8);
 }
 
-writeln :: fn(w: *Stream, str: string, args: ...) {
+writefln :: fn(w: *Stream, str: string, args: ...) {
     builder := internal_print(str, args);
     builder_append_u8(&builder, '\n');
     res := from_builder(&builder, &mem.temp_alloc);
 	w.func(w.data, .Write, res as []u8);
 }
 
+write :: fn(w: *Stream, b: []u8) -> (int, StreamError) {
+	return w.func(w.data, .Write, b);
+}
+
+read :: fn(r: *Stream, b: []u8) -> (int, StreamError) {
+	return r.func(r.data, .Read, b);
+}
+
+close :: fn(s: *Stream) -> StreamError {
+	_, err := s.func(s.data, .Close, .{});
+	return err;
+}
+
 read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
-	f := os.open(name);
-	if f == null {
+	f, ok := os.make_file_stream(name, .Read, alloc);
+	if !ok {
 		return "", false;
 	}
-	defer os.close(f);
+	defer close(&f);
 
-	size := os.get_file_size(f);
-	mem_ := alloc.alloc(size+1, alloc);
-	if mem_ == null {
+	size := stream_size(&f);
+	buf, ok2 := mem.make_slice(u8, size+1, alloc);
+	if !ok2 {
 		return "", false;
 	}
-
-	mem := (?mem_) as *u8;
-	read := os.read(f, mem, size);
-    mem[read] = 0;
-	return string { read, mem }, true;
+	read, err := read(&f, buf);
+	if err != .Ok {
+		mem.destroy_slice(&buf, alloc);
+		return "", false;
+	}
+    buf[read] = 0;
+	return cast(string, buf), true;
 }
 
 readln :: fn(s: *Stream, alloc: *mem.Allocator, endl := '\n') -> string {
@@ -152,20 +145,6 @@ readln :: fn(s: *Stream, alloc: *mem.Allocator, endl := '\n') -> string {
     res.count = at as int;
 
     return res;
-}
-
-read :: fn(bytes: int, alloc: *mem.Allocator) -> string {
-	stdin := os.stdin();
-	allocated := alloc.alloc(bytes, alloc);
-	if allocated == null return "";
-	buf := (?allocated) as *u8;
-	read := os.read(stdin, buf, bytes);
-	if read == -1 || read == 0 {
-		alloc.free(buf, alloc);
-		return "";
-	}
-
-	return string { read, buf };
 }
 
 print_typetype :: fn(b: *Builder, info: *TypeInfo) {

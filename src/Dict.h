@@ -168,6 +168,8 @@ struct dict {
 		size_t Idx = Hash & Mask;
 		size_t Start = Idx;
 		do {
+			if((Control[Idx] & 0b1) == 0)
+				return false;
 			const key &It = Keys.Data[Idx];
 			if(It.Hash == Hash && It.N == Key)
 			{

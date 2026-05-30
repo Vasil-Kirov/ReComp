@@ -82,7 +82,7 @@ addr_align16 :: fn(addr: *) -> * {
 arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
 	if this.data == null {
 		this := this;
-		*this = create_scratch(mb(1));
+		*this = create_scratch(mb(8));
 	}
 
     ctx := cast(*ScratchContext, ?this.data);

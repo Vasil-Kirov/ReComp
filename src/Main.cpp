@@ -817,6 +817,7 @@ main(int ArgCount, char *Args[])
 		RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, BuildVM.StoredGlobals);
 		VLibStopTimer(&FileTimer.LLVM);
 		BuildVM.StackAllocator.Free();
+		Timers.Push(FileTimer);
 	}
 
 

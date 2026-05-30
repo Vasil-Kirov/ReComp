@@ -752,22 +752,22 @@ void BuildAssertFailed(block_builder *Builder, const error_info *ErrorInfo, stri
 	u32 Data = PushInstruction(Builder, Instruction(OP_LOAD, 0, DataPtr, GetPointerTo(Basic_u8), Builder));
 
 	string Internal = STR_LIT("internal");
-	u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
+	//u32 StdOut = GetBuiltInFunction(Builder, Internal, STR_LIT("stdout"));
+	//u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
+	//call_info *Call = NewType(call_info);
+	//Call->ErrorInfo = ErrorInfo;
+	//Call = NewType(call_info);
+	//Call->Operand = StdOut;
+	//Call->Args = {};
+	//u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
+
+	u32 Print = GetBuiltInFunction(Builder, Internal, STR_LIT("print"));
 	u32 FnT = Builder->CurrentBlock.Code.GetLast()->Type;
+
 	call_info *Call = NewType(call_info);
 	Call->ErrorInfo = ErrorInfo;
-	Call = NewType(call_info);
-	Call->Operand = StdOut;
-	Call->Args = {};
-	u32 Handle = PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
-
-	u32 Write = GetBuiltInFunction(Builder, Internal, STR_LIT("write"));
-	FnT = Builder->CurrentBlock.Code.GetLast()->Type;
-
-	Call = NewType(call_info);
-	Call->ErrorInfo = ErrorInfo;
-	Call->Operand = Write;
-	Call->Args = SliceFromConst({Handle, Data, Count});
+	Call->Operand = Print;
+	Call->Args = SliceFromConst({Data, Count});
 	PushInstruction(Builder, Instruction(OP_CALL, (void*)Call, FnT, Builder, 0));
 
 	PushDebugBreak(Builder);

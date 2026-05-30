@@ -45,13 +45,11 @@ slice<std::pair<symbol*, int>> FindSimilarGlobalsInModule(module *Module, string
 		*it = std::pair(nullptr, INT32_MAX);
 	}
 
-	slice<symbol*> Globals = SliceFromArray(Module->Globals.Data);
-
 	// Find the 3 shortest distance symbols
-	For(Globals)
+	for(auto [_, it] : Module->Globals)
 	{
-		i32 Distance = DistanceBetweenStrings(Name, *(*it)->Name, MINIMAL_DISTANCE);
-		if(Distance == INT32_MAX || Distance >= MAX(1, ((ssize_t)(*it)->Name->Size)-2))
+		i32 Distance = DistanceBetweenStrings(Name, *it->Name, MINIMAL_DISTANCE);
+		if(Distance == INT32_MAX || Distance >= MAX(1, ((ssize_t)it->Name->Size)-2))
 			continue;
 
 		int MaxIdx = -1;
@@ -65,7 +63,7 @@ slice<std::pair<symbol*, int>> FindSimilarGlobalsInModule(module *Module, string
 			}
 		}
 		if(MaxIdx != -1)
-			MostSimilar[MaxIdx] = std::pair(*it, Distance);
+			MostSimilar[MaxIdx] = std::pair(it, Distance);
 	}
 
 	// sort it
@@ -282,12 +280,17 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 void PopScope(checker *Checker, const error_info *End)
 {
 	scope *Scope = Checker->Scope.Pop();
-	if(DumpingInfo && End && Scope->Symbols.Data.Count > 0)
+	if(DumpingInfo && End && Scope->Symbols.Data_.Count > 0)
 	{
+		dynamic<symbol> Symbols = {};
+		for(auto [_, s] : Scope->Symbols)
+		{
+			Symbols.Push(s);
+		}
 		scope_dump S = {
 			.From = Scope->ScopeNode->ErrorInfo,
 			.To = End,
-			.Symbols = SliceFromArray(Scope->Symbols.Data),
+			.Symbols = SliceFromArray(Symbols),
 		};
 		AddScopeToDump(S);
 	}
@@ -916,6 +919,7 @@ scope *AllocScope(node *Node, scope *Parent)
 	scope *S = NewType(scope);
 	S->ScopeNode = Node;
 	S->Parent = Parent;
+	S->Symbols = {};
 	return S;
 }
 

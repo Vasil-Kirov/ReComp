@@ -173,9 +173,9 @@ u32 AssignIRRegistersForModuleSymbols(dynamic<module*> Modules)
 	ForArray(ModuleIdx, Modules)
 	{
 		module *m = Modules[ModuleIdx];
-		ForArray(Idx, m->Globals.Data)
+		for(auto [_, s] : m->Globals)
 		{
-			m->Globals.Data[Idx]->Register = Count++;
+			s->Register = Count++;
 		}
 	}
 	return Count;
@@ -186,8 +186,9 @@ void CheckInternalModule(module *Module)
 	slice<string> InternalFns = SliceFromConst({
 		STR_LIT("advance"),
 		STR_LIT("deref"),
-		STR_LIT("stdout"),
-		STR_LIT("write"),
+		STR_LIT("print"),
+		//STR_LIT("stdout"),
+		//STR_LIT("write"),
 		STR_LIT("abort"),
 	});
 

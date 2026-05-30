@@ -82,10 +82,9 @@ void DumpLocationErrI(binary_blob *Blob, const error_info *ErrI)
 void DumpModule(binary_blob *Blob, module* M)
 {
 	DumpString(Blob, M->Name);
-	DumpU32(Blob, M->Globals.Data.Count);
-	For(M->Globals.Data)
+	DumpU32(Blob, M->Globals.Data_.Count);
+	for(auto [_, s] : M->Globals)
 	{
-		symbol *s = *it;
 		DumpString(Blob, *s->Name);
 		DumpU32(Blob, s->Type);
 		DumpLocationErrI(Blob, s->Node->ErrorInfo);

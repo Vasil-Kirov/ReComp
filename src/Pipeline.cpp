@@ -505,9 +505,8 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 			if(File->Module->Name == EntryModule)
 			{
 				FoundModule = true;
-				ForArray(mi, File->Module->Globals.Data)
+				for(auto [_, sym] : File->Module->Globals)
 				{
-					symbol *sym = File->Module->Globals.Data[mi];
 					if(sym->Flags & SymbolFlag_Function &&
 							*sym->Name == EntryPoint)
 					{

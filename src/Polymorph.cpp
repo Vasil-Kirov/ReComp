@@ -341,10 +341,8 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	}
 
 	size_t Before = GenericReplacements.Count;
-	for(int i = 0; i < DefinedGenerics.Data.Count; ++i)
+	for(auto [Key, T] : DefinedGenerics)
 	{
-		string Key = DefinedGenerics.Keys[i].N;
-		u32 T = DefinedGenerics.Data[i];
 		AddGenericReplacement(Key, T);
 	}
 

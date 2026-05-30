@@ -11,6 +11,24 @@ struct dynamic {
 	T *Data;
 	size_t Count;
 	size_t Capacity;
+	dynamic()
+	{
+		Data = NULL;
+		Count = 0;
+		Capacity = 0;
+	}
+	dynamic(size_t InitialCap)
+	{
+		Data = (T *)VAlloc(sizeof(T) * InitialCap);
+		Count = 0;
+		Capacity = InitialCap;
+	}
+	dynamic(size_t InitialCap, size_t SetCount)
+	{
+		Data = (T *)VAlloc(sizeof(T) * InitialCap);
+		Count = SetCount;
+		Capacity = InitialCap;
+	}
 	void EnsureCapacity()
 	{
 		if(!Data)
@@ -21,9 +39,13 @@ struct dynamic {
 		while(Count >= Capacity)
 		{
 			size_t NewCapacity = (Capacity + 2) * 1.5;
-			Data = (T *)VRealloc(Data, Capacity * sizeof(T), NewCapacity * sizeof(T));
-			Capacity = NewCapacity;
+			Resize(NewCapacity);
 		}
+	}
+	void Resize(size_t NewCapacity)
+	{
+		Data = (T *)VRealloc(Data, Capacity * sizeof(T), NewCapacity * sizeof(T));
+		Capacity = NewCapacity;
 	}
 	T Last() const
 	{
@@ -232,7 +254,7 @@ array<T> ArrayFromConst(std::initializer_list<T> List)
 	return Result;
 }
 
-#define ForArray(_Index, _Array) for(size_t _Index = 0; _Index < (_Array).Count; ++_Index)
+#define ForArray(Index_, _Array) for(size_t Index_ = 0; Index_ < (_Array).Count; ++Index_)
 #define For(_Array) for(auto *it = (_Array).Data; (size_t)(it - (_Array).Data) < (_Array).Count; ++it)
 #define ForN(_Array, Name) for(auto *Name = (_Array).Data; (size_t)(Name - (_Array).Data) < (_Array).Count; ++Name)
 #define ForReverse(_Array) for(auto *it = (_Array).Data+(_Array).Count-1; it >= _Array.Data; --it)

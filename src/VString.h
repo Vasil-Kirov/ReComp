@@ -12,7 +12,7 @@ struct string
 	const char *Data;
 	size_t Size;
 
-	bool operator==(const char *B) const
+	inline bool operator==(const char *B) const
 	{
 		auto BLen = CStrLen(B);
 		if(this->Size != BLen)
@@ -20,7 +20,7 @@ struct string
 
 		return memcmp(this->Data, B, BLen) == 0;
 	}
-	bool operator!=(const char *B) const
+	inline bool operator!=(const char *B) const
 	{
 		auto BLen = CStrLen(B);
 		if(this->Size != BLen)
@@ -28,7 +28,7 @@ struct string
 
 		return memcmp(this->Data, B, BLen) != 0;
 	}
-	bool operator==(const string& B) const
+	inline bool operator==(const string& B) const
 	{
 		if(this->Size != B.Size)
 			return false;
@@ -36,7 +36,7 @@ struct string
 		return memcmp(this->Data, B.Data, B.Size) == 0;
 	}
 
-	bool operator!=(const string& B) const
+	inline bool operator!=(const string& B) const
 	{
 		if(this->Size != B.Size)
 			return true;

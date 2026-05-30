@@ -2624,10 +2624,8 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 	ForArray(MIdx, Modules)
 	{
 		module *m = Modules[MIdx];
-		ForArray(Idx, m->Globals.Data)
+		for(auto [_, s] : m->Globals)
 		{
-			symbol *s = m->Globals.Data[Idx];
-
 			value Value = {};
 			Value.Type = s->Type;
 			Value.Flags |= value_flag::Global;

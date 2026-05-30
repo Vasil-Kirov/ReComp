@@ -118,7 +118,7 @@ void AddVectorTypes()
 }
 
 type **TypeTable = InitializeTypeTable();
-dict<u32> TypeMap = { .Default = Basic_error };
+dict<u32> TypeMap = { Basic_error };
 std::mutex TypeMutex = {};
 u32 NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 
@@ -145,7 +145,7 @@ saved_type_table SaveTypeTableAndReset()
 		TypeTable[I]->CachedAsPointer = INVALID_TYPE;
 	}
 	saved_type_table Result = { SliceFromArray(Table), TypeMap };
-	TypeMap = { .Default = Basic_error };
+	TypeMap = { Basic_error };
 	NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
 	return Result;
 }

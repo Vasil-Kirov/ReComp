@@ -1575,7 +1575,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	llvm_init_info Machine = RCInitLLVM(Info);
 
-	generator Gen = {.StoredGlobals = StoredGlobals};
+	generator Gen = {.StoredGlobals = StoredGlobals, .Intrinsics = {}};
 	//file *File = M->Files[0];
 	Gen.ctx = LLVMContextCreate();
 	Gen.mod = LLVMModuleCreateWithNameInContext(M->Name.Data, Gen.ctx);
@@ -1690,17 +1690,13 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		}
 	}
 
-	dynamic<module*> UnitModules = ModuleDict.Data;
-
 
 	b32 IsInitModule = M->Name == STR_LIT("base");
-	ForArray(MIdx, UnitModules)
+	for(auto [_, m] : ModuleDict)
 	{
 		// shadow
-		module *m = UnitModules[MIdx];
-		ForArray(GIdx, m->Globals.Data)
+		for(auto [_, s] : m->Globals)
 		{
-			symbol *s = m->Globals.Data[GIdx];
 			if(s->Flags & SymbolFlag_Generic || s->Flags & SymbolFlag_Intrinsic) {
 				continue;
 			}
@@ -1769,9 +1765,8 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		}
 	}
 
-	ForArray(MIdx, UnitModules)
+	for(auto [_, m] : ModuleDict)
 	{
-		module *m = UnitModules[MIdx];
 		ForArray(FIdx, m->Files)
 		{
 			ir *IR = m->Files[FIdx]->IR;

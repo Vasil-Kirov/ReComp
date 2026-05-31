@@ -378,7 +378,7 @@ u32 BuildSlice(block_builder *Builder, u32 Ptr, u32 Size, u32 SliceTypeIdx, cons
 
 u32 GetBuiltInFunction(block_builder *Builder, string Module, string FnName)
 {
-	// @TODO: Global abuse
+	// @THREADING: @TODO: Global abuse
 	For(CurrentModules)
 	{
 		if((*it)->Name == Module)
@@ -1088,6 +1088,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						Instruction(OP_INDEX, Alloc, 0, FLType, Builder));
 			u32 LinePtr = PushInstruction(Builder, 
 						Instruction(OP_INDEX, Alloc, 1, FLType, Builder));
+			u32 ChrPtr = PushInstruction(Builder, 
+						Instruction(OP_INDEX, Alloc, 2, FLType, Builder));
 
 			string FN = MakeString(ei->FileName);
 			string *FileName = DupeType(FN, string);
@@ -1097,10 +1099,12 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			u32 FileNameString = PushInstruction(Builder, 
 					Instruction(OP_CONST, (u64)StringValue, Basic_string, Builder));
 			u32 LineInt = PushInt(ei->Range.StartLine, Builder);
+			u32 ChrInt = PushInt(ei->Range.StartChar, Builder);
 
 
 			PushInstruction(Builder, InstructionStore(FilePtr, FileNameString, Basic_string));
 			PushInstruction(Builder, InstructionStore(LinePtr, LineInt, Basic_int));
+			PushInstruction(Builder, InstructionStore(ChrPtr, ChrInt, Basic_int));
 
 			Result = Alloc;
 		} break;
@@ -1382,6 +1386,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				else if(Node->Call.SymName == "atomic_add")
 				{
 					Op = OP_ATOMIC_ADD;
+				}
+				else if(Node->Call.SymName == "raise_error_")
+				{
+					Op = OP_RAISE_ERROR;
+				}
+				else
+				{
+					unreachable;
 				}
 			}
 			else
@@ -4066,6 +4078,10 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		{
 			LERROR("UNKNOWN OP: %d", Instr.Op);
 		} break;
+		case OP_RAISE_ERROR:
+		{
+			PushBuilder(Builder, "RAISE_ERROR");
+		} break;
 		case OP_NOP:
 		{
 			PushBuilder(Builder, "NOP");
@@ -4557,6 +4573,7 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 		case OP_ALLOC:
 		case OP_ALLOCGLOBAL:
 		case OP_NULL:
+		case OP_RAISE_ERROR:
 		case OP_NOP:
 		{
 		} break;

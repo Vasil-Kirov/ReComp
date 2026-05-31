@@ -147,16 +147,24 @@ saved_type_table SaveTypeTableAndReset()
 	saved_type_table Result = { SliceFromArray(Table), TypeMap };
 	TypeMap = { Basic_error };
 	NULLType = GetPointerTo(INVALID_TYPE, PointerFlag_Optional);
+	//AddVectorTypes();
 	return Result;
 }
 
 void RestoreTypeTable(saved_type_table Saved)
 {
+	for(size_t I = 0; I < BasicTypesCount; ++I)
+	{
+		TypeTable[I]->CachedSize = NOT_DEFINED;
+		TypeTable[I]->CachedAlignment = NOT_DEFINED;
+		TypeTable[I]->CachedAsPointer = INVALID_TYPE;
+	}
+	size_t Start = BasicTypesCount;
 	for(size_t I = 0; I < Saved.Pointers.Count; ++I)
 	{
-		TypeTable[I+BasicTypesCount] = Saved.Pointers[I];
+		TypeTable[I+Start] = Saved.Pointers[I];
 	}
-	TypeCount = BasicTypesCount+Saved.Pointers.Count;
+	TypeCount = Start+Saved.Pointers.Count;
 	TypeMap = Saved.Dictionary;
 }
 
@@ -187,6 +195,19 @@ b32 IsUntyped(const type *Type)
 b32 IsUntyped(u32 T)
 {
 	return IsUntyped(GetType(T));
+}
+
+u32 FindStructCanFail(string Name)
+{
+	for(int i = 0; i < TypeCount; ++i)
+	{
+		if(TypeTable[i]->Kind == TypeKind_Struct)
+		{
+			if(TypeTable[i]->Struct.Name == Name)
+				return i;
+		}
+	}
+	return Basic_error;
 }
 
 u32 FindStruct(string Name)
@@ -531,8 +552,7 @@ int GetStructAlignment(const type *Type)
 	if(Type->Struct.Members.Count == 0)
 		return 1;
 
-	int BiggestMember = 0;
-	int CurrentAlignment = 1;
+	int Alignment = 1;
 
 #if 0
 	if(Type->Struct.SubType != INVALID_TYPE)
@@ -545,15 +565,14 @@ int GetStructAlignment(const type *Type)
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
-		int MemberSize = GetTypeSize(m);
-		if(MemberSize > BiggestMember)
+		int MemberAlignment = GetTypeAlignment(m);
+		if(MemberAlignment > Alignment)
 		{
-			BiggestMember = MemberSize;
-			CurrentAlignment = GetTypeAlignment(m);
+			Alignment = MemberAlignment;
 		}
 	}
 
-	return CurrentAlignment;
+	return Alignment;
 }
 
 int GetStructMemberOffset(u32 TypeIdx, uint Member)

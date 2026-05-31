@@ -3,7 +3,7 @@ module io
 #import os;
 #import array;
 #import mem;
-_ :: #import base;
+_ :: #import reflect;
 _ :: #import str;
 
 FLOAT_ROUND_AT := cast(i32, 100);
@@ -233,7 +233,11 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
     arg_count := 0;
     need_to_print_arg := false;
     for c in fmt {
-        if c == '%' && args.count > arg_count {
+		if c == '%' && need_to_print_arg {
+			need_to_print_arg = false;
+			builder_append_u32(&builder, '%');
+		}
+		else if c == '%' && args.count > arg_count {
             need_to_print_arg = true;
         } else {
             if need_to_print_arg {

@@ -1,0 +1,625 @@
+module ast
+
+enum ConstType: u32
+{
+	Integer,
+	Float,
+	String,
+	Aggr,
+	Vector,
+}
+
+struct NodeString
+{
+	data: *u8,
+	size: uint,
+}
+
+conv_node_str :: fn(ns: *NodeString) -> string {
+	return .{data=ns.data, count=ns.size as int};
+}
+
+struct ConstInteger
+{
+	is_signed: u32,
+	u: union {
+		signed: i64,
+		unsigned: u64,
+	}
+}
+
+struct ConstString
+{
+	data: ?*NodeString,
+	flags: i32,
+}
+
+union ConstVector
+{
+	F: v4,
+	I: iv4,
+}
+
+struct ConstValue
+{
+	t: ConstType,
+	u: union {
+		int_: ConstInteger,
+		float: f64,
+		str: ConstString,
+		struct_: *void,
+		vector: ConstVector,
+	}
+}
+
+enum Reserved
+{
+	Null,
+	True,
+	False,
+	Inf,
+	NaN,
+};
+
+enum for_type
+{
+	C,
+	It,
+	While,
+	Infinite,
+};
+
+enum NodeType
+{
+	INVALID,
+	NOP,
+	CHARLIT,
+	CONSTANT,
+	BINARY,
+	UNARY,
+	IF,
+	IFX,
+	FOR,
+	ID,
+	DECL,
+	
+	PTRTYPE,
+	ARRAYTYPE,
+	GENSTRUCTTYPE,
+	FN,
+	GENERIC,
+	TYPEINFO,
+
+	CALL,
+	RETURN,
+	CAST,
+	TYPELIST,
+	INDEX,
+	SLICE,
+	STRUCTDECL,
+	ENUM,
+	SELECTOR,
+	SIZE,
+	TYPEOF,
+	RESERVED,
+	BREAK,
+	LISTITEM,
+	SWITCH,
+	CASE,
+	DEFER,
+	SCOPE,
+	CONTINUE,
+	PTRDIFF,
+	LIST,
+	VAR,
+	POSTOP,
+
+	EMBED,
+	ASSERT,
+	USING,
+	YIELD,
+	RUN,
+	FILE_LOCATION,
+}
+
+struct Node {
+	t: NodeType,
+	location: FileLocation,
+	u: union {
+		id: struct {
+			name: string,
+			//T: type,
+		},
+		post_op: struct {
+			operand: ?*Node,
+			op: i16,
+			//T: type,
+		}, // ++ / --
+		if_x: struct {
+			expr: ?*Node,
+			true_: ?*Node,
+			false_: ?*Node,
+			//T: type,
+		},
+		run: struct {
+			body: []*Node,
+			//T: type,
+			is_expr_run: bool,
+		},
+		typed_expr: struct {
+			expr: ?*Node,
+			//T: type,
+		},
+		assert: struct {
+			expr: ?*Node,
+		},
+		var: struct {
+			name: string,
+			type_node: ?*Node,
+			default: ?*Node,
+			//T: type,
+		},
+		list: struct {
+			nodes: []*Node,
+			//Ts: []type,
+			//T: type,
+		},
+		ptr_diff: struct {
+			left: ?*Node,
+			right: ?*Node,
+			//T: type,
+		},
+		continue_: struct {
+
+		},
+		scope_delimiter: struct {
+			is_up: bool, // is {
+		},
+		defer_: struct {
+			body: []*Node,
+		},
+		reserved: struct {
+			id: Reserved,
+			//T: type,
+		},
+		embed: struct {
+			is_string: bool,
+			file_name: string,
+			content: string,
+		},
+		generic: struct {
+			name: string,
+		},
+		enum_: struct {
+			name: string,
+			items: []*Node,
+			type_node: ?*Node,
+		},
+		item: struct {
+			name: string,
+			expression: ?*Node,
+		},
+		switch_: struct {
+			expression: ?*Node,
+			cases: []*Node,
+			//switch_type: type,
+			//return_type: type,
+		},
+		case_: struct {
+			value: ?*Node,
+			body: []*Node,
+		},
+		type_list: struct {
+			type_node: ?*Node,
+			items: []*Node,
+			//T: type,
+		},
+		size: struct {
+			expression: ?*Node,
+			//T: type,
+		},
+		type_of_: struct {
+			expression: ?*Node,
+			//T: type,
+		},
+		struct_decl: struct {
+			name: string,
+			members: []*Node,
+			type_params: []string,
+			is_union: bool,
+		},
+		type_info_lookup: struct {
+			expression: ?*Node,
+			//T: type,
+		},
+		selector: struct {
+			operand: ?*Node,
+			member: string,
+			index: u32,
+			sub_index: u32,
+			//T: type,
+		},
+		unary: struct {
+			operand: ?*Node,
+			op: i16,
+			//T: type,
+		},
+		binary: struct {
+			left: ?*Node,
+			right: ?*Node,
+			//ExprT: type,
+			op: i16,
+		},
+		if_: struct {
+			expression: ?*Node,
+			body: []*Node,
+			else_: []*Node,
+		},
+		for_: struct {
+			expr1: ?*Node,
+			expr2: ?*Node,
+			expr3: ?*Node,
+			body: []*Node,
+			kind: for_type,
+
+			// The rest are for iterator expressions
+			//array_T: type,
+			//it_T: type,
+			it_by_ref: bool,
+		},
+		index: struct {
+			operand: ?*Node,
+			expression: ?*Node,
+			//operand_t: type,
+			//indexed_t: type,
+			//index_expr_t: type,
+		},
+		slice: struct {
+			operand: ?*Node,
+			from: ?*Node,
+			to: ?*Node,
+			//operand_t: type,
+			//expr_t: type,
+		},
+		cast_: struct {
+			expression: ?*Node,
+			type_node: ?*Node,
+			is_bit_cast: bool,
+			//from_type: type,
+			//to_type: type,
+		},
+		char_literal: struct {
+			C: u32,
+		},
+		constant: struct {
+			const_value: ConstValue,
+			//T: type,
+		},
+		decl: struct {
+			link_name: string,
+			lhs: ?*Node,
+			expression: ?*Node,
+			t: ?*Node,
+			//type_index: type,
+			flags: u32,
+		},
+		fn_: struct {
+			name: string,
+			link_name: string,
+			args: []*Node,
+			return_types: []*Node ,
+			body: []*Node,
+			flags: u32,
+		}, // Used for fn type and fn declaration
+		call: struct {
+			fn_: ?*Node,
+			args: []*Node ,
+			sym_name: string,
+			//T: type,
+			//arg_types: []type,
+		},
+		array_type: struct {
+			t_node: ?*Node,
+			expression: ?*Node,
+			//T: type,
+		},
+		generic_struct_type: struct {
+			id: ?*Node,
+			args: []*Node,
+			//T: type,
+		},
+		pointer_type: struct {
+			pointed: ?*Node,
+			flags: u32,
+			//T: type,
+		},
+		return_: struct {
+			expr: ?*Node,
+			//T: type,
+		},
+	},
+}
+
+
+
+WalkerFn: type : *fn(node: *Node, arg: ?*void) -> bool;
+
+walk_ast :: fn(n: ?*Node, walker: WalkerFn, arg: ?*void) {
+	if(n == null)
+		return;
+
+	if !walker(n, arg)
+		return;
+
+	switch(n.t)
+	{
+		case .INVALID: 
+		{
+			return;
+		}
+
+		case .SLICE:
+		{
+			walk_ast(n.u.slice.operand, walker, arg);
+			walk_ast(n.u.slice.from, walker, arg);
+			walk_ast(n.u.slice.to, walker, arg);
+		}
+
+		case .RUN:
+		{
+			for node in n.u.run.body
+			{
+				walk_ast(node, walker, arg);
+			}
+		}
+
+		case .YIELD:
+		{
+			walk_ast(n.u.typed_expr.expr, walker, arg);
+		}
+
+		case .USING:
+		{
+			walk_ast(n.u.typed_expr.expr, walker, arg);
+		}
+
+		case .ASSERT:
+		{
+			walk_ast(n.u.assert.expr, walker, arg);
+		}
+
+		case .VAR:
+		{
+			walk_ast(n.u.var.type_node, walker, arg);
+			walk_ast(n.u.var.default, walker, arg);
+		}
+
+		case .LIST:
+		{
+			for node in n.u.list.nodes
+			{
+				walk_ast(node, walker, arg);
+			}
+		}
+
+		case .EMBED:
+		{
+		}
+
+		case .CHARLIT:
+		{
+		}
+
+		case .CONSTANT:
+		{
+		}
+
+		case .BINARY:
+		{
+			walk_ast(n.u.binary.left, walker, arg);
+			walk_ast(n.u.binary.right, walker, arg);
+		}
+
+		case .UNARY:
+		{
+			walk_ast(n.u.unary.operand, walker, arg);
+		}
+
+		case .IFX:
+		{
+			walk_ast(n.u.if_x.expr, walker, arg);
+			walk_ast(n.u.if_x.true_, walker, arg);
+			walk_ast(n.u.if_x.false_, walker, arg);
+		}
+
+		case .IF:
+		{
+			walk_ast(n.u.if_.expression, walker, arg);
+			for node in n.u.if_.body
+			{
+				walk_ast(node, walker, arg);
+			}
+			for node in n.u.if_.else_
+			{
+				walk_ast(node, walker, arg);
+			}
+		}
+
+		case .FOR:
+		{
+			walk_ast(n.u.for_.expr1, walker, arg);
+			walk_ast(n.u.for_.expr2, walker, arg);
+			walk_ast(n.u.for_.expr3, walker, arg);
+			for node in n.u.for_.body
+			{
+				walk_ast(node, walker, arg);
+			}
+		}
+
+		case .ID:
+		{
+		}
+
+		case .DECL:
+		{
+			walk_ast(n.u.decl.lhs, walker, arg);
+			walk_ast(n.u.decl.expression, walker, arg);
+			walk_ast(n.u.decl.t, walker, arg);
+		}
+
+		case .CALL:
+		{
+			walk_ast(n.u.call.fn_, walker, arg);
+			for carg in n.u.call.args
+			{
+				walk_ast(carg, walker, arg);
+			}
+		}
+
+		case .RETURN:
+		{
+			walk_ast(n.u.return_.expr, walker, arg);
+		}
+
+		case .PTRTYPE:
+		{
+			walk_ast(n.u.pointer_type.pointed, walker, arg);
+		}
+
+		case .ARRAYTYPE:
+		{
+			walk_ast(n.u.array_type.t_node, walker, arg);
+			walk_ast(n.u.array_type.expression, walker, arg);
+		}
+
+		case .FN:
+		{
+			for farg in n.u.fn_.args {
+				walk_ast(farg, walker, arg);
+			}
+			for ret in n.u.fn_.return_types {
+				walk_ast(ret, walker, arg);
+			}
+			for node in n.u.fn_.body {
+				walk_ast(node, walker, arg);
+			}
+		}
+
+		case .CAST:
+		{
+			walk_ast(n.u.cast_.expression, walker, arg);
+			walk_ast(n.u.cast_.type_node, walker, arg);
+		}
+
+		case .TYPELIST:
+		{
+			walk_ast(n.u.type_list.type_node, walker, arg);
+			for item in n.u.type_list.items
+				walk_ast(item, walker, arg);
+		}
+
+		case .INDEX:
+		{
+			walk_ast(n.u.index.operand, walker, arg);
+			walk_ast(n.u.index.expression, walker, arg);
+		}
+
+		case .STRUCTDECL:
+		{
+			for node in n.u.struct_decl.members
+				walk_ast(node, walker, arg);
+		}
+
+		case .ENUM:
+		{
+			for node in n.u.enum_.items
+				walk_ast(node, walker, arg);
+			walk_ast(n.u.enum_.type_node, walker, arg);
+		}
+
+		case .SELECTOR:
+		{
+			walk_ast(n.u.selector.operand, walker, arg);
+		}
+
+		case .SIZE:
+		{
+			walk_ast(n.u.size.expression, walker, arg);
+		}
+
+		case .TYPEOF:
+		{
+			walk_ast(n.u.type_of_.expression, walker, arg);
+		}
+
+		case .GENERIC:
+		{
+		}
+
+		case .RESERVED:
+		{
+		}
+
+		case .NOP, .BREAK, .CONTINUE:
+		{
+			// No additional data to copy
+		}
+
+		case .GENSTRUCTTYPE:
+		{
+			for node in n.u.generic_struct_type.args
+				walk_ast(node, walker, arg);
+			walk_ast(n.u.generic_struct_type.id, walker, arg);
+		}
+
+		case .LISTITEM:
+		{
+			walk_ast(n.u.item.expression, walker, arg);
+		}
+
+		case .SWITCH:
+		{
+			walk_ast(n.u.switch_.expression, walker, arg);
+			for node in n.u.switch_.cases
+				walk_ast(node, walker, arg);
+		}
+
+		case .CASE:
+		{
+			walk_ast(n.u.case_.value, walker, arg);
+			for node in n.u.case_.body
+				walk_ast(node, walker, arg);
+		}
+
+		case .POSTOP:
+		{
+			walk_ast(n.u.post_op.operand, walker, arg);
+		}
+
+		case .DEFER:
+		{
+			for node in n.u.defer_.body
+				walk_ast(node, walker, arg);
+		}
+
+		case .SCOPE:
+		{
+		}
+
+		case .TYPEINFO:
+		{
+			walk_ast(n.u.type_info_lookup.expression, walker, arg);
+		}
+
+		case .PTRDIFF:
+		{
+			walk_ast(n.u.ptr_diff.left, walker, arg);
+			walk_ast(n.u.ptr_diff.right, walker, arg);
+		}
+
+		case .FILE_LOCATION:
+		{
+		}
+	};
+}
+

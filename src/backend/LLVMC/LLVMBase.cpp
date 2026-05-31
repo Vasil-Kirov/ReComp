@@ -547,6 +547,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 	switch(I.Op)
 	{
+		case OP_RAISE_ERROR:
 		case OP_RESULT:
 		case OP_NOP:
 		{

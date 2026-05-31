@@ -861,10 +861,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 				if(Name == NULL)
 					Name = &ErrorID;
 
-				error_info *NewInfo = DupeType(ErrorInfo, error_info);
-				NewInfo->Range.EndLine = TypeID.ErrorInfo.Range.EndLine;
-				NewInfo->Range.EndChar = TypeID.ErrorInfo.Range.EndChar;
-				Result = MakeSelector(NewInfo, ID, TypeID.ID);
+				Result = MakeSelector(ErrorInfo, ID, TypeID.ID);
 			}
 			else if(Parser->Current->Type == '<')
 			{
@@ -2741,6 +2738,7 @@ node *CopyASTNode(node *N)
 			R->Cast.TypeNode = CopyASTNode(N->Cast.TypeNode);
 			R->Cast.FromType = N->Cast.FromType;
 			R->Cast.ToType = N->Cast.ToType;
+			R->Cast.IsBitCast = N->Cast.IsBitCast;
 		} break;
 
 		case AST_TYPELIST:
@@ -2780,6 +2778,7 @@ node *CopyASTNode(node *N)
 			R->Selector.Operand = CopyASTNode(N->Selector.Operand);
 			R->Selector.Member = N->Selector.Member;
 			R->Selector.Index = N->Selector.Index;
+			R->Selector.SubIndex = N->Selector.SubIndex;
 			R->Selector.Type = N->Selector.Type;
 		} break;
 

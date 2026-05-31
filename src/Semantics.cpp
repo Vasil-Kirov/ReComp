@@ -4179,6 +4179,7 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("fence"),
 		STR_LIT("compare_exchange"),
 		STR_LIT("debug_break"),
+		STR_LIT("raise_error_"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)

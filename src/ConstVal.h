@@ -2,7 +2,7 @@
 #include "Basic.h"
 #include "VString.h"
 
-enum class const_type
+enum class const_type: u32
 {
 	Integer,
 	Float,

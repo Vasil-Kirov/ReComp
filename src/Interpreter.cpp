@@ -5,6 +5,7 @@
 #include "IR.h"
 #include "InterpDebugger.h"
 #include "Memory.h"
+#include "Pipeline.h"
 #include "Platform.h"
 #include "VString.h"
 #include "vlib.h"
@@ -1300,10 +1301,9 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 
 }
 
-void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant = false)
+void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant = false)
 {
 	void *Result = NULL;
-	value *Operand = VM->Registers.GetValue(Left);
 	const type *Type = GetType(TypeIdx);
 	switch(Type->Kind)
 	{
@@ -1362,7 +1362,7 @@ void *IndexVM(interpreter *VM, u32 Left, u32 Right, u32 TypeIdx, u32 *OutType, b
 				int Offset = Right * GetHostRegisterTypeSize() / 8;
 				Result = ((u8 *)Operand->ptr) + Offset;
 
-				if(Right == 0)
+				if(Right == 1)
 					*OutType = GetPointerTo(Basic_u8);
 				else
 					*OutType = Basic_int;
@@ -1669,6 +1669,64 @@ void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrId
 	VM->PerformingDebugAction = Action;
 }
 
+struct interp_base_arg
+{
+	ssize_t T;
+	void *Val;
+};
+
+void DoCompileTimeRaiseError(interpreter *VM, value *Fmt, value *Location)
+{
+	u32 FLType = FindStruct(STR_LIT("base.FileLocation"));
+	Assert(!VM->ErrorInfo.IsEmpty());
+	const error_info *ErrorInfo = VM->ErrorInfo.Peek();
+	Assert(Fmt->Type == GetPointerTo(Basic_string));
+
+	u32 OutT;
+	interp_string *File = ((interp_string *)IndexVM(VM, Location, 0, FLType, &OutT));
+	string FileAsStr = string{.Data=File->Data, .Size=File->Count};
+	error_info ErrI = {};
+	ErrI.Range.StartLine = *(ssize_t *)IndexVM(VM, Location, 1, FLType, &OutT);
+	ErrI.Range.StartChar = *(ssize_t *)IndexVM(VM, Location, 2, FLType, &OutT);
+	ErrI.Range.EndLine = ErrI.Range.StartLine;
+	ErrI.Range.EndChar = ErrI.Range.StartChar+1;
+
+	string FileName = FindFile(FileAsStr);
+	ErrI.FileName = FileName.Data;
+	if(FileName.Size == 0)
+	{
+		RaiseError(false, *ErrorInfo, "Could not locate file %.*s, passed in raise_error.", FileAsStr.Size, FileAsStr.Data);
+		return;
+	}
+
+	file *Found = nullptr;
+	// @THREADING: global
+	for(module *M : CurrentModules)
+	{
+		for(file *F : M->Files)
+		{
+			if(F->Name == FileName)
+			{
+				Found = F;
+				break;
+			}
+		}
+		if(Found)
+			break;
+	}
+	if(!Found)
+	{
+		RaiseError(false, *ErrorInfo, "Could not locate file %.*s, passed in raise_error.", FileAsStr.Size, FileAsStr.Data);
+		return;
+	}
+	Assert(ArrLen(Found->Tokens) > 0);
+	ErrI.Data = Found->Tokens[0].ErrorInfo.Data;
+
+	ssize_t Count = *(ssize_t *)IndexVM(VM, Fmt, 0, Basic_string, &OutT);
+	u8 *Data = *(u8 **)IndexVM(VM, Fmt, 1, Basic_string, &OutT);
+	RaiseError(false, ErrI, "%.*s", Count, Data);
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	ForArray(InstrIdx, VM->Executing->Code)
@@ -1694,6 +1752,15 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_DEBUG_BREAK:
 			{
 				VM->PerformingDebugAction = DebugAction_break;
+			} break;
+			case OP_RAISE_ERROR:
+			{
+				call_info *ci = (call_info *)I.BigRegister;
+				Assert(ci->Args.Count == 2);
+				value *Fmt = VM->Registers.GetValue(ci->Args[0]);
+				value *Location = VM->Registers.GetValue(ci->Args[1]);
+				//string;
+				DoCompileTimeRaiseError(VM, Fmt, Location);
 			} break;
 			case OP_INSERT:
 			{
@@ -2132,7 +2199,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_INDEX:
 			{
 				value Result = {};
-				Result.ptr = IndexVM(VM, I.Left, I.Right, I.Type, &Result.Type);
+				value *Operand = VM->Registers.GetValue(I.Left);
+				Result.ptr = IndexVM(VM, Operand, I.Right, I.Type, &Result.Type);
 				Result.Type = GetPointerTo(Result.Type);
 				VM->Registers.AddValue(I.Result, Result);
 			} break;
@@ -2461,7 +2529,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					value *Member = VM->Registers.GetValue(Info->Registers[Idx]);
 					
 					u32 OutType;
-					void *MemberLocation = IndexVM(VM, Info->Alloc, Idx, I.Type, &OutType, true);
+					value *Operand = VM->Registers.GetValue(Info->Alloc);
+					void *MemberLocation = IndexVM(VM, Operand, Idx, I.Type, &OutType, true);
 					value Ptr = {};
 					Ptr.ptr = MemberLocation;
 					Store(VM, &Ptr, Member, OutType);

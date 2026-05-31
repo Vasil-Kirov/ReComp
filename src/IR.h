@@ -98,6 +98,8 @@ enum op
 
 	OP_CMPXCHG,
 
+	OP_RAISE_ERROR,
+
 	// SIMD
 	// Ptr = ir_insert
 	OP_INSERT,

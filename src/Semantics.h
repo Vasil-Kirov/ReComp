@@ -21,6 +21,7 @@ enum SymbolFlag
 	SymbolFlag_Inline      = BIT(9),
 	SymbolFlag_LocalStatic = BIT(10),
 	SymbolFlag_NoReturn    = BIT(11),
+	SymbolFlag_NoCompile   = BIT(12),
 };
 
 struct generic_generated

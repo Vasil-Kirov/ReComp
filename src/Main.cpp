@@ -84,6 +84,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Pipeline.cpp"
 #include "FlowTyping.cpp"
 #include "IPC.cpp"
+#include "PassAst.cpp"
 
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -387,6 +388,8 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 {
 	string StdFiles[] = {
 		STR_LIT("base.rcp"),
+		STR_LIT("reflect.rcp"),
+		STR_LIT("ast.rcp"),
 		STR_LIT("os.rcp"),
 		STR_LIT("io.rcp"),
 		STR_LIT("mem.rcp"),
@@ -727,6 +730,7 @@ main(int ArgCount, char *Args[])
 			}
 
 			BuildTimeTypeTable = SaveTypeTableAndReset();
+			AddVectorTypes();
 			NeedToRestoreForAfterFunction = true;
 			if(DumpingInfo)
 				DontExit = true;
@@ -734,6 +738,32 @@ main(int ArgCount, char *Args[])
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;
+
+			function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
+			u32 ASTNodeT = FindStructCanFail(STR_LIT("ast.Node"));
+			if(ASTFunction && ASTNodeT != Basic_error)
+			{
+				saved_type_table CompileTypeTable = SaveTypeTableAndReset();
+				RestoreTypeTable(BuildTimeTypeTable);
+				if(InterpreterTrace)
+					LINFO("Interpreting after_link function");
+
+				PlatformSetSignalHandler(InterpSegFault, &BuildVM);
+				BuildVM.HasSetSigHandler = true;
+
+				for(file *File : r.Files)
+				{
+					interp_slice Arg = NodeToInterpSlice(SliceFromArray(File->Nodes));
+					value ArgValue = {};
+					ArgValue.Type = GetSliceType(ASTNodeT);
+					ArgValue.ptr = &Arg;
+					InterpretFunction(&BuildVM, *ASTFunction, {&ArgValue, 1});
+				}
+
+
+				PlatformClearSignalHandler();
+				RestoreTypeTable(CompileTypeTable);
+			}
 
 			// Remake vm to evaluate enums with new info
 

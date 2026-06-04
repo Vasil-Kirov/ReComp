@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "var_args.rcp" },
+        files = []string { "pointers.rv" },
         opt = 0,
         flags = .SanAddress,
     };

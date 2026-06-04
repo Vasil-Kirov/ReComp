@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "short_circuit_eval.rcp" },
+        files = []string { "dynamic_array.rv" },
         opt = 0,
         flags = .SanAddress,
     };

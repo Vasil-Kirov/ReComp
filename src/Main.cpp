@@ -387,16 +387,16 @@ function *FindFunction(slice<function> Functions, string Name)
 void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 {
 	string StdFiles[] = {
-		STR_LIT("base.rcp"),
-		STR_LIT("reflect.rcp"),
-		STR_LIT("ast.rcp"),
-		STR_LIT("os.rcp"),
-		STR_LIT("io.rcp"),
-		STR_LIT("mem.rcp"),
-		STR_LIT("strings.rcp"),
-		STR_LIT("array.rcp"),
-		STR_LIT("compile.rcp"),
-		STR_LIT("math.rcp"),
+		STR_LIT("base.rv"),
+		STR_LIT("reflect.rv"),
+		STR_LIT("ast.rv"),
+		STR_LIT("os.rv"),
+		STR_LIT("io.rv"),
+		STR_LIT("mem.rv"),
+		STR_LIT("strings.rv"),
+		STR_LIT("array.rv"),
+		STR_LIT("compile.rv"),
+		STR_LIT("math.rv"),
 	};
 
 	if((Flags & CF_Standalone) == 0)
@@ -409,20 +409,20 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 	}
 	else
 	{
-		Files.Push(STR_LIT("base.rcp"));
+		Files.Push(STR_LIT("base.rv"));
 	}
 
 	// Doesn't care about CF_Standalone
-	Files.Push(STR_LIT("intrin.rcp"));
+	Files.Push(STR_LIT("intrin.rv"));
 
 	if(Flags & CF_NoLibC)
 	{
-		Files.Push(STR_LIT("req.rcp"));
+		Files.Push(STR_LIT("req.rv"));
 	}
 
 	if(Internals.Data == NULL)
 	{
-		Files.Push(STR_LIT("internal.rcp"));
+		Files.Push(STR_LIT("internal.rv"));
 	}
 	else
 	{

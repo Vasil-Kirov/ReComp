@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "struct_in_struct.rcp" },
+        files = []string { "fn_call.rv" },
         opt = 0,
         flags = .SanAddress,
     };

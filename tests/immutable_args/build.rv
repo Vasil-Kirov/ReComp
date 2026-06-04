@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "pointers.rcp" },
+        files = []string { "immutable_args.rv" },
         opt = 0,
         flags = .SanAddress,
     };

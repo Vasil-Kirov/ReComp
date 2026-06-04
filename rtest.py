@@ -47,9 +47,9 @@ for test in tests:
 
 
     if platform == 'linux':
-        command_line = [dir_path + '/bin/rcp', 'build.rcp']
+        command_line = [dir_path + '/bin/rvc', 'build.rv']
     elif platform == 'win32':
-        command_line = [dir_path + '/bin/rcp.exe', 'build.rcp']
+        command_line = [dir_path + '/bin/rvc.exe', 'build.rv']
     else:
         exit(1)
 

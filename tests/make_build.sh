@@ -3,14 +3,14 @@
 # Create the directory
 mkdir "$1"
 
-# Create the build.rcp file
-cat << EOF > "$1/build.rcp"
+# Create the build.rv file
+cat << EOF > "$1/build.rv"
 build
 #import compile as c
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "$1.rcp" },
+        files = []string { "$1.rv" },
         opt = 0,
         flags = @u32 c.CompileFlag.SanAddress,
     };
@@ -19,7 +19,7 @@ compile :: fn() -> c.CompileInfo {
 EOF
 
 # Create the main rcp file
-cat << EOF > "$1/$1.rcp"
+cat << EOF > "$1/$1.rv"
 main
 
 main :: fn() -> i32 {

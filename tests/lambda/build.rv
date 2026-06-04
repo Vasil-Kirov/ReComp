@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "pass_struct.rcp" },
+        files = []string { "lambda.rv" },
         opt = 0,
         flags = .SanAddress,
     };

@@ -8,7 +8,7 @@ extern bool NoThreads;
 slice<string> GlobalIRModules;
 
 const char *HELP = R"#(
-USAGE: rcp.exe [options] build.rcp
+USAGE: rcp.exe [options] build.rv
 
 OPTIONS:
 	--help
@@ -31,7 +31,7 @@ OPTIONS:
 		For tools, pass ids for communication pipes, compiler will dump info to write_pipe
 	--no-thread
 		Disables multi threading
-	--substitute-file original_name.rcp
+	--substitute-file original_name.rv
 		Substitue a file parsed from the build script, --ipc needs to be specified for this, compiler will write the file name to write_pipe and then read its contents.
 )#";
 

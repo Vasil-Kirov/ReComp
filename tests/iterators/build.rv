@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "generics.rcp" },
+        files = []string { "iterators.rv" },
         opt = 0,
         flags = .SanAddress,
     };

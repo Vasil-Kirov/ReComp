@@ -26,7 +26,7 @@ enum FileOpenFlags
 
 #if Windows
 {
- 	#import "os_win.rcp"
+ 	#import "os_win.rv"
 }
 
 #if Unix {

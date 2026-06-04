@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "fn_ptr.rcp" },
+        files = []string { "arrays.rv" },
         opt = 0,
         flags = .SanAddress,
     };

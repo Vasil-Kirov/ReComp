@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "dynamic_array.rcp" },
+        files = []string { "embed.rv" },
         opt = 0,
         flags = .SanAddress,
     };

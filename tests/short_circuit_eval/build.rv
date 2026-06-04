@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "pass_complex.rcp" },
+        files = []string { "short_circuit_eval.rv" },
         opt = 0,
         flags = .SanAddress,
     };

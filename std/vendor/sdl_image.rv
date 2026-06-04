@@ -1,6 +1,6 @@
 module image
 
-sdl :: #import "sdl.rcp";
+sdl :: #import "sdl.rv";
 
 SDL_IMAGE_MAJOR_VERSION :: 3;
 SDL_IMAGE_MINOR_VERSION :: 3;

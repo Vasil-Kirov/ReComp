@@ -3,7 +3,7 @@ module build
 
 compile :: fn() -> c.CompileInfo {
     out := c.CompileInfo {
-        files = []string { "loop_and_if.rcp" },
+        files = []string { "basic.rv" },
         opt = 0,
         flags = .SanAddress,
     };

@@ -27,6 +27,10 @@ struct Stream {
 	data: ?*void,
 };
 
+dummy_stream_fn :: fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError) {
+	return 0, StreamError.InvalidOp;
+}
+
 is_op_supported :: fn(supported_ops: []StreamOp, op: StreamOp) -> bool {
 	for sup in supported_ops {
 		if sup == op return true;

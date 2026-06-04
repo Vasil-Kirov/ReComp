@@ -1,6 +1,6 @@
 module os
 
-#import "win32.rcp"
+#import "win32.rv"
 #import io;
 #import mem;
 

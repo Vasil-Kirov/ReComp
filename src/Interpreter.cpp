@@ -23,8 +23,9 @@
 #include "InterpBinaryOps.h"
 #include "InterpCasts.h"
 
-bool InterpreterTrace = false;
-dynamic<DLIB> DLs = {};
+bool g_DontErrorForMissingGlobals = false;
+bool g_InterpreterTrace = false;
+dynamic<DLIB> g_DLs = {};
 
 #define MARK_BIT 62
 
@@ -1836,7 +1837,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					const error_info *e = s->Node->ErrorInfo;
 					if(!VM->ErrorInfo.IsEmpty() && VM->ErrorInfo.Peek() != NULL)
 						e = VM->ErrorInfo.Peek();
-					RaiseError(false, *e, "Global value %s is not available to interpreter", s->LinkName->Data);
+
+					if(!g_DontErrorForMissingGlobals)
+					{
+						RaiseError(false, *e, "Global value %s is not available to interpreter", s->LinkName->Data);
+					}
 					return { INTERPRET_RUNTIME_ERROR };
 				}
 				Assert(v->Flags & value_flag::Global);
@@ -2711,7 +2716,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 			{
 				if(s->Flags & SymbolFlag_Extern)
 				{
-					For(DLs)
+					For(g_DLs)
 					{
 						void *Proc = GetSymLibrary(*it, s->LinkName->Data);
 						if(Proc)
@@ -2743,15 +2748,27 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 	VM.KeepTrackOfStoredGlobals = true;
 	EvaluateEnums(&VM);
 
-	ForArray(MIdx, Modules)
-	{
-		module *m = Modules[MIdx];
-		ForArray(FIdx, m->Files)
+	g_DontErrorForMissingGlobals = true;
+	size_t GlobalsFailedLast = 0;
+	size_t GlobalsFailed = 0;
+	do {
+		GlobalsFailed = 0;
+		ForArray(MIdx, Modules)
 		{
-			file *f = m->Files[FIdx];
-			DoGlobals(&VM, f->IR);
+			module *m = Modules[MIdx];
+			ForArray(FIdx, m->Files)
+			{
+				file *f = m->Files[FIdx];
+				GlobalsFailed += DoGlobals(&VM, f->IR);
+			}
 		}
-	}
+		if(!g_DontErrorForMissingGlobals)
+			break;
+		if(GlobalsFailed == GlobalsFailedLast)
+			g_DontErrorForMissingGlobals = false;
+		GlobalsFailedLast = GlobalsFailed;
+	} while(GlobalsFailed > 0);
+	g_DontErrorForMissingGlobals = false;
 
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(MIdx, Modules)
@@ -2829,7 +2846,7 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 
 	string SaveCurrentFn = VM->CurrentFnName;
 
-	if(InterpreterTrace && Function.Name)
+	if(g_InterpreterTrace && Function.Name)
 	{
 		VM->CurrentFnName = *Function.Name;
 		LINFO("Interp calling function %s with args:", Function.LinkName->Data);
@@ -2898,10 +2915,14 @@ void EvaluateEnums(interpreter *VM)
 	VM->Stack.Pop();
 }
 
-void DoGlobals(interpreter *VM, ir *IR)
+size_t DoGlobals(interpreter *VM, ir *IR)
 {
+	size_t Failed = 0;
 	For(IR->Globals)
 	{
+		if(it->Evaled)
+			continue;
+
 		if(it->Init.Name == NULL)
 		{
 			value Result = {};
@@ -2909,6 +2930,7 @@ void DoGlobals(interpreter *VM, ir *IR)
 			Result.ptr = ArenaAllocate(&VM->Arena, GetTypeSize(it->s->Type));
 			Result.Flags |= value_flag::Global;
 			VM->Globals.AddValue(it->s->Register, Result);
+			it->Evaled = true;
 			continue;
 		}
 
@@ -2921,7 +2943,7 @@ void DoGlobals(interpreter *VM, ir *IR)
 		SetBonusMessage(STR_LIT(""));
 		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 		{
-			exit(1);
+			Failed++;
 		}
 		else
 		{
@@ -2940,8 +2962,16 @@ void DoGlobals(interpreter *VM, ir *IR)
 
 			Result.Result.Flags |= value_flag::Global;
 			VM->Globals.AddValue(it->s->Register, Result.Result);
+			it->Evaled = true;
 		}
 	}
+	return Failed;
+}
+
+string StringFromInterp(interp_string S)
+{
+	// @TODO: Maybe null termninate it?
+	return string { S.Data, S.Count };
 }
 
 void DoRuns(interpreter *VM, ir *IR)

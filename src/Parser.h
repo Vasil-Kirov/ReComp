@@ -337,6 +337,7 @@ node *ParseExpression(parser *Parser, int CurrentPrecedence=-999);
 node *ParseFunctionType(parser *Parser);
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
+node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type, node *DefaultExpr);
 node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags);
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags);
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);

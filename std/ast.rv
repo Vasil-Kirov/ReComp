@@ -1,5 +1,23 @@
 module ast
 
+#import mem;
+
+enum SymbolFlag: u32
+{
+	None = 0,
+	Public      = 0b1,
+	Const       = 0b10,
+	Function    = 0b100,
+	Foreign     = 0b1000,
+	VarFunc     = 0b10000,
+	Generic     = 0b100000,
+	Intrinsic   = 0b1000000,
+	Extern      = 0b10000000,
+	Inline      = 0b100000000,
+	LocalStatic = 0b1000000000,
+	NoReturn    = 0b10000000000,
+};
+
 enum ConstType: u32
 {
 	Integer,
@@ -301,15 +319,15 @@ struct Node {
 			expression: ?*Node,
 			t: ?*Node,
 			//type_index: type,
-			flags: u32,
+			flags: SymbolFlag,
 		},
 		fn_: struct {
 			name: string,
 			link_name: string,
 			args: []*Node,
-			return_types: []*Node ,
+			return_types: []*Node,
 			body: []*Node,
-			flags: u32,
+			flags: SymbolFlag,
 		}, // Used for fn type and fn declaration
 		call: struct {
 			fn_: ?*Node,
@@ -338,6 +356,49 @@ struct Node {
 			//T: type,
 		},
 	},
+}
+
+make_node :: fn(kind: NodeType, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := mem.make_type(Node, alloc);
+	if !n
+		return null;
+	n.t = kind;
+	n.location = location;
+	return n;
+}
+
+make_id :: fn(id: string, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.ID, location, alloc);
+	if !n
+		return null;
+
+	n.u.id.name = id;
+	return n;
+}
+
+make_var :: fn(name: string, t: ?*Node, default_expr: ?*Node, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.VAR, location, alloc);
+	if !n
+		return null;
+
+	n.u.var.name = name;
+	n.u.var.type_node = t;
+	n.u.var.default = default_expr;
+	return n;
+}
+
+make_fn :: fn(name: string, link_name: string, args: []*Node, return_types: []*Node, body: []*Node, flags: SymbolFlag, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.FN, location, alloc);
+	if !n
+		return null;
+
+	n.u.fn_.name = name;
+	n.u.fn_.link_name = link_name;
+	n.u.fn_.args = args;
+	n.u.fn_.return_types = return_types;
+	n.u.fn_.body = body;
+	n.u.fn_.flags = flags;
+	return n;
 }
 
 

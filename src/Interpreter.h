@@ -34,8 +34,27 @@ struct interp_string
 	const char *Data;
 };
 
+struct interp_file_location
+{
+    interp_string file;
+    ssize_t line;
+    ssize_t chr;
+};
+
+struct interp_module
+{
+	interp_string Name;
+	size_t NodeCount;
+	struct InterpNode **Nodes;
+	size_t FileCount;
+	interp_string *Files;
+	void *Reserved; // Allocator, cannot be used in C
+};
+
 struct compile_info
 {
+	size_t CustomModuleCount;
+	interp_module *CustomModules;
 	size_t DirectoryCount;
 	interp_string *Directories;
 	size_t FileCount;
@@ -211,10 +230,12 @@ interpret_result InterpretFunction(interpreter *VM, function Function, slice<val
 interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters);
 void DoRuns(interpreter *VM, ir *IR);
 void EvaluateEnums(interpreter *VM);
-void DoGlobals(interpreter *VM, ir *IR);
+size_t DoGlobals(interpreter *VM, ir *IR);
 void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrIdx);
+string StringFromInterp(interp_string S);
+error_info *CreateErrorInfoFromInterpLocation(interp_file_location Location, string FullName, const string *FileData);
 
-extern dynamic<DLIB> DLs;
+extern dynamic<DLIB> g_DLs;
 
 #define BIN_OP(OP, o) case OP_##OP: \
 			{\

@@ -491,17 +491,17 @@ main(int ArgCount, char *Args[])
 
 
 #if _WIN32
-	DLs.Push(OpenLibrary("kernel32"));
-	DLs.Push(OpenLibrary("user32"));
-	DLs.Push(OpenLibrary("ntdll"));
-	DLs.Push(OpenLibrary("msvcrt"));
-	DLs.Push(OpenLibrary("ucrt"));
-	DLs.Push(OpenLibrary("ucrtbase"));
+	g_DLs.Push(OpenLibrary("kernel32"));
+	g_DLs.Push(OpenLibrary("user32"));
+	g_DLs.Push(OpenLibrary("ntdll"));
+	g_DLs.Push(OpenLibrary("msvcrt"));
+	g_DLs.Push(OpenLibrary("ucrt"));
+	g_DLs.Push(OpenLibrary("ucrtbase"));
 #elif CM_LINUX
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);
-	DLs.Push(OpenLibrary("libc.so"));
-	DLs.Push(OpenLibrary(GetFilePath(Dir, "system_call.so").Data));
+	g_DLs.Push(OpenLibrary("libc.so"));
+	g_DLs.Push(OpenLibrary(GetFilePath(Dir, "system_call.so").Data));
 #else
 
 #endif
@@ -512,7 +512,7 @@ main(int ArgCount, char *Args[])
 		 {
 			 LFATAL("Passed shared library %s could not be found", CommandLine.ImportDLLs[Idx].Data);
 		 }
-		 DLs.Push(Lib);
+		 g_DLs.Push(Lib);
 	}
 
 	CreatePipeline();
@@ -602,7 +602,7 @@ main(int ArgCount, char *Args[])
 		{
 
 
-			if(InterpreterTrace)
+			if(g_InterpreterTrace)
 				LINFO("Interpreting compile function");
 			interpret_result Result = InterpretFunction(&BuildVM, *CompileFunction, {&InfoValue, 1});
 			PlatformClearSignalHandler();
@@ -729,12 +729,16 @@ main(int ArgCount, char *Args[])
 				EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
 			}
 
+			slice<interp_module> CustomModules;
+			CustomModules.Data = Info->CustomModules;
+			CustomModules.Count = Info->CustomModuleCount;
+
 			BuildTimeTypeTable = SaveTypeTableAndReset();
 			AddVectorTypes();
 			NeedToRestoreForAfterFunction = true;
 			if(DumpingInfo)
 				DontExit = true;
-			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint);
+			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint, CustomModules);
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;
@@ -745,7 +749,7 @@ main(int ArgCount, char *Args[])
 			{
 				saved_type_table CompileTypeTable = SaveTypeTableAndReset();
 				RestoreTypeTable(BuildTimeTypeTable);
-				if(InterpreterTrace)
+				if(g_InterpreterTrace)
 					LINFO("Interpreting after_link function");
 
 				PlatformSetSignalHandler(InterpSegFault, &BuildVM);
@@ -919,7 +923,7 @@ main(int ArgCount, char *Args[])
 	{
 		if(NeedToRestoreForAfterFunction)
 			RestoreTypeTable(BuildTimeTypeTable);
-		if(InterpreterTrace)
+		if(g_InterpreterTrace)
 			LINFO("Interpreting after_link function");
 
 		PlatformSetSignalHandler(InterpSegFault, &BuildVM);

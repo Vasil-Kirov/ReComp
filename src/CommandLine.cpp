@@ -3,7 +3,7 @@
 #include "Log.h"
 #include "VString.h"
 
-extern bool InterpreterTrace;
+extern bool g_InterpreterTrace;
 extern bool NoThreads;
 slice<string> GlobalIRModules;
 
@@ -127,7 +127,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[7]))
 		{
-			InterpreterTrace = true;
+			g_InterpreterTrace = true;
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[8]))
 		{

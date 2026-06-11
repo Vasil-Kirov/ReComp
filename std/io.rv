@@ -116,7 +116,11 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
 	if !ok2 {
 		return "", false;
 	}
+
+	buf.count -= 1;
 	read, err := read(&f, buf);
+	buf.count += 1;
+
 	if err != .Ok {
 		mem.destroy_slice(&buf, alloc);
 		return "", false;

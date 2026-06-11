@@ -2,6 +2,9 @@ module compile
 
 #import io;
 #import os;
+#import mem;
+#import array;
+#import ast;
 
 enum CompileFlag: u32 {
     Debug       = 0b000000000001,
@@ -28,6 +31,7 @@ enum Arch: u32 {
 }
 
 struct CompileInfo {
+	custom_modules: []Module,
     source_dirs: []string,
     files: []string,
     opt: int,
@@ -37,6 +41,78 @@ struct CompileInfo {
 	link: string,
 	internals_file: string,
 	entry_point: string,
+}
+
+struct Module {
+	name: string,
+	nodes: []*ast.Node,
+	files: []string,
+	alloc: *mem.Allocator,
+}
+
+module_make :: fn(name: string, files: []string, alloc: *mem.Allocator) -> Module {
+	return .{
+		name = name,
+		files = files,
+		alloc = alloc,
+		nodes = array.create(*ast.Node, alloc),
+	};
+}
+
+struct FnArg {
+	name: string,
+	t: string,
+};
+
+module_add_function :: fn(m: *Module, location: FileLocation, fname: string, args: []FnArg, ret_types: []string, link := "") -> ?*ast.Node{
+	link := link;
+	if link == ""
+		link = fname;
+
+	arg_nodes := []*ast.Node{};
+	ret_nodes := []*ast.Node{};
+	ok1: bool = true;
+	ok2: bool = true;
+	if args.count > 0 {
+		arg_nodes, ok1 = mem.make_slice(*ast.Node, args.count, m.alloc);
+	}
+	if ret_types.count > 0 {
+		ret_nodes, ok2 = mem.make_slice(*ast.Node, ret_types.count, m.alloc);
+	}
+	if !ok1 || !ok2 {
+		raise_error(location, "Failed to allocate memory for function signature while generating module, needed % args and % return typers.", args.count, ret_types.count);
+		return null;
+	}
+
+	for i, arg in args {
+		t := ast.make_id(arg.t, location, m.alloc);
+		if !t {
+			raise_error(location, "Failed to allocate memory for type node while generating function.");
+			return null;
+		}
+		v := ast.make_var(arg.name, t, null, location, m.alloc);
+		if !v {
+			raise_error(location, "Failed to allocate memory for arg node while generating function.");
+			return null;
+		}
+		arg_nodes[i] = v;
+	}
+	for i, ret in ret_types {
+		n := ast.make_id(ret, location, m.alloc);
+		if !n {
+			raise_error(location, "Failed to allocate memory for return type while generating function.");
+			return null;
+		}
+		ret_nodes[i] = n;
+	}
+
+	f := ast.make_fn(fname, link, arg_nodes, ret_nodes, .{}, .Function | .Public, location, m.alloc);
+	if !f {
+		raise_error(location, "Failed to allocate function node.");
+		return null;
+	}
+	array.add(&m.nodes, f);
+	return f;
 }
 
 raise_error :: fn(location: FileLocation, fmt: string, args: ...) {

@@ -1,6 +1,7 @@
 #pragma once
 #include "CommandLine.h"
 #include "Dynamic.h"
+#include "Interpreter.h"
 #include "Parser.h"
 #include "VString.h"
 #include "Threading.h"
@@ -46,6 +47,6 @@ extern slice<file_substitute> Substitutes;
 
 string FindFile(string FileName, string RelativePath = STR_LIT(""));
 bool PipelineDoFile(string GivenPath, string RelativePath = STR_LIT(""));
-pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint);
+pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_module> CustomModules = {});
 string GetLookupPathsPrintable(string FileName, string RelativePath);
 

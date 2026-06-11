@@ -13,6 +13,7 @@
 #include "CommandLine.h"
 #include "Globals.h"
 #include "DumpInfo.h"
+#include "PassAst.h"
 #include <mutex>
 
 #if _WIN32
@@ -194,7 +195,7 @@ void ResetPipelineState()
 	CurrentPipeline.StagedFiles.FilePaths = {};
 }
 
-pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint)
+pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_module> CustomModules)
 {
 	ResetPipelineState();
 	binary_blob Blob = StartOutput();
@@ -232,8 +233,67 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		if(it->ModuleName != "")
 			AddModule(Modules, it->File, it->ModuleName);
 	}
+	dict<const string *> CustomModuleFileContents = {};
+	size_t CustomFileCount = 0;
+	For(CustomModules)
+	{
+		if(it->FileCount <= 0)
+			continue;
+		string ModuleName = StringFromInterp(it->Name);
+		for(int j = 0; j < it->FileCount; ++j)
+		{
+			string Name = StringFromInterp(it->Files[j]);
+			string Found = FindFile(Name);
+			if(Found == "")
+			{
+				LogCompilerError("Error: could not find file %.*s, given in custom module %.*s\n", Name.Size, Name.Data, ModuleName.Size, ModuleName.Data);
+				CountError();
+				continue;
+			}
+			string Data = ReadEntireFile(Found);
+			if(Data == "")
+			{
+				LogCompilerError("Error: could not read file %.*s, given in custom module %.*s\n", Found.Size, Found.Data, ModuleName.Size, ModuleName.Data);
+				CountError();
+				continue;
+			}
+			CustomModuleFileContents.Add(Found, DupeType(Data, string));
+			it->Files[j].Data = Found.Data;
+			it->Files[j].Count = Found.Size;
+			CustomFileCount++;
+		}
+	}
+	array<file*> FileArray{CurrentPipeline.ParseResults.Results.Count + CustomFileCount};
+	size_t AtFileArray = 0;
+	For(CustomModules)
+	{
+		if(it->FileCount <= 0)
+			continue;
+		string ModuleName = StringFromInterp(it->Name);
+		for(int j = 0; j < it->FileCount; ++j)
+		{
+			file *File = NewType(file);
+			*File = {};
 
-	array<file*> FileArray{CurrentPipeline.ParseResults.Results.Count};
+			string Name = StringFromInterp(it->Files[j]);
+			File->Name = Name;
+			AddModule(Modules, File, ModuleName);
+			File->Checker = NewType(checker);
+			File->Checker->Module = File->Module;
+			File->Checker->File   = File->Name;
+
+			File->IR = NewType(ir);
+			*File->IR = {};
+			for(int NodeI = 0; NodeI < it->NodeCount; ++NodeI)
+			{
+				node *N = InterpToNode(it->Nodes[NodeI], CustomModuleFileContents);
+				if(N)
+					File->Nodes.Push(N);
+			}
+			FileArray[AtFileArray++] = File;
+		}
+	}
+
 	ForArray(Idx, CurrentPipeline.ParseResults.Results)
 	{
 		parse_result pr = CurrentPipeline.ParseResults.Results[Idx];
@@ -247,9 +307,9 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		File->Checker->File		= File->Name;
 		For(pr.DynamicLibraries)
 		{
-			DLs.Push(*it);
+			g_DLs.Push(*it);
 		}
-		FileArray[Idx] = CurrentPipeline.ParseResults.Results[Idx].File;
+		FileArray[Idx+CustomFileCount] = CurrentPipeline.ParseResults.Results[Idx].File;
 	}
 
 	VLibStopTimer(&Timers.Parse);
@@ -264,7 +324,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		if(pr.ModuleName == "")
 			continue;
 
-		file *File = FileArray[Idx];
+		file *File = FileArray[Idx+CustomFileCount];
 		File->Imported = ResolveImports(pr.Imports, Modules, SliceFromArray(FileArray));
 		File->Checker->Imported	= File->Imported;
 	}
@@ -388,7 +448,7 @@ void LexFile(void *FilePath_)
 		FileData = ReadEntireFile(FilePath);
 		if(FileData.Data == NULL)
 		{
-			LogCompilerError("Couldn't find file: %.*s\n", FilePath.Size, FilePath.Data);
+			LogCompilerError("Error: Couldn't find file: %.*s\n", FilePath.Size, FilePath.Data);
 			CountError();
 			return;
 		}
@@ -439,6 +499,32 @@ bool PipelineDoFile(string GivenPath, string RelativePath)
 	Job.Task = LexFile;
 	PostJob(CurrentPipeline.Queue, Job);
 	return true;
+}
+
+error_info *CreateErrorInfoFromInterpLocation(interp_file_location Location, string FullName, const string *FileData)
+{
+	error_info *ErrI = NewType(error_info);
+	ErrI->FileName = FullName.Data;
+	ErrI->Data = FileData;
+	ErrI->Range.StartLine = Location.line;
+	ErrI->Range.EndLine = Location.line;
+	ErrI->Range.StartChar = Location.chr;
+	ErrI->Range.EndChar = Location.chr+1;
+
+	return ErrI;
+}
+
+file *FindFileForCustomModule(string FileName, slice<module*> Modules)
+{
+	for(module *M : Modules)
+	{
+		for(file *F : M->Files)
+		{
+			if(F->Name == FileName)
+				return F;
+		}
+	}
+	return nullptr;
 }
 
 int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryPoint)

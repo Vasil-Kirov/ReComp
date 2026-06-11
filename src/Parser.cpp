@@ -905,7 +905,7 @@ node *ParseType(parser *Parser, b32 ShouldError)
 			}
 			if(Pointer->Type != AST_PTRTYPE)
 			{
-				RaiseError(false, *ErrorInfo, "Optional need to be a pointer");
+				RaiseError(false, *ErrorInfo, "Optional needs to be a pointer");
 				Pointer = MakePointerType(ErrorInfo, NULL);
 			}
 			Pointer->PointerType.Flags |= PointerFlag_Optional;

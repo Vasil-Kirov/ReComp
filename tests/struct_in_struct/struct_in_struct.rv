@@ -1,11 +1,11 @@
 module main
 
-struct v2 {
+v2 :: struct {
 	x: f32,
 	y: int,
 }
 
-struct vv {
+vv :: struct {
 	v: v2,
 	foo: int,
 }

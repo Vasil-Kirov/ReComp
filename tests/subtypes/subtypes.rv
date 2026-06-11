@@ -1,11 +1,11 @@
 module main
 
-struct Parent {
+Parent :: struct {
 	foo: i32,
 	bar: i32,
 }
 
-struct Child {
+Child :: struct {
 	using Parent,
 	ff: i32,
 }

@@ -977,12 +977,12 @@ Uint64 :: u64;
 
 Time :: Sint64;
 
-struct alignment_test {
+alignment_test :: struct {
 	a: Uint8,
 	b: ?*,
 }
 
-enum DUMMY_ENUM: u32 {
+DUMMY_ENUM :: enum: u32 {
 	VALUE = 0x0,
 }
 
@@ -1044,7 +1044,7 @@ aligned_free :: fn(
 
 GetNumAllocations :: fn() -> i32 #foreign #link="SDL_GetNumAllocations";
 
-struct Environment {
+Environment :: struct {
 }
 
 GetEnvironment :: fn() -> ?*Environment #foreign #link="SDL_GetEnvironment";
@@ -1759,7 +1759,7 @@ tanf :: fn(
 	x: f32
 ) -> f32 #foreign #link="SDL_tanf";
 
-struct iconv_data_t {
+iconv_data_t :: struct {
 }
 
 iconv_t :: ?*iconv_data_t;
@@ -1814,7 +1814,7 @@ size_add_check_overflow_builtin :: fn(
 
 FunctionPointer :: ?*fn() #foreign;
 
-enum AssertState: u32 {
+AssertState :: enum: u32 {
 	ASSERTION_RETRY = 0x0,
 	ASSERTION_BREAK = 0x1,
 	ASSERTION_ABORT = 0x2,
@@ -1822,7 +1822,7 @@ enum AssertState: u32 {
 	ASSERTION_ALWAYS_IGNORE = 0x4,
 }
 
-struct AssertData {
+AssertData :: struct {
 	always_ignore: bool,
 	trigger_count: u32,
 	condition: ?*u8,
@@ -1856,22 +1856,22 @@ GetAssertionReport :: fn() -> ?*AssertData #foreign #link="SDL_GetAssertionRepor
 
 ResetAssertionReport :: fn() #foreign #link="SDL_ResetAssertionReport";
 
-struct AsyncIO {
+AsyncIO :: struct {
 }
 
-enum AsyncIOTaskType: u32 {
+AsyncIOTaskType :: enum: u32 {
 	ASYNCIO_TASK_READ = 0x0,
 	ASYNCIO_TASK_WRITE = 0x1,
 	ASYNCIO_TASK_CLOSE = 0x2,
 }
 
-enum AsyncIOResult: u32 {
+AsyncIOResult :: enum: u32 {
 	ASYNCIO_COMPLETE = 0x0,
 	ASYNCIO_FAILURE = 0x1,
 	ASYNCIO_CANCELED = 0x2,
 }
 
-struct AsyncIOOutcome {
+AsyncIOOutcome :: struct {
 	asyncio: ?*AsyncIO,
 	type: AsyncIOTaskType,
 	result: AsyncIOResult,
@@ -1882,7 +1882,7 @@ struct AsyncIOOutcome {
 	userdata: ?*,
 }
 
-struct AsyncIOQueue {
+AsyncIOQueue :: struct {
 }
 
 AsyncIOFromFile :: fn(
@@ -1964,7 +1964,7 @@ MemoryBarrierReleaseFunction :: fn() #foreign #link="SDL_MemoryBarrierReleaseFun
 
 MemoryBarrierAcquireFunction :: fn() #foreign #link="SDL_MemoryBarrierAcquireFunction";
 
-struct AtomicInt {
+AtomicInt :: struct {
 	value: i32,
 }
 
@@ -1988,7 +1988,7 @@ AddAtomicInt :: fn(
 	v: i32
 ) -> i32 #foreign #link="SDL_AddAtomicInt";
 
-struct AtomicU32 {
+AtomicU32 :: struct {
 	value: Uint32,
 }
 
@@ -2042,7 +2042,7 @@ ClearError :: fn() -> bool #foreign #link="SDL_ClearError";
 
 PropertiesID :: Uint32;
 
-enum PropertyType: u32 {
+PropertyType :: enum: u32 {
 	PROPERTY_TYPE_INVALID = 0x0,
 	PROPERTY_TYPE_POINTER = 0x1,
 	PROPERTY_TYPE_STRING = 0x2,
@@ -2165,21 +2165,21 @@ DestroyProperties :: fn(
 	props: PropertiesID
 ) #foreign #link="SDL_DestroyProperties";
 
-struct Thread {
+Thread :: struct {
 }
 
 ThreadID :: Uint64;
 
 TLSID :: AtomicInt;
 
-enum ThreadPriority: u32 {
+ThreadPriority :: enum: u32 {
 	THREAD_PRIORITY_LOW = 0x0,
 	THREAD_PRIORITY_NORMAL = 0x1,
 	THREAD_PRIORITY_HIGH = 0x2,
 	THREAD_PRIORITY_TIME_CRITICAL = 0x3,
 }
 
-enum ThreadState: u32 {
+ThreadState :: enum: u32 {
 	THREAD_UNKNOWN = 0x0,
 	THREAD_ALIVE = 0x1,
 	THREAD_DETACHED = 0x2,
@@ -2243,7 +2243,7 @@ SetTLS :: fn(
 
 CleanupTLS :: fn() #foreign #link="SDL_CleanupTLS";
 
-struct Mutex {
+Mutex :: struct {
 }
 
 CreateMutex :: fn() -> ?*Mutex #foreign #link="SDL_CreateMutex";
@@ -2264,7 +2264,7 @@ DestroyMutex :: fn(
 	mutex: ?*Mutex
 ) #foreign #link="SDL_DestroyMutex";
 
-struct RWLock {
+RWLock :: struct {
 }
 
 CreateRWLock :: fn() -> ?*RWLock #foreign #link="SDL_CreateRWLock";
@@ -2293,7 +2293,7 @@ DestroyRWLock :: fn(
 	rwlock: ?*RWLock
 ) #foreign #link="SDL_DestroyRWLock";
 
-struct Semaphore {
+Semaphore :: struct {
 }
 
 CreateSemaphore :: fn(
@@ -2325,7 +2325,7 @@ GetSemaphoreValue :: fn(
 	sem: ?*Semaphore
 ) -> Uint32 #foreign #link="SDL_GetSemaphoreValue";
 
-struct Condition {
+Condition :: struct {
 }
 
 CreateCondition :: fn() -> ?*Condition #foreign #link="SDL_CreateCondition";
@@ -2353,14 +2353,14 @@ WaitConditionTimeout :: fn(
 	timeoutMS: Sint32
 ) -> bool #foreign #link="SDL_WaitConditionTimeout";
 
-enum InitStatus: u32 {
+InitStatus :: enum: u32 {
 	INIT_STATUS_UNINITIALIZED = 0x0,
 	INIT_STATUS_INITIALIZING = 0x1,
 	INIT_STATUS_INITIALIZED = 0x2,
 	INIT_STATUS_UNINITIALIZING = 0x3,
 }
 
-struct InitState {
+InitState :: struct {
 	status: AtomicInt,
 	thread: ThreadID,
 	reserved: ?*,
@@ -2379,7 +2379,7 @@ SetInitialized :: fn(
 	initialized: bool
 ) #foreign #link="SDL_SetInitialized";
 
-enum IOStatus: u32 {
+IOStatus :: enum: u32 {
 	IO_STATUS_READY = 0x0,
 	IO_STATUS_ERROR = 0x1,
 	IO_STATUS_EOF = 0x2,
@@ -2388,13 +2388,13 @@ enum IOStatus: u32 {
 	IO_STATUS_WRITEONLY = 0x5,
 }
 
-enum IOWhence: u32 {
+IOWhence :: enum: u32 {
 	IO_SEEK_SET = 0x0,
 	IO_SEEK_CUR = 0x1,
 	IO_SEEK_END = 0x2,
 }
 
-struct IOStreamInterface {
+IOStreamInterface :: struct {
 	version: Uint32,
 	size: ?*fn(a: ?*) -> Sint64 #foreign,
 	seek: ?*fn(a: ?*, b: Sint64, c: IOWhence) -> Sint64 #foreign,
@@ -2404,7 +2404,7 @@ struct IOStreamInterface {
 	close: ?*fn(a: ?*) -> bool #foreign,
 }
 
-struct IOStream {
+IOStream :: struct {
 }
 
 IOFromFile :: fn(
@@ -2640,7 +2640,7 @@ WriteS64BE :: fn(
 	value: Sint64
 ) -> bool #foreign #link="SDL_WriteS64BE";
 
-enum AudioFormat: u32 {
+AudioFormat :: enum: u32 {
 	AUDIO_UNKNOWN = 0x0,
 	AUDIO_U8 = 0x8,
 	AUDIO_S8 = 0x8008,
@@ -2657,13 +2657,13 @@ enum AudioFormat: u32 {
 
 AudioDeviceID :: Uint32;
 
-struct AudioSpec {
+AudioSpec :: struct {
 	format: AudioFormat,
 	channels: i32,
 	freq: i32,
 }
 
-struct AudioStream {
+AudioStream :: struct {
 }
 
 GetNumAudioDrivers :: fn() -> i32 #foreign #link="SDL_GetNumAudioDrivers";
@@ -2951,7 +2951,7 @@ HasExactlyOneBitSet32 :: fn(
 
 BlendMode :: Uint32;
 
-enum BlendOperation: u32 {
+BlendOperation :: enum: u32 {
 	ADD = 0x1,
 	SUBTRACT = 0x2,
 	REV_SUBTRACT = 0x3,
@@ -2959,7 +2959,7 @@ enum BlendOperation: u32 {
 	MAXIMUM = 0x5,
 }
 
-enum BlendFactor: u32 {
+BlendFactor :: enum: u32 {
 	ZERO = 0x1,
 	ONE = 0x2,
 	SRC_COLOR = 0x3,
@@ -2981,7 +2981,7 @@ ComposeCustomBlendMode :: fn(
 	alphaOperation: BlendOperation
 ) -> BlendMode #foreign #link="SDL_ComposeCustomBlendMode";
 
-enum PixelType: u32 {
+PixelType :: enum: u32 {
 	UNKNOWN = 0x0,
 	INDEX1 = 0x1,
 	INDEX4 = 0x2,
@@ -2997,13 +2997,13 @@ enum PixelType: u32 {
 	INDEX2 = 0xc,
 }
 
-enum BitmapOrder: u32 {
+BitmapOrder :: enum: u32 {
 	NONE = 0x0,
 	_4321 = 0x1,
 	_1234 = 0x2,
 }
 
-enum PackedOrder: u32 {
+PackedOrder :: enum: u32 {
 	NONE = 0x0,
 	XRGB = 0x1,
 	RGBX = 0x2,
@@ -3015,7 +3015,7 @@ enum PackedOrder: u32 {
 	BGRA = 0x8,
 }
 
-enum ArrayOrder: u32 {
+ArrayOrder :: enum: u32 {
 	NONE = 0x0,
 	RGB = 0x1,
 	RGBA = 0x2,
@@ -3025,7 +3025,7 @@ enum ArrayOrder: u32 {
 	ABGR = 0x6,
 }
 
-enum PackedLayout: u32 {
+PackedLayout :: enum: u32 {
 	NONE = 0x0,
 	_332 = 0x1,
 	_4444 = 0x2,
@@ -3037,7 +3037,7 @@ enum PackedLayout: u32 {
 	_1010102 = 0x8,
 }
 
-enum PixelFormat: u32 {
+PixelFormat :: enum: u32 {
 	UNKNOWN = 0x0,
 	INDEX1LSB = 0x11100100,
 	INDEX1MSB = 0x11200100,
@@ -3113,19 +3113,19 @@ enum PixelFormat: u32 {
 	XBGR32 = 0x16261804,
 }
 
-enum ColorType: u32 {
+ColorType :: enum: u32 {
 	COLOR_TYPE_UNKNOWN = 0x0,
 	COLOR_TYPE_RGB = 0x1,
 	COLOR_TYPE_YCBCR = 0x2,
 }
 
-enum ColorRange: u32 {
+ColorRange :: enum: u32 {
 	COLOR_RANGE_UNKNOWN = 0x0,
 	COLOR_RANGE_LIMITED = 0x1,
 	COLOR_RANGE_FULL = 0x2,
 }
 
-enum ColorPrimaries: u32 {
+ColorPrimaries :: enum: u32 {
 	COLOR_PRIMARIES_UNKNOWN = 0x0,
 	COLOR_PRIMARIES_BT709 = 0x1,
 	COLOR_PRIMARIES_UNSPECIFIED = 0x2,
@@ -3142,7 +3142,7 @@ enum ColorPrimaries: u32 {
 	COLOR_PRIMARIES_CUSTOM = 0x1f,
 }
 
-enum TransferCharacteristics: u32 {
+TransferCharacteristics :: enum: u32 {
 	TRANSFER_CHARACTERISTICS_UNKNOWN = 0x0,
 	TRANSFER_CHARACTERISTICS_BT709 = 0x1,
 	TRANSFER_CHARACTERISTICS_UNSPECIFIED = 0x2,
@@ -3164,7 +3164,7 @@ enum TransferCharacteristics: u32 {
 	TRANSFER_CHARACTERISTICS_CUSTOM = 0x1f,
 }
 
-enum MatrixCoefficients: u32 {
+MatrixCoefficients :: enum: u32 {
 	MATRIX_COEFFICIENTS_IDENTITY = 0x0,
 	MATRIX_COEFFICIENTS_BT709 = 0x1,
 	MATRIX_COEFFICIENTS_UNSPECIFIED = 0x2,
@@ -3182,14 +3182,14 @@ enum MatrixCoefficients: u32 {
 	MATRIX_COEFFICIENTS_CUSTOM = 0x1f,
 }
 
-enum ChromaLocation: u32 {
+ChromaLocation :: enum: u32 {
 	CHROMA_LOCATION_NONE = 0x0,
 	CHROMA_LOCATION_LEFT = 0x1,
 	CHROMA_LOCATION_CENTER = 0x2,
 	CHROMA_LOCATION_TOPLEFT = 0x3,
 }
 
-enum Colorspace: u32 {
+Colorspace :: enum: u32 {
 	UNKNOWN = 0x0,
 	SRGB = 0x120005a0,
 	SRGB_LINEAR = 0x12000500,
@@ -3205,28 +3205,28 @@ enum Colorspace: u32 {
 	YUV_DEFAULT = 0x220004c6,
 }
 
-struct Color {
+Color :: struct {
 	r: Uint8,
 	g: Uint8,
 	b: Uint8,
 	a: Uint8,
 }
 
-struct FColor {
+FColor :: struct {
 	r: f32,
 	g: f32,
 	b: f32,
 	a: f32,
 }
 
-struct Palette {
+Palette :: struct {
 	ncolors: i32,
 	colors: ?*Color,
 	version: Uint32,
 	refcount: i32,
 }
 
-struct PixelFormatDetails {
+PixelFormatDetails :: struct {
 	format: PixelFormat,
 	bits_per_pixel: Uint8,
 	bytes_per_pixel: Uint8,
@@ -3321,24 +3321,24 @@ GetRGBA :: fn(
 	a: ?*Uint8
 ) #foreign #link="SDL_GetRGBA";
 
-struct Point {
+Point :: struct {
 	x: i32,
 	y: i32,
 }
 
-struct FPoint {
+FPoint :: struct {
 	x: f32,
 	y: f32,
 }
 
-struct Rect {
+Rect :: struct {
 	x: i32,
 	y: i32,
 	w: i32,
 	h: i32,
 }
 
-struct FRect {
+FRect :: struct {
 	x: f32,
 	y: f32,
 	w: f32,
@@ -3450,19 +3450,19 @@ GetRectAndLineIntersectionFloat :: fn(
 
 SurfaceFlags :: Uint32;
 
-enum ScaleMode: u32 {
+ScaleMode :: enum: u32 {
 	INVALID = 0xffffffffffffffff,
 	NEAREST = 0x0,
 	LINEAR = 0x1,
 }
 
-enum FlipMode: u32 {
+FlipMode :: enum: u32 {
 	FLIP_NONE = 0x0,
 	FLIP_HORIZONTAL = 0x1,
 	FLIP_VERTICAL = 0x2,
 }
 
-struct Surface {
+Surface :: struct {
 	flags: SurfaceFlags,
 	format: PixelFormat,
 	w: i32,
@@ -3848,10 +3848,10 @@ WriteSurfacePixelFloat :: fn(
 
 CameraID :: Uint32;
 
-struct Camera {
+Camera :: struct {
 }
 
-struct CameraSpec {
+CameraSpec :: struct {
 	format: PixelFormat,
 	colorspace: Colorspace,
 	width: i32,
@@ -3860,7 +3860,7 @@ struct CameraSpec {
 	framerate_denominator: i32,
 }
 
-enum CameraPosition: u32 {
+CameraPosition :: enum: u32 {
 	CAMERA_POSITION_UNKNOWN = 0x0,
 	CAMERA_POSITION_FRONT_FACING = 0x1,
 	CAMERA_POSITION_BACK_FACING = 0x2,
@@ -4010,16 +4010,16 @@ DisplayID :: Uint32;
 
 WindowID :: Uint32;
 
-enum SystemTheme: u32 {
+SystemTheme :: enum: u32 {
 	SYSTEM_THEME_UNKNOWN = 0x0,
 	SYSTEM_THEME_LIGHT = 0x1,
 	SYSTEM_THEME_DARK = 0x2,
 }
 
-struct DisplayModeData {
+DisplayModeData :: struct {
 }
 
-struct DisplayMode {
+DisplayMode :: struct {
 	displayID: DisplayID,
 	format: PixelFormat,
 	w: i32,
@@ -4031,7 +4031,7 @@ struct DisplayMode {
 	internal: ?*DisplayModeData,
 }
 
-enum DisplayOrientation: u32 {
+DisplayOrientation :: enum: u32 {
 	ORIENTATION_UNKNOWN = 0x0,
 	ORIENTATION_LANDSCAPE = 0x1,
 	ORIENTATION_LANDSCAPE_FLIPPED = 0x2,
@@ -4039,18 +4039,18 @@ enum DisplayOrientation: u32 {
 	ORIENTATION_PORTRAIT_FLIPPED = 0x4,
 }
 
-struct Window {
+Window :: struct {
 }
 
 WindowFlags :: Uint64;
 
-enum FlashOperation: u32 {
+FlashOperation :: enum: u32 {
 	FLASH_CANCEL = 0x0,
 	FLASH_BRIEFLY = 0x1,
 	FLASH_UNTIL_FOCUSED = 0x2,
 }
 
-struct GLContextState {
+GLContextState :: struct {
 }
 
 GLContext :: ?*GLContextState;
@@ -4069,7 +4069,7 @@ EGLAttribArrayCallback :: ?*fn(a: ?*) -> ?*EGLAttrib #foreign;
 
 EGLIntArrayCallback :: ?*fn(a: ?*, b: EGLDisplay, c: EGLConfig) -> ?*EGLint #foreign;
 
-enum GLAttr: u32 {
+GLAttr :: enum: u32 {
 	GL_RED_SIZE = 0x0,
 	GL_GREEN_SIZE = 0x1,
 	GL_BLUE_SIZE = 0x2,
@@ -4490,7 +4490,7 @@ ShowWindowSystemMenu :: fn(
 	y: i32
 ) -> bool #foreign #link="SDL_ShowWindowSystemMenu";
 
-enum HitTestResult: u32 {
+HitTestResult :: enum: u32 {
 	HITTEST_NORMAL = 0x0,
 	HITTEST_DRAGGABLE = 0x1,
 	HITTEST_RESIZE_TOPLEFT = 0x2,
@@ -4605,7 +4605,7 @@ GL_DestroyContext :: fn(
 	context: GLContext
 ) -> bool #foreign #link="SDL_GL_DestroyContext";
 
-struct DialogFileFilter {
+DialogFileFilter :: struct {
 	name: ?*u8,
 	pattern: ?*u8,
 }
@@ -4639,7 +4639,7 @@ ShowOpenFolderDialog :: fn(
 	allow_many: bool
 ) #foreign #link="SDL_ShowOpenFolderDialog";
 
-enum FileDialogType: u32 {
+FileDialogType :: enum: u32 {
 	FILEDIALOG_OPENFILE = 0x0,
 	FILEDIALOG_SAVEFILE = 0x1,
 	FILEDIALOG_OPENFOLDER = 0x2,
@@ -4652,7 +4652,7 @@ ShowFileDialogWithProperties :: fn(
 	props: PropertiesID
 ) #foreign #link="SDL_ShowFileDialogWithProperties";
 
-struct GUID {
+GUID :: struct {
 	data: [16]Uint8,
 }
 
@@ -4666,7 +4666,7 @@ StringToGUID :: fn(
 	pchGUID: ?*u8
 ) -> GUID #foreign #link="SDL_StringToGUID";
 
-enum PowerState: u32 {
+PowerState :: enum: u32 {
 	ERROR = 0xffffffffffffffff,
 	UNKNOWN = 0x0,
 	ON_BATTERY = 0x1,
@@ -4680,12 +4680,12 @@ GetPowerInfo :: fn(
 	percent: ?*i32
 ) -> PowerState #foreign #link="SDL_GetPowerInfo";
 
-struct Sensor {
+Sensor :: struct {
 }
 
 SensorID :: Uint32;
 
-enum SensorType: u32 {
+SensorType :: enum: u32 {
 	SENSOR_INVALID = 0xffffffffffffffff,
 	SENSOR_UNKNOWN = 0x0,
 	SENSOR_ACCEL = 0x1,
@@ -4752,12 +4752,12 @@ CloseSensor :: fn(
 
 UpdateSensors :: fn() #foreign #link="SDL_UpdateSensors";
 
-struct Joystick {
+Joystick :: struct {
 }
 
 JoystickID :: Uint32;
 
-enum JoystickType: u32 {
+JoystickType :: enum: u32 {
 	JOYSTICK_TYPE_UNKNOWN = 0x0,
 	JOYSTICK_TYPE_GAMEPAD = 0x1,
 	JOYSTICK_TYPE_WHEEL = 0x2,
@@ -4771,7 +4771,7 @@ enum JoystickType: u32 {
 	JOYSTICK_TYPE_COUNT = 0xa,
 }
 
-enum JoystickConnectionState: u32 {
+JoystickConnectionState :: enum: u32 {
 	JOYSTICK_CONNECTION_INVALID = 0xffffffffffffffff,
 	JOYSTICK_CONNECTION_UNKNOWN = 0x0,
 	JOYSTICK_CONNECTION_WIRED = 0x1,
@@ -4832,17 +4832,17 @@ GetJoystickFromPlayerIndex :: fn(
 	player_index: i32
 ) -> ?*Joystick #foreign #link="SDL_GetJoystickFromPlayerIndex";
 
-struct VirtualJoystickTouchpadDesc {
+VirtualJoystickTouchpadDesc :: struct {
 	nfingers: Uint16,
 	padding: [3]Uint16,
 }
 
-struct VirtualJoystickSensorDesc {
+VirtualJoystickSensorDesc :: struct {
 	type: SensorType,
 	rate: f32,
 }
 
-struct VirtualJoystickDesc {
+VirtualJoystickDesc :: struct {
 	version: Uint32,
 	type: Uint16,
 	padding: Uint16,
@@ -5083,10 +5083,10 @@ GetJoystickPowerInfo :: fn(
 	percent: ?*i32
 ) -> PowerState #foreign #link="SDL_GetJoystickPowerInfo";
 
-struct Gamepad {
+Gamepad :: struct {
 }
 
-enum GamepadType: u32 {
+GamepadType :: enum: u32 {
 	GAMEPAD_TYPE_UNKNOWN = 0x0,
 	GAMEPAD_TYPE_STANDARD = 0x1,
 	GAMEPAD_TYPE_XBOX360 = 0x2,
@@ -5101,7 +5101,7 @@ enum GamepadType: u32 {
 	GAMEPAD_TYPE_COUNT = 0xb,
 }
 
-enum GamepadButton: u64 {
+GamepadButton :: enum: u64 {
 	GAMEPAD_BUTTON_INVALID = 0xffffffffffffffff,
 	GAMEPAD_BUTTON_SOUTH = 0x0,
 	GAMEPAD_BUTTON_EAST = 0x1,
@@ -5132,7 +5132,7 @@ enum GamepadButton: u64 {
 	GAMEPAD_BUTTON_COUNT = 0x1a,
 }
 
-enum GamepadButtonLabel: u32 {
+GamepadButtonLabel :: enum: u32 {
 	GAMEPAD_BUTTON_LABEL_UNKNOWN = 0x0,
 	GAMEPAD_BUTTON_LABEL_A = 0x1,
 	GAMEPAD_BUTTON_LABEL_B = 0x2,
@@ -5144,7 +5144,7 @@ enum GamepadButtonLabel: u32 {
 	GAMEPAD_BUTTON_LABEL_TRIANGLE = 0x8,
 }
 
-enum GamepadAxis: u64 {
+GamepadAxis :: enum: u64 {
 	GAMEPAD_AXIS_INVALID = 0xffffffffffffffff,
 	GAMEPAD_AXIS_LEFTX = 0x0,
 	GAMEPAD_AXIS_LEFTY = 0x1,
@@ -5155,14 +5155,14 @@ enum GamepadAxis: u64 {
 	GAMEPAD_AXIS_COUNT = 0x6,
 }
 
-enum GamepadBindingType: u32 {
+GamepadBindingType :: enum: u32 {
 	GAMEPAD_BINDTYPE_NONE = 0x0,
 	GAMEPAD_BINDTYPE_BUTTON = 0x1,
 	GAMEPAD_BINDTYPE_AXIS = 0x2,
 	GAMEPAD_BINDTYPE_HAT = 0x3,
 }
 
-struct GamepadBinding {
+GamepadBinding :: struct {
 	input_type: GamepadBindingType,
 	input: union {
 		button: i32,
@@ -5510,7 +5510,7 @@ GetGamepadAppleSFSymbolsNameForAxis :: fn(
 	axis: GamepadAxis
 ) -> ?*u8 #foreign #link="SDL_GetGamepadAppleSFSymbolsNameForAxis";
 
-enum Scancode: u32 {
+Scancode :: enum: u32 {
 	UNKNOWN = 0x0,
 	A = 0x4,
 	B = 0x5,
@@ -5828,7 +5828,7 @@ StartTextInput :: fn(
 	window: ?*Window
 ) -> bool #foreign #link="SDL_StartTextInput";
 
-enum TextInputType: u32 {
+TextInputType :: enum: u32 {
 	TEXTINPUT_TYPE_TEXT = 0x0,
 	TEXTINPUT_TYPE_TEXT_NAME = 0x1,
 	TEXTINPUT_TYPE_TEXT_EMAIL = 0x2,
@@ -5840,7 +5840,7 @@ enum TextInputType: u32 {
 	TEXTINPUT_TYPE_NUMBER_PASSWORD_VISIBLE = 0x8,
 }
 
-enum Capitalization: u32 {
+Capitalization :: enum: u32 {
 	CAPITALIZE_NONE = 0x0,
 	CAPITALIZE_SENTENCES = 0x1,
 	CAPITALIZE_WORDS = 0x2,
@@ -5884,10 +5884,10 @@ ScreenKeyboardShown :: fn(
 
 MouseID :: Uint32;
 
-struct Cursor {
+Cursor :: struct {
 }
 
-enum SystemCursor: u32 {
+SystemCursor :: enum: u32 {
 	SYSTEM_CURSOR_DEFAULT = 0x0,
 	SYSTEM_CURSOR_TEXT = 0x1,
 	SYSTEM_CURSOR_WAIT = 0x2,
@@ -5911,7 +5911,7 @@ enum SystemCursor: u32 {
 	SYSTEM_CURSOR_COUNT = 0x14,
 }
 
-enum MouseWheelDirection: u32 {
+MouseWheelDirection :: enum: u32 {
 	MOUSEWHEEL_NORMAL = 0x0,
 	MOUSEWHEEL_FLIPPED = 0x1,
 }
@@ -6010,14 +6010,14 @@ TouchID :: Uint64;
 
 FingerID :: Uint64;
 
-enum TouchDeviceType: u64 {
+TouchDeviceType :: enum: u64 {
 	TOUCH_DEVICE_INVALID = 0xffffffffffffffff,
 	TOUCH_DEVICE_DIRECT = 0x0,
 	TOUCH_DEVICE_INDIRECT_ABSOLUTE = 0x1,
 	TOUCH_DEVICE_INDIRECT_RELATIVE = 0x2,
 }
 
-struct Finger {
+Finger :: struct {
 	id: FingerID,
 	x: f32,
 	y: f32,
@@ -6045,7 +6045,7 @@ PenID :: Uint32;
 
 PenInputFlags :: Uint32;
 
-enum PenAxis: u32 {
+PenAxis :: enum: u32 {
 	PEN_AXIS_PRESSURE = 0x0,
 	PEN_AXIS_XTILT = 0x1,
 	PEN_AXIS_YTILT = 0x2,
@@ -6056,7 +6056,7 @@ enum PenAxis: u32 {
 	PEN_AXIS_COUNT = 0x7,
 }
 
-enum EventType: u32 {
+EventType :: enum: u32 {
 	FIRST = 0x0,
 	QUIT = 0x100,
 	TERMINATING = 0x101,
@@ -6177,13 +6177,13 @@ enum EventType: u32 {
 	ENUM_PADDING = 0x7fffffff,
 }
 
-struct CommonEvent {
+CommonEvent :: struct {
 	type: Uint32,
 	reserved: Uint32,
 	timestamp: Uint64,
 }
 
-struct DisplayEvent {
+DisplayEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6192,7 +6192,7 @@ struct DisplayEvent {
 	data2: Sint32,
 }
 
-struct WindowEvent {
+WindowEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6201,14 +6201,14 @@ struct WindowEvent {
 	data2: Sint32,
 }
 
-struct KeyboardDeviceEvent {
+KeyboardDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	which: KeyboardID,
 }
 
-struct KeyboardEvent {
+KeyboardEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6222,7 +6222,7 @@ struct KeyboardEvent {
 	repeat: bool,
 }
 
-struct TextEditingEvent {
+TextEditingEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6232,7 +6232,7 @@ struct TextEditingEvent {
 	length: Sint32,
 }
 
-struct TextEditingCandidatesEvent {
+TextEditingCandidatesEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6246,7 +6246,7 @@ struct TextEditingCandidatesEvent {
 	padding3: Uint8,
 }
 
-struct TextInputEvent {
+TextInputEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6254,14 +6254,14 @@ struct TextInputEvent {
 	text: ?*u8,
 }
 
-struct MouseDeviceEvent {
+MouseDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	which: MouseID,
 }
 
-struct MouseMotionEvent {
+MouseMotionEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6274,7 +6274,7 @@ struct MouseMotionEvent {
 	yrel: f32,
 }
 
-struct MouseButtonEvent {
+MouseButtonEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6288,7 +6288,7 @@ struct MouseButtonEvent {
 	y: f32,
 }
 
-struct MouseWheelEvent {
+MouseWheelEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6303,7 +6303,7 @@ struct MouseWheelEvent {
 	integer_y: Sint32,
 }
 
-struct JoyAxisEvent {
+JoyAxisEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6316,7 +6316,7 @@ struct JoyAxisEvent {
 	padding4: Uint16,
 }
 
-struct JoyBallEvent {
+JoyBallEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6329,7 +6329,7 @@ struct JoyBallEvent {
 	yrel: Sint16,
 }
 
-struct JoyHatEvent {
+JoyHatEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6340,7 +6340,7 @@ struct JoyHatEvent {
 	padding2: Uint8,
 }
 
-struct JoyButtonEvent {
+JoyButtonEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6351,14 +6351,14 @@ struct JoyButtonEvent {
 	padding2: Uint8,
 }
 
-struct JoyDeviceEvent {
+JoyDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	which: JoystickID,
 }
 
-struct JoyBatteryEvent {
+JoyBatteryEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6367,7 +6367,7 @@ struct JoyBatteryEvent {
 	percent: i32,
 }
 
-struct GamepadAxisEvent {
+GamepadAxisEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6380,7 +6380,7 @@ struct GamepadAxisEvent {
 	padding4: Uint16,
 }
 
-struct GamepadButtonEvent {
+GamepadButtonEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6391,14 +6391,14 @@ struct GamepadButtonEvent {
 	padding2: Uint8,
 }
 
-struct GamepadDeviceEvent {
+GamepadDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	which: JoystickID,
 }
 
-struct GamepadTouchpadEvent {
+GamepadTouchpadEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6410,7 +6410,7 @@ struct GamepadTouchpadEvent {
 	pressure: f32,
 }
 
-struct GamepadSensorEvent {
+GamepadSensorEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6420,7 +6420,7 @@ struct GamepadSensorEvent {
 	sensor_timestamp: Uint64,
 }
 
-struct AudioDeviceEvent {
+AudioDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6431,21 +6431,21 @@ struct AudioDeviceEvent {
 	padding3: Uint8,
 }
 
-struct CameraDeviceEvent {
+CameraDeviceEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	which: CameraID,
 }
 
-struct RenderEvent {
+RenderEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 	windowID: WindowID,
 }
 
-struct TouchFingerEvent {
+TouchFingerEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6459,7 +6459,7 @@ struct TouchFingerEvent {
 	windowID: WindowID,
 }
 
-struct PenProximityEvent {
+PenProximityEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6467,7 +6467,7 @@ struct PenProximityEvent {
 	which: PenID,
 }
 
-struct PenMotionEvent {
+PenMotionEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6478,7 +6478,7 @@ struct PenMotionEvent {
 	y: f32,
 }
 
-struct PenTouchEvent {
+PenTouchEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6491,7 +6491,7 @@ struct PenTouchEvent {
 	down: bool,
 }
 
-struct PenButtonEvent {
+PenButtonEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6504,7 +6504,7 @@ struct PenButtonEvent {
 	down: bool,
 }
 
-struct PenAxisEvent {
+PenAxisEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6517,7 +6517,7 @@ struct PenAxisEvent {
 	value: f32,
 }
 
-struct DropEvent {
+DropEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6528,7 +6528,7 @@ struct DropEvent {
 	data: ?*u8,
 }
 
-struct ClipboardEvent {
+ClipboardEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6537,7 +6537,7 @@ struct ClipboardEvent {
 	mime_types: ?*?*u8,
 }
 
-struct SensorEvent {
+SensorEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6546,13 +6546,13 @@ struct SensorEvent {
 	sensor_timestamp: Uint64,
 }
 
-struct QuitEvent {
+QuitEvent :: struct {
 	type: EventType,
 	reserved: Uint32,
 	timestamp: Uint64,
 }
 
-struct UserEvent {
+UserEvent :: struct {
 	type: Uint32,
 	reserved: Uint32,
 	timestamp: Uint64,
@@ -6562,7 +6562,7 @@ struct UserEvent {
 	data2: ?*,
 }
 
-union Event {
+Event :: union {
 	type: Uint32,
 	common: CommonEvent,
 	display: DisplayEvent,
@@ -6606,7 +6606,7 @@ union Event {
 
 PumpEvents :: fn() #foreign #link="SDL_PumpEvents";
 
-enum EventAction: u32 {
+EventAction :: enum: u32 {
 	ADDEVENT = 0x0,
 	PEEKEVENT = 0x1,
 	GETEVENT = 0x2,
@@ -6706,7 +6706,7 @@ GetPrefPath :: fn(
 	app: ?*u8
 ) -> ?*u8 #foreign #link="SDL_GetPrefPath";
 
-enum Folder: u32 {
+Folder :: enum: u32 {
 	HOME = 0x0,
 	DESKTOP = 0x1,
 	DOCUMENTS = 0x2,
@@ -6725,14 +6725,14 @@ GetUserFolder :: fn(
 	folder: Folder
 ) -> ?*u8 #foreign #link="SDL_GetUserFolder";
 
-enum PathType: u32 {
+PathType :: enum: u32 {
 	NONE = 0x0,
 	FILE = 0x1,
 	DIRECTORY = 0x2,
 	OTHER = 0x3,
 }
 
-struct PathInfo {
+PathInfo :: struct {
 	type: PathType,
 	size: Uint64,
 	create_time: Time,
@@ -6746,7 +6746,7 @@ CreateDirectory :: fn(
 	path: ?*u8
 ) -> bool #foreign #link="SDL_CreateDirectory";
 
-enum EnumerationResult: u32 {
+EnumerationResult :: enum: u32 {
 	ENUM_CONTINUE = 0x0,
 	ENUM_SUCCESS = 0x1,
 	ENUM_FAILURE = 0x2,
@@ -6788,46 +6788,46 @@ GlobDirectory :: fn(
 
 GetCurrentDirectory :: fn() -> ?*u8 #foreign #link="SDL_GetCurrentDirectory";
 
-struct GPUDevice {
+GPUDevice :: struct {
 }
 
-struct GPUBuffer {
+GPUBuffer :: struct {
 }
 
-struct GPUTransferBuffer {
+GPUTransferBuffer :: struct {
 }
 
-struct GPUTexture {
+GPUTexture :: struct {
 }
 
-struct GPUSampler {
+GPUSampler :: struct {
 }
 
-struct GPUShader {
+GPUShader :: struct {
 }
 
-struct GPUComputePipeline {
+GPUComputePipeline :: struct {
 }
 
-struct GPUGraphicsPipeline {
+GPUGraphicsPipeline :: struct {
 }
 
-struct GPUCommandBuffer {
+GPUCommandBuffer :: struct {
 }
 
-struct GPURenderPass {
+GPURenderPass :: struct {
 }
 
-struct GPUComputePass {
+GPUComputePass :: struct {
 }
 
-struct GPUCopyPass {
+GPUCopyPass :: struct {
 }
 
-struct GPUFence {
+GPUFence :: struct {
 }
 
-enum GPUPrimitiveType: u32 {
+GPUPrimitiveType :: enum: u32 {
 	GPU_PRIMITIVETYPE_TRIANGLELIST = 0x0,
 	GPU_PRIMITIVETYPE_TRIANGLESTRIP = 0x1,
 	GPU_PRIMITIVETYPE_LINELIST = 0x2,
@@ -6835,25 +6835,25 @@ enum GPUPrimitiveType: u32 {
 	GPU_PRIMITIVETYPE_POINTLIST = 0x4,
 }
 
-enum GPULoadOp: u32 {
+GPULoadOp :: enum: u32 {
 	LOAD = 0x0,
 	CLEAR = 0x1,
 	DONT_CARE = 0x2,
 }
 
-enum GPUStoreOp: u32 {
+GPUStoreOp :: enum: u32 {
 	STORE = 0x0,
 	DONT_CARE = 0x1,
 	RESOLVE = 0x2,
 	RESOLVE_AND_STORE = 0x3,
 }
 
-enum GPUIndexElementSize: u32 {
+GPUIndexElementSize :: enum: u32 {
 	_16BIT = 0x0,
 	_32BIT = 0x1,
 }
 
-enum GPUTextureFormat: u32 {
+GPUTextureFormat :: enum: u32 {
 	INVALID = 0x0,
 	A8_UNORM = 0x1,
 	R8_UNORM = 0x2,
@@ -6963,7 +6963,7 @@ enum GPUTextureFormat: u32 {
 
 GPUTextureUsageFlags :: Uint32;
 
-enum GPUTextureType: u32 {
+GPUTextureType :: enum: u32 {
 	GPU_TEXTURETYPE_2D = 0x0,
 	GPU_TEXTURETYPE_2D_ARRAY = 0x1,
 	GPU_TEXTURETYPE_3D = 0x2,
@@ -6971,14 +6971,14 @@ enum GPUTextureType: u32 {
 	GPU_TEXTURETYPE_CUBE_ARRAY = 0x4,
 }
 
-enum GPUSampleCount: u32 {
+GPUSampleCount :: enum: u32 {
 	GPU_SAMPLECOUNT_1 = 0x0,
 	GPU_SAMPLECOUNT_2 = 0x1,
 	GPU_SAMPLECOUNT_4 = 0x2,
 	GPU_SAMPLECOUNT_8 = 0x3,
 }
 
-enum GPUCubeMapFace: u32 {
+GPUCubeMapFace :: enum: u32 {
 	GPU_CUBEMAPFACE_POSITIVEX = 0x0,
 	GPU_CUBEMAPFACE_NEGATIVEX = 0x1,
 	GPU_CUBEMAPFACE_POSITIVEY = 0x2,
@@ -6989,19 +6989,19 @@ enum GPUCubeMapFace: u32 {
 
 GPUBufferUsageFlags :: Uint32;
 
-enum GPUTransferBufferUsage: u32 {
+GPUTransferBufferUsage :: enum: u32 {
 	GPU_TRANSFERBUFFERUSAGE_UPLOAD = 0x0,
 	GPU_TRANSFERBUFFERUSAGE_DOWNLOAD = 0x1,
 }
 
-enum GPUShaderStage: u32 {
+GPUShaderStage :: enum: u32 {
 	GPU_SHADERSTAGE_VERTEX = 0x0,
 	GPU_SHADERSTAGE_FRAGMENT = 0x1,
 }
 
 GPUShaderFormat :: Uint32;
 
-enum GPUVertexElementFormat: u32 {
+GPUVertexElementFormat :: enum: u32 {
 	GPU_VERTEXELEMENTFORMAT_INVALID = 0x0,
 	GPU_VERTEXELEMENTFORMAT_INT = 0x1,
 	GPU_VERTEXELEMENTFORMAT_INT2 = 0x2,
@@ -7035,28 +7035,28 @@ enum GPUVertexElementFormat: u32 {
 	GPU_VERTEXELEMENTFORMAT_HALF4 = 0x1e,
 }
 
-enum GPUVertexInputRate: u32 {
+GPUVertexInputRate :: enum: u32 {
 	GPU_VERTEXINPUTRATE_VERTEX = 0x0,
 	GPU_VERTEXINPUTRATE_INSTANCE = 0x1,
 }
 
-enum GPUFillMode: u32 {
+GPUFillMode :: enum: u32 {
 	GPU_FILLMODE_FILL = 0x0,
 	GPU_FILLMODE_LINE = 0x1,
 }
 
-enum GPUCullMode: u32 {
+GPUCullMode :: enum: u32 {
 	GPU_CULLMODE_NONE = 0x0,
 	GPU_CULLMODE_FRONT = 0x1,
 	GPU_CULLMODE_BACK = 0x2,
 }
 
-enum GPUFrontFace: u32 {
+GPUFrontFace :: enum: u32 {
 	GPU_FRONTFACE_COUNTER_CLOCKWISE = 0x0,
 	GPU_FRONTFACE_CLOCKWISE = 0x1,
 }
 
-enum GPUCompareOp: u32 {
+GPUCompareOp :: enum: u32 {
 	GPU_COMPAREOP_INVALID = 0x0,
 	GPU_COMPAREOP_NEVER = 0x1,
 	GPU_COMPAREOP_LESS = 0x2,
@@ -7068,7 +7068,7 @@ enum GPUCompareOp: u32 {
 	GPU_COMPAREOP_ALWAYS = 0x8,
 }
 
-enum GPUStencilOp: u32 {
+GPUStencilOp :: enum: u32 {
 	GPU_STENCILOP_INVALID = 0x0,
 	GPU_STENCILOP_KEEP = 0x1,
 	GPU_STENCILOP_ZERO = 0x2,
@@ -7080,7 +7080,7 @@ enum GPUStencilOp: u32 {
 	GPU_STENCILOP_DECREMENT_AND_WRAP = 0x8,
 }
 
-enum GPUBlendOp: u32 {
+GPUBlendOp :: enum: u32 {
 	GPU_BLENDOP_INVALID = 0x0,
 	GPU_BLENDOP_ADD = 0x1,
 	GPU_BLENDOP_SUBTRACT = 0x2,
@@ -7089,7 +7089,7 @@ enum GPUBlendOp: u32 {
 	GPU_BLENDOP_MAX = 0x5,
 }
 
-enum GPUBlendFactor: u32 {
+GPUBlendFactor :: enum: u32 {
 	GPU_BLENDFACTOR_INVALID = 0x0,
 	GPU_BLENDFACTOR_ZERO = 0x1,
 	GPU_BLENDFACTOR_ONE = 0x2,
@@ -7108,36 +7108,36 @@ enum GPUBlendFactor: u32 {
 
 GPUColorComponentFlags :: Uint8;
 
-enum GPUFilter: u32 {
+GPUFilter :: enum: u32 {
 	GPU_FILTER_NEAREST = 0x0,
 	GPU_FILTER_LINEAR = 0x1,
 }
 
-enum GPUSamplerMipmapMode: u32 {
+GPUSamplerMipmapMode :: enum: u32 {
 	GPU_SAMPLERMIPMAPMODE_NEAREST = 0x0,
 	GPU_SAMPLERMIPMAPMODE_LINEAR = 0x1,
 }
 
-enum GPUSamplerAddressMode: u32 {
+GPUSamplerAddressMode :: enum: u32 {
 	GPU_SAMPLERADDRESSMODE_REPEAT = 0x0,
 	GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT = 0x1,
 	GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE = 0x2,
 }
 
-enum GPUPresentMode: u32 {
+GPUPresentMode :: enum: u32 {
 	GPU_PRESENTMODE_VSYNC = 0x0,
 	GPU_PRESENTMODE_IMMEDIATE = 0x1,
 	GPU_PRESENTMODE_MAILBOX = 0x2,
 }
 
-enum GPUSwapchainComposition: u32 {
+GPUSwapchainComposition :: enum: u32 {
 	GPU_SWAPCHAINCOMPOSITION_SDR = 0x0,
 	GPU_SWAPCHAINCOMPOSITION_SDR_LINEAR = 0x1,
 	GPU_SWAPCHAINCOMPOSITION_HDR_EXTENDED_LINEAR = 0x2,
 	GPU_SWAPCHAINCOMPOSITION_HDR10_ST2084 = 0x3,
 }
 
-struct GPUViewport {
+GPUViewport :: struct {
 	x: f32,
 	y: f32,
 	w: f32,
@@ -7146,19 +7146,19 @@ struct GPUViewport {
 	max_depth: f32,
 }
 
-struct GPUTextureTransferInfo {
+GPUTextureTransferInfo :: struct {
 	transfer_buffer: ?*GPUTransferBuffer,
 	offset: Uint32,
 	pixels_per_row: Uint32,
 	rows_per_layer: Uint32,
 }
 
-struct GPUTransferBufferLocation {
+GPUTransferBufferLocation :: struct {
 	transfer_buffer: ?*GPUTransferBuffer,
 	offset: Uint32,
 }
 
-struct GPUTextureLocation {
+GPUTextureLocation :: struct {
 	texture: ?*GPUTexture,
 	mip_level: Uint32,
 	layer: Uint32,
@@ -7167,7 +7167,7 @@ struct GPUTextureLocation {
 	z: Uint32,
 }
 
-struct GPUTextureRegion {
+GPUTextureRegion :: struct {
 	texture: ?*GPUTexture,
 	mip_level: Uint32,
 	layer: Uint32,
@@ -7179,7 +7179,7 @@ struct GPUTextureRegion {
 	d: Uint32,
 }
 
-struct GPUBlitRegion {
+GPUBlitRegion :: struct {
 	texture: ?*GPUTexture,
 	mip_level: Uint32,
 	layer_or_depth_plane: Uint32,
@@ -7189,25 +7189,25 @@ struct GPUBlitRegion {
 	h: Uint32,
 }
 
-struct GPUBufferLocation {
+GPUBufferLocation :: struct {
 	buffer: ?*GPUBuffer,
 	offset: Uint32,
 }
 
-struct GPUBufferRegion {
+GPUBufferRegion :: struct {
 	buffer: ?*GPUBuffer,
 	offset: Uint32,
 	size: Uint32,
 }
 
-struct GPUIndirectDrawCommand {
+GPUIndirectDrawCommand :: struct {
 	num_vertices: Uint32,
 	num_instances: Uint32,
 	first_vertex: Uint32,
 	first_instance: Uint32,
 }
 
-struct GPUIndexedIndirectDrawCommand {
+GPUIndexedIndirectDrawCommand :: struct {
 	num_indices: Uint32,
 	num_instances: Uint32,
 	first_index: Uint32,
@@ -7215,13 +7215,13 @@ struct GPUIndexedIndirectDrawCommand {
 	first_instance: Uint32,
 }
 
-struct GPUIndirectDispatchCommand {
+GPUIndirectDispatchCommand :: struct {
 	groupcount_x: Uint32,
 	groupcount_y: Uint32,
 	groupcount_z: Uint32,
 }
 
-struct GPUSamplerCreateInfo {
+GPUSamplerCreateInfo :: struct {
 	min_filter: GPUFilter,
 	mag_filter: GPUFilter,
 	mipmap_mode: GPUSamplerMipmapMode,
@@ -7240,35 +7240,35 @@ struct GPUSamplerCreateInfo {
 	props: PropertiesID,
 }
 
-struct GPUVertexBufferDescription {
+GPUVertexBufferDescription :: struct {
 	slot: Uint32,
 	pitch: Uint32,
 	input_rate: GPUVertexInputRate,
 	instance_step_rate: Uint32,
 }
 
-struct GPUVertexAttribute {
+GPUVertexAttribute :: struct {
 	location: Uint32,
 	buffer_slot: Uint32,
 	format: GPUVertexElementFormat,
 	offset: Uint32,
 }
 
-struct GPUVertexInputState {
+GPUVertexInputState :: struct {
 	vertex_buffer_descriptions: ?*GPUVertexBufferDescription,
 	num_vertex_buffers: Uint32,
 	vertex_attributes: ?*GPUVertexAttribute,
 	num_vertex_attributes: Uint32,
 }
 
-struct GPUStencilOpState {
+GPUStencilOpState :: struct {
 	fail_op: GPUStencilOp,
 	pass_op: GPUStencilOp,
 	depth_fail_op: GPUStencilOp,
 	compare_op: GPUCompareOp,
 }
 
-struct GPUColorTargetBlendState {
+GPUColorTargetBlendState :: struct {
 	src_color_blendfactor: GPUBlendFactor,
 	dst_color_blendfactor: GPUBlendFactor,
 	color_blend_op: GPUBlendOp,
@@ -7282,7 +7282,7 @@ struct GPUColorTargetBlendState {
 	padding2: Uint8,
 }
 
-struct GPUShaderCreateInfo {
+GPUShaderCreateInfo :: struct {
 	code_size: uint,
 	code: ?*Uint8,
 	entrypoint: ?*u8,
@@ -7295,7 +7295,7 @@ struct GPUShaderCreateInfo {
 	props: PropertiesID,
 }
 
-struct GPUTextureCreateInfo {
+GPUTextureCreateInfo :: struct {
 	type: GPUTextureType,
 	format: GPUTextureFormat,
 	usage: GPUTextureUsageFlags,
@@ -7307,19 +7307,19 @@ struct GPUTextureCreateInfo {
 	props: PropertiesID,
 }
 
-struct GPUBufferCreateInfo {
+GPUBufferCreateInfo :: struct {
 	usage: GPUBufferUsageFlags,
 	size: Uint32,
 	props: PropertiesID,
 }
 
-struct GPUTransferBufferCreateInfo {
+GPUTransferBufferCreateInfo :: struct {
 	usage: GPUTransferBufferUsage,
 	size: Uint32,
 	props: PropertiesID,
 }
 
-struct GPURasterizerState {
+GPURasterizerState :: struct {
 	fill_mode: GPUFillMode,
 	cull_mode: GPUCullMode,
 	front_face: GPUFrontFace,
@@ -7332,7 +7332,7 @@ struct GPURasterizerState {
 	padding2: Uint8,
 }
 
-struct GPUMultisampleState {
+GPUMultisampleState :: struct {
 	sample_count: GPUSampleCount,
 	sample_mask: Uint32,
 	enable_mask: bool,
@@ -7341,7 +7341,7 @@ struct GPUMultisampleState {
 	padding3: Uint8,
 }
 
-struct GPUDepthStencilState {
+GPUDepthStencilState :: struct {
 	compare_op: GPUCompareOp,
 	back_stencil_state: GPUStencilOpState,
 	front_stencil_state: GPUStencilOpState,
@@ -7355,12 +7355,12 @@ struct GPUDepthStencilState {
 	padding3: Uint8,
 }
 
-struct GPUColorTargetDescription {
+GPUColorTargetDescription :: struct {
 	format: GPUTextureFormat,
 	blend_state: GPUColorTargetBlendState,
 }
 
-struct GPUGraphicsPipelineTargetInfo {
+GPUGraphicsPipelineTargetInfo :: struct {
 	color_target_descriptions: ?*GPUColorTargetDescription,
 	num_color_targets: Uint32,
 	depth_stencil_format: GPUTextureFormat,
@@ -7370,7 +7370,7 @@ struct GPUGraphicsPipelineTargetInfo {
 	padding3: Uint8,
 }
 
-struct GPUGraphicsPipelineCreateInfo {
+GPUGraphicsPipelineCreateInfo :: struct {
 	vertex_shader: ?*GPUShader,
 	fragment_shader: ?*GPUShader,
 	vertex_input_state: GPUVertexInputState,
@@ -7382,7 +7382,7 @@ struct GPUGraphicsPipelineCreateInfo {
 	props: PropertiesID,
 }
 
-struct GPUComputePipelineCreateInfo {
+GPUComputePipelineCreateInfo :: struct {
 	code_size: uint,
 	code: ?*Uint8,
 	entrypoint: ?*u8,
@@ -7399,7 +7399,7 @@ struct GPUComputePipelineCreateInfo {
 	props: PropertiesID,
 }
 
-struct GPUColorTargetInfo {
+GPUColorTargetInfo :: struct {
 	texture: ?*GPUTexture,
 	mip_level: Uint32,
 	layer_or_depth_plane: Uint32,
@@ -7415,7 +7415,7 @@ struct GPUColorTargetInfo {
 	padding2: Uint8,
 }
 
-struct GPUDepthStencilTargetInfo {
+GPUDepthStencilTargetInfo :: struct {
 	texture: ?*GPUTexture,
 	clear_depth: f32,
 	load_op: GPULoadOp,
@@ -7428,7 +7428,7 @@ struct GPUDepthStencilTargetInfo {
 	padding2: Uint8,
 }
 
-struct GPUBlitInfo {
+GPUBlitInfo :: struct {
 	source: GPUBlitRegion,
 	destination: GPUBlitRegion,
 	load_op: GPULoadOp,
@@ -7441,17 +7441,17 @@ struct GPUBlitInfo {
 	padding3: Uint8,
 }
 
-struct GPUBufferBinding {
+GPUBufferBinding :: struct {
 	buffer: ?*GPUBuffer,
 	offset: Uint32,
 }
 
-struct GPUTextureSamplerBinding {
+GPUTextureSamplerBinding :: struct {
 	texture: ?*GPUTexture,
 	sampler: ?*GPUSampler,
 }
 
-struct GPUStorageBufferReadWriteBinding {
+GPUStorageBufferReadWriteBinding :: struct {
 	buffer: ?*GPUBuffer,
 	cycle: bool,
 	padding1: Uint8,
@@ -7459,7 +7459,7 @@ struct GPUStorageBufferReadWriteBinding {
 	padding3: Uint8,
 }
 
-struct GPUStorageTextureReadWriteBinding {
+GPUStorageTextureReadWriteBinding :: struct {
 	texture: ?*GPUTexture,
 	mip_level: Uint32,
 	layer: Uint32,
@@ -7990,15 +7990,15 @@ CalculateGPUTextureFormatSize :: fn(
 	depth_or_layer_count: Uint32
 ) -> Uint32 #foreign #link="SDL_CalculateGPUTextureFormatSize";
 
-struct Haptic {
+Haptic :: struct {
 }
 
-struct HapticDirection {
+HapticDirection :: struct {
 	type: Uint8,
 	dir: [3]Sint32,
 }
 
-struct HapticConstant {
+HapticConstant :: struct {
 	type: Uint16,
 	direction: HapticDirection,
 	length: Uint32,
@@ -8012,7 +8012,7 @@ struct HapticConstant {
 	fade_level: Uint16,
 }
 
-struct HapticPeriodic {
+HapticPeriodic :: struct {
 	type: Uint16,
 	direction: HapticDirection,
 	length: Uint32,
@@ -8029,7 +8029,7 @@ struct HapticPeriodic {
 	fade_level: Uint16,
 }
 
-struct HapticCondition {
+HapticCondition :: struct {
 	type: Uint16,
 	direction: HapticDirection,
 	length: Uint32,
@@ -8044,7 +8044,7 @@ struct HapticCondition {
 	center: [3]Sint16,
 }
 
-struct HapticRamp {
+HapticRamp :: struct {
 	type: Uint16,
 	direction: HapticDirection,
 	length: Uint32,
@@ -8059,14 +8059,14 @@ struct HapticRamp {
 	fade_level: Uint16,
 }
 
-struct HapticLeftRight {
+HapticLeftRight :: struct {
 	type: Uint16,
 	length: Uint32,
 	large_magnitude: Uint16,
 	small_magnitude: Uint16,
 }
 
-struct HapticCustom {
+HapticCustom :: struct {
 	type: Uint16,
 	direction: HapticDirection,
 	length: Uint32,
@@ -8083,7 +8083,7 @@ struct HapticCustom {
 	fade_level: Uint16,
 }
 
-union HapticEffect {
+HapticEffect :: union {
 	type: Uint16,
 	constant: HapticConstant,
 	periodic: HapticPeriodic,
@@ -8228,10 +8228,10 @@ StopHapticRumble :: fn(
 	haptic: ?*Haptic
 ) -> bool #foreign #link="SDL_StopHapticRumble";
 
-struct hid_device {
+hid_device :: struct {
 }
 
-enum hid_bus_type: u32 {
+hid_bus_type :: enum: u32 {
 	HID_API_BUS_UNKNOWN = 0x0,
 	HID_API_BUS_USB = 0x1,
 	HID_API_BUS_BLUETOOTH = 0x2,
@@ -8239,7 +8239,7 @@ enum hid_bus_type: u32 {
 	HID_API_BUS_SPI = 0x4,
 }
 
-struct hid_device_info {
+hid_device_info :: struct {
 	path: ?*u8,
 	vendor_id: u16,
 	product_id: u16,
@@ -8367,7 +8367,7 @@ hid_ble_scan :: fn(
 	active: bool
 ) #foreign #link="SDL_hid_ble_scan";
 
-enum HintPriority: u32 {
+HintPriority :: enum: u32 {
 	HINT_DEFAULT = 0x0,
 	HINT_NORMAL = 0x1,
 	HINT_OVERRIDE = 0x2,
@@ -8415,7 +8415,7 @@ RemoveHintCallback :: fn(
 
 InitFlags :: Uint32;
 
-enum AppResult: u32 {
+AppResult :: enum: u32 {
 	APP_CONTINUE = 0x0,
 	APP_SUCCESS = 0x1,
 	APP_FAILURE = 0x2,
@@ -8472,7 +8472,7 @@ GetAppMetadataProperty :: fn(
 	name: ?*u8
 ) -> ?*u8 #foreign #link="SDL_GetAppMetadataProperty";
 
-struct SharedObject {
+SharedObject :: struct {
 }
 
 LoadObject :: fn(
@@ -8488,7 +8488,7 @@ UnloadObject :: fn(
 	handle: ?*SharedObject
 ) #foreign #link="SDL_UnloadObject";
 
-struct Locale {
+Locale :: struct {
 	language: ?*u8,
 	country: ?*u8,
 }
@@ -8497,7 +8497,7 @@ GetPreferredLocales :: fn(
 	count: ?*i32
 ) -> ?*?*Locale #foreign #link="SDL_GetPreferredLocales";
 
-enum LogCategory: u32 {
+LogCategory :: enum: u32 {
 	LOG_CATEGORY_APPLICATION = 0x0,
 	LOG_CATEGORY_ERROR = 0x1,
 	LOG_CATEGORY_ASSERT = 0x2,
@@ -8520,7 +8520,7 @@ enum LogCategory: u32 {
 	LOG_CATEGORY_CUSTOM = 0x13,
 }
 
-enum LogPriority: u32 {
+LogPriority :: enum: u32 {
 	LOG_PRIORITY_INVALID = 0x0,
 	LOG_PRIORITY_TRACE = 0x1,
 	LOG_PRIORITY_VERBOSE = 0x2,
@@ -8615,19 +8615,19 @@ MessageBoxFlags :: Uint32;
 
 MessageBoxButtonFlags :: Uint32;
 
-struct MessageBoxButtonData {
+MessageBoxButtonData :: struct {
 	flags: MessageBoxButtonFlags,
 	buttonID: i32,
 	text: ?*u8,
 }
 
-struct MessageBoxColor {
+MessageBoxColor :: struct {
 	r: Uint8,
 	g: Uint8,
 	b: Uint8,
 }
 
-enum MessageBoxColorType: u32 {
+MessageBoxColorType :: enum: u32 {
 	MESSAGEBOX_COLOR_BACKGROUND = 0x0,
 	MESSAGEBOX_COLOR_TEXT = 0x1,
 	MESSAGEBOX_COLOR_BUTTON_BORDER = 0x2,
@@ -8636,11 +8636,11 @@ enum MessageBoxColorType: u32 {
 	MESSAGEBOX_COLOR_COUNT = 0x5,
 }
 
-struct MessageBoxColorScheme {
+MessageBoxColorScheme :: struct {
 	colors: [5]MessageBoxColor,
 }
 
-struct MessageBoxData {
+MessageBoxData :: struct {
 	flags: MessageBoxFlags,
 	window: ?*Window,
 	title: ?*u8,
@@ -8682,7 +8682,7 @@ OpenURL :: fn(
 
 GetPlatform :: fn() -> ?*u8 #foreign #link="SDL_GetPlatform";
 
-struct Process {
+Process :: struct {
 }
 
 CreateProcess :: fn(
@@ -8690,7 +8690,7 @@ CreateProcess :: fn(
 	pipe_stdio: bool
 ) -> ?*Process #foreign #link="SDL_CreateProcess";
 
-enum ProcessIO: u32 {
+ProcessIO :: enum: u32 {
 	PROCESS_STDIO_INHERITED = 0x0,
 	PROCESS_STDIO_NULL = 0x1,
 	PROCESS_STDIO_APP = 0x2,
@@ -8734,19 +8734,19 @@ DestroyProcess :: fn(
 	process: ?*Process
 ) #foreign #link="SDL_DestroyProcess";
 
-struct Vertex {
+Vertex :: struct {
 	position: FPoint,
 	color: FColor,
 	tex_coord: FPoint,
 }
 
-enum TextureAccess: u32 {
+TextureAccess :: enum: u32 {
 	STATIC = 0x0,
 	STREAMING = 0x1,
 	TARGET = 0x2,
 }
 
-enum RendererLogicalPresentation: u32 {
+RendererLogicalPresentation :: enum: u32 {
 	LOGICAL_PRESENTATION_DISABLED = 0x0,
 	LOGICAL_PRESENTATION_STRETCH = 0x1,
 	LOGICAL_PRESENTATION_LETTERBOX = 0x2,
@@ -8754,10 +8754,10 @@ enum RendererLogicalPresentation: u32 {
 	LOGICAL_PRESENTATION_INTEGER_SCALE = 0x4,
 }
 
-struct Renderer {
+Renderer :: struct {
 }
 
-struct Texture {
+Texture :: struct {
 	format: PixelFormat,
 	w: i32,
 	h: i32,
@@ -9292,7 +9292,7 @@ RenderDebugTextFormat :: fn(
 	fmt: ?*u8
 ) -> bool #foreign #link="SDL_RenderDebugTextFormat";
 
-struct StorageInterface {
+StorageInterface :: struct {
 	version: Uint32,
 	close: ?*fn(a: ?*) -> bool #foreign,
 	ready: ?*fn(a: ?*) -> bool #foreign,
@@ -9307,7 +9307,7 @@ struct StorageInterface {
 	space_remaining: ?*fn(a: ?*) -> Uint64 #foreign,
 }
 
-struct Storage {
+Storage :: struct {
 }
 
 OpenTitleStorage :: fn(
@@ -9405,7 +9405,7 @@ GlobStorageDirectory :: fn(
 	count: ?*i32
 ) -> ?*?*u8 #foreign #link="SDL_GlobStorageDirectory";
 
-struct tagMSG {
+tagMSG :: struct {
 }
 
 MSG :: tagMSG;
@@ -9427,7 +9427,7 @@ GetDXGIOutputInfo :: fn(
 	outputIndex: ?*i32
 ) -> bool #foreign #link="SDL_GetDXGIOutputInfo";
 
-struct _XEvent {};
+_XEvent :: struct {};
 XEvent :: _XEvent;
 
 X11EventHook :: ?*fn(a: ?*, b: ?*XEvent) -> bool #foreign;
@@ -9441,7 +9441,7 @@ IsTablet :: fn() -> bool #foreign #link="SDL_IsTablet";
 
 IsTV :: fn() -> bool #foreign #link="SDL_IsTV";
 
-enum Sandbox: u32 {
+Sandbox :: enum: u32 {
 	NONE = 0x0,
 	UNKNOWN_CONTAINER = 0x1,
 	FLATPAK = 0x2,
@@ -9463,7 +9463,7 @@ OnApplicationWillEnterForeground :: fn() #foreign #link="SDL_OnApplicationWillEn
 
 OnApplicationDidEnterForeground :: fn() #foreign #link="SDL_OnApplicationDidEnterForeground";
 
-struct DateTime {
+DateTime :: struct {
 	year: i32,
 	month: i32,
 	day: i32,
@@ -9475,13 +9475,13 @@ struct DateTime {
 	utc_offset: i32,
 }
 
-enum DateFormat: u32 {
+DateFormat :: enum: u32 {
 	DATE_FORMAT_YYYYMMDD = 0x0,
 	DATE_FORMAT_DDMMYYYY = 0x1,
 	DATE_FORMAT_MMDDYYYY = 0x2,
 }
 
-enum TimeFormat: u32 {
+TimeFormat :: enum: u32 {
 	TIME_FORMAT_24HR = 0x0,
 	TIME_FORMAT_12HR = 0x1,
 }
@@ -9576,13 +9576,13 @@ RemoveTimer :: fn(
 	id: TimerID
 ) -> bool #foreign #link="SDL_RemoveTimer";
 
-struct Tray {
+Tray :: struct {
 }
 
-struct TrayMenu {
+TrayMenu :: struct {
 }
 
-struct TrayEntry {
+TrayEntry :: struct {
 }
 
 TrayEntryFlags :: Uint32;

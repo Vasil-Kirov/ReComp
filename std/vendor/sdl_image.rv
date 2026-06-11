@@ -188,7 +188,7 @@ SaveJPG_IO :: fn #link="IMG_SaveJPG_IO"(
 	closeio: bool,
 	quality: i32) -> bool;
 
-struct Animation {
+Animation :: struct {
 	w: i32,
 	h: i32,
 	count: i32,

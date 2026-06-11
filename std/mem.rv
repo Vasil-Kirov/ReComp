@@ -13,7 +13,7 @@ temp_alloc := Allocator {
 			data = null,
 		};
 
-struct Allocator {
+Allocator :: struct {
     alloc: *fn(size: int, this: *Allocator) -> ?*,
     free:  *fn(ptr: *, this: *Allocator),
     data: ?*,
@@ -70,7 +70,7 @@ create_generic_allocator :: fn() -> Allocator {
     return r;
 }
 
-struct ScratchContext {
+ScratchContext :: struct {
 	start: *u8,
     current: *u8,
     max: *u8,

@@ -14,7 +14,7 @@ MIP_LEVEL_COUNT_UNDEFINED :: UINT32_MAX;
 QUERY_SET_INDEX_UNDEFINED :: UINT32_MAX;
 WHOLE_SIZE :: UINT64_MAX;
 
-struct StringView {
+StringView :: struct {
 	data: ?*u8,
 	length: uint,
 }
@@ -23,117 +23,117 @@ Flags :: u64;
 
 Bool :: u32;
 
-struct AdapterImpl {
+AdapterImpl :: struct {
 }
 
 Adapter :: ?*AdapterImpl;
 
-struct BindGroupImpl {
+BindGroupImpl :: struct {
 }
 
 BindGroup :: ?*BindGroupImpl;
 
-struct BindGroupLayoutImpl {
+BindGroupLayoutImpl :: struct {
 }
 
 BindGroupLayout :: ?*BindGroupLayoutImpl;
 
-struct BufferImpl {
+BufferImpl :: struct {
 }
 
 Buffer :: ?*BufferImpl;
 
-struct CommandBufferImpl {
+CommandBufferImpl :: struct {
 }
 
 CommandBuffer :: ?*CommandBufferImpl;
 
-struct CommandEncoderImpl {
+CommandEncoderImpl :: struct {
 }
 
 CommandEncoder :: ?*CommandEncoderImpl;
 
-struct ComputePassEncoderImpl {
+ComputePassEncoderImpl :: struct {
 }
 
 ComputePassEncoder :: ?*ComputePassEncoderImpl;
 
-struct ComputePipelineImpl {
+ComputePipelineImpl :: struct {
 }
 
 ComputePipeline :: ?*ComputePipelineImpl;
 
-struct DeviceImpl {
+DeviceImpl :: struct {
 }
 
 Device :: ?*DeviceImpl;
 
-struct InstanceImpl {
+InstanceImpl :: struct {
 }
 
 Instance :: ?*InstanceImpl;
 
-struct PipelineLayoutImpl {
+PipelineLayoutImpl :: struct {
 }
 
 PipelineLayout :: ?*PipelineLayoutImpl;
 
-struct QuerySetImpl {
+QuerySetImpl :: struct {
 }
 
 QuerySet :: ?*QuerySetImpl;
 
-struct QueueImpl {
+QueueImpl :: struct {
 }
 
 Queue :: ?*QueueImpl;
 
-struct RenderBundleImpl {
+RenderBundleImpl :: struct {
 }
 
 RenderBundle :: ?*RenderBundleImpl;
 
-struct RenderBundleEncoderImpl {
+RenderBundleEncoderImpl :: struct {
 }
 
 RenderBundleEncoder :: ?*RenderBundleEncoderImpl;
 
-struct RenderPassEncoderImpl {
+RenderPassEncoderImpl :: struct {
 }
 
 RenderPassEncoder :: ?*RenderPassEncoderImpl;
 
-struct RenderPipelineImpl {
+RenderPipelineImpl :: struct {
 }
 
 RenderPipeline :: ?*RenderPipelineImpl;
 
-struct SamplerImpl {
+SamplerImpl :: struct {
 }
 
 Sampler :: ?*SamplerImpl;
 
-struct ShaderModuleImpl {
+ShaderModuleImpl :: struct {
 }
 
 ShaderModule :: ?*ShaderModuleImpl;
 
-struct SurfaceImpl {
+SurfaceImpl :: struct {
 }
 
 Surface :: ?*SurfaceImpl;
 
-struct TextureImpl {
+TextureImpl :: struct {
 }
 
 Texture :: ?*TextureImpl;
 
-struct TextureViewImpl {
+TextureViewImpl :: struct {
 }
 
 TextureView :: ?*TextureViewImpl;
 
-enum AdapterType: u32 {
+AdapterType :: enum: u32 {
 	DiscreteGPU = 0x1,
 	IntegratedGPU = 0x2,
 	CPU = 0x3,
@@ -141,7 +141,7 @@ enum AdapterType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum AddressMode: u32 {
+AddressMode :: enum: u32 {
 	Undefined = 0x0,
 	ClampToEdge = 0x1,
 	Repeat = 0x2,
@@ -149,7 +149,7 @@ enum AddressMode: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum BackendType: u32 {
+BackendType :: enum: u32 {
 	Undefined = 0x0,
 	Null = 0x1,
 	WebGPU = 0x2,
@@ -162,7 +162,7 @@ enum BackendType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum BlendFactor: u32 {
+BlendFactor :: enum: u32 {
 	Undefined = 0x0,
 	Zero = 0x1,
 	One = 0x2,
@@ -184,7 +184,7 @@ enum BlendFactor: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum BlendOperation: u32 {
+BlendOperation :: enum: u32 {
 	Undefined = 0x0,
 	Add = 0x1,
 	Subtract = 0x2,
@@ -194,7 +194,7 @@ enum BlendOperation: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum BufferBindingType: u32 {
+BufferBindingType :: enum: u32 {
 	BindingNotUsed = 0x0,
 	Undefined = 0x1,
 	Uniform = 0x2,
@@ -203,21 +203,21 @@ enum BufferBindingType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum BufferMapState: u32 {
+BufferMapState :: enum: u32 {
 	Unmapped = 0x1,
 	Pending = 0x2,
 	Mapped = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum CallbackMode: u32 {
+CallbackMode :: enum: u32 {
 	WaitAnyOnly = 0x1,
 	AllowProcessEvents = 0x2,
 	AllowSpontaneous = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum CompareFunction: u32 {
+CompareFunction :: enum: u32 {
 	Undefined = 0x0,
 	Never = 0x1,
 	Less = 0x2,
@@ -230,20 +230,20 @@ enum CompareFunction: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum CompilationInfoRequestStatus: u32 {
+CompilationInfoRequestStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum CompilationMessageType: u32 {
+CompilationMessageType :: enum: u32 {
 	Error = 0x1,
 	Warning = 0x2,
 	Info = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum CompositeAlphaMode: u32 {
+CompositeAlphaMode :: enum: u32 {
 	Auto = 0x0,
 	Opaque = 0x1,
 	Premultiplied = 0x2,
@@ -252,7 +252,7 @@ enum CompositeAlphaMode: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum CreatePipelineAsyncStatus: u32 {
+CreatePipelineAsyncStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	ValidationError = 0x3,
@@ -260,7 +260,7 @@ enum CreatePipelineAsyncStatus: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum CullMode: u32 {
+CullMode :: enum: u32 {
 	Undefined = 0x0,
 	None = 0x1,
 	Front = 0x2,
@@ -268,7 +268,7 @@ enum CullMode: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum DeviceLostReason: u32 {
+DeviceLostReason :: enum: u32 {
 	Unknown = 0x1,
 	Destroyed = 0x2,
 	CallbackCancelled = 0x3,
@@ -276,14 +276,14 @@ enum DeviceLostReason: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum ErrorFilter: u32 {
+ErrorFilter :: enum: u32 {
 	Validation = 0x1,
 	OutOfMemory = 0x2,
 	Internal = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum ErrorType: u32 {
+ErrorType :: enum: u32 {
 	NoError = 0x1,
 	Validation = 0x2,
 	OutOfMemory = 0x3,
@@ -292,14 +292,14 @@ enum ErrorType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum FeatureLevel: u32 {
+FeatureLevel :: enum: u32 {
 	Undefined = 0x0,
 	Compatibility = 0x1,
 	Core = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum FeatureName: u32 {
+FeatureName :: enum: u32 {
 	CoreFeaturesAndLimits = 0x1,
 	DepthClipControl = 0x2,
 	Depth32FloatStencil8 = 0x3,
@@ -324,42 +324,42 @@ enum FeatureName: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum FilterMode: u32 {
+FilterMode :: enum: u32 {
 	Undefined = 0x0,
 	Nearest = 0x1,
 	Linear = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum FrontFace: u32 {
+FrontFace :: enum: u32 {
 	Undefined = 0x0,
 	CCW = 0x1,
 	CW = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum IndexFormat: u32 {
+IndexFormat :: enum: u32 {
 	Undefined = 0x0,
 	Uint16 = 0x1,
 	Uint32 = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum InstanceFeatureName: u32 {
+InstanceFeatureName :: enum: u32 {
 	TimedWaitAny = 0x1,
 	ShaderSourceSPIRV = 0x2,
 	MultipleDevicesPerAdapter = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum LoadOp: u32 {
+LoadOp :: enum: u32 {
 	Undefined = 0x0,
 	Load = 0x1,
 	Clear = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum MapAsyncStatus: u32 {
+MapAsyncStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Error = 0x3,
@@ -367,41 +367,41 @@ enum MapAsyncStatus: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum MipmapFilterMode: u32 {
+MipmapFilterMode :: enum: u32 {
 	Undefined = 0x0,
 	Nearest = 0x1,
 	Linear = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum OptionalBool: u32 {
+OptionalBool :: enum: u32 {
 	False = 0x0,
 	True = 0x1,
 	Undefined = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum PopErrorScopeStatus: u32 {
+PopErrorScopeStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Error = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum PowerPreference: u32 {
+PowerPreference :: enum: u32 {
 	Undefined = 0x0,
 	LowPower = 0x1,
 	HighPerformance = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum PredefinedColorSpace: u32 {
+PredefinedColorSpace :: enum: u32 {
 	SRGB = 0x1,
 	DisplayP3 = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum PresentMode: u32 {
+PresentMode :: enum: u32 {
 	Undefined = 0x0,
 	Fifo = 0x1,
 	FifoRelaxed = 0x2,
@@ -410,7 +410,7 @@ enum PresentMode: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum PrimitiveTopology: u32 {
+PrimitiveTopology :: enum: u32 {
 	Undefined = 0x0,
 	PointList = 0x1,
 	LineList = 0x2,
@@ -420,20 +420,20 @@ enum PrimitiveTopology: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum QueryType: u32 {
+QueryType :: enum: u32 {
 	Occlusion = 0x1,
 	Timestamp = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum QueueWorkDoneStatus: u32 {
+QueueWorkDoneStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Error = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum RequestAdapterStatus: u32 {
+RequestAdapterStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Unavailable = 0x3,
@@ -441,14 +441,14 @@ enum RequestAdapterStatus: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum RequestDeviceStatus: u32 {
+RequestDeviceStatus :: enum: u32 {
 	Success = 0x1,
 	CallbackCancelled = 0x2,
 	Error = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum SamplerBindingType: u32 {
+SamplerBindingType :: enum: u32 {
 	BindingNotUsed = 0x0,
 	Undefined = 0x1,
 	Filtering = 0x2,
@@ -457,13 +457,13 @@ enum SamplerBindingType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum Status: u32 {
+Status :: enum: u32 {
 	Success = 0x1,
 	Error = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum StencilOperation: u32 {
+StencilOperation :: enum: u32 {
 	Undefined = 0x0,
 	Keep = 0x1,
 	Zero = 0x2,
@@ -476,7 +476,7 @@ enum StencilOperation: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum StorageTextureAccess: u32 {
+StorageTextureAccess :: enum: u32 {
 	BindingNotUsed = 0x0,
 	Undefined = 0x1,
 	WriteOnly = 0x2,
@@ -485,14 +485,14 @@ enum StorageTextureAccess: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum StoreOp: u32 {
+StoreOp :: enum: u32 {
 	Undefined = 0x0,
 	Store = 0x1,
 	Discard = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum SType: u32 {
+SType :: enum: u32 {
 	ShaderSourceSPIRV = 0x1,
 	ShaderSourceWGSL = 0x2,
 	RenderPassMaxDrawCount = 0x3,
@@ -507,7 +507,7 @@ enum SType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum SurfaceGetCurrentTextureStatus: u32 {
+SurfaceGetCurrentTextureStatus :: enum: u32 {
 	SuccessOptimal = 0x1,
 	SuccessSuboptimal = 0x2,
 	Timeout = 0x3,
@@ -517,7 +517,7 @@ enum SurfaceGetCurrentTextureStatus: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum TextureAspect: u32 {
+TextureAspect :: enum: u32 {
 	Undefined = 0x0,
 	All = 0x1,
 	StencilOnly = 0x2,
@@ -525,7 +525,7 @@ enum TextureAspect: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum TextureDimension: u32 {
+TextureDimension :: enum: u32 {
 	Undefined = 0x0,
 	_1D = 0x1,
 	_2D = 0x2,
@@ -533,7 +533,7 @@ enum TextureDimension: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum TextureFormat: u32 {
+TextureFormat :: enum: u32 {
 	Undefined = 0x0,
 	R8Unorm = 0x1,
 	R8Snorm = 0x2,
@@ -639,7 +639,7 @@ enum TextureFormat: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum TextureSampleType: u32 {
+TextureSampleType :: enum: u32 {
 	BindingNotUsed = 0x0,
 	Undefined = 0x1,
 	Float = 0x2,
@@ -650,7 +650,7 @@ enum TextureSampleType: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum TextureViewDimension: u32 {
+TextureViewDimension :: enum: u32 {
 	Undefined = 0x0,
 	_1D = 0x1,
 	_2D = 0x2,
@@ -661,13 +661,13 @@ enum TextureViewDimension: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum ToneMappingMode: u32 {
+ToneMappingMode :: enum: u32 {
 	Standard = 0x1,
 	Extended = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum VertexFormat: u32 {
+VertexFormat :: enum: u32 {
 	Uint8 = 0x1,
 	Uint8x2 = 0x2,
 	Uint8x4 = 0x3,
@@ -712,21 +712,21 @@ enum VertexFormat: u32 {
 	Force32 = 0x7fffffff,
 }
 
-enum VertexStepMode: u32 {
+VertexStepMode :: enum: u32 {
 	Undefined = 0x0,
 	Vertex = 0x1,
 	Instance = 0x2,
 	Force32 = 0x7fffffff,
 }
 
-enum WaitStatus: u32 {
+WaitStatus :: enum: u32 {
 	Success = 0x1,
 	TimedOut = 0x2,
 	Error = 0x3,
 	Force32 = 0x7fffffff,
 }
 
-enum WGSLLanguageFeatureName: u32 {
+WGSLLanguageFeatureName :: enum: u32 {
 	ReadonlyAndReadwriteStorageTextures = 0x1,
 	Packed4x8IntegerDotProduct = 0x2,
 	UnrestrictedPointerParameters = 0x3,
@@ -766,12 +766,12 @@ RequestDeviceCallback :: ?*fn(a: RequestDeviceStatus, b: Device, c: StringView, 
 
 UncapturedErrorCallback :: ?*fn(a: ?*Device, b: ErrorType, c: StringView, d: ?*, e: ?*) #foreign;
 
-struct ChainedStruct {
+ChainedStruct :: struct {
 	next: ?*ChainedStruct,
 	sType: SType,
 }
 
-struct BufferMapCallbackInfo {
+BufferMapCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: BufferMapCallback,
@@ -779,7 +779,7 @@ struct BufferMapCallbackInfo {
 	userdata2: ?*,
 }
 
-struct CompilationInfoCallbackInfo {
+CompilationInfoCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: CompilationInfoCallback,
@@ -787,7 +787,7 @@ struct CompilationInfoCallbackInfo {
 	userdata2: ?*,
 }
 
-struct CreateComputePipelineAsyncCallbackInfo {
+CreateComputePipelineAsyncCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: CreateComputePipelineAsyncCallback,
@@ -795,7 +795,7 @@ struct CreateComputePipelineAsyncCallbackInfo {
 	userdata2: ?*,
 }
 
-struct CreateRenderPipelineAsyncCallbackInfo {
+CreateRenderPipelineAsyncCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: CreateRenderPipelineAsyncCallback,
@@ -803,7 +803,7 @@ struct CreateRenderPipelineAsyncCallbackInfo {
 	userdata2: ?*,
 }
 
-struct DeviceLostCallbackInfo {
+DeviceLostCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: DeviceLostCallback,
@@ -811,7 +811,7 @@ struct DeviceLostCallbackInfo {
 	userdata2: ?*,
 }
 
-struct PopErrorScopeCallbackInfo {
+PopErrorScopeCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: PopErrorScopeCallback,
@@ -819,7 +819,7 @@ struct PopErrorScopeCallbackInfo {
 	userdata2: ?*,
 }
 
-struct QueueWorkDoneCallbackInfo {
+QueueWorkDoneCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: QueueWorkDoneCallback,
@@ -827,7 +827,7 @@ struct QueueWorkDoneCallbackInfo {
 	userdata2: ?*,
 }
 
-struct RequestAdapterCallbackInfo {
+RequestAdapterCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: RequestAdapterCallback,
@@ -835,7 +835,7 @@ struct RequestAdapterCallbackInfo {
 	userdata2: ?*,
 }
 
-struct RequestDeviceCallbackInfo {
+RequestDeviceCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	mode: CallbackMode,
 	callback: RequestDeviceCallback,
@@ -843,14 +843,14 @@ struct RequestDeviceCallbackInfo {
 	userdata2: ?*,
 }
 
-struct UncapturedErrorCallbackInfo {
+UncapturedErrorCallbackInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	callback: UncapturedErrorCallback,
 	userdata1: ?*,
 	userdata2: ?*,
 }
 
-struct AdapterInfo {
+AdapterInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	vendor: StringView,
 	architecture: StringView,
@@ -864,7 +864,7 @@ struct AdapterInfo {
 	subgroupMaxSize: u32,
 }
 
-struct BindGroupEntry {
+BindGroupEntry :: struct {
 	nextInChain: ?*ChainedStruct,
 	binding: u32,
 	buffer: Buffer,
@@ -874,20 +874,20 @@ struct BindGroupEntry {
 	textureView: TextureView,
 }
 
-struct BlendComponent {
+BlendComponent :: struct {
 	operation: BlendOperation,
 	srcFactor: BlendFactor,
 	dstFactor: BlendFactor,
 }
 
-struct BufferBindingLayout {
+BufferBindingLayout :: struct {
 	nextInChain: ?*ChainedStruct,
 	type: BufferBindingType,
 	hasDynamicOffset: Bool,
 	minBindingSize: u64,
 }
 
-struct BufferDescriptor {
+BufferDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	usage: BufferUsage,
@@ -895,24 +895,24 @@ struct BufferDescriptor {
 	mappedAtCreation: Bool,
 }
 
-struct Color {
+Color :: struct {
 	r: f64,
 	g: f64,
 	b: f64,
 	a: f64,
 }
 
-struct CommandBufferDescriptor {
+CommandBufferDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct CommandEncoderDescriptor {
+CommandEncoderDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct CompilationMessage {
+CompilationMessage :: struct {
 	nextInChain: ?*ChainedStruct,
 	message: StringView,
 	type: CompilationMessageType,
@@ -922,28 +922,28 @@ struct CompilationMessage {
 	length: u64,
 }
 
-struct ConstantEntry {
+ConstantEntry :: struct {
 	nextInChain: ?*ChainedStruct,
 	key: StringView,
 	value: f64,
 }
 
-struct Extent3D {
+Extent3D :: struct {
 	width: u32,
 	height: u32,
 	depthOrArrayLayers: u32,
 }
 
-struct Future {
+Future :: struct {
 	id: u64,
 }
 
-struct InstanceLimits {
+InstanceLimits :: struct {
 	nextInChain: ?*ChainedStruct,
 	timedWaitAnyMaxCount: uint,
 }
 
-struct Limits {
+Limits :: struct {
 	nextInChain: ?*ChainedStruct,
 	maxTextureDimension1D: u32,
 	maxTextureDimension2D: u32,
@@ -979,27 +979,27 @@ struct Limits {
 	maxImmediateSize: u32,
 }
 
-struct MultisampleState {
+MultisampleState :: struct {
 	nextInChain: ?*ChainedStruct,
 	count: u32,
 	mask: u32,
 	alphaToCoverageEnabled: Bool,
 }
 
-struct Origin3D {
+Origin3D :: struct {
 	x: u32,
 	y: u32,
 	z: u32,
 }
 
-struct PassTimestampWrites {
+PassTimestampWrites :: struct {
 	nextInChain: ?*ChainedStruct,
 	querySet: QuerySet,
 	beginningOfPassWriteIndex: u32,
 	endOfPassWriteIndex: u32,
 }
 
-struct PipelineLayoutDescriptor {
+PipelineLayoutDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	bindGroupLayoutCount: uint,
@@ -1007,7 +1007,7 @@ struct PipelineLayoutDescriptor {
 	immediateSize: u32,
 }
 
-struct PrimitiveState {
+PrimitiveState :: struct {
 	nextInChain: ?*ChainedStruct,
 	topology: PrimitiveTopology,
 	stripIndexFormat: IndexFormat,
@@ -1016,24 +1016,24 @@ struct PrimitiveState {
 	unclippedDepth: Bool,
 }
 
-struct QuerySetDescriptor {
+QuerySetDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	type: QueryType,
 	count: u32,
 }
 
-struct QueueDescriptor {
+QueueDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct RenderBundleDescriptor {
+RenderBundleDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct RenderBundleEncoderDescriptor {
+RenderBundleEncoderDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	colorFormatCount: uint,
@@ -1044,7 +1044,7 @@ struct RenderBundleEncoderDescriptor {
 	stencilReadOnly: Bool,
 }
 
-struct RenderPassDepthStencilAttachment {
+RenderPassDepthStencilAttachment :: struct {
 	nextInChain: ?*ChainedStruct,
 	view: TextureView,
 	depthLoadOp: LoadOp,
@@ -1057,22 +1057,22 @@ struct RenderPassDepthStencilAttachment {
 	stencilReadOnly: Bool,
 }
 
-struct RenderPassMaxDrawCount {
+RenderPassMaxDrawCount :: struct {
 	chain: ChainedStruct,
 	maxDrawCount: u64,
 }
 
-struct RequestAdapterWebXROptions {
+RequestAdapterWebXROptions :: struct {
 	chain: ChainedStruct,
 	xrCompatible: Bool,
 }
 
-struct SamplerBindingLayout {
+SamplerBindingLayout :: struct {
 	nextInChain: ?*ChainedStruct,
 	type: SamplerBindingType,
 }
 
-struct SamplerDescriptor {
+SamplerDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	addressModeU: AddressMode,
@@ -1087,47 +1087,47 @@ struct SamplerDescriptor {
 	maxAnisotropy: u16,
 }
 
-struct ShaderSourceSPIRV {
+ShaderSourceSPIRV :: struct {
 	chain: ChainedStruct,
 	codeSize: u32,
 	code: ?*u32,
 }
 
-struct ShaderSourceWGSL {
+ShaderSourceWGSL :: struct {
 	chain: ChainedStruct,
 	code: StringView,
 }
 
-struct StencilFaceState {
+StencilFaceState :: struct {
 	compare: CompareFunction,
 	failOp: StencilOperation,
 	depthFailOp: StencilOperation,
 	passOp: StencilOperation,
 }
 
-struct StorageTextureBindingLayout {
+StorageTextureBindingLayout :: struct {
 	nextInChain: ?*ChainedStruct,
 	access: StorageTextureAccess,
 	format: TextureFormat,
 	viewDimension: TextureViewDimension,
 }
 
-struct SupportedFeatures {
+SupportedFeatures :: struct {
 	featureCount: uint,
 	features: ?*FeatureName,
 }
 
-struct SupportedInstanceFeatures {
+SupportedInstanceFeatures :: struct {
 	featureCount: uint,
 	features: ?*InstanceFeatureName,
 }
 
-struct SupportedWGSLLanguageFeatures {
+SupportedWGSLLanguageFeatures :: struct {
 	featureCount: uint,
 	features: ?*WGSLLanguageFeatureName,
 }
 
-struct SurfaceCapabilities {
+SurfaceCapabilities :: struct {
 	nextInChain: ?*ChainedStruct,
 	usages: TextureUsage,
 	formatCount: uint,
@@ -1138,13 +1138,13 @@ struct SurfaceCapabilities {
 	alphaModes: ?*CompositeAlphaMode,
 }
 
-struct SurfaceColorManagement {
+SurfaceColorManagement :: struct {
 	chain: ChainedStruct,
 	colorSpace: PredefinedColorSpace,
 	toneMappingMode: ToneMappingMode,
 }
 
-struct SurfaceConfiguration {
+SurfaceConfiguration :: struct {
 	nextInChain: ?*ChainedStruct,
 	device: Device,
 	format: TextureFormat,
@@ -1157,60 +1157,60 @@ struct SurfaceConfiguration {
 	presentMode: PresentMode,
 }
 
-struct SurfaceSourceAndroidNativeWindow {
+SurfaceSourceAndroidNativeWindow :: struct {
 	chain: ChainedStruct,
 	window: ?*,
 }
 
-struct SurfaceSourceMetalLayer {
+SurfaceSourceMetalLayer :: struct {
 	chain: ChainedStruct,
 	layer: ?*,
 }
 
-struct SurfaceSourceWaylandSurface {
+SurfaceSourceWaylandSurface :: struct {
 	chain: ChainedStruct,
 	display: ?*,
 	surface: ?*,
 }
 
-struct SurfaceSourceWindowsHWND {
+SurfaceSourceWindowsHWND :: struct {
 	chain: ChainedStruct,
 	hinstance: ?*,
 	hwnd: ?*,
 }
 
-struct SurfaceSourceXCBWindow {
+SurfaceSourceXCBWindow :: struct {
 	chain: ChainedStruct,
 	connection: ?*,
 	window: u32,
 }
 
-struct SurfaceSourceXlibWindow {
+SurfaceSourceXlibWindow :: struct {
 	chain: ChainedStruct,
 	display: ?*,
 	window: u64,
 }
 
-struct SurfaceTexture {
+SurfaceTexture :: struct {
 	nextInChain: ?*ChainedStruct,
 	texture: Texture,
 	status: SurfaceGetCurrentTextureStatus,
 }
 
-struct TexelCopyBufferLayout {
+TexelCopyBufferLayout :: struct {
 	offset: u64,
 	bytesPerRow: u32,
 	rowsPerImage: u32,
 }
 
-struct TextureBindingLayout {
+TextureBindingLayout :: struct {
 	nextInChain: ?*ChainedStruct,
 	sampleType: TextureSampleType,
 	viewDimension: TextureViewDimension,
 	multisampled: Bool,
 }
 
-struct TextureViewDescriptor {
+TextureViewDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	format: TextureFormat,
@@ -1223,14 +1223,14 @@ struct TextureViewDescriptor {
 	usage: TextureUsage,
 }
 
-struct VertexAttribute {
+VertexAttribute :: struct {
 	nextInChain: ?*ChainedStruct,
 	format: VertexFormat,
 	offset: u64,
 	shaderLocation: u32,
 }
 
-struct BindGroupDescriptor {
+BindGroupDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	layout: BindGroupLayout,
@@ -1238,7 +1238,7 @@ struct BindGroupDescriptor {
 	entries: ?*BindGroupEntry,
 }
 
-struct BindGroupLayoutEntry {
+BindGroupLayoutEntry :: struct {
 	nextInChain: ?*ChainedStruct,
 	binding: u32,
 	visibility: ShaderStage,
@@ -1249,24 +1249,24 @@ struct BindGroupLayoutEntry {
 	storageTexture: StorageTextureBindingLayout,
 }
 
-struct BlendState {
+BlendState :: struct {
 	color: BlendComponent,
 	alpha: BlendComponent,
 }
 
-struct CompilationInfo {
+CompilationInfo :: struct {
 	nextInChain: ?*ChainedStruct,
 	messageCount: uint,
 	messages: ?*CompilationMessage,
 }
 
-struct ComputePassDescriptor {
+ComputePassDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	timestampWrites: ?*PassTimestampWrites,
 }
 
-struct ComputeState {
+ComputeState :: struct {
 	nextInChain: ?*ChainedStruct,
 	module_: ShaderModule,
 	entryPoint: StringView,
@@ -1274,7 +1274,7 @@ struct ComputeState {
 	constants: ?*ConstantEntry,
 }
 
-struct DepthStencilState {
+DepthStencilState :: struct {
 	nextInChain: ?*ChainedStruct,
 	format: TextureFormat,
 	depthWriteEnabled: OptionalBool,
@@ -1288,7 +1288,7 @@ struct DepthStencilState {
 	depthBiasClamp: f32,
 }
 
-struct DeviceDescriptor {
+DeviceDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	requiredFeatureCount: uint,
@@ -1299,19 +1299,19 @@ struct DeviceDescriptor {
 	uncapturedErrorCallbackInfo: UncapturedErrorCallbackInfo,
 }
 
-struct FutureWaitInfo {
+FutureWaitInfo :: struct {
 	future: Future,
 	completed: Bool,
 }
 
-struct InstanceDescriptor {
+InstanceDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	requiredFeatureCount: uint,
 	requiredFeatures: ?*InstanceFeatureName,
 	requiredLimits: ?*InstanceLimits,
 }
 
-struct RenderPassColorAttachment {
+RenderPassColorAttachment :: struct {
 	nextInChain: ?*ChainedStruct,
 	view: TextureView,
 	depthSlice: u32,
@@ -1321,7 +1321,7 @@ struct RenderPassColorAttachment {
 	clearValue: Color,
 }
 
-struct RequestAdapterOptions {
+RequestAdapterOptions :: struct {
 	nextInChain: ?*ChainedStruct,
 	featureLevel: FeatureLevel,
 	powerPreference: PowerPreference,
@@ -1330,29 +1330,29 @@ struct RequestAdapterOptions {
 	compatibleSurface: Surface,
 }
 
-struct ShaderModuleDescriptor {
+ShaderModuleDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct SurfaceDescriptor {
+SurfaceDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 }
 
-struct TexelCopyBufferInfo {
+TexelCopyBufferInfo :: struct {
 	layout: TexelCopyBufferLayout,
 	buffer: Buffer,
 }
 
-struct TexelCopyTextureInfo {
+TexelCopyTextureInfo :: struct {
 	texture: Texture,
 	mipLevel: u32,
 	origin: Origin3D,
 	aspect: TextureAspect,
 }
 
-struct TextureDescriptor {
+TextureDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	usage: TextureUsage,
@@ -1365,7 +1365,7 @@ struct TextureDescriptor {
 	viewFormats: ?*TextureFormat,
 }
 
-struct VertexBufferLayout {
+VertexBufferLayout :: struct {
 	nextInChain: ?*ChainedStruct,
 	stepMode: VertexStepMode,
 	arrayStride: u64,
@@ -1373,28 +1373,28 @@ struct VertexBufferLayout {
 	attributes: ?*VertexAttribute,
 }
 
-struct BindGroupLayoutDescriptor {
+BindGroupLayoutDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	entryCount: uint,
 	entries: ?*BindGroupLayoutEntry,
 }
 
-struct ColorTargetState {
+ColorTargetState :: struct {
 	nextInChain: ?*ChainedStruct,
 	format: TextureFormat,
 	blend: ?*BlendState,
 	writeMask: ColorWriteMask,
 }
 
-struct ComputePipelineDescriptor {
+ComputePipelineDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	layout: PipelineLayout,
 	compute: ComputeState,
 }
 
-struct RenderPassDescriptor {
+RenderPassDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	colorAttachmentCount: uint,
@@ -1404,7 +1404,7 @@ struct RenderPassDescriptor {
 	timestampWrites: ?*PassTimestampWrites,
 }
 
-struct VertexState {
+VertexState :: struct {
 	nextInChain: ?*ChainedStruct,
 	module_: ShaderModule,
 	entryPoint: StringView,
@@ -1414,7 +1414,7 @@ struct VertexState {
 	buffers: ?*VertexBufferLayout,
 }
 
-struct FragmentState {
+FragmentState :: struct {
 	nextInChain: ?*ChainedStruct,
 	module_: ShaderModule,
 	entryPoint: StringView,
@@ -1424,7 +1424,7 @@ struct FragmentState {
 	targets: ?*ColorTargetState,
 }
 
-struct RenderPipelineDescriptor {
+RenderPipelineDescriptor :: struct {
 	nextInChain: ?*ChainedStruct,
 	label: StringView,
 	layout: PipelineLayout,

@@ -1,10 +1,10 @@
 module NET;
 
-struct Address {};
-struct Server {};
-struct StreamSocket {};
-struct DatagramSocket {};
-struct Datagram
+Address :: struct {};
+Server :: struct {};
+StreamSocket :: struct {};
+DatagramSocket :: struct {};
+Datagram :: struct
 {
     addr: *Address,  /**< this is unref'd by NET_DestroyDatagram. You only need to ref it if you want to keep it. */
     port: u16,  /**< these do not have to come from the same port the receiver is bound to. These are in host byte order, don't byteswap them! */

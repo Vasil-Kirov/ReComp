@@ -45,7 +45,7 @@ abort :: fn() #no_return {
     return;
 }
 
-struct StreamHandles
+StreamHandles :: struct
 {
 	write: win32.HANDLE,
 	read: win32.HANDLE,

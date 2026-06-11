@@ -1,6 +1,6 @@
 module main
 
-struct Foo {
+Foo :: struct {
 	x: i32,
 	arr: [100]i32,
 	bar: [4]i32,

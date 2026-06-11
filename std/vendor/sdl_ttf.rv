@@ -28,7 +28,7 @@ GetHarfBuzzVersion :: fn #link="TTF_GetHarfBuzzVersion"(
 	minor: *i32,
 	patch: *i32);
 
-struct Font {
+Font :: struct {
 }
 
 Init :: fn #link="TTF_Init"() -> bool;
@@ -84,7 +84,7 @@ SetFontOutline :: fn #link="TTF_SetFontOutline"() -> i32;
 GetFontOutline :: fn #link="TTF_GetFontOutline"(
 	font: *Font) -> i32;
 
-enum HintingFlags {
+HintingFlags :: enum {
 	TTF_HINTING_NORMAL = 0,
 	TTF_HINTING_LIGHT = 1,
 	TTF_HINTING_MONO = 2,
@@ -106,7 +106,7 @@ SetFontSDF :: fn #link="TTF_SetFontSDF"() -> i32;
 
 GetFontSDF :: fn #link="TTF_GetFontSDF"() -> i32;
 
-enum HorizontalAlignment {
+HorizontalAlignment :: enum {
 	TTF_HORIZONTAL_ALIGN_INVALID = -1,
 	TTF_HORIZONTAL_ALIGN_LEFT = 0,
 	TTF_HORIZONTAL_ALIGN_CENTER = 1,
@@ -152,7 +152,7 @@ GetFontFamilyName :: fn #link="TTF_GetFontFamilyName"(
 GetFontStyleName :: fn #link="TTF_GetFontStyleName"(
 	font: *Font) -> *u8;
 
-enum Direction {
+Direction :: enum {
 	TTF_DIRECTION_INVALID = 0,
 	TTF_DIRECTION_LTR = 4,
 	TTF_DIRECTION_RTL = 5,
@@ -177,7 +177,7 @@ SetFontLanguage :: fn #link="TTF_SetFontLanguage"() -> i32;
 
 FontHasGlyph :: fn #link="TTF_FontHasGlyph"() -> i32;
 
-enum ImageType {
+ImageType :: enum {
 	TTF_IMAGE_INVALID = 0,
 	TTF_IMAGE_ALPHA = 1,
 	TTF_IMAGE_COLOR = 2,
@@ -282,13 +282,13 @@ RenderGlyph_LCD :: fn #link="TTF_RenderGlyph_LCD"(
 	fg: SDL.Color,
 	bg: SDL.Color) -> *SDL.Surface;
 
-struct TextEngine {
+TextEngine :: struct {
 }
 
-struct TextData {
+TextData :: struct {
 }
 
-struct Text {
+Text :: struct {
 	text: *u8,
 	num_lines: i32,
 	refcount: i32,
@@ -319,7 +319,7 @@ CreateGPUTextEngine :: fn #link="TTF_CreateGPUTextEngine"(
 CreateGPUTextEngineWithProperties :: fn #link="TTF_CreateGPUTextEngineWithProperties"(
 	props: u32) -> *TextEngine;
 
-struct GPUAtlasDrawSequence {
+GPUAtlasDrawSequence :: struct {
 	atlas_texture: *SDL.GPUTexture,
 	xy: *SDL.FPoint,
 	uv: *SDL.FPoint,
@@ -336,7 +336,7 @@ GetGPUTextDrawData :: fn #link="TTF_GetGPUTextDrawData"(
 DestroyGPUTextEngine :: fn #link="TTF_DestroyGPUTextEngine"(
 	engine: *TextEngine);
 
-enum GPUTextEngineWinding {
+GPUTextEngineWinding :: enum {
 	TTF_GPU_TEXTENGINE_WINDING_INVALID = -1,
 	TTF_GPU_TEXTENGINE_WINDING_CLOCKWISE = 0,
 	TTF_GPU_TEXTENGINE_WINDING_COUNTER_CLOCKWISE = 1,
@@ -408,7 +408,7 @@ DeleteTextString :: fn #link="TTF_DeleteTextString"() -> i32;
 
 GetTextSize :: fn #link="TTF_GetTextSize"() -> i32;
 
-struct SubString {
+SubString :: struct {
 	flags: u32,
 	offset: i32,
 	length: i32,

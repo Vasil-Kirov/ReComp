@@ -1,11 +1,11 @@
 module main
 
 
-struct BigStruct {
+BigStruct :: struct {
     foo: [100]i32,
 }
 
-struct SmallStruct {
+SmallStruct :: struct {
     num1: i16,
     num2: i16,
 }

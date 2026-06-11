@@ -6,7 +6,7 @@ base :: #import base;
 #import array;
 #import os;
 
-enum OpCode {
+OpCode :: enum {
 	Nop,
 	Var,
 	Name,
@@ -14,7 +14,7 @@ enum OpCode {
 	Block,
 }
 
-struct Instruction {
+Instruction :: struct {
 	op: OpCode,
 	reg: union {
 		lr: struct {
@@ -86,15 +86,15 @@ parse_top_level :: fn(parser: *Parser) -> Instruction, bool {
 
 #private
 
-struct Body {
+Body :: struct {
 	instructions: []Instruction
 }
 
-struct Builder {
+Builder :: struct {
 	current_body: *Body,
 }
 
-struct Parser {
+Parser :: struct {
 	builder: *Builder,
 	tokens: []Token,
 	at: int,

@@ -2,7 +2,7 @@ module ast
 
 #import mem;
 
-enum SymbolFlag: u32
+SymbolFlag :: enum: u32
 {
 	None = 0,
 	Public      = 0b1,
@@ -18,7 +18,7 @@ enum SymbolFlag: u32
 	NoReturn    = 0b10000000000,
 };
 
-enum ConstType: u32
+ConstType :: enum: u32
 {
 	Integer,
 	Float,
@@ -27,7 +27,7 @@ enum ConstType: u32
 	Vector,
 }
 
-struct NodeString
+NodeString :: struct
 {
 	data: *u8,
 	size: uint,
@@ -37,7 +37,7 @@ conv_node_str :: fn(ns: *NodeString) -> string {
 	return .{data=ns.data, count=ns.size as int};
 }
 
-struct ConstInteger
+ConstInteger :: struct
 {
 	is_signed: u32,
 	u: union {
@@ -46,19 +46,19 @@ struct ConstInteger
 	}
 }
 
-struct ConstString
+ConstString :: struct
 {
 	data: ?*NodeString,
 	flags: i32,
 }
 
-union ConstVector
+ConstVector :: union
 {
 	F: v4,
 	I: iv4,
 }
 
-struct ConstValue
+ConstValue :: struct
 {
 	t: ConstType,
 	u: union {
@@ -70,7 +70,7 @@ struct ConstValue
 	}
 }
 
-enum Reserved
+Reserved :: enum
 {
 	Null,
 	True,
@@ -79,7 +79,7 @@ enum Reserved
 	NaN,
 };
 
-enum for_type
+for_type :: enum
 {
 	C,
 	It,
@@ -87,7 +87,7 @@ enum for_type
 	Infinite,
 };
 
-enum NodeType
+NodeType :: enum
 {
 	INVALID,
 	NOP,
@@ -140,7 +140,7 @@ enum NodeType
 	FILE_LOCATION,
 }
 
-struct Node {
+Node :: struct {
 	t: NodeType,
 	location: FileLocation,
 	u: union {

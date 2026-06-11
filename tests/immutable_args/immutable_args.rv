@@ -1,6 +1,6 @@
 module main
 
-struct BS {
+BS :: struct {
 	x: i32,
 	y: [10]i32
 }

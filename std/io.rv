@@ -8,7 +8,7 @@ _ :: #import str;
 
 FLOAT_ROUND_AT := cast(i32, 100);
 
-enum StreamOp {
+StreamOp :: enum {
 	Close,
 	Read,
 	Write,
@@ -16,13 +16,13 @@ enum StreamOp {
 	Size,
 }
 
-enum StreamError {
+StreamError :: enum {
 	Ok,
 	InvalidOp,
 	Failed,
 }
 
-struct Stream {
+Stream :: struct {
 	func: *fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError),
 	data: ?*void,
 };

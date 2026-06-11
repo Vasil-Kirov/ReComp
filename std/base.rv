@@ -1,11 +1,11 @@
 module base
 
-struct Arg {
+Arg :: struct {
     t: type,
     val: *,
 }
 
-struct FileLocation {
+FileLocation :: struct {
 	file: string,
 	line: int,
 	chr: int,
@@ -13,7 +13,7 @@ struct FileLocation {
 
 INVALID_TYPE :: (-1) as type;
 
-enum TypeKind {
+TypeKind :: enum {
 	Invalid ,
 
 	Basic   ,
@@ -27,7 +27,7 @@ enum TypeKind {
 	Generic ,
 }
 
-enum BasicKind {
+BasicKind :: enum {
 	Bool,
 	String,
 	//Cstring,
@@ -57,7 +57,7 @@ enum BasicKind {
 	Error,
 }
 
-enum BasicFlag: u32{
+BasicFlag :: enum: u32{
 	Boolean = 0b1,
 	Integer = 0b10,
 	Float   = 0b100,
@@ -70,76 +70,76 @@ enum BasicFlag: u32{
 	//BasicFlag_Numeric = BasicFlag_Integer | BasicFlag_Float,
 }
 
-struct BasicType {
+BasicType :: struct {
     kind: BasicKind,
     flags: u32,
     size: u32,
     name: string,
 }
 
-enum StructFlag: u32{
+StructFlag :: enum: u32{
 	Packed  = 0b1,
 	Generic = 0b10,
     Union   = 0b100,
 }
 
-struct StructMember {
+StructMember :: struct {
     name: string,
     t: type,
 }
 
-struct StructType {
+StructType :: struct {
     members: []StructMember,
     name: string,
     flags: u32,
 }
 
-struct FunctionType {
+FunctionType :: struct {
     returns: []type,
     args_t: []type,
 }
 
-struct PointerType {
+PointerType :: struct {
     pointee: type,
     is_optional: bool,
 }
 
-struct ArrayType {
+ArrayType :: struct {
     t: type,
     member_count: u32,
 }
 
-struct SliceType {
+SliceType :: struct {
     t: type,
 }
 
-struct EnumMember {
+EnumMember :: struct {
     name: string,
     value: int,
 }
 
-struct EnumType {
+EnumType :: struct {
     name: string,
     members: []EnumMember,
     t: type,
 }
 
-enum VectorKind {
+VectorKind :: enum {
     Float,
     Int,
     UInt,
 }
 
-struct VectorType {
+VectorType :: struct {
     kind: VectorKind,
     elem_count: u32,
 }
 
-struct GenericType {
+GenericType :: struct {
     name: string,
 }
 
-union TypeUnion {
+TypeUnion :: union {
     basic: BasicType,
     struct_: StructType,
     function: FunctionType,
@@ -151,7 +151,7 @@ union TypeUnion {
     generic: GenericType,
 }
 
-struct TypeInfo {
+TypeInfo :: struct {
     kind: TypeKind,
     t: TypeUnion,
 }
@@ -160,7 +160,7 @@ struct TypeInfo {
 
 //global_initializers :: fn();
 
-struct Optional<T> {
+Optional :: struct<T> {
 	value: T,
 	ok: bool,
 };

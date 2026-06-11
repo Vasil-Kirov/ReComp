@@ -5,7 +5,7 @@ module collection;
 #import mem;
 
 
-struct Stack<T>
+Stack :: struct<T>
 {
 	data: []T,
 	top: int,
@@ -57,7 +57,7 @@ free_stack :: fn(s: *Stack<$t>) {
 }
 
 
-struct Queue<T>
+Queue :: struct<T>
 {
 	data: []T,
 	front: int,

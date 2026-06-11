@@ -711,17 +711,10 @@ string MakeLambdaName(const error_info *Info)
 	return MakeString(Builder);
 }
 
-node *ParseEnum(parser *Parser)
+node *ParseEnum(parser *Parser, string *EnumName)
 {
 	ERROR_INFO;
 	GetToken(Parser);
-	token NameT = GetToken(Parser);
-	string *EnumName = NameT.ID;
-	if(NameT.Type != T_ID)
-	{
-		RaiseError(false, *ErrorInfo, "Expected enum name after `enum` keyword");
-		EnumName = &ErrorID;
-	}
 	node *TypeNode = NULL;
 	if(Parser->Current->Type == T_DECL)
 	{
@@ -764,22 +757,11 @@ string *MakeAnonStructName(const error_info *e)
 	return DupeType(Result, string);
 }
 
-node *ParseStruct(parser *Parser, b32 IsUnion, b32 IsAnon)
+node *ParseStruct(parser *Parser, b32 IsUnion, string *StructName)
 {
 	ERROR_INFO;
 	GetToken(Parser);
-	string *StructName = NULL;
-	if(!IsAnon)
-	{
-		token NameT = GetToken(Parser);
-		StructName = NameT.ID;
-		if(NameT.Type != T_ID)
-		{
-			RaiseError(false, *ErrorInfo, "Expected struct name after `%s` keyword", IsUnion ? "union" : "struct");
-			StructName = &ErrorID;
-		}
-	}
-	else
+	if(!StructName)
 	{
 		StructName = MakeAnonStructName(ErrorInfo);
 	}
@@ -934,11 +916,11 @@ node *ParseType(parser *Parser, b32 ShouldError)
 		} break;
 		case T_UNION:
 		{
-			Result = ParseStruct(Parser, true, true);
+			Result = ParseStruct(Parser, true, nullptr);
 		} break;
 		case T_STRUCT:
 		{
-			Result = ParseStruct(Parser, false, true);
+			Result = ParseStruct(Parser, false, nullptr);
 		} break;
 		case T_VOID:
 		{
@@ -2271,7 +2253,6 @@ string StructToModuleName(string &StructName, string &ModuleName)
 node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
-	b32 IsStructUnion = false;
 	node *ProfileCallback = NULL;
 	switch(Parser->Current->Type)
 	{
@@ -2354,6 +2335,28 @@ node *ParseTopLevel(parser *Parser)
 			{
 				Parser->NoItemLists = SaveILists;
 				break;
+			}
+			if(Parser->Current->Type == T_CONST && LHS->Type == AST_ID)
+			{
+				string Name = *LHS->ID.Name;
+				if(PeekToken(Parser, 1).Type == T_STRUCT)
+				{
+					GetToken(Parser);
+					Result = ParseStruct(Parser, false, DupeType(Name, string));
+					break;
+				}
+				if(PeekToken(Parser, 1).Type == T_UNION)
+				{
+					GetToken(Parser);
+					Result = ParseStruct(Parser, true, DupeType(Name, string));
+					break;
+				}
+				if(PeekToken(Parser, 1).Type == T_ENUM)
+				{
+					GetToken(Parser);
+					Result = ParseEnum(Parser, DupeType(Name, string));
+					break;
+				}
 			}
 			node *Decl = ParseDeclaration(Parser, false, LHS);
 			Parser->NoItemLists = SaveILists;
@@ -2446,6 +2449,7 @@ node *ParseTopLevel(parser *Parser)
 			ParseImport(Parser, NULL);
 			Result = (node *)0x1;
 		} break;
+		/*
 		case T_ENUM:
 		{
 			Result = ParseEnum(Parser);
@@ -2456,6 +2460,7 @@ node *ParseTopLevel(parser *Parser)
 		{
 			Result = ParseStruct(Parser, IsStructUnion, false);
 		} break;
+		*/
 		case T_ENDSCOPE:
 		{
 			ERROR_INFO;
@@ -2509,9 +2514,6 @@ node *ParseTopLevel(parser *Parser)
 		} break;
 		default:
 		{
-#if defined(DEBUG)
-			LERROR("%d", Parser->Current->Type);
-#endif
 			RaiseError(false, Parser->Current->ErrorInfo, "Unexpected top level expression: %s", GetTokenName(Parser->Current->Type));
 			GetToken(Parser);
 		} break;

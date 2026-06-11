@@ -1,13 +1,13 @@
 module os
 
-enum AllocationFlags
+AllocationFlags :: enum
 {
 	None = 0,
 	Reserve = 0b01,
 	Commit  = 0b10,
 }
 
-enum AllocationPerms
+AllocationPerms :: enum
 {
 	None  = 0b000,
 	Read  = 0b001,
@@ -15,7 +15,7 @@ enum AllocationPerms
 	Exec  = 0b100,
 }
 
-enum FileOpenFlags
+FileOpenFlags :: enum
 {
 	None  = 0,
 	Read  = 0b0001,
@@ -47,7 +47,7 @@ enum FileOpenFlags
 	SYS_exit	:: 60;
 	SYS_fstat	:: 5;
     SYS_clock_gettime :: 228;
-	struct stat {
+	stat :: struct {
 		pad0: [48]u8,
 		st_size: int,
 		pad1: [88]u8,
@@ -86,7 +86,7 @@ enum FileOpenFlags
 }
     CLOCK_MONOTONIC :: 1;
 
-    struct __old_kernel_stat {
+    __old_kernel_stat :: struct {
         st_dev  : u16,
         st_ino  : u16,
         st_mode : u16,
@@ -100,7 +100,7 @@ enum FileOpenFlags
         st_ctime: u64,
     }
 
-    struct timespec {
+    timespec :: struct {
         tv_sec:     int,       //* seconds */
         tv_nsec:    int,       //* nanoseconds */
     };
@@ -110,7 +110,7 @@ enum FileOpenFlags
 		syscall(SYS_write, 1, data, count);
 	}
 	
-	struct AllocCtx {
+	AllocCtx :: struct {
 		size: int
 	}
 

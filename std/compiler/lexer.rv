@@ -4,24 +4,24 @@ module lexer;
 _ :: #import mem;
 #import array
 
-struct Location {
+Location :: struct {
     file: string,
     line: u16,
     char: u16,
 }
 
-struct Range {
+Range :: struct {
     start: Location,
     end: Location,
 }
 
-struct Token {
+Token :: struct {
     range: Range,
     str: string,
     type: TokenType,
 }
 
-struct Lexer {
+Lexer :: struct {
     alloc: *Allocator,
     keywords: []Keyword,
 	start: *u8,
@@ -31,12 +31,12 @@ struct Lexer {
     location: Location,
 }
 
-struct Keyword {
+Keyword :: struct {
     id: string,
     type: TokenType,
 }
 
-enum State {
+State :: enum {
 	Default,
 	Identifier,
 	String,
@@ -407,7 +407,7 @@ peek_char :: fn(lexer: *Lexer, ahead := 0) -> u8 {
 
 #public
 
-enum TokenType: i16 {
+TokenType :: enum: i16 {
 	Pointer         = cast(i16, '*'),
 	And             = cast(i16, '&'),
 	Decl            = cast(i16, ':'),

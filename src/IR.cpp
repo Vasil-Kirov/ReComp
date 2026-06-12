@@ -3876,7 +3876,11 @@ void BuildTypeTable(block_builder *Builder, u32 TablePtr, u32 TableType, u32 Typ
 
 					WriteString(Builder, namePtr, T->Enum.Members[Idx].Name);
 					u32 MemValue = PushInstruction(Builder, Instruction(OP_ENUM_ACCESS, 0, Idx, i, Builder));
-					PushInstruction(Builder, InstructionStore(valuePtr, MemValue, T->Enum.Type));
+					if(T->Enum.Type != Basic_int)
+					{
+						MemValue = PushInstruction(Builder, Instruction(OP_CAST, MemValue, T->Enum.Type, Basic_int, Builder));
+					}
+					PushInstruction(Builder, InstructionStore(valuePtr, MemValue, Basic_int));
 				}
 				BuildSlice(Builder, Alloc, PushInt(T->Enum.Members.Count, Builder, Basic_int), SliceEnumMemberType, NULL, membersPtr);
 			} break;

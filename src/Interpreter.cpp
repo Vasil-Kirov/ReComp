@@ -2643,6 +2643,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					if(VM->PerformingDebugAction == DebugAction_next_stmt)
 						VM->PerformingDebugAction = DebugAction_break;
 				}
+				else if(VM->PerformingDebugAction == DebugAction_break)
+				{
+					VM->PerformingDebugAction = DebugAction_step_instruction;
+				}
 			} break;
 			case OP_RESULT:
 			{

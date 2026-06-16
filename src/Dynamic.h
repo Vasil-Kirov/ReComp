@@ -255,7 +255,7 @@ array<T> ArrayFromConst(std::initializer_list<T> List)
 }
 
 #define ForArray(Index_, _Array) for(size_t Index_ = 0; Index_ < (_Array).Count; ++Index_)
-#define For(_Array) for(auto *it = (_Array).Data; (size_t)(it - (_Array).Data) < (_Array).Count; ++it)
-#define ForN(_Array, Name) for(auto *Name = (_Array).Data; (size_t)(Name - (_Array).Data) < (_Array).Count; ++Name)
+#define For(_Array) for(auto *it = (_Array).Data, *_end_ptr__ = (_Array).Data+(_Array).Count; it != _end_ptr__; ++it)
+#define ForN(_Array, Name) for(auto *Name = (_Array).Data, *_end_ptr__ = (_Array).Data+(_Array).Count; Name != _end_ptr__; ++Name)
 #define ForReverse(_Array) for(auto *it = (_Array).Data+(_Array).Count-1; it >= _Array.Data; --it)
 

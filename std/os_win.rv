@@ -45,14 +45,15 @@ abort :: fn() #no_return {
     return;
 }
 
-StreamHandles :: struct
-{
+StreamHandles :: struct {
 	write: win32.HANDLE,
 	read: win32.HANDLE,
 	closeable: bool,
 };
 
+#private
 std_handles: StreamHandles;
+#public
 
 os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (int, io.StreamError) {
 	if stream_data == null

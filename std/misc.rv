@@ -1,0 +1,92 @@
+module misc;
+
+#import io;
+#import os;
+#import mem;
+#import str;
+
+ReadError :: enum {
+	Ok,
+	CantOpenFile,
+	OOM,
+	ReadFailed,
+}
+
+read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, ReadError) {
+	f, ok := os.make_file_stream(name, .Read, alloc);
+	if !ok {
+		return "", ReadError.CantOpenFile;
+	}
+	defer io.close(&f);
+
+	size := io.stream_size(&f);
+	buf, ok2 := mem.make_slice(u8, size+1, alloc);
+	if !ok2 {
+		return "", ReadError.OOM;
+	}
+
+	buf.count -= 1;
+	read, err := io.read(&f, buf);
+	buf.count += 1;
+
+	if err != .Ok {
+		mem.destroy_slice(&buf, alloc);
+		return "", ReadError.ReadFailed;
+	}
+    buf[read] = 0;
+	return cast(string, buf), ReadError.Ok;
+}
+
+min :: fn(a: $T, b: T) -> T {
+	return if a < b then a else b;
+}
+
+max :: fn(a: $T, b: T) -> T {
+	return if a > b then a else b;
+}
+
+abs :: fn(x: $T) -> T {
+    if x < 0 return -x;
+    return x;
+}
+
+clamp :: fn(x: $T, xstart: T, xend: T) -> T {
+	if x < xstart
+		return xstart;
+	if x > xend
+		return xend;
+	return x;
+}
+
+lerp :: fn(a: f32, b: f32, t: f32) -> f32 {
+	return a + (b-a) * t;
+}
+
+align_to :: fn(x: $T, align: T) -> T {
+    return ((x + (align - 1)) & ~(x - 1));
+}
+
+panic :: fn(err: string) #no_return {
+	s := os.make_std_stream();
+	io.write(&s, err as []u8);
+	os.abort();
+}
+
+//
+//
+//      PRINTING STUFF
+//
+//
+
+print :: fn(str: string, args: ...) {
+	s := os.make_std_stream();
+	io.writev(&s, str, args);
+}
+
+println :: fn(str: string, args: ...) {
+	s := os.make_std_stream();
+	io.writev(&s, str, args);
+	io.write(&s, .{'\n'});
+}
+
+

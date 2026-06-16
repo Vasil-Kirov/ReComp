@@ -106,16 +106,14 @@ string MakeString(void *Memory, const char *CString, size_t Size)
 string MakeString(string_builder Builder, void *Memory)
 {
 	string Result = MakeString(Memory, Builder.Data.Data, Builder.Size);
-	VFree(Builder.Data.Data);
-	Builder.Data.Count = 0;
+	Builder.Data.Free();
 	return Result;
 }
 
 string MakeString(string_builder Builder)
 {
 	string Result = MakeString(Builder.Data.Data, Builder.Size);
-	VFree(Builder.Data.Data);
-	Builder.Data.Count = 0;
+	Builder.Data.Free();
 	return Result;
 }
 

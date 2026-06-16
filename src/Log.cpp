@@ -38,7 +38,8 @@ Log(log_level Level, const char *Format, ...)
 	PushBuilder(&Builder, LevelLabels[Level]);
 	PushBuilder(&Builder, Format);
 
-	string FormatCopy = MakeString(Builder);
+	array<u8> Mem = {Builder.Data.Count+1};
+	string FormatCopy = MakeString(Builder, Mem.Data);
 	
 	char *FinalFormat = (char *)VAlloc(LOG_BUFFER_SIZE);
 
@@ -46,13 +47,15 @@ Log(log_level Level, const char *Format, ...)
 	va_start(Args, Format);
 	
 	vsnprintf(FinalFormat, LOG_BUFFER_SIZE, FormatCopy.Data, Args);
+	Mem.Free();
 	
 	va_end(Args);
 
 	string_builder PrintBuilder = MakeBuilder();
 	PushBuilder(&PrintBuilder, FinalFormat);
 	PushBuilder(&PrintBuilder, "\n");
-	string Print = MakeString(PrintBuilder);
+	array<u8> Mem2 = {PrintBuilder.Data.Count+1};
+	string Print = MakeString(PrintBuilder, Mem2.Data);
 	
 	LogMutex.lock();
 	PlatformOutputString(Print, Level);
@@ -67,6 +70,7 @@ Log(log_level Level, const char *Format, ...)
 //		platform_message_box("Error", ToPrint);
 		exit(1);
 	}
+	Mem2.Free();
 	VFree(FinalFormat);
 }
 

@@ -49,23 +49,6 @@ stream_size :: fn(s: *Stream) -> int {
 	return n;
 }
 
-print :: fn(str: string, args: ...) {
-	s := os.make_std_stream();
-    builder := internal_print(str, args);
-    res := from_builder(&builder, &mem.temp_alloc);
-	s.func(s.data, .Write, cast([]u8, res));
-    array.free(&builder.data);
-}
-
-println :: fn(str: string, args: ...) {
-	s := os.make_std_stream();
-    builder := internal_print(str, args);
-    builder_append_u8(&builder, '\n');
-    res := from_builder(&builder, &mem.temp_alloc);
-	s.func(s.data, .Write, cast([]u8, res));
-    array.free(&builder.data);
-}
-
 sprint :: fn(str: string, args: ...) -> string {
     builder := internal_print(str, args);
     res := from_builder(&builder, &mem.temp_alloc);
@@ -79,6 +62,12 @@ vsprint :: fn(str: string, args: []Arg) -> string {
 }
 
 writef :: fn(w: *Stream, str: string, args: ...) {
+    builder := internal_print(str, args);
+    res := from_builder(&builder, &mem.temp_alloc);
+	w.func(w.data, .Write, res as []u8);
+}
+
+writev :: fn(w: *Stream, str: string, args: []Arg) {
     builder := internal_print(str, args);
     res := from_builder(&builder, &mem.temp_alloc);
 	w.func(w.data, .Write, res as []u8);
@@ -104,36 +93,10 @@ close :: fn(s: *Stream) -> StreamError {
 	return err;
 }
 
-read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, bool) {
-	f, ok := os.make_file_stream(name, .Read, alloc);
-	if !ok {
-		return "", false;
-	}
-	defer close(&f);
-
-	size := stream_size(&f);
-	buf, ok2 := mem.make_slice(u8, size+1, alloc);
-	if !ok2 {
-		return "", false;
-	}
-
-	buf.count -= 1;
-	read, err := read(&f, buf);
-	buf.count += 1;
-
-	if err != .Ok {
-		mem.destroy_slice(&buf, alloc);
-		return "", false;
-	}
-    buf[read] = 0;
-	return cast(string, buf), true;
-}
-
 readln :: fn(s: *Stream, alloc: *mem.Allocator, endl := '\n') -> string {
 	MAX :: 1024;
     mem := alloc.alloc(MAX, alloc);
     if mem == null {
-		println("Failed to allocate buffer for readln");
         return "";
     }
 

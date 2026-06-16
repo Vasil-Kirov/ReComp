@@ -388,6 +388,7 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 {
 	string StdFiles[] = {
 		STR_LIT("base.rv"),
+		STR_LIT("misc.rv"),
 		STR_LIT("reflect.rv"),
 		STR_LIT("ast.rv"),
 		STR_LIT("os.rv"),

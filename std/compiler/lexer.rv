@@ -167,7 +167,7 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 				}
 				if finish_token && at_idx == 2 {
 					if is_id_char(token.str.data[1]) {
-						return result, format_error("Special number is not complete.", location);
+						return result, format_error("Number literal is not complete.", location);
 					}
 				}
 			}
@@ -202,16 +202,20 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 				// @NOTE: Always try to parse an operator at once for simplicity
 				finish_token = true;
 				if at == lexer.end {
+					token.str.count = 1;
 					token.type = token.str.data[0] as TokenType;
 					yield;
 				}
 
+				at--;
 				decr := false;
-				str := string { count = at - token.str.data+2, data = token.str.data };
+				start := at - text.data;
+				cut := (at-text.data)+2;
 				if at + 1 >= lexer.end {
 					decr = true;
-					str.count -= 1;
+					cut -= 1;
 				}
+				str := text[start:cut];
 				keyword, found := try_find_keyword(lexer, str);
 				if found {
 					if !decr
@@ -220,7 +224,8 @@ lex_string :: fn(lexer: *Lexer, text: string, alloc: *Allocator, start: Location
 					token.type = keyword.type;
 				}
 				else {
-					str = string { count = at - token.str.data+1, data = token.str.data };
+					cut = (at-token.str.data)+1;
+					str = text[start:cut];
 					keyword, found := try_find_keyword(lexer, str);
 					if found {
 						advance(lexer);

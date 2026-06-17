@@ -27,6 +27,17 @@ reset_temp :: fn() {
     reset_scratch(&temp_alloc);
 }
 
+dupe :: fn(data: []u8, alloc: *Allocator) -> ([]u8, bool) {
+	data := data;
+    ptr := alloc.alloc(data.count, alloc);
+	if !ptr
+		return []u8{}, false;
+
+	p := ptr as *u8;
+	copy(p, &data[0], data.count);
+	return p[:data.count], true;
+}
+
 make_slice :: fn (T: type, count: int, alloc: *Allocator) -> ([]T, bool) {
     res := []T{};
     ptr := alloc.alloc(count * size_of T, alloc);

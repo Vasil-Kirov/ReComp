@@ -1,6 +1,7 @@
 module array
 
 #import mem;
+_ :: #import misc;
 
 Header :: struct {
     capacity: int,
@@ -11,6 +12,7 @@ create :: fn(T: type, allocator: *mem.Allocator) -> []T {
     INITIAL_CAPACITY :: 8;
     ptr: ?*Header = allocator.alloc(INITIAL_CAPACITY * size_of T + size_of Header, allocator);
     if ptr == null {
+		panic("Allocation for array.create() failed!\n");
         return []T{};
     }
     ptr.capacity = INITIAL_CAPACITY;

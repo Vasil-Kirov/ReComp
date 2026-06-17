@@ -140,11 +140,11 @@ void InitX86OpUsage()
 	OpUsagex86[OP_NOP] = { 0, OpFlag_DstIsUnused };
 	OpUsagex86[OP_INSERT] = { 0, OpFlag_ComplexArgOp };
 	OpUsagex86[OP_EXTRACT] = { 0, 0 };
-	OpUsagex86[OP_DEBUG_BREAK] = { 0, OpFlag_DstIsUnused | OpFlag_SpillEverything };
-	OpUsagex86[OP_CMPXCHG] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
-	OpUsagex86[OP_FENCE] = { 0, OpFlag_DstIsUnused | OpFlag_SpillEverything };
-	OpUsagex86[OP_ATOMIC_LOAD] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
-	OpUsagex86[OP_ATOMIC_ADD] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
+	OpUsagex86[OP_INTRIN] = { 0, OpFlag_DstIsUnused | OpFlag_SpillEverything };
+	//OpUsagex86[OP_CMPXCHG] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
+	//OpUsagex86[OP_FENCE] = { 0, OpFlag_DstIsUnused | OpFlag_SpillEverything };
+	//OpUsagex86[OP_ATOMIC_LOAD] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
+	//OpUsagex86[OP_ATOMIC_ADD] = { 0, OpFlag_ComplexArgOp | OpFlag_SpillEverything };
 	OpUsagex86[OP_GLOBAL] = { 0, 0 };
 	OpUsagex86[OP_RESULT] = { 0, 0 };
 	OpUsagex86[OP_ENUM_ACCESS] = { 0, 0 };

@@ -28,6 +28,7 @@ struct generator
 	LLVMBuilderRef bld; // Builder
 	LLVMDIBuilderRef dbg; // Debug Info Builder
 	LLVMMetadataRef f_dbg; // Metadata for current file
+	array<LLVMMetadataRef> file_dbgs; // Metadata for all module files
 	LLVMTargetDataRef data;
 	value_map global;
 	value_map map;

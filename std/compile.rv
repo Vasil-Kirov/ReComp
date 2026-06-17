@@ -120,6 +120,8 @@ raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 	raise_error_(s, location);
 }
 
+no_compile_output :: fn() #intrinsic;
+
 #private
 raise_error_ :: fn(s: string, location: FileLocation) #intrinsic;
 

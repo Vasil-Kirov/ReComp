@@ -4,6 +4,18 @@
 #include "Parser.h"
 #include "Stack.h"
 
+enum compiler_intrinsic
+{
+	IN_NOT_INTRIN,
+	IN_CMPXCHG,
+	IN_DEBUG_BREAK,
+	IN_FENCE,
+	IN_ATOMIC_LOAD,
+	IN_ATOMIC_ADD,
+	IN_RAISE_ERROR,
+	IN_NO_COMPILE_OUTPUT,
+};
+
 enum op
 {
 	OP_NOP,
@@ -89,6 +101,8 @@ enum op
 	// Right = Ignore by interpreter bool
 	OP_UNREACHABLE,
 
+	OP_INTRIN,
+	/*
 	OP_DEBUG_BREAK,
 
 	OP_FENCE,
@@ -99,6 +113,7 @@ enum op
 	OP_CMPXCHG,
 
 	OP_RAISE_ERROR,
+	*/
 
 	// SIMD
 	// Ptr = ir_insert
@@ -198,6 +213,12 @@ struct call_info
 	u32 Operand;
 	slice<u32> Args;
 	const error_info *ErrorInfo;
+};
+
+struct intrin_info
+{
+	compiler_intrinsic Intrin;
+	call_info *CallInfo;
 };
 
 struct array_list_info

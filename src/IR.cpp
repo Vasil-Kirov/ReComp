@@ -35,7 +35,11 @@ u32 GenerateVoidFnT()
 inline void PushDebugBreak(block_builder *Builder)
 {
 	instruction Result = {};
-	Result.Op = OP_DEBUG_BREAK;
+	Result.Op = OP_INTRIN;
+	intrin_info *IInfo = NewType(intrin_info);
+	IInfo->CallInfo = nullptr;
+	IInfo->Intrin = IN_DEBUG_BREAK;
+	Result.Ptr = IInfo;
 	PushInstruction(Builder, Result);
 }
 
@@ -1364,32 +1368,36 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(Found) break;
 			}
 #endif
-			op Op = OP_CALL;
+			compiler_intrinsic Intrin = IN_NOT_INTRIN;
 			if(Node->Call.SymName.Data != NULL)
 			{
 				if(Node->Call.SymName == "compare_exchange")
 				{
-					Op = OP_CMPXCHG;
+					Intrin = IN_CMPXCHG;
 				}
 				else if(Node->Call.SymName == "debug_break")
 				{
-					Op = OP_DEBUG_BREAK;
+					Intrin = IN_DEBUG_BREAK;
 				}
 				else if(Node->Call.SymName == "fence")
 				{
-					Op = OP_FENCE;
+					Intrin = IN_FENCE;
 				}
 				else if(Node->Call.SymName == "atomic_load")
 				{
-					Op = OP_ATOMIC_LOAD;
+					Intrin = IN_ATOMIC_LOAD;
 				}
 				else if(Node->Call.SymName == "atomic_add")
 				{
-					Op = OP_ATOMIC_ADD;
+					Intrin = IN_ATOMIC_ADD;
 				}
 				else if(Node->Call.SymName == "raise_error_")
 				{
-					Op = OP_RAISE_ERROR;
+					Intrin = IN_RAISE_ERROR;
+				}
+				else if(Node->Call.SymName == "no_compile_output")
+				{
+					Intrin = IN_NO_COMPILE_OUTPUT;
 				}
 				else
 				{
@@ -1409,7 +1417,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 
 			u32 ResultPtr = -1;
 			u32 ReturnedWrongType = -1;
-			if(Type->Function.Returns.Count != 0 && Op != OP_CMPXCHG)
+			if(Type->Function.Returns.Count != 0 && Intrin != IN_CMPXCHG)
 			{
 				u32 RTID = ReturnsToType(Type->Function.Returns);
 				const type *RT = GetType(RTID);
@@ -1549,7 +1557,18 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				CallType = AddType(NT);
 			}
 
-			Result = PushInstruction(Builder, Instruction(Op, (u64)CallInfo, CallType, Builder));
+			if(Intrin != IN_NOT_INTRIN)
+			{
+				intrin_info *IInfo = NewType(intrin_info);
+				IInfo->CallInfo = CallInfo;
+				IInfo->Intrin = Intrin;
+
+				Result = PushInstruction(Builder, Instruction(OP_INTRIN, IInfo, CallType, Builder, 0));
+			}
+			else
+			{
+				Result = PushInstruction(Builder, Instruction(OP_CALL, (u64)CallInfo, CallType, Builder));
+			}
 			if(ResultPtr != -1)
 				Result = ResultPtr;
 			else if(ReturnedWrongType != -1)
@@ -2965,22 +2984,27 @@ void BuildIRForLoopCStyle(block_builder *Builder, node *Node)
 	Builder->ContinueBlockID = CurrentContinue;
 }
 
+void PushDefferedScope(block_builder *Builder, defer_scope &Scope)
+{
+	ForArray(SIdx, Scope.Expressions)
+	{
+		int ActualSIdx = Scope.Expressions.Count - 1 - SIdx;
+		auto ExprBody = Scope.Expressions[ActualSIdx];
+		For(ExprBody)
+		{
+			BuildIRFunctionLevel(Builder, (*it));
+		}
+	}
+}
+
 void PushDefferedInstructions(block_builder *Builder)
 {
 	ForArray(Idx, Builder->Defered.Data)
 	{
 		int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
 		auto s = Builder->Defered.Data[ActualIdx];
+		PushDefferedScope(Builder, s);
 
-		ForArray(SIdx, s.Expressions)
-		{
-			int ActualSIdx = s.Expressions.Count - 1 - SIdx;
-			auto ExprBody = s.Expressions[ActualSIdx];
-			For(ExprBody)
-			{
-				BuildIRFunctionLevel(Builder, (*it));
-			}
-		}
 	}
 }
 
@@ -3192,7 +3216,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			PushStepLocation(Builder, Node);
 
-			PushDefferedInstructions(Builder);
+			auto Scope = Builder->Defered.TryPeek();
+			PushDefferedScope(Builder, Scope);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
@@ -3200,7 +3225,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			PushStepLocation(Builder, Node);
 
-			PushDefferedInstructions(Builder);
+			auto Scope = Builder->Defered.TryPeek();
+			PushDefferedScope(Builder, Scope);
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
@@ -4082,10 +4108,6 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		{
 			LERROR("UNKNOWN OP: %d", Instr.Op);
 		} break;
-		case OP_RAISE_ERROR:
-		{
-			PushBuilder(Builder, "RAISE_ERROR");
-		} break;
 		case OP_NOP:
 		{
 			PushBuilder(Builder, "NOP");
@@ -4107,28 +4129,45 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 		{
 			PushBuilderFormated(Builder, "%%%d = extract %%%d at %d", Instr.Result, Instr.Left, Instr.Right);
 		} break;
-		case OP_DEBUG_BREAK:
+		case OP_INTRIN:
 		{
-			*Builder += "debug_break()";
-		} break;
-		case OP_CMPXCHG:
-		{
-			call_info *ci = (call_info *)Instr.BigRegister;
-			PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
-		} break;
-		case OP_FENCE:
-		{
-			PushBuilderFormated(Builder, "fence");
-		} break;
-		case OP_ATOMIC_LOAD:
-		{
-			call_info *ci = (call_info *)Instr.BigRegister;
-			PushBuilderFormated(Builder, "%%%d = atomic load %%%d", Instr.Result, ci->Args[0]);
-		} break;
-		case OP_ATOMIC_ADD:
-		{
-			call_info *ci = (call_info *)Instr.BigRegister;
-			PushBuilderFormated(Builder, "%%%d = atomic add %%%d, %%%d", Instr.Result, ci->Args[0], ci->Args[1]);
+			intrin_info *Info = (intrin_info *)Instr.Ptr;
+			switch(Info->Intrin)
+			{
+				case IN_NOT_INTRIN:
+				{} break;
+				case IN_NO_COMPILE_OUTPUT:
+				{
+					*Builder += "NO_COMPILE_OUTPUT()";
+				} break;
+				case IN_RAISE_ERROR:
+				{
+					*Builder += "RAISE_ERROR()";
+				} break;
+				case IN_DEBUG_BREAK:
+				{
+					*Builder += "debug_break()";
+				} break;
+				case IN_ATOMIC_ADD:
+				{
+					call_info *ci = Info->CallInfo;
+					PushBuilderFormated(Builder, "%%%d = atomic add %%%d, %%%d", Instr.Result, ci->Args[0], ci->Args[1]);
+				} break;
+				case IN_ATOMIC_LOAD:
+				{
+					call_info *ci = Info->CallInfo;
+					PushBuilderFormated(Builder, "%%%d = atomic load %%%d", Instr.Result, ci->Args[0]);
+				} break;
+				case IN_FENCE:
+				{
+					*Builder += "fence";
+				} break;
+				case IN_CMPXCHG:
+				{
+					call_info *ci = Info->CallInfo;
+					PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
+				} break;
+			}
 		} break;
 		case OP_GLOBAL:
 		{
@@ -4542,25 +4581,45 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 			{
 			}
 		} break;
-		case OP_CMPXCHG:
+		case OP_INTRIN:
 		{
-			call_info *ci = (call_info *)I.BigRegister;
-			out[(*count)++] = ci->Args[0];
-			out[(*count)++] = ci->Args[1];
-			out[(*count)++] = ci->Args[2];
+			intrin_info *Info = (intrin_info *)I.Ptr;
+			switch(Info->Intrin)
+			{
+				case IN_NOT_INTRIN:
+				{} break;
+				case IN_NO_COMPILE_OUTPUT:
+				{
+				} break;
+				case IN_RAISE_ERROR:
+				{
+				} break;
+				case IN_DEBUG_BREAK:
+				{
+				} break;
+				case IN_ATOMIC_ADD:
+				{
+					call_info *ci = Info->CallInfo;
+					out[(*count)++] = ci->Args[0];
+					out[(*count)++] = ci->Args[1];
+				} break;
+				case IN_ATOMIC_LOAD:
+				{
+					call_info *ci = Info->CallInfo;
+					out[(*count)++] = ci->Args[0];
+				} break;
+				case IN_FENCE:
+				{
+				} break;
+				case IN_CMPXCHG:
+				{
+					call_info *ci = (call_info *)Info->CallInfo;
+					out[(*count)++] = ci->Args[0];
+					out[(*count)++] = ci->Args[1];
+					out[(*count)++] = ci->Args[2];
+				} break;
+			}
 		} break;
-		case OP_ATOMIC_LOAD:
-		{
-			call_info *ci = (call_info *)I.BigRegister;
-			out[(*count)++] = ci->Args[0];
-		} break;
-		case OP_ATOMIC_ADD:
-		{
-			call_info *ci = (call_info *)I.BigRegister;
-			out[(*count)++] = ci->Args[0];
-			out[(*count)++] = ci->Args[1];
-		} break;
-		case OP_FENCE:
 		case OP_SWITCHINT:
 		{
 			ir_switchint *Info = (ir_switchint*)I.Ptr;
@@ -4571,13 +4630,11 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 			}
 		} break;
 		OP_R(OP_BITNOT);
-		case OP_DEBUG_BREAK:
 		case OP_GLOBAL:
 		case OP_ARG:
 		case OP_ALLOC:
 		case OP_ALLOCGLOBAL:
 		case OP_NULL:
-		case OP_RAISE_ERROR:
 		case OP_NOP:
 		{
 		} break;

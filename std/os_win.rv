@@ -3,6 +3,57 @@ module os
 #import "win32.rv"
 #import io;
 #import mem;
+#import str;
+
+copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
+	from, ok1 := str.null_term(from_, &mem.temp_alloc);
+	if !ok1
+		return false;
+	to, ok2 := str.null_term(to_, &mem.temp_alloc);
+	if !ok2
+		return false;
+	return win32.CopyFileA(from.data as win32.LPCSTR, to.data as win32.LPCSTR, (!overwrite) as win32.BOOL) != 0;
+}
+
+mkdir :: fn(dir_: string) -> bool {
+	dir, ok := str.null_term(dir_, &mem.temp_alloc);
+	if !ok
+		return false;
+	return win32.CreateDirectoryA(dir.data as win32.LPCSTR, null) != 0;
+}
+
+list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
+		dirs, ok := str.null_term(dir_, &mem.temp_alloc);
+		if !ok
+			return false;
+		entry: win32.WIN32_FIND_DATAA = .{};
+		b := str.create_builder(&mem.temp_alloc);
+		str.builder_append(&b, dirs);
+		str.builder_append(&b, "\\*");
+		search := str.from_builder(&b, &mem.temp_alloc);
+		dir := win32.FindFirstFileA(search.data as win32.LPCSTR, &entry);
+		if dir == win32.INVALID_HANDLE_VALUE
+			return false;
+
+		defer win32.FindClose(dir);
+
+
+		for {
+			len := 0;
+			for i in 260 {
+				if entry.cFileName[i] == 0 break;
+				len++;
+			}
+			s := string {data = (&entry.cFileName[0]) as *u8, count = len};
+			data: ListFileData = .{dir=dirs, file=s, is_directory=entry.dwFileAttributes & win32.FILE_ATTRIBUTE_DIRECTORY as win32.DWORD != 0};
+			if !callback(&data, arg)
+				break;
+
+			if !win32.FindNextFileA(dir, &entry)
+				break;
+		}
+		return true;
+	}
 
 alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
 	pass := 0 as u32;

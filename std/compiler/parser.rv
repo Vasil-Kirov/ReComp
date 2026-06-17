@@ -78,7 +78,9 @@ parse_tokens :: fn(tokens: []Token, allocator: *Allocator) -> []*Node, []string 
 }
 
 parse_top_level :: fn(parser: *Parser) -> Instruction, bool {
-	match parser.current_token.type {
+	switch parser.current_token.type {
+		case .ID: {
+		}
 
 	}
 }

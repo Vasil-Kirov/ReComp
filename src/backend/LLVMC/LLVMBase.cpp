@@ -547,7 +547,6 @@ void RCGenerateInstruction(generator *gen, instruction I)
 
 	switch(I.Op)
 	{
-		case OP_RAISE_ERROR:
 		case OP_RESULT:
 		case OP_NOP:
 		{
@@ -580,61 +579,74 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			//		0, "");
 			gen->map.Add(I.Result, Time);
 		} break;
-		case OP_DEBUG_BREAK:
+		case OP_INTRIN:
 		{
-			llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.debugtrap")];
-			Assert(Intrin.Fn);
-			LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "");
-		} break;
-		case OP_ATOMIC_ADD:
-		{
-			call_info *ci = (call_info *)I.BigRegister;
-			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
-			LLVMValueRef Val = gen->map.Get(ci->Args[1]);
-			LLVMValueRef OldVal = LLVMBuildAtomicRMW(gen->bld, LLVMAtomicRMWBinOpAdd, Ptr, Val, LLVMAtomicOrderingSequentiallyConsistent, false);
+			intrin_info *Info = (intrin_info *)I.Ptr;
+			switch(Info->Intrin)
+			{
+				case IN_NOT_INTRIN:
+				{} break;
+				case IN_NO_COMPILE_OUTPUT:
+				{} break;
+				case IN_RAISE_ERROR:
+				{} break;
+				case IN_DEBUG_BREAK:
+				{
+					llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.debugtrap")];
+					Assert(Intrin.Fn);
+					LLVMBuildCall2(gen->bld, Intrin.Type, Intrin.Fn, NULL, 0, "");
+				} break;
+				case IN_ATOMIC_ADD:
+				{
+					call_info *ci = Info->CallInfo;
+					LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+					LLVMValueRef Val = gen->map.Get(ci->Args[1]);
+					LLVMValueRef OldVal = LLVMBuildAtomicRMW(gen->bld, LLVMAtomicRMWBinOpAdd, Ptr, Val, LLVMAtomicOrderingSequentiallyConsistent, false);
 
-			gen->map.Add(I.Result, OldVal);
-		} break;
-		case OP_ATOMIC_LOAD:
-		{
-			call_info *ci = (call_info *)I.BigRegister;
-			LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
-			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
-			LLVMValueRef Val = LLVMBuildLoad2(gen->bld, IntType, Ptr, "");
-			LLVMSetOrdering(Val, LLVMAtomicOrderingSequentiallyConsistent);
-			gen->map.Add(I.Result, Val);
-		} break;
-		case OP_FENCE:
-		{
-			LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent, false, "");
-		} break;
-		case OP_CMPXCHG:
-		{
-			call_info *ci = (call_info *)I.BigRegister;
-			Assert(ci->Args.Count == 3);
+					gen->map.Add(I.Result, OldVal);
+				} break;
+				case IN_ATOMIC_LOAD:
+				{
+					call_info *ci = Info->CallInfo;
+					LLVMTypeRef IntType = ConvertToLLVMType(gen, Basic_int);
+					LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+					LLVMValueRef Val = LLVMBuildLoad2(gen->bld, IntType, Ptr, "");
+					LLVMSetOrdering(Val, LLVMAtomicOrderingSequentiallyConsistent);
+					gen->map.Add(I.Result, Val);
+				} break;
+				case IN_FENCE:
+				{
+					LLVMBuildFence(gen->bld, LLVMAtomicOrderingSequentiallyConsistent, false, "");
+				} break;
+				case IN_CMPXCHG:
+				{
+					call_info *ci = Info->CallInfo;
+					Assert(ci->Args.Count == 3);
 
-			LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
-			LLVMValueRef Cmp = gen->map.Get(ci->Args[1]);
-			LLVMValueRef New = gen->map.Get(ci->Args[2]);
-			LLVMValueRef Result = LLVMBuildAtomicCmpXchg(gen->bld, Ptr, Cmp, New, LLVMAtomicOrderingSequentiallyConsistent, LLVMAtomicOrderingSequentiallyConsistent, false);
+					LLVMValueRef Ptr = gen->map.Get(ci->Args[0]);
+					LLVMValueRef Cmp = gen->map.Get(ci->Args[1]);
+					LLVMValueRef New = gen->map.Get(ci->Args[2]);
+					LLVMValueRef Result = LLVMBuildAtomicCmpXchg(gen->bld, Ptr, Cmp, New, LLVMAtomicOrderingSequentiallyConsistent, LLVMAtomicOrderingSequentiallyConsistent, false);
 
-			LLVMValueRef Alloc = gen->map.Get(I.Result);
-			LLVMValueRef Val = LLVMBuildExtractValue(gen->bld, Result, 0, "");
-			LLVMValueRef Success = LLVMBuildExtractValue(gen->bld, Result, 1, "");
+					LLVMValueRef Alloc = gen->map.Get(I.Result);
+					LLVMValueRef Val = LLVMBuildExtractValue(gen->bld, Result, 0, "");
+					LLVMValueRef Success = LLVMBuildExtractValue(gen->bld, Result, 1, "");
 
 
-			LLVMTypeRef Types[] = {
-				LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
-				LLVMIntTypeInContext(gen->ctx, 1)
-			};
+					LLVMTypeRef Types[] = {
+						LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
+						LLVMIntTypeInContext(gen->ctx, 1)
+					};
 
-			LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
+					LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
 
-			LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 0, "");
-			LLVMValueRef SuccessPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 1, "");
-			LLVMBuildStore(gen->bld, Val, ValPtr);
-			LLVMBuildStore(gen->bld, Success, SuccessPtr);
+					LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 0, "");
+					LLVMValueRef SuccessPtr = LLVMBuildStructGEP2(gen->bld, ResTy, Alloc, 1, "");
+					LLVMBuildStore(gen->bld, Val, ValPtr);
+					LLVMBuildStore(gen->bld, Success, SuccessPtr);
 
+				} break;
+			}
 		} break;
 		case OP_TYPEINFO:
 		{
@@ -1381,16 +1393,20 @@ void RCGenerateFunction(generator *gen, function fn)
 						gen->map.Add(I.Result, Val);
 					}
 				} break;
-				case OP_CMPXCHG:
+				case OP_INTRIN:
 				{
-					LLVMTypeRef Types[] = {
-						LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
-						LLVMIntTypeInContext(gen->ctx, 1)
-					};
+					intrin_info *Info = (intrin_info *)I.Ptr;
+					if(Info->Intrin == IN_CMPXCHG)
+					{
+						LLVMTypeRef Types[] = {
+							LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()),
+							LLVMIntTypeInContext(gen->ctx, 1)
+						};
 
-					LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
-					LLVMValueRef Alloc = LLVMBuildAlloca(gen->bld, ResTy, "");
-					gen->map.Add(I.Result, Alloc);
+						LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
+						LLVMValueRef Alloc = LLVMBuildAlloca(gen->bld, ResTy, "");
+						gen->map.Add(I.Result, Alloc);
+					}
 				} break;
 				default: break;
 			}
@@ -1589,13 +1605,20 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 	LLVMSetTarget(Gen.mod, Info->TargetTriple.Data);
 	Gen.map = {};
 	Gen.bld = LLVMCreateBuilderInContext(Gen.ctx);
-	DEBUG_RUN (
+	if (g_CompileFlags & CF_DebugInfo)
+	{
 		Gen.dbg = LLVMCreateDIBuilder(Gen.mod);
-		Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
-				FileName, VStrLen(FileName),
-				FileDirectory, VStrLen(FileDirectory));
-	)
-	
+		Gen.file_dbgs = {M->Files.Count};
+		for (size_t FIdx = 0; FIdx < M->Files.Count; ++FIdx)
+		{
+			char *FName = nullptr;
+			char *FDir = nullptr;
+			GetNameAndDirectory(&FName, &FDir, M->Files[FIdx]->Name);
+			Gen.file_dbgs[FIdx] = LLVMDIBuilderCreateFile(Gen.dbg, FName, strlen(FName), FDir, strlen(FDir));
+		}
+		Gen.f_dbg = Gen.file_dbgs[0];
+	}
+
 	if(GetRegisterTypeSize() == 64)
 	{
 		Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
@@ -1815,10 +1838,10 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 							LLVMMetadataRef DebugTy = ToDebugTypeLLVM(&Gen, it->s->Type);
 							LLVMMetadataRef Expr = LLVMDIBuilderCreateExpression(Gen.dbg, NULL, 0);
 							LLVMMetadataRef Decl = NULL;
-							LLVMMetadataRef DebugGlobal = LLVMDIBuilderCreateGlobalVariableExpression(Gen.dbg, Gen.f_dbg,
+							LLVMMetadataRef DebugGlobal = LLVMDIBuilderCreateGlobalVariableExpression(Gen.dbg, Gen.file_dbgs[FIdx],
 								it->s->Name->Data, it->s->Name->Size,
 								it->s->LinkName->Data, it->s->LinkName->Size,
-								Gen.f_dbg, it->s->Node->ErrorInfo->Range.StartLine,
+								Gen.file_dbgs[FIdx], it->s->Node->ErrorInfo->Range.StartLine,
 								DebugTy, (it->s->Flags & SymbolFlag_Public) != 0,
 								Expr, Decl,
 								GetTypeAlignment(it->s->Type)*8);
@@ -1833,6 +1856,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(FIdx, M->Files)
 	{
+		DEBUG_RUN(Gen.f_dbg = Gen.file_dbgs[FIdx];)
 		ir *IR = M->Files[FIdx]->IR;
 		ForArray(Idx, IR->Functions)
 		{
@@ -1874,16 +1898,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				Gen.map.Clear();
 				Gen.fn = NULL;
 			}
-		}
-
-		if((Info->Flags & CF_DebugInfo) && FIdx + 1 != M->Files.Count)
-		{
-			char *FileName = NULL;
-			char *FileDirectory = NULL;
-			GetNameAndDirectory(&FileName, &FileDirectory, M->Files[FIdx+1]->Name);
-			Gen.f_dbg = LLVMDIBuilderCreateFile(Gen.dbg,
-					FileName, VStrLen(FileName),
-					FileDirectory, VStrLen(FileDirectory));
 		}
 	}
 

@@ -783,25 +783,28 @@ main(int ArgCount, char *Args[])
 			VLibStopTimer(&VMBuildTimer2);
 
 
-			FileTimer.LLVM = VLibStartTimer("LLVM");
-			RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
-#if 0
+			if(!g_StopCompileOutput)
 			{
-				InitX86OpUsage();
-				slice<op_reg_usage> u = {OpUsagex86, ARR_LEN(OpUsagex86)};
-
-				slice<uint> FnCallRegisters = SliceFromConst<uint>({
-						2, 3, 6, 7
-				});
-
-				reg_allocator r = MakeRegisterAllocator(u, 11, FnCallRegisters);
-				For(Files)
+				FileTimer.LLVM = VLibStartTimer("LLVM");
+				RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
+#if 0
 				{
-					AllocateRegisters(&r, (*it)->IR);
+					InitX86OpUsage();
+					slice<op_reg_usage> u = {OpUsagex86, ARR_LEN(OpUsagex86)};
+
+					slice<uint> FnCallRegisters = SliceFromConst<uint>({
+							2, 3, 6, 7
+							});
+
+					reg_allocator r = MakeRegisterAllocator(u, 11, FnCallRegisters);
+					For(Files)
+					{
+						AllocateRegisters(&r, (*it)->IR);
+					}
 				}
-			}
 #endif
-			VLibStopTimer(&FileTimer.LLVM);
+				VLibStopTimer(&FileTimer.LLVM);
+			}
 			ComptimeVM.StackAllocator.Free();
 
 			Timers.Push(FileTimer);
@@ -829,6 +832,7 @@ main(int ArgCount, char *Args[])
 			} break;
 		}
 		CommandLine.Flags |= CF_DebugInfo;
+		g_CompileFlags |= CF_DebugInfo;
 
 		timers FileTimer = {};
 
@@ -848,16 +852,19 @@ main(int ArgCount, char *Args[])
 		if(HasErroredOut())
 			exit(1);
 
-		FileTimer.LLVM = VLibStartTimer("LLVM");
-		RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, BuildVM.StoredGlobals);
-		VLibStopTimer(&FileTimer.LLVM);
+		if(!g_StopCompileOutput)
+		{
+			FileTimer.LLVM = VLibStartTimer("LLVM");
+			RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, BuildVM.StoredGlobals);
+			VLibStopTimer(&FileTimer.LLVM);
+		}
 		BuildVM.StackAllocator.Free();
 		Timers.Push(FileTimer);
 	}
 
 
 	auto LinkTimer = VLibStartTimer("Linking");
-	if(Info->Flags & CF_NoLink) {}
+	if((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
 	else
 	{
 		link_command Link = MakeLinkCommand(CommandLine, ModuleArray, Info);
@@ -953,7 +960,7 @@ main(int ArgCount, char *Args[])
 	}
 
 	/* Clean up */
-	if((Info->Flags & CF_NoLink) == 0)
+	if((Info->Flags & CF_NoLink) == 0 && !g_StopCompileOutput)
 	{
 		ForArray(Idx, ModuleArray)
 		{

@@ -3,9 +3,23 @@ module str
 #import io;
 #import mem;
 #import array;
+_ :: #import misc;
 
 Builder :: struct {
     data: []u8,
+}
+
+null_term :: fn(str: string, alloc: *mem.Allocator) -> (string, bool) {
+	str := str;
+    ptr := alloc.alloc(str.count+1, alloc);
+	if !ptr
+		return "", false;
+
+	p := ptr as *u8;
+	mem.copy(p, &str[0], str.count);
+	p[str.count] = 0;
+
+	return p[:str.count] as string, true;
 }
 
 to_int :: fn (str: string) -> int {

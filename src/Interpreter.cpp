@@ -25,6 +25,7 @@
 
 bool g_DontErrorForMissingGlobals = false;
 bool g_InterpreterTrace = false;
+bool g_StopCompileOutput = false;
 dynamic<DLIB> g_DLs = {};
 
 #define MARK_BIT 62
@@ -1750,18 +1751,43 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			case OP_NOP:
 			{
 			} break;
-			case OP_DEBUG_BREAK:
+			case OP_INTRIN:
 			{
-				VM->PerformingDebugAction = DebugAction_break;
-			} break;
-			case OP_RAISE_ERROR:
-			{
-				call_info *ci = (call_info *)I.BigRegister;
-				Assert(ci->Args.Count == 2);
-				value *Fmt = VM->Registers.GetValue(ci->Args[0]);
-				value *Location = VM->Registers.GetValue(ci->Args[1]);
-				//string;
-				DoCompileTimeRaiseError(VM, Fmt, Location);
+				intrin_info *Info = (intrin_info *)I.Ptr;
+				switch(Info->Intrin)
+				{
+					case IN_NOT_INTRIN:
+					{} break;
+					case IN_NO_COMPILE_OUTPUT:
+					{
+						g_StopCompileOutput = true;
+					} break;
+					case IN_RAISE_ERROR:
+					{
+						call_info *ci = Info->CallInfo;
+						Assert(ci->Args.Count == 2);
+						value *Fmt = VM->Registers.GetValue(ci->Args[0]);
+						value *Location = VM->Registers.GetValue(ci->Args[1]);
+						//string;
+						DoCompileTimeRaiseError(VM, Fmt, Location);
+					} break;
+					case IN_DEBUG_BREAK:
+					{
+						VM->PerformingDebugAction = DebugAction_break;
+					} break;
+					case IN_ATOMIC_ADD:
+					{
+					} break;
+					case IN_ATOMIC_LOAD:
+					{
+					} break;
+					case IN_FENCE:
+					{
+					} break;
+					case IN_CMPXCHG:
+					{
+					} break;
+				}
 			} break;
 			case OP_INSERT:
 			{

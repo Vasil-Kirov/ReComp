@@ -1,5 +1,12 @@
 module os
 
+ListFileData :: struct
+{
+	dir: string,
+	file: string,
+	is_directory: bool,
+}
+
 AllocationFlags :: enum
 {
 	None = 0,

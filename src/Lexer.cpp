@@ -645,8 +645,11 @@ void InitializeLexer()
 	AddKeyword("#static", T_STATIC);
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("#link", T_LINK);
+	AddKeyword("#cc", T_CALLC);
 	AddKeyword("#intrinsic",  T_INTR);
 	AddKeyword("#no_return",  T_NORETURN);
+	AddKeyword("#wasm_import",  T_WASM_IMPORT);
+	AddKeyword("#tag",  T_TAG);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
 	AddKeyword("#embed_bin", T_EMBED_BIN);

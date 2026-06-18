@@ -133,6 +133,19 @@ struct default_value
 	node *Default;
 };
 
+enum function_call_conv
+{
+	CallConv_Default,
+	CallConv_RVC,
+	CallConv_CDecl,
+	CallConv_StdCall,
+	CallConv_FastCall,
+	CallConv_ThisCall,
+	CallConv_VectorCall,
+	CallConv_SystemV,
+	CallConv_Microsoft,
+};
+
 struct function_type
 {
 	slice<u32> Returns;
@@ -140,6 +153,7 @@ struct function_type
 	slice<default_value> DefaultValues;
 	u32 Flags;
 	int ArgCount;
+	function_call_conv Conv;
 };
 
 enum pointer_flags

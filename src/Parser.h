@@ -264,7 +264,11 @@ struct node
 		} Decl;
 		struct {
 			const string *Name;
+			const string *CallConv; // @Nullable
 			const string *LinkName; // @Nullable til semantic analysis
+			const string *Tag; // @Nullable
+			const string *WasmModule; // @Nullable
+			const string *WasmName; // @Nullable
 			slice<node *> Args;
 			slice<node *>ReturnTypes; // @Nullable
 			dynamic<node *> Body; // @Note: call IsValid to check if the function has a body
@@ -338,7 +342,6 @@ node *ParseFunctionType(parser *Parser);
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type, node *DefaultExpr);
-node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags);
 node *MakeDecl(const error_info *ErrorInfo, const string *ID, node *Expression, node *MaybeType, u32 Flags);
 node *MakeBinary(const error_info *ErrorInfo, node *Left, node *Right, token_type Op);
 node *MakeReserve(const error_info *ErrorInfo, reserved ID);

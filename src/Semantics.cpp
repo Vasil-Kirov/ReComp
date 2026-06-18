@@ -973,6 +973,30 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	Function.ArgCount = FnNode->Fn.Args.Count - ((Flags & SymbolFlag_VarFunc) ? 1 : 0);
 	Function.Args = NULL;
 	Function.Flags = Flags;
+	Function.Conv = CallConv_Default;
+
+	if(FnNode->Fn.CallConv)
+	{
+		const string s = *FnNode->Fn.CallConv;
+		if(s == "rvc")
+			Function.Conv = CallConv_RVC;
+		else if(s == "cdecl")
+			Function.Conv = CallConv_CDecl;
+		else if(s == "stdcall")
+			Function.Conv = CallConv_StdCall;
+		else if(s == "fastcall")
+			Function.Conv = CallConv_FastCall;
+		else if(s == "thiscall")
+			Function.Conv = CallConv_ThisCall;
+		else if(s == "vectorcall")
+			Function.Conv = CallConv_VectorCall;
+		else if(s == "sysv")
+			Function.Conv = CallConv_SystemV;
+		else if(s == "msabi")
+			Function.Conv = CallConv_Microsoft;
+		else
+			RaiseError(false, *FnNode->ErrorInfo, "Unknown calling convention: %.*s", s.Size, s.Data);
+	}
 
 	if(Function.ArgCount > 0)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);

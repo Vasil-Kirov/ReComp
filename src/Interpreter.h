@@ -177,6 +177,7 @@ struct binary_stack
 {
 	void *Memory;
 	u8 *At = NULL;
+	size_t MaxMem = 0;
 
 	void *Allocate(uint Size)
 	{
@@ -185,7 +186,7 @@ struct binary_stack
 		At = (u8 *)Align16(At);
 		void *Result = At;
 		At += Size;
-		if(At - (u8 *)Memory >= MB(1))
+		if(At - (u8 *)Memory >= MaxMem)
 		{
 			LogCompilerError("Error: Interpreter stack ran out of memory\n");
 			abort();

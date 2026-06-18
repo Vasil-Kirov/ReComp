@@ -17,6 +17,7 @@ struct LLVMDebugMetadataEntry
 
 struct generator;
 
+uint ToLLVMCallConv(function_call_conv cc);
 LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID);
 
 void LLVMCreateOpaqueStructType(generator *g, u32 TypeID);

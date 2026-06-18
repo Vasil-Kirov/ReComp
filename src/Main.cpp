@@ -745,28 +745,31 @@ main(int ArgCount, char *Args[])
 			FileTimer = r.Timers;
 
 			function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
-			u32 ASTNodeT = FindStructCanFail(STR_LIT("ast.Node"));
-			if(ASTFunction && ASTNodeT != Basic_error)
+			if(ASTFunction)
 			{
 				saved_type_table CompileTypeTable = SaveTypeTableAndReset();
 				RestoreTypeTable(BuildTimeTypeTable);
-				if(g_InterpreterTrace)
-					LINFO("Interpreting after_link function");
-
-				PlatformSetSignalHandler(InterpSegFault, &BuildVM);
-				BuildVM.HasSetSigHandler = true;
-
-				for(file *File : r.Files)
+				u32 ASTNodeT = FindStructCanFail(STR_LIT("ast.Node"));
+				if(ASTNodeT != Basic_error)
 				{
-					interp_slice Arg = NodeToInterpSlice(SliceFromArray(File->Nodes));
-					value ArgValue = {};
-					ArgValue.Type = GetSliceType(ASTNodeT);
-					ArgValue.ptr = &Arg;
-					InterpretFunction(&BuildVM, *ASTFunction, {&ArgValue, 1});
+					if(g_InterpreterTrace)
+						LINFO("Interpreting after_link function");
+
+					PlatformSetSignalHandler(InterpSegFault, &BuildVM);
+					BuildVM.HasSetSigHandler = true;
+
+					for(file *File : r.Files)
+					{
+						interp_slice Arg = NodeToInterpSlice(SliceFromArray(File->Nodes));
+						value ArgValue = {};
+						ArgValue.Type = GetSliceType(ASTNodeT);
+						ArgValue.ptr = &Arg;
+						InterpretFunction(&BuildVM, *ASTFunction, {&ArgValue, 1});
+					}
+
+
+					PlatformClearSignalHandler();
 				}
-
-
-				PlatformClearSignalHandler();
 				RestoreTypeTable(CompileTypeTable);
 			}
 

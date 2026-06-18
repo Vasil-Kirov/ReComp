@@ -266,6 +266,9 @@ struct InterpNode
         {
             interp_string Name;
             interp_string LinkName;
+            interp_string Tag;
+            interp_string WasmModule;
+            interp_string WasmName;
 
             interp_slice args;
             interp_slice return_types;

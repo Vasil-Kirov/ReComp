@@ -205,6 +205,9 @@ InterpNode *NodeToInterp(node *N)
 		{
 			R->fn_.Name     = StringToInterp(N->Fn.Name);
 			R->fn_.LinkName = StringToInterp(N->Fn.LinkName);
+			R->fn_.Tag = StringToInterp(N->Fn.Tag);
+			R->fn_.WasmModule = StringToInterp(N->Fn.WasmModule);
+			R->fn_.WasmName = StringToInterp(N->Fn.WasmName);
 			R->fn_.args = NodeToInterpSlice(N->Fn.Args);
 			R->fn_.return_types = NodeToInterpSlice(N->Fn.ReturnTypes);
 			R->fn_.Body = NodeToInterpSlice(SliceFromArray(N->Fn.Body));
@@ -554,6 +557,9 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 		{
 			N->Fn.Name = StringFromInterpPtr(R->fn_.Name    );
 			N->Fn.LinkName = StringFromInterpPtr(R->fn_.LinkName);
+			N->Fn.Tag = StringFromInterpPtr(R->fn_.Tag);
+			N->Fn.WasmModule = StringFromInterpPtr(R->fn_.WasmModule);
+			N->Fn.WasmName = StringFromInterpPtr(R->fn_.WasmName);
 			N->Fn.Args = InterpSliceToNode(R->fn_.args, FileContents);
 			N->Fn.ReturnTypes = InterpSliceToNode(R->fn_.return_types, FileContents);
 			N->Fn.Body = InterpSliceToNodeDynamic(R->fn_.Body, FileContents);

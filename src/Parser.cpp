@@ -341,14 +341,18 @@ node *MakeReturn(const error_info *ErrorInfo, node *Expression)
 	return Result;
 }
 
-node *MakeFunction(const error_info *ErrorInfo, const string *LinkName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags)
+node *MakeFunction(const error_info *ErrorInfo, const string *CallConv, const string *LinkName, const string *Tag, const string *WasmModule, const string *WasmName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_FN);
 	Result->Fn.LinkName = LinkName;
+	Result->Fn.CallConv = CallConv;
 	Result->Fn.Args = Args;
 	Result->Fn.ReturnTypes = ReturnTypes;
 	Result->Fn.Flags = Flags;
 	Result->Fn.AlreadyAnalyzed = false;
+	Result->Fn.Tag = Tag;
+	Result->Fn.WasmModule = WasmModule;
+	Result->Fn.WasmName = WasmName;
 	// Result->Fn.Body; Not needed with dynamic, the memory is cleared and when you push, it does everything it needs
 	return Result;
 }
@@ -1037,12 +1041,13 @@ node *ParseFunctionArgument(parser *Parser)
 	return MakeVar(ErrorInfo, ID.ID, Type, Default);
 }
 
-u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
+u32 ParseFunctionFlags(parser *Parser, const string **CallConv, const string **LinkName, const string **Tag, const string **WasmModule, const string **WasmName)
 {
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn} };
+	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
+		{T_TAG, SymbolFlag_None}, {T_WASM_IMPORT, SymbolFlag_None}, {T_CALLC, SymbolFlag_None}};
 
 	u32 Result = 0;
 	size_t Len = ARR_LEN(FlagTokens);
@@ -1056,6 +1061,14 @@ u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
 			auto Check = FlagTokens[i];
 			if(Parser->Current->Type == Check.T)
 			{
+				if(Check.T == T_CALLC)
+				{
+					GetToken(Parser);
+					EatToken(Parser, T_EQ);
+					token Name = EatToken(Parser, T_STR);
+					if(Name.ID)
+						*CallConv = Name.ID;
+				}
 				if(Check.T == T_LINK)
 				{
 					GetToken(Parser);
@@ -1065,6 +1078,29 @@ u32 ParseFunctionFlags(parser *Parser, const string **LinkName)
 						*LinkName = Name.ID;
 					else
 						*LinkName = &ErrorID;
+				}
+				else if(Check.T == T_TAG)
+				{
+					GetToken(Parser);
+					EatToken(Parser, T_EQ);
+					token TagS = EatToken(Parser, T_STR);
+					if(TagS.ID)
+						*Tag = TagS.ID;
+				}
+				else if(Check.T == T_WASM_IMPORT)
+				{
+					Result |= SymbolFlag_Foreign;
+
+					GetToken(Parser);
+					EatToken(Parser, T_EQ);
+					token Mod = EatToken(Parser, T_STR);
+					EatToken(Parser, T_COMMA);
+					token Name = EatToken(Parser, T_STR);
+					if(Mod.ID && Name.ID)
+					{
+						*WasmModule = Mod.ID;
+						*WasmName = Name.ID;
+					}
 				}
 				else
 				{
@@ -1087,8 +1123,12 @@ node *ParseFunctionType(parser *Parser)
 	if(EatToken(Parser, T_FN).Type != T_FN)
 		return NULL;
 
-	const string *LinkName = NULL;
-	Flags |= ParseFunctionFlags(Parser, &LinkName);
+	const string *CallConv = nullptr;
+	const string *LinkName = nullptr;
+	const string *Tag = nullptr;
+	const string *WasmModule = nullptr;
+	const string *WasmName = nullptr;
+	Flags |= ParseFunctionFlags(Parser, &CallConv, &LinkName, &Tag, &WasmModule, &WasmName);
 
 	if(EatToken(Parser, '(').Type != (token_type)'(')
 		return NULL;
@@ -1117,9 +1157,9 @@ node *ParseFunctionType(parser *Parser)
 		}
 	}
 
-	Flags |= ParseFunctionFlags(Parser, &LinkName);
+	Flags |= ParseFunctionFlags(Parser, &CallConv, &LinkName, &Tag, &WasmModule, &WasmName);
 
-	return MakeFunction(ErrorInfo, LinkName, Args, SliceFromArray(ReturnTypes), Flags);
+	return MakeFunction(ErrorInfo, CallConv, LinkName, Tag, WasmModule, WasmName, Args, SliceFromArray(ReturnTypes), Flags);
 }
 
 bool ParseBody(parser *Parser, dynamic<node *> &OutBody)
@@ -2723,7 +2763,11 @@ node *CopyASTNode(node *N)
 		case AST_FN:
 		{
 			R->Fn.Name = N->Fn.Name;
+			R->Fn.CallConv = N->Fn.CallConv;
 			R->Fn.LinkName = N->Fn.LinkName;
+			R->Fn.Tag = N->Fn.Tag;
+			R->Fn.WasmModule = N->Fn.WasmModule;
+			R->Fn.WasmName = N->Fn.WasmName;
 			R->Fn.Args = CopyNodeSlice(N->Fn.Args);
 			R->Fn.ReturnTypes = CopyNodeSlice(N->Fn.ReturnTypes);
 			R->Fn.Body = CopyNodeDynamic(N->Fn.Body);

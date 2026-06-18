@@ -1396,6 +1396,38 @@ string GetTypeNameAsString(const type *Type)
 				Builder += " #inline";
 			if(Type->Function.Flags & SymbolFlag_NoReturn)
 				Builder += " #noreturn";
+			if(Type->Function.Conv != CallConv_Default)
+			{
+				Builder += " #cc=\"";
+				switch(Type->Function.Conv)
+				{
+					case CallConv_RVC:
+					Builder += "rvc";
+					break;
+					case CallConv_CDecl:
+					Builder += "cdecl";
+					break;
+					case CallConv_StdCall:
+					Builder += "stdcall";
+					break;
+					case CallConv_FastCall:
+					Builder += "fastcall";
+					break;
+					case CallConv_ThisCall:
+					Builder += "thiscall";
+					break;
+					case CallConv_VectorCall:
+					Builder += "vectorcall";
+					break;
+					case CallConv_SystemV:
+					Builder += "sysv";
+					break;
+					case CallConv_Microsoft:
+					Builder += "msabi";
+					break;
+					default: break;
+				}
+			}
 
 			return MakeString(Builder);
 		} break;

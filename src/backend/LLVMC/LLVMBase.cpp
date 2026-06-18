@@ -28,6 +28,17 @@
 
 std::mutex LLVMNoThreadSafetyMutex;
 
+LLVMValueRef RCGenerateFunctionSignature(generator *gen, function *Fn)
+{
+	const type *T = GetType(Fn->Type);
+	Assert(T->Kind == TypeKind_Function);
+	uint CC = ToLLVMCallConv(T->Function.Conv);
+	LLVMCreateFunctionType(gen, Fn->Type);
+	LLVMValueRef r = LLVMAddFunction(gen->mod, Fn->Name->Data, ConvertToLLVMType(gen, Fn->Type));
+	LLVMSetFunctionCallConv(r, CC);
+	return r;
+}
+
 LLVMValueRef RCGetStringConstPtr(generator *gen, const string *String)
 {
 	auto LLVMu8 = LLVMIntTypeInContext(gen->ctx, 8);
@@ -847,8 +858,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_FN:
 		{
 			function *Fn = (function *)I.Ptr;
-			LLVMTypeRef FnType = LLVMCreateFunctionType(gen, Fn->Type);
-			LLVMValueRef LLVMFn = LLVMAddFunction(gen->mod, Fn->Name->Data, FnType);
+			LLVMValueRef LLVMFn = RCGenerateFunctionSignature(gen, Fn);
 			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);
 
 
@@ -1283,7 +1293,10 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			u32 CallType = I.Type;
 			const type *Type = GetType(I.Type);
 			if(Type->Kind == TypeKind_Pointer)
+			{
 				CallType = Type->Pointer.Pointed;
+				Type = GetType(CallType);
+			}
 			LLVMTypeRef LLVMType = ConvertToLLVMType(gen, CallType);
 			Assert(CallInfo);
 			Assert(LLVMType);
@@ -1297,6 +1310,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef Operand = gen->map.Get(CallInfo->Operand);
 			Assert(Operand);
 			LLVMValueRef Result = LLVMBuildCall2(gen->bld, LLVMType, Operand, Args, CallInfo->Args.Count, "");
+			uint CC = ToLLVMCallConv(Type->Function.Conv);
+			LLVMSetInstructionCallConv(Result, CC);
 			gen->map.Add(I.Result, Result);
 		} break;
 		case OP_MEMCMP:
@@ -1467,12 +1482,6 @@ void RCGenerateFunction(generator *gen, function fn)
 		}
 	}
 	VFree(gen->blocks);
-}
-
-LLVMValueRef RCGenerateFunctionSignature(generator *gen, function Function)
-{
-	LLVMCreateFunctionType(gen, Function.Type);
-	return LLVMAddFunction(gen->mod, Function.Name->Data, ConvertToLLVMType(gen, Function.Type));
 }
 
 void RCGenerateComplexTypes(generator *gen)
@@ -1687,22 +1696,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	// Generate internal functions
 	dict<LLVMValueRef> AddedFns = {};
-#if 0
-	ForArray(FIdx, M->Files)
-	{
-		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(Gen.ctx), NULL, 0, false);
-
-		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FIdx);
-		string BaseName = MakeString(StrBuilder);
-		string LinkName = StructToModuleName(BaseName, M->Name);
-		LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, FnType);
-		Functions.Push({.LLVM = Fn, .Name = LinkName});
-		MaybeInitFn = Fn;
-		AddedFns.Add(LinkName, Fn);
-	}
-#endif
-
 	dict<module*> ModuleDict = {};
 	ModuleDict.Add(M->Name, M);
 	ForArray(FIdx, M->Files)
@@ -1727,15 +1720,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 			if(IsInitModule)
 			{
-#if 0
-				if(*s->Name == STR_LIT("global_initializers"))
-				{
-					LLVMValueRef Fn = RCGenerateMainFn(&Gen, Files, MaybeInitFn);
-					LLVMSetLinkage(Fn, LLVMExternalLinkage);
-					Gen.map.Add(s->Register, Fn);
-					continue;
-				}
-#endif
 				if(*s->Name == STR_LIT("type_table"))
 				{
 					LLVMValueRef TypeTable = GenTypeInfo(&Gen);
@@ -1764,28 +1748,26 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 			{
 				string LinkName = *s->LinkName;
 
-				//LLVMCreateFunctionType(Gen.ctx, s->Type);
+				Assert(s->Node && s->Node->Type == AST_FN);
+
+				const type *T = GetType(s->Type);
+				Assert(T->Kind == TypeKind_Function);
+				uint CC = ToLLVMCallConv(T->Function.Conv);
+
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 						ConvertToLLVMType(&Gen, s->Type));
+				LLVMSetFunctionCallConv(Fn, CC);
 				LLVMSetLinkage(Fn, Linkage);
 				LLVMSetVisibility(Fn, LLVMDefaultVisibility);
+				if(s->Node->Fn.WasmModule && s->Node->Fn.WasmName)
+				{
+					LLVMAddTargetDependentFunctionAttr(Fn, "wasm-import-module", s->Node->Fn.WasmModule->Data);
+					LLVMAddTargetDependentFunctionAttr(Fn, "wasm-import-name", s->Node->Fn.WasmName->Data);
+				}
 				Functions.Push({.LLVM = Fn, .Name = LinkName});
 				Gen.global.Add(s->Register, Fn);
 				AddedFns.Add(LinkName, Fn);
 			}
-#if 0
-			else
-			{
-				string LinkName = *s->LinkName;
-				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, s->Type);
-				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
-				LLVMSetLinkage(Global, Linkage);
-				if(m->Name == M->Name)
-					LLVMSetInitializer(Global, LLVMConstNull(LLVMType));
-				Gen.map.Add(s->Register, Global);
-				AddedFns.Add(LinkName, Global);
-			}
-#endif
 		}
 	}
 
@@ -2036,44 +2018,6 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	Result.Target = Machine;
 	LLVMNoThreadSafetyMutex.unlock();
 	return Result;
-}
-
-LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef InitFn)
-{
-	LLVMValueRef *FileFns = (LLVMValueRef *)VAlloc((Files.Count+1) * sizeof(LLVMValueRef));
-
-	LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx), NULL, 0, false);
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		if(File->Module->Name == STR_LIT("base"))
-		{
-			FileFns[Idx] = InitFn;
-			continue;
-		}
-
-		int FileIndex = GetFileIndex(File->Module, File);
-
-		string_builder StrBuilder = MakeBuilder();
-		PushBuilderFormated(&StrBuilder, "__GlobalInitializerFunction.%d", FileIndex);
-		string GlobalInit = MakeString(StrBuilder);
-		string InitFnName = StructToModuleName(GlobalInit, File->Module->Name);
-		FileFns[Idx] = LLVMAddFunction(gen->mod, InitFnName.Data, FnType);
-	}
-
-	LLVMValueRef MainFn = LLVMAddFunction(gen->mod, "base.global_initializers", FnType);
-	LLVMBasicBlockRef Block = LLVMAppendBasicBlockInContext(gen->ctx, MainFn, "only_block");
-	LLVMPositionBuilderAtEnd(gen->bld, Block);
-
-
-	ForArray(Idx, Files)
-	{
-		LLVMTypeRef FnType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx), NULL, 0, false);
-		LLVMBuildCall2(gen->bld, FnType, FileFns[Idx], NULL, 0, "");
-	}
-
-	LLVMBuildRetVoid(gen->bld);
-	return MainFn;
 }
 
 struct file_generate_info

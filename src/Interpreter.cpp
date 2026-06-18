@@ -140,6 +140,7 @@ void InterpSegFault(void *VMPtr)
 }
 
 #include <dyncall.h>
+#include <dyncall_callback.h>
 
 char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DCaggr*> AggrToFree)
 {
@@ -265,6 +266,269 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 	return Sig;
 }
 
+interpret_result PerformNativeFunctionCall(interpreter *VM, void *Ptr, u32 StoreResult, slice<value> Args)
+{
+	function *F = (function *)((u64)Ptr & ~(1ull << MARK_BIT));
+
+	code_chunk *Executing = VM->Executing;
+	interpreter_scope CurrentScope = VM->Registers;
+	interpreter_scope NewScope = {};
+
+
+	VM->Registers = NewScope;
+
+	interpret_result Result = InterpretFunction(VM, *F, Args);
+
+	VM->Registers = CurrentScope;
+	VM->Executing = Executing;
+
+	if(StoreResult != -1)
+		VM->Registers.AddValue(StoreResult, Result.Result);
+
+	return Result;
+}
+
+struct call_back_data
+{
+	interpreter *VM;
+	void *FnTagged;
+};
+
+DCsigchar DynCallbackHandler(DCCallback *_, DCArgs *args, DCValue *result, void *userdata)
+{
+	auto data = (call_back_data*)userdata;
+	Assert(IsPointerTagged(data->FnTagged));
+	function *F = (function *)((u64)data->FnTagged & ~(1ull << MARK_BIT));
+	const type *FnT = GetType(F->Type);
+	Assert(FnT->Kind == TypeKind_Function);
+	array<value> Args = {(size_t)FnT->Function.ArgCount};
+	for(int ArgI = 0; ArgI < FnT->Function.ArgCount; ++ArgI)
+	{
+		const type *T = GetType(FnT->Function.Args[ArgI]);
+		value v = {};
+		v.Type = FnT->Function.Args[ArgI];
+		switch(T->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				switch (T->Basic.Kind)
+				{
+					case Basic_bool:
+					{
+						v.u8 = dcbArgBool(args);
+					} break;
+					case Basic_u8:
+					{
+						v.u8 = dcbArgUChar(args);
+					} break;
+					case Basic_u16:
+					{
+						v.u16 = dcbArgUShort(args);
+					} break;
+					case Basic_u32:
+					{
+						v.u32 = dcbArgUInt(args);
+					} break;
+					case Basic_u64:
+					{
+						v.u64 = dcbArgULongLong(args);
+					} break;
+					case Basic_i8:
+					{
+						v.i8 = dcbArgChar(args);
+					} break;
+					case Basic_i16:
+					{
+						v.i16 = dcbArgShort(args);
+					} break;
+					case Basic_i32:
+					{
+						v.i32 = dcbArgInt(args);
+					} break;
+					case Basic_i64:
+					{
+						v.i64 = dcbArgLongLong(args);
+					} break;
+					case Basic_f32:
+					{
+						v.f32 = dcbArgFloat(args);
+					} break;
+					case Basic_f64:
+					{
+						v.f64 = dcbArgDouble(args);
+					} break;
+					case Basic_type:
+					case Basic_int:
+					{
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: v.i64 = dcbArgLongLong(args); break;
+							case 4: v.i32 = dcbArgInt(args); break;
+							case 2: v.i16 = dcbArgShort(args); break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_uint:
+					{
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: v.u64 = dcbArgULongLong(args); break;
+							case 4: v.u32 = dcbArgUInt(args); break;
+							case 2: v.u16 = dcbArgUShort(args); break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_string:
+					case Basic_UntypedFloat:
+					case Basic_UntypedInteger:
+					case Basic_auto:
+					case Basic_module:
+					case Basic_error:
+					Assert(false);
+				}
+			} break;
+			case TypeKind_Pointer:
+			{
+				v.ptr = dcbArgPointer(args);
+			} break;
+			case TypeKind_Array:
+			case TypeKind_Slice:
+			case TypeKind_Struct:
+			default:
+			{
+				LDEBUG("%s", GetTypeName(T));
+				unreachable;
+			}
+		}
+	}
+
+	interpret_result IRes = PerformNativeFunctionCall(data->VM, data->FnTagged, -1, SliceFromArray(Args));
+
+	value r = IRes.Result;
+	if(IRes.Kind == INTERPRET_RUNTIME_ERROR)
+		r = {};
+
+	char ret = 'v';
+	Assert(FnT->Function.Returns.Count <= 1);
+	if(FnT->Function.Returns.Count == 1)
+	{
+		r.Type = FnT->Function.Returns[0];
+		const type *T = GetType(FnT->Function.Returns[0]);
+		switch(T->Kind)
+		{
+			case TypeKind_Basic:
+			{
+				switch (T->Basic.Kind)
+				{
+					case Basic_bool:
+					{
+						result->B = r.u8;
+						ret = 'B';
+					} break;
+					case Basic_u8:
+					{
+						result->C = r.u8;
+						ret = 'C';
+					} break;
+					case Basic_u16:
+					{
+						result->S = r.u16;
+						ret = 'S';
+					} break;
+					case Basic_u32:
+					{
+						result->I = r.u32;
+						ret = 'I';
+					} break;
+					case Basic_u64:
+					{
+						result->L = r.u64;
+						ret = 'L';
+					} break;
+					case Basic_i8:
+					{
+						result->c = r.i8;
+						ret = 'c';
+					} break;
+					case Basic_i16:
+					{
+						result->s = r.i16;
+						ret = 's';
+					} break;
+					case Basic_i32:
+					{
+						result->i = r.i32;
+						ret = 'i';
+					} break;
+					case Basic_i64:
+					{
+						result->l = r.i64;
+						ret = 'l';
+					} break;
+					case Basic_f32:
+					{
+						result->f = r.f32;
+						ret = 'f';
+					} break;
+					case Basic_f64:
+					{
+						result->d = r.f64;
+						ret = 'd';
+					} break;
+					case Basic_type:
+					case Basic_int:
+					{
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: result->l = r.i64; ret = 'l'; break;
+							case 4: result->i = r.i32; ret = 'i'; break;
+							case 2: result->s = r.i16; ret = 's'; break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_uint:
+					{
+						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						switch(RegisterSize)
+						{
+							case 8: result->L = r.u64; ret = 'L'; break;
+							case 4: result->I = r.u32; ret = 'I'; break;
+							case 2: result->S = r.u16; ret = 'S'; break;
+							default: unreachable;
+						}
+					} break;
+					case Basic_string:
+					case Basic_UntypedFloat:
+					case Basic_UntypedInteger:
+					case Basic_auto:
+					case Basic_module:
+					case Basic_error:
+					Assert(false);
+				}
+			} break;
+			case TypeKind_Pointer:
+			{
+				// @TODO: returning callbacks
+				result->p = r.ptr;
+				ret = 'p';
+			} break;
+			case TypeKind_Array:
+			case TypeKind_Slice:
+			case TypeKind_Struct:
+			default:
+			{
+				LDEBUG("%s", GetTypeName(T));
+				unreachable;
+			}
+		}
+	}
+
+	return ret;
+}
+
 DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree)
 {
 	DCaggr *Aggr = dcNewAggr(T->Struct.Members.Count, GetTypeSize(T));
@@ -308,6 +572,235 @@ DCaggr *MakeAggr(u32 TIdx, dynamic<DCaggr*> AggrToFree)
 	return MakeAggr(T, AggrToFree);
 }
 
+#if defined(__i386__) || defined(_M_IX86)
+#   define HOST_X86_32 1
+#else
+#   define HOST_X86_32 0
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64)
+#   define HOST_X86_64 1
+#else
+#   define HOST_X86_64 0
+#endif
+
+bool CCToDyncall(function_call_conv CC, DCint *Out)
+{
+	*Out = DC_CALL_C_DEFAULT;
+	switch (CC)
+	{
+		case CallConv_RVC:
+		case CallConv_Default:
+		*Out = DC_CALL_C_DEFAULT;
+		return true;
+
+		case CallConv_CDecl:
+#if HOST_X86_32
+		*Out = DC_CALL_C_X86_CDECL;
+#endif
+		return true;
+
+		case CallConv_StdCall:
+#if HOST_X86_32
+		*Out = DC_CALL_C_X86_WIN32_STD;
+#endif
+		return true;
+
+		case CallConv_FastCall:
+#if HOST_X86_32
+		*Out = DC_CALL_C_X86_WIN32_FAST_MS;
+#endif
+		return true;
+
+		case CallConv_ThisCall:
+		*Out = DC_CALL_C_DEFAULT_THIS;
+		return true;
+
+		case CallConv_SystemV:
+#if HOST_X86_64
+		*Out = DC_CALL_C_X64_SYSV;
+		return true;
+#else
+		return false;
+#endif
+
+		case CallConv_Microsoft:
+#if HOST_X86_64
+		*Out = DC_CALL_C_X64_WIN64;
+		return true;
+#else
+		return false;
+#endif
+
+
+		case CallConv_VectorCall:
+		/*
+		   No dyncall vectorcall mode.
+		   */
+		return false;
+	}
+	return false;
+}
+
+bool IsTypeInvalidForForeignCallback(const type *T)
+{
+	switch(T->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			switch(T->Basic.Kind)
+			{
+				case Basic_string:
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_auto:
+				case Basic_module:
+				case Basic_error:
+				return true;
+				default: break;
+			}
+		} break;
+		case TypeKind_Pointer: break;
+		default:
+		{
+			return true;
+		} break;
+	}
+	return false;
+}
+
+bool CheckFunctionValidForeignCallback(interpreter *VM, const type *T)
+{
+	Assert(T->Kind == TypeKind_Function);
+	for(int ArgI = 0; ArgI < T->Function.ArgCount; ++ArgI)
+	{
+		u32 ArgTi = T->Function.Args[ArgI];
+		const type *ArgT = GetType(ArgTi);
+		if(IsTypeInvalidForForeignCallback(ArgT))
+		{
+			RaiseError(false, *VM->ErrorInfo.Peek(), "Invalid function passed as a foreign callback, it contains an argument of type %s. Only basic types and pointers are allowed in this context.", GetTypeName(ArgT));
+			return false;
+		}
+	}
+	if(T->Function.Returns.Count > 1)
+	{
+		RaiseError(false, *VM->ErrorInfo.Peek(), "Invalid function passed as a foreign callback, it contains multiple return values, which is invalid in this context.");
+		return false;
+	}
+	if(T->Function.Returns.Count == 1)
+	{
+		const type *RetT = GetType(T->Function.Returns[0]);
+		if(IsTypeInvalidForForeignCallback(RetT))
+		{
+			RaiseError(false, *VM->ErrorInfo.Peek(), "Invalid function passed as a foreign callback, it returns a value of type %s. Only basic types and pointers are allowed in this context.", GetTypeName(RetT));
+			return false;
+		}
+	}
+	return true;
+}
+
+char DyncallSigForType(const type *T)
+{
+	switch(T->Kind)
+	{
+		case TypeKind_Basic:
+		{
+			switch (T->Basic.Kind)
+			{
+				case Basic_bool:
+				return 'B';
+				break;
+				case Basic_u8:
+				return 'C';
+				break;
+				case Basic_u16:
+				return 'S';
+				break;
+				case Basic_u32:
+				return 'I';
+				break;
+				case Basic_u64:
+				return 'L';
+				break;
+				case Basic_i8:
+				return 'c';
+				break;
+				case Basic_i16:
+				return 's';
+				break;
+				case Basic_i32:
+				return 'i';
+				break;
+				case Basic_i64:
+				return 'l';
+				break;
+				case Basic_f32:
+				return 'f';
+				break;
+				case Basic_f64:
+				return 'd';
+				break;
+				case Basic_type:
+				case Basic_int:
+				{
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: return 'l'; break;
+						case 4: return 'i'; break;
+						case 2: return 's'; break;
+						default: unreachable;
+					}
+				} break;
+				case Basic_uint:
+				{
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					switch(RegisterSize)
+					{
+						case 8: return 'L'; break;
+						case 4: return 'I'; break;
+						case 2: return 'S'; break;
+						default: unreachable;
+					}
+				} break;
+				case Basic_string:
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_auto:
+				case Basic_module:
+				case Basic_error:
+				unreachable;
+			}
+		} break;
+		case TypeKind_Pointer:
+		{
+			return 'p';
+		} break;
+		default: unreachable;
+	}
+	return 'v';
+}
+
+string DyncallWriteSignature(binary_stack *Alloc, const type *T)
+{
+	Assert(T->Kind == TypeKind_Function);
+	auto b = MakeBuilder();
+	for(int ArgI = 0; ArgI < T->Function.ArgCount; ++ArgI)
+	{
+		u32 ArgTi = T->Function.Args[ArgI];
+		const type *ArgT = GetType(ArgTi);
+		b += DyncallSigForType(ArgT);
+	}
+	b += ')';
+	if(T->Function.Returns.Count == 0)
+		b += 'v';
+	else
+		b +=  DyncallSigForType(GetType(T->Function.Returns[0]));
+
+	void *Mem = Alloc->Allocate(b.Size+1);
+	return MakeString(b, Mem);
+}
+
 value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operand)
 {
 	Assert(Operand->ptr);
@@ -319,14 +812,22 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 	
 	dynamic<DCaggr*> Aggrs = {};
 
-	DCCallVM *dc = dcNewCallVM(MB(8));
+	DCCallVM *dc = dcNewCallVM(KB(8));
 	if(Info->Args.Count >= FnT->Function.ArgCount)
 	{
-		dcMode(dc, DC_CALL_C_ELLIPSIS_VARARGS);
+		dcMode(dc, DC_CALL_C_ELLIPSIS);
 	}
 	else
 	{
-		dcMode(dc, DC_CALL_C_DEFAULT);
+		DCint Call;
+		if(!CCToDyncall(FnT->Function.Conv, &Call))
+		{
+			RaiseError(false, *VM->ErrorInfo.Peek(), "Cannot perform a dynamic call on the passed function's calling convention from this host machine, they are incompatible.");
+			value V = {};
+			V.Type = Basic_error;
+			dcFree(dc);
+			return V;
+		}
 	}
 	dcReset(dc);
 
@@ -350,12 +851,27 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 		}
 	}
 
+	void *Mem = VM->StackAllocator.Push(KB(16));
+	binary_stack Stack = {};
+	Stack.Memory = Mem;
+	Stack.MaxMem = KB(16);
+	bool EncounteredError = false;
+	dynamic<DCCallback *> ToFreeCallbacks = {};
+
+	bool SetVarArg = false;
 	for(int i = 0; i < Info->Args.Count; ++i)
 	{
+		if(EncounteredError)
+			break;
 		const value *Arg = VM->Registers.GetValue(Info->Args[i]);
 		u32 TIdx = INVALID_TYPE;
 		if(i >= FnT->Function.ArgCount)
 		{
+			if(!SetVarArg)
+			{
+				dcMode(dc, DC_CALL_C_ELLIPSIS_VARARGS);
+				SetVarArg = true;
+			}
 			TIdx = Arg->Type;
 		}
 		else
@@ -462,6 +978,24 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 				dcArgAggr(dc, Aggr, Arg->ptr);
 			} break;
 			case TypeKind_Pointer:
+			{
+				if(T->Pointer.Pointed != INVALID_TYPE && GetType(T->Pointer.Pointed)->Kind == TypeKind_Function && IsPointerTagged(Arg->ptr))
+				{
+					if(!CheckFunctionValidForeignCallback(VM, T))
+					{
+						EncounteredError = true;
+						break;
+					}
+					string Signature = DyncallWriteSignature(&Stack, T);
+					auto data = (call_back_data *)Stack.Allocate(sizeof(call_back_data));
+					data->VM = VM;
+					data->FnTagged = Arg->ptr;
+					auto cb = dcbNewCallback(Signature.Data, DynCallbackHandler, data);
+					dcArgPointer(dc, cb);
+					ToFreeCallbacks.Push(cb);
+				}
+				dcArgPointer(dc, Arg->ptr);
+			} break;
 			case TypeKind_Array:
 			{
 				dcArgPointer(dc, Arg->ptr);
@@ -475,7 +1009,9 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 	}
 
 	value Result = {};
-	if(FnT->Function.Returns.Count == 0)
+	if(EncounteredError)
+	{}
+	else if(FnT->Function.Returns.Count == 0)
 	{
 		dcCallVoid(dc, Operand->ptr);
 	}
@@ -556,170 +1092,28 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 	}
 	else
 	{
-		// @TODO: Error out
-		Assert(false);
+		RaiseError(false, *VM->ErrorInfo.Peek(), "Trying to call a foreign function with multiple return values is invalid.");
+		EncounteredError = true;
 	}
 
+
+	For(ToFreeCallbacks)
+	{
+		dcbFreeCallback(*it);
+	}
 	For(Aggrs)
 	{
 		dcFreeAggr(*it);
 	}
 	Aggrs.Free();
 	dcFree(dc);
+	if(EncounteredError)
+	{
+		value V = {};
+		V.Type = Basic_error;
+		return V;
+	}
 	return Result;
-#if 0
-	typedef u64 (*inter_fn)(void *, value *);
-
-	value *Args = (value *)VAlloc(Info->Args.Count * sizeof(value));
-	ForArray(Idx, Info->Args)
-	{
-		Args[Idx] = *VM->Registers.GetValue(Info->Args[Idx]);
-	}
-	// @LEAK?
-	assembler Asm = MakeAssembler(KB(1));
-	//  Windows:
-	//  rcx = operand
-	//  rdx = value *args
-	//  Linux:
-	//  rdi = operand
-	//  rsi = value *args
-	// 
-	//  
-	//  push rbp
-	//  mov rbp, rsp
-	//  sub rsp, 32
-	//
-	//  push rcx
-	//  push rdx
-	//  
-	//  mov rax, [rsp]
-	//  mov rax, [rax + offsetof(
-	//
-	//  pop rdx
-	//  ..
-	//
-	//	xor rax, rax
-	//	call rcx
-	//  mov rsp, rbp
-	//  pop rbp
-	//  ret
-	//
-	//
-	// 
-	//
-
-#if _WIN32
-	operand ConventionRegisters[] = {RegisterOperand(reg_c), RegisterOperand(reg_d), RegisterOperand(reg_r8),
-		RegisterOperand(reg_r9)};
-#elif CM_LINUX
-	operand ConventionRegisters[] = {RegisterOperand(reg_di), RegisterOperand(reg_si), RegisterOperand(reg_d),
-		RegisterOperand(reg_c), RegisterOperand(reg_r8), RegisterOperand(reg_r9)};
-
-	Asm.Push(RegisterOperand(reg_bp));
-	Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
-#else
-#error "Unknown calling convention"
-#endif
-	//operand ConventionFloatRegisters[] = {RegisterOperand(reg_xmm0), RegisterOperand(reg_xmm1),
-		//RegisterOperand(reg_xmm2), RegisterOperand(reg_xmm3)};
-
-
-	//Asm.Mov64(RegisterOperand(reg_bp), RegisterOperand(reg_sp));
-
-
-#if _WIN32
-	int StackAllocated = (Info->Args.Count * 16) + 40;
-	Asm.Sub(RegisterOperand(reg_sp), ConstantOperand(StackAllocated));
-	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_c));
-	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_d));
-#elif CM_LINUX
-	Asm.Mov64(RegisterOperand(reg_r11), RegisterOperand(reg_di));
-	Asm.Mov64(RegisterOperand(reg_r10), RegisterOperand(reg_si));
-#else
-#error "Unknown calling convention"
-#endif
-
-	//const type *FnType = GetType(Operand->Type & ~(1 << 31));
-
-	uint CurrentInt = 0;
-	//uint CurrentFloat = 0;
-
-	int Idx = 0;
-	for(; Idx < Info->Args.Count && CurrentInt < ARR_LEN(ConventionRegisters); ++Idx)
-	{
-		const type *Type = GetType(Args[Idx].Type);
-		//Asm.Peek(RegisterOperand(reg_a));
-		Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, Idx * sizeof(value)));
-		switch(Type->Kind)
-		{
-			case TypeKind_Basic:
-			case TypeKind_Pointer:
-			{
-				if(CurrentInt < ARR_LEN(ConventionRegisters))
-				{
-					Asm.Mov64(ConventionRegisters[CurrentInt++], OffsetOperand(reg_a, offsetof(value, u64)));
-				}
-				else
-				{
-					Assert(false);
-					//Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
-					//Asm.Push(RegisterOperand(reg_a));
-				}
-			} break;
-
-			default: unreachable;
-		}
-	}
-
-	if(Idx < Info->Args.Count)
-	{
-#if _WIN32
-		for(int i = Info->Args.Count - 1; i >= Idx; --i)
-		{
-
-			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
-			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
-			Asm.Mov64(OffsetOperand(reg_sp, i * 8), RegisterOperand(reg_a));
-		}
-#elif CM_LINUX
-		for(int i = Info->Args.Count - 1; i >= Idx; --i)
-		{
-			Asm.Lea64(RegisterOperand(reg_a), OffsetOperand(reg_r10, i * sizeof(value)));
-			Asm.Mov64(RegisterOperand(reg_a), OffsetOperand(reg_a, offsetof(value, u64)));
-			Asm.Push(RegisterOperand(reg_a));
-		}
-#else
-#error IMPLEMENT
-#endif
-	}
-
-	Asm.Call(RegisterOperand(reg_r11));
-
-#if _WIN32
-	Asm.Add(RegisterOperand(reg_sp), ConstantOperand(StackAllocated));
-
-#elif CM_LINUX
-	Asm.Mov64(RegisterOperand(reg_sp), RegisterOperand(reg_bp));
-	Asm.Pop(RegisterOperand(reg_bp));
-#endif
-
-	Asm.Ret();
-
-#if 0
-	printf("Call to %%%d:\n", Info->Operand);
-	for(int Idx = 0; Idx < Asm.CurrentOffset; ++Idx)
-	{
-		printf("%02x ", ((u8 *)Asm.Code)[Idx]);
-	}
-	putchar('\n');
-#endif
-
-	inter_fn ToCall = (inter_fn)Asm.Code;
-
-	u64 Result = ToCall(Operand->ptr, Args);
-	FreeVirtualMemory(Asm.Code);
-	return Result;
-#endif
 }
 
 b32 IsBitCastPreAllocated(const type *T)
@@ -2312,7 +2706,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				if(!IsPointerTagged(Operand->ptr))
 				{
 					value Result = PerformForeignFunctionCall(VM, CallInfo, Operand);
-					if(I.Type != Basic_error && I.Type != INVALID_TYPE)
+					if(I.Type == Basic_error)
+					{
+							return { INTERPRET_RUNTIME_ERROR };
+					}
+					else if(I.Type != INVALID_TYPE)
 					{
 						const type *T = GetType(I.Type);
 						if(IsFnOrPtr(T) && IsPointerTagged(Result.ptr))
@@ -2325,31 +2723,14 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				}
 				else
 				{
-					function *F = (function *)((u64)Operand->ptr & ~(1ull << MARK_BIT));
 					dynamic<value> Args = {};
 					ForArray(Idx, CallInfo->Args)
 					{
 						Args.Push(*VM->Registers.GetValue(CallInfo->Args[Idx]));
 					}
+					interpret_result Result = PerformNativeFunctionCall(VM, Operand->ptr, I.Result, SliceFromArray(Args));
 					
-					code_chunk *Executing = VM->Executing;
-					interpreter_scope CurrentScope = VM->Registers;
-					interpreter_scope NewScope = {};
-
-					//NewScope.Init(F->LastRegister, VM->StackAllocator.Push(F->LastRegister * sizeof(value)));
-
-					VM->Registers = NewScope;
-
-					interpret_result Result = InterpretFunction(VM, *F, SliceFromArray(Args));
-
-					VM->Registers = CurrentScope;
-					VM->Executing = Executing;
-
-					VM->Registers.AddValue(I.Result, Result.Result);
-
 					Args.Free();
-					//VM->StackAllocator.Pop();
-					//NewScope.Free();
 					if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 						return Result;
 				}
@@ -2848,6 +3229,7 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 
 	binary_stack Stack = {};
 	Stack.Memory = StackMemory;
+	Stack.MaxMem = MB(1);
 	VM->Stack.Push(Stack);
 
 	code_chunk Chunk;

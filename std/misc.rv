@@ -37,6 +37,12 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, ReadErro
 	return cast(string, buf), ReadError.Ok;
 }
 
+copy_dir :: fn(from: string, to: string) {
+	to := to;
+	os.mkdir(to);
+	os.list_files(from, copy_dir_, &to);
+}
+
 min :: fn(a: $T, b: T) -> T {
 	return if a < b then a else b;
 }
@@ -89,4 +95,47 @@ println :: fn(str: string, args: ...) {
 	io.write(&s, .{'\n'});
 }
 
+//
+//
+//      PRIVATE STUFF
+//
+//
+#private
+copy_dir_ :: fn(data: *os.ListFileData, to: ?*string) -> bool {
+	if data.file == "." || data.file == ".."
+		return true;
+
+	if to == null
+		return false;
+
+	if data.is_directory {
+		b := str.create_builder(&mem.temp_alloc);
+		str.builder_append(&b, data.dir);
+		str.builder_append(&b, "/");
+		str.builder_append(&b, data.file);
+		new_from := str.from_builder(&b, &mem.temp_alloc);
+
+		b = str.create_builder(&mem.temp_alloc);
+		str.builder_append(&b, *to);
+		str.builder_append(&b, "/");
+		str.builder_append(&b, data.file);
+		new_to := str.from_builder(&b, &mem.temp_alloc);
+		os.mkdir(new_to);
+		return os.list_files(new_from, copy_dir_, &new_to);
+	}
+	b := str.create_builder(&mem.temp_alloc);
+	str.builder_append(&b, *to);
+	str.builder_append(&b, "/");
+	str.builder_append(&b, data.file);
+	dst := str.from_builder(&b, &mem.temp_alloc);
+
+	b = str.create_builder(&mem.temp_alloc);
+	str.builder_append(&b, data.dir);
+	str.builder_append(&b, "/");
+	str.builder_append(&b, data.file);
+	src := str.from_builder(&b, &mem.temp_alloc);
+	os.copy_file(src, dst);
+
+	return true;
+}
 

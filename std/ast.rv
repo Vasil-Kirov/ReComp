@@ -324,6 +324,9 @@ Node :: struct {
 		fn_: struct {
 			name: string,
 			link_name: string,
+			tag: string,
+			wasm_module: string,
+			wasm_name: string,
 			args: []*Node,
 			return_types: []*Node,
 			body: []*Node,

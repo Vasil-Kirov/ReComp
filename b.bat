@@ -1,13 +1,13 @@
 @ECHO OFF
 
-set LIBS=-l..\libs\dyncall_s.lib -l..\libs\LLVM-C.lib -lDbghelp -lAdvapi32.lib -lOle32.lib -lMincore.lib
+set LIBS=-l..\libs\dyncall_s.lib -l..\libs\dyncallback_s.lib -l..\libs\LLVM-C.lib -lDbghelp -lAdvapi32.lib -lOle32.lib -lMincore.lib
 
 ::set ASAN=-fsanitize=address
 :: set TSAN=-fsanitize=thread CURRENTLY NOT SUPPORTED ON WINDOWS
 set ASAN=
 
 set IGNORE_WARNINGS=-Wno-sign-compare -Wno-missing-field-initializers
-set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS%
+set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS% -Xlinker /NODEFAULTLIB:MSVCRT
 
 if "%1" == "rel" (
 	set FLAGS=%FLAGS% -O3

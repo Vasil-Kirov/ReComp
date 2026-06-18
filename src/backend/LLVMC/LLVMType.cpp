@@ -7,6 +7,39 @@
 #include "llvm-c/Core.h"
 #include "llvm-c/DebugInfo.h"
 
+uint ToLLVMCallConv(function_call_conv cc)
+{
+    switch (cc)
+    {
+        case CallConv_Default:
+        case CallConv_RVC:
+            return LLVMCCallConv;                 // ccc / default C ABI
+
+        case CallConv_CDecl:
+            return LLVMCCallConv;                 // same as ccc in LLVM IR
+
+        case CallConv_StdCall:
+            return LLVMX86StdcallCallConv;        // x86 stdcall
+
+        case CallConv_FastCall:
+            return LLVMX86FastcallCallConv;       // x86 __fastcall
+
+        case CallConv_ThisCall:
+            return LLVMX86ThisCallCallConv;       // x86 thiscall
+
+        case CallConv_VectorCall:
+            return LLVMX86VectorCallCallConv;     // MSVC vectorcall
+
+        case CallConv_SystemV:
+            return LLVMX8664SysVCallConv;         // x86_64 SysV ABI
+
+        case CallConv_Microsoft:
+            return LLVMWin64CallConv;             // Windows x64 / Win64 ABI
+    }
+
+    return LLVMCCallConv;
+}
+
 LLVMTypeRef LLVMFindMapType(generator *g, u32 ToFind)
 {
 	ForArray(Idx, g->LLVMTypeMap)

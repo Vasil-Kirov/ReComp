@@ -109,6 +109,9 @@ enum token_type
 	T_STATIC = -85,
 	T_NORETURN = -86,
 	T_CASE = -87,
+	T_WASM_IMPORT = -88,
+	T_TAG = -89,
+	T_CALLC = -90,
 };
 
 struct token

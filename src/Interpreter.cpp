@@ -1107,6 +1107,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 	}
 	Aggrs.Free();
 	dcFree(dc);
+	VM->StackAllocator.Pop();
 	if(EncounteredError)
 	{
 		value V = {};

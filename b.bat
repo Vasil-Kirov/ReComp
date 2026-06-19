@@ -7,7 +7,7 @@ set LIBS=-l..\libs\dyncall_s.lib -l..\libs\dyncallback_s.lib -l..\libs\LLVM-C.li
 set ASAN=
 
 set IGNORE_WARNINGS=-Wno-sign-compare -Wno-missing-field-initializers
-set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS% -Xlinker /NODEFAULTLIB:MSVCRT
+set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS%
 
 if "%1" == "rel" (
 	set FLAGS=%FLAGS% -O3
@@ -23,6 +23,6 @@ echo %FLAGS%
 
 pushd bin
 :: cl.exe /nologo /LD ../testdll.c
-clang++ %FLAGS% -orvc.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -DDEBUG -mavx -Wall %ASAN%
+clang++ %FLAGS% -orvc.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -DDEBUG -mavx -Wall %ASAN% -Xlinker /NODEFAULTLIB:MSVCRT
 popd
 

@@ -55,6 +55,7 @@ syn match rcpSCompilerDir /#intrinsic/
 syn match rcpSCompilerDir /#file_location/
 syn match rcpSCompilerDir /#tag/
 syn match rcpSCompilerDir /#wasm_import/
+syn match rcpSCompilerDir /#cc/
 
 " Types
 syn keyword rcpSType f64 f32 i64 i32 i16 i8 u64 u32 u16 u8 int uint string type bool void v2 v4 iv2 iv4

@@ -2290,6 +2290,18 @@ string StructToModuleName(string &StructName, string &ModuleName)
 	return MakeString(Builder);
 }
 
+bool IsGlobalDeclFunction(node *Decl)
+{
+	if(!Decl->Decl.Expression || Decl->Decl.Expression->Type != AST_FN)
+		return false;
+	if(Decl->Decl.Type)
+	{
+		if(Decl->Decl.Type->Type != AST_FN)
+			return false;
+	}
+	return true;
+}
+
 node *ParseTopLevel(parser *Parser)
 {
 	node *Result = NULL;
@@ -2407,7 +2419,7 @@ node *ParseTopLevel(parser *Parser)
 				Result = Decl;
 				EatToken(Parser, ';');
 			}
-			else if(Decl->Decl.Expression && Decl->Decl.Expression->Type == AST_FN)
+			else if(IsGlobalDeclFunction(Decl))
 			{
 				const string *LHSName = NULL;
 				if(LHS->Type != AST_ID)

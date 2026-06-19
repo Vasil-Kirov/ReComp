@@ -4422,7 +4422,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 			}
 			if(Node->Decl.LHS->Type != AST_ID)
 				continue;
-			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, false);
+			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, Node->Decl.Type != nullptr);
 			if(T == Basic_error)
 				continue;
 

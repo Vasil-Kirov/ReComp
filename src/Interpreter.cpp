@@ -2126,8 +2126,11 @@ void DoCompileTimeRaiseError(interpreter *VM, value *Fmt, value *Location)
 
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
+	int LastCStringLocation = -1;
+	bool LastValIsCString = false;
 	ForArray(InstrIdx, VM->Executing->Code)
 	{
+		LastValIsCString = false;
 		VM->AtInstructionIndex = InstrIdx;
 
 		instruction I = VM->Executing->Code[InstrIdx];
@@ -2468,6 +2471,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							} break;
 							case const_type::String:
 							{
+								LastValIsCString = true;
+								LastCStringLocation = I.Result;
 								NoAdd = true;
 								// @Note: Done before execution
 								// VMValue.ptr = InterpreterAllocateString(VM, Val->String.Data);
@@ -2643,11 +2648,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						value *RetPtr = &OptionalArgs.Data[0];
 						value *RetVal = VM->Registers.GetValue(I.Left);
 						Store(VM, RetPtr, RetVal, I.Type);
-						return { INTERPRET_OK, *RetPtr };
+						return { INTERPRET_OK, *RetPtr, (u8)(LastValIsCString ? ResultFlag_IsString : 0) };
 					}
 					else
 					{
-						return { INTERPRET_OK, *VM->Registers.GetValue(I.Left) };
+						return { INTERPRET_OK, *VM->Registers.GetValue(I.Left), (u8)(LastValIsCString ? ResultFlag_IsString : 0) };
 					}
 				}
 			} break;
@@ -2734,6 +2739,12 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					Args.Free();
 					if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 						return Result;
+
+					if(Result.Flags & ResultFlag_IsString)
+					{
+						LastValIsCString = true;
+						LastCStringLocation = I.Result;
+					}
 				}
 			} break;
 			case OP_ALLOCGLOBAL:
@@ -3058,6 +3069,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			case OP_RESULT:
 			{
+				if(LastCStringLocation == I.Right)
+					LastValIsCString = true;
 				VM->Registers.LastAdded = I.Right;
 			}
 			break;
@@ -3085,7 +3098,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			VM->StoredGlobals[Result.ptr] = GlobalRegister;
 		}
 	}
-	return { INTERPRET_NORETURN, Result };
+	return { INTERPRET_NORETURN, Result, (u8)(LastValIsCString ? ResultFlag_IsString : 0) };
 }
 
 void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
@@ -3315,7 +3328,8 @@ void EvaluateEnums(interpreter *VM)
 				}
 				else
 				{
-					it->Value = FromInterp(Result.Result);
+					Assert((Result.Flags & ResultFlag_IsString) == 0);
+					it->Value = FromInterp(Result.Result, false);
 				}
 
 				// @NOTE: this marks the enum as evaluated
@@ -3361,7 +3375,7 @@ size_t DoGlobals(interpreter *VM, ir *IR)
 		else
 		{
 			Result.Result.Type = it->s->Type;
-			const_value ConstVal = FromInterp(Result.Result);
+			const_value ConstVal = FromInterp(Result.Result, Result.Flags & ResultFlag_IsString);
 			it->Value = ConstVal;
 
 			if(IsLoadableType(it->s->Type))
@@ -3443,7 +3457,7 @@ void DoRuns(interpreter *VM, ir *IR)
 			if(RunI.Type != INVALID_TYPE && RunI.Type != Basic_error)
 			{
 				Result.Result.Type = RunI.Type;
-				const_value ConstVal = FromInterp(Result.Result);
+				const_value ConstVal = FromInterp(Result.Result, (Result.Flags & ResultFlag_IsString) != 0);
 				instruction NewI = {};
 				NewI.Op = OP_CONST;
 				NewI.Type = RunI.Type;

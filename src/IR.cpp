@@ -2101,30 +2101,36 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 	{
 		case AST_UNARY:
 		{
+			u32 UnaryTi = Node->Unary.Type;
+			const type *UnaryT = GetType(Node->Unary.Type);
+			if(UnaryT->Kind == TypeKind_Enum)
+			{
+				UnaryTi = UnaryT->Enum.Type;
+			}
 			switch(Node->Unary.Op)
 			{
 				case T_MINUS:
 				{
 					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
 					u32 Zero;
-					const type *T = GetType(Node->Unary.Type);
+					const type *T = GetType(UnaryTi);
 					if(HasBasicFlag(T, BasicFlag_Integer) || HasBasicFlag(T, BasicFlag_TypeID))
-						Zero = PushInt(0, Builder, Node->Unary.Type);
+						Zero = PushInt(0, Builder, UnaryTi);
 					else
 					{
 						Assert(HasBasicFlag(T, BasicFlag_Float));
 						const_value *Val = NewType(const_value);
 						Val->Type = const_type::Float;
 						Val->Float = 0;
-						Zero = PushInstruction(Builder, Instruction(OP_CONST, (u64)Val, Node->Unary.Type, Builder));
+						Zero = PushInstruction(Builder, Instruction(OP_CONST, (u64)Val, UnaryTi, Builder));
 					}
-					instruction I = Instruction(OP_SUB, Zero, Expr, Node->Unary.Type, Builder);
+					instruction I = Instruction(OP_SUB, Zero, Expr, UnaryTi, Builder);
 					Result = PushInstruction(Builder, I);
 				} break;
 				case T_MMIN:
 				case T_PPLUS:
 				{
-					u32 T = Node->Unary.Type;
+					u32 T = UnaryTi;
 					u32 Location = BuildIRFromExpression(Builder, Node->Unary.Operand, true);
 					Result = PushInstruction(Builder,
 							Instruction(OP_LOAD, 0, Location, T, Builder));
@@ -2162,7 +2168,7 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 				case T_BITNOT:
 				{
 					u32 Expr = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
-					Result = PushInstruction(Builder, Instruction(OP_BITNOT, 0, Expr, Node->Unary.Type, Builder));
+					Result = PushInstruction(Builder, Instruction(OP_BITNOT, 0, Expr, UnaryTi, Builder));
 				} break;
 				case T_BANG:
 				{
@@ -2176,7 +2182,7 @@ u32 BuildIRFromUnary(block_builder *Builder, node *Node, b32 IsLHS)
 					Result = BuildIRFromExpression(Builder, Node->Unary.Operand, false);
 					if(!IsLHS)
 					{
-						instruction I = Instruction(OP_LOAD, 0, Result, Node->Unary.Type, Builder);
+						instruction I = Instruction(OP_LOAD, 0, Result, UnaryTi, Builder);
 						Result = PushInstruction(Builder, I);
 					}
 				} break;

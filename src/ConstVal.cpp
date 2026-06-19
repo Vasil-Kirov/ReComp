@@ -216,7 +216,7 @@ size_t GetUTF8Count(const string *String)
 	return Count;
 }
 
-const_value FromInterp(value &Value)
+const_value FromInterp(value &Value, bool IsStringIn)
 {
 	const type *T = GetType(Value.Type);
 	if(T->Kind == TypeKind_Enum)
@@ -319,7 +319,7 @@ const_value FromInterp(value &Value)
 		} break;
 		case TypeKind_Pointer:
 		{
-			if(IsCString(T))
+			if(IsStringIn && IsCString(T))
 			{
 				string CString = { .Data = (const char *)Value.ptr, .Size = 0 };
 				V.Type = const_type::String;

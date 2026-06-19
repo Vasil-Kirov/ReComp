@@ -438,9 +438,9 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 			{
 				int TargetID = it->BigRegister;
 				flow_block_info *Target = &Flow->Blocks[TargetID];
-				ForN(Info->IsNotNull.Keys, rit)
+				for(auto [k, _] : Info->IsNotNull.Dict)
 				{
-					int Reg = *rit;
+					int Reg = *(u32 *)k.Data;
 					FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
 				}
 			} break;
@@ -450,9 +450,9 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 				for(u32 TargetID : OpI->Cases)
 				{
 					flow_block_info *Target = &Flow->Blocks[TargetID];
-					ForN(Info->IsNotNull.Keys, rit)
+					for(auto [k, _] : Info->IsNotNull.Dict)
 					{
-						int Reg = *rit;
+						int Reg = *(u32 *)k.Data;
 						FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
 					}
 				}
@@ -460,17 +460,17 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 					{
 						u32 TargetID = OpI->Default;
 						flow_block_info *Target = &Flow->Blocks[TargetID];
-						ForN(Info->IsNotNull.Keys, rit)
+						for(auto [k, _] : Info->IsNotNull.Dict)
 						{
-							int Reg = *rit;
+							int Reg = *(u32 *)k.Data;
 							FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
 						}
 					}
 					u32 TargetID = OpI->After;
 					flow_block_info *Target = &Flow->Blocks[TargetID];
-					ForN(Info->IsNotNull.Keys, rit)
+					for(auto [k, _] : Info->IsNotNull.Dict)
 					{
-						int Reg = *rit;
+						int Reg = *(u32 *)k.Data;
 						FlowTypeSetBranchRegister(Block->Block.ID, Target, Reg, Info->IsNotNull[Reg], &Changed);
 					}
 			} break;
@@ -489,34 +489,36 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 							{
 								flow_block_info *Left = &Flow->Blocks[it->Left];
 								flow_block_info *Right = &Flow->Blocks[it->Right];
-								ForN(Info->IsNotNull.Keys, Reg)
+								for(auto [k, _] : Info->IsNotNull.Dict)
 								{
-									bool SetLeft = Info->IsNotNull[*Reg];
+									int Reg = *(u32 *)k.Data;
+									bool SetLeft = Info->IsNotNull[Reg];
 									bool SetRight = SetLeft;
-									if(*Reg == cmp.Allocation)
+									if(Reg == cmp.Allocation)
 									{
 										SetLeft = true;
 										SetRight = false;
 									}
-									FlowTypeSetBranchRegister(Block->Block.ID, Left, *Reg, SetLeft, &Changed);;
-									FlowTypeSetBranchRegister(Block->Block.ID, Right, *Reg, SetRight, &Changed);;
+									FlowTypeSetBranchRegister(Block->Block.ID, Left, Reg, SetLeft, &Changed);;
+									FlowTypeSetBranchRegister(Block->Block.ID, Right, Reg, SetRight, &Changed);;
 								}
 							} break;
 							case NullCmp_EqEq:
 							{
 								flow_block_info *Left = &Flow->Blocks[it->Left];
 								flow_block_info *Right = &Flow->Blocks[it->Right];
-								ForN(Info->IsNotNull.Keys, Reg)
+								for(auto [k, _] : Info->IsNotNull.Dict)
 								{
-									bool SetLeft = Info->IsNotNull[*Reg];
+									int Reg = *(u32 *)k.Data;
+									bool SetLeft = Info->IsNotNull[Reg];
 									bool SetRight = SetLeft;
-									if(*Reg == cmp.Allocation)
+									if(Reg == cmp.Allocation)
 									{
 										SetLeft = false;
 										SetRight = true;
 									}
-									FlowTypeSetBranchRegister(Block->Block.ID, Left, *Reg, SetLeft, &Changed);;
-									FlowTypeSetBranchRegister(Block->Block.ID, Right, *Reg, SetRight, &Changed);;
+									FlowTypeSetBranchRegister(Block->Block.ID, Left, Reg, SetLeft, &Changed);;
+									FlowTypeSetBranchRegister(Block->Block.ID, Right, Reg, SetRight, &Changed);;
 								}
 							} break;
 							default: unreachable;
@@ -528,9 +530,9 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 				{
 					flow_block_info *Left = &Flow->Blocks[it->Left];
 					flow_block_info *Right = &Flow->Blocks[it->Right];
-					ForN(Info->IsNotNull.Keys, rit)
+					for(auto [k, _] : Info->IsNotNull.Dict)
 					{
-						int Reg = *rit;
+						int Reg = *(u32 *)k.Data;
 						FlowTypeSetBranchRegister(Block->Block.ID, Left, Reg, Info->IsNotNull[Reg], &Changed);
 						FlowTypeSetBranchRegister(Block->Block.ID, Right, Reg, Info->IsNotNull[Reg], &Changed);
 					}
@@ -547,22 +549,24 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 void FlowTypeRaiseErrors(flow_state *Flow, basic_block *Block)
 {
 	flow_block_info *Info = &Flow->Blocks[Block->ID];
-	ForN(Info->CannotBeNull.Keys, Reg)
+	for(auto [k, _] : Info->CannotBeNull.Dict)
 	{
-		Assert(Info->CannotBeNull[*Reg].Valid);
-		if(!Info->IsNotNull.Contains(*Reg) || !Info->IsNotNull[*Reg])
+		int Reg = *(u32 *)k.Data;
+		Assert(Info->CannotBeNull[Reg].Valid);
+		if(!Info->IsNotNull.Contains(Reg) || !Info->IsNotNull[Reg])
 		{
-			RaiseError(false, *Info->CannotBeNull[*Reg].ErrorInfo,
+			RaiseError(false, *Info->CannotBeNull[Reg].ErrorInfo,
 					"Trying to dereference a nullable pointer is not allowed. "
 					"You can turn it to non nullable by doing an if comparison.");
 		}
 	}
-	ForN(Info->MustBeNullable.Keys, Reg)
+	for(auto [k, _] : Info->MustBeNullable.Dict)
 	{
-		Assert(Info->MustBeNullable[*Reg].Valid);
-		if((Info->IsNotNull.Contains(*Reg) && Info->IsNotNull[*Reg]) || (Info->CannotBeNull.Contains(*Reg)))
+		int Reg = *(u32 *)k.Data;
+		Assert(Info->MustBeNullable[Reg].Valid);
+		if((Info->IsNotNull.Contains(Reg) && Info->IsNotNull[Reg]) || (Info->CannotBeNull.Contains(Reg)))
 		{
-			RaiseError(false, *Info->MustBeNullable[*Reg].ErrorInfo,
+			RaiseError(false, *Info->MustBeNullable[Reg].ErrorInfo,
 					"Trying to store a nullable pointer into a non nullable one is not allowed.");
 		}
 	}
@@ -575,9 +579,10 @@ void FlowTypeDebugFunctionPrint(flow_state *Flow)
 	For(Flow->Blocks)
 	{
 		b.printf("block[%d] | ", it->Block->ID);
-		ForN(it->IsNotNull.Keys, Key)
+		for(auto [k, _] : it->IsNotNull.Dict)
 		{
-			b.printf("(%d=%s) ", *Key, it->IsNotNull[*Key] ? "true" : "false");
+			int Key = *(u32 *)k.Data;
+			b.printf("(%d=%s) ", Key, it->IsNotNull[Key] ? "true" : "false");
 		}
 		b += '\n';
 	}
@@ -603,6 +608,7 @@ void FlowTypeFunction(function *Fn)
 	slice<successor_block> Blocks = SortBasicBlocks(SliceFromArray(Fn->Blocks));
 	For(Blocks)
 	{
+		flow->Blocks[it->Block.ID] = {};
 		flow->Blocks[it->Block.ID].Block = &it->Block;
 	}
 	For(Blocks)

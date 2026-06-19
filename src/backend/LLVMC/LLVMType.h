@@ -4,14 +4,14 @@
 
 struct LLVMTypeEntry
 {
-	u32 TypeID;
+	//u32 TypeID;
 	LLVMTypeRef Ref;
 };
 
 struct LLVMDebugMetadataEntry
 {
 	b32 IsForwardDecl;
-	u32 TypeID;
+	//u32 TypeID;
 	LLVMMetadataRef Ref;
 };
 

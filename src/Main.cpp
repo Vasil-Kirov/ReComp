@@ -483,7 +483,7 @@ main(int ArgCount, char *Args[])
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
 	StdLibDir.Size--;
 	StdLibDir = MakeString(StdLibDir.Data, StdLibDir.Size);
-	Assert(AddLookupPath(STR_LIT(".")));
+	AddLookupPath(STR_LIT("."));
 	if(!AddLookupPath(StdLibDir))
 	{
 		LogCompilerError("Error: Invalid installation, compiler couldn't find standard library directory at %.*s\n", StdLibDir.Size, StdLibDir.Data);
@@ -498,6 +498,7 @@ main(int ArgCount, char *Args[])
 	g_DLs.Push(OpenLibrary("msvcrt"));
 	g_DLs.Push(OpenLibrary("ucrt"));
 	g_DLs.Push(OpenLibrary("ucrtbase"));
+	//g_DLs.Push(OpenLibrary("ws2_32"));
 #elif CM_LINUX
 	const char *StdDir = GetStdDir();
 	string Dir = MakeString(StdDir);

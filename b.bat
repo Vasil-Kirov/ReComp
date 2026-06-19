@@ -10,19 +10,19 @@ set IGNORE_WARNINGS=-Wno-sign-compare -Wno-missing-field-initializers
 set FLAGS=-std=c++17 -Wall -Wextra %IGNORE_WARNINGS%
 
 if "%1" == "rel" (
-	set FLAGS=%FLAGS% -O3
-) else if "%1" == "rel_debug" (
 	set FLAGS=%FLAGS% -O3 -g
+) else if "%1" == "rel_debug" (
+	set FLAGS=%FLAGS% -O3 -g -DDEBUG
 ) else if "%1" == "san" (
-	set FLAGS=%FLAGS% -fsanitize=address -g -O0
+	set FLAGS=%FLAGS% -fsanitize=address -g -O0 -DDEBUG
 ) else (
-	set FLAGS=%FLAGS% -O0 -g
+	set FLAGS=%FLAGS% -O0 -g -DDEBUG
 )
 
 echo %FLAGS%
 
 pushd bin
 :: cl.exe /nologo /LD ../testdll.c
-clang++ %FLAGS% -orvc.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -DDEBUG -mavx -Wall %ASAN% -Xlinker /NODEFAULTLIB:MSVCRT
+clang++ %FLAGS% -orvc.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -mavx -Wall %ASAN% -Xlinker /NODEFAULTLIB:MSVCRT
 popd
 

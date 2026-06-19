@@ -40,8 +40,8 @@ struct generator
 	int CurrentBlock;
 	int BlockCount;
 	b32 IsCurrentFnRetInPtr;
-	dynamic<LLVMTypeEntry> LLVMTypeMap;
-	dynamic<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
+	map_int<LLVMTypeEntry> LLVMTypeMap;
+	map_int<LLVMDebugMetadataEntry> LLVMDebugTypeMap;
 	const std::unordered_map<void *, uint> &StoredGlobals;
 	dict<llvm_intrin> Intrinsics;
 };

@@ -3,19 +3,46 @@
 
 bool TryDoWork(work_queue *Queue)
 {
-	auto OriginalAtJob = Queue->AtJob.load();
-	if(Queue->JobCount.load() > OriginalAtJob)
+	for(;;)
 	{
+		auto OriginalAtJob = Queue->AtJob.load();
+		if(Queue->JobCount <= OriginalAtJob)
+			return false;
+
 		if(Queue->AtJob.compare_exchange_strong(OriginalAtJob, OriginalAtJob+1))
 		{
 			u32 JobIndex = OriginalAtJob;
 			job Job = Queue->Jobs[JobIndex % MAX_JOBS];
 			Job.Task(Job.Data);
 			++Queue->JobsCompleted;
+			if(Queue->JobsCompleted == Queue->JobCount)
+				Queue->WakeMain.notify_all();
 		}
+		else
+			continue;
+
 		return true;
 	}
-	return false;
+}
+
+void MainThreadWorkUntilDone(work_queue *Queue)
+{
+	while(!IsQueueDone(Queue))
+	{
+		if (TryDoWork(Queue))
+			continue;
+
+		std::unique_lock<std::mutex> Lock {Queue->MainMutex};
+		Queue->WakeMain.wait(Lock, [&] {
+			if(Queue->AtJob < Queue->JobCount)
+				return true;
+
+			if(IsQueueDone(Queue))
+				return true;
+
+			return false;
+		});
+	}
 }
 
 bool IsQueueDone(work_queue *Queue)
@@ -23,9 +50,16 @@ bool IsQueueDone(work_queue *Queue)
 	return Queue->JobsCompleted == Queue->JobCount;
 }
 
-unsigned long ThreadProc(void *Queue_)
+struct thread_proc_data
 {
-	work_queue *Queue = (work_queue *)Queue_;
+	work_queue *Queue;
+	size_t ID;
+};
+
+unsigned long ThreadProc(void *Data)
+{
+	auto tpd = (thread_proc_data *)Data;
+	work_queue *Queue = tpd->Queue;
 	for(;;)
 	{
 		if(!TryDoWork(Queue))
@@ -47,6 +81,7 @@ void PostJob(work_queue *Queue, job Job)
 		PlatformSignalSemaphore(Queue->Semaphore);
 
 	Queue->Mutex.unlock();
+	Queue->WakeMain.notify_all();
 }
 
 work_queue *CreateWorkQueue()
@@ -62,7 +97,7 @@ work_queue *CreateWorkQueue()
 }
 
 // @FIXME: Threading not working
-bool NoThreads = /*false*/true;
+bool NoThreads = false;
 
 void InitThreadsForQueue(work_queue *Queue)
 {
@@ -71,7 +106,12 @@ void InitThreadsForQueue(work_queue *Queue)
 
 	RW_BARRIER;
 	for(int i = 0; i < MAX_THREADS; ++i)
-		Queue->Threads[i] = PlatformCreateThread(ThreadProc, Queue);
+	{
+		thread_proc_data *Data = NewType(thread_proc_data);
+		Data->Queue = Queue;
+		Data->ID = i+1;
+		Queue->Threads[i] = PlatformCreateThread(ThreadProc, Data);
+	}
 }
 
 

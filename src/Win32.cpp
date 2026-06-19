@@ -48,7 +48,7 @@ bool PlatformReadPipe(u64 Pipe, void *Data, u32 Size)
 
 bool PlatformIsPathValid(const char *Path)
 {
-	return PathFileExistsA(Path);
+	return PathFileExistsA(Path) == TRUE;
 }
 
 void SignalHandler(int Sig)

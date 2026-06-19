@@ -86,7 +86,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 		switch(T->Kind)
 		{
 			case TypeKind_Invalid:
-			{ Assert(false) } break;
+			{ Assert(false); } break;
 			case TypeKind_Basic:
 			{
 				ESize = BasicTypeSize;

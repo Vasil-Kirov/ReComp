@@ -133,12 +133,13 @@ void RCGenerateDebugInfo(generator *gen, ir_debug_info *Info)
 }
 
 template<typename t>
-dynamic<t> RCCopyTypeMap(dynamic<t> Map)
+map_int<t> RCCopyTypeMap(map_int<t> Map)
 {
-	dynamic<t> Result = {};
-	For(Map) {
-		t Add = *it;//t { it->TypeID, it->Ref };
-		Result.Push(Add);
+	map_int<t> Result = {};
+	for(auto [K, V] : Map.Dict)
+	{
+		int Ki = *(u32 *)K.Data;
+		Result.Add(Ki, V);
 	}
 	return Result;
 }
@@ -2060,10 +2061,8 @@ void RCGenerateCode(work_queue *Queue, slice<module*> Modules, slice<file*> File
 		PostJob(Queue, Job);
 	}
 
-	while(!IsQueueDone(Queue))
-	{
-		TryDoWork(Queue);
-	}
+	MainThreadWorkUntilDone(Queue);
+
 	LLVMShutdown();
 }
 

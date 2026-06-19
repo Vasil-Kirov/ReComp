@@ -7,7 +7,7 @@
 #define WRITE_BARRIER atomic_thread_fence(std::memory_order_release)
 #define RW_BARRIER atomic_thread_fence(std::memory_order_seq_cst)
 const int MAX_THREADS = 8;
-const int MAX_JOBS = 512;
+const int MAX_JOBS = 512*8;
 
 struct job
 {
@@ -23,7 +23,9 @@ struct work_queue
 	std::atomic<u32> JobCount;
 	std::atomic<u32> AtJob;
 	std::atomic<u32> JobsCompleted;
+	std::condition_variable WakeMain;
 	std::mutex Mutex;
+	std::mutex MainMutex;
 };
 
 // Global mutex
@@ -36,4 +38,5 @@ void PostJob(work_queue *Queue, job Job);
 unsigned long ThreadProc(void *_Queue);
 bool IsQueueDone(work_queue *Queue);
 bool TryDoWork(work_queue *Queue);
+void MainThreadWorkUntilDone(work_queue *Queue);
 

@@ -42,69 +42,55 @@ uint ToLLVMCallConv(function_call_conv cc)
 
 LLVMTypeRef LLVMFindMapType(generator *g, u32 ToFind)
 {
-	ForArray(Idx, g->LLVMTypeMap)
-	{
-		if(g->LLVMTypeMap[Idx].TypeID == ToFind)
-		{
-			return g->LLVMTypeMap[Idx].Ref;
-		}
-	}
-	return NULL;
+	auto p = g->LLVMTypeMap.GetUnstablePtr(ToFind);
+	if(!p)
+		return NULL;
+	return p->Ref;
 }
 
 void LLVMMapType(generator *g, u32 TypeID, LLVMTypeRef LLVMType)
 {
 	LLVMTypeEntry Entry;
-	Entry.TypeID = TypeID;
 	Entry.Ref = LLVMType;
-	g->LLVMTypeMap.Push(Entry);
+	g->LLVMTypeMap.Add(TypeID, Entry);
 }
 
 void LLVMClearTypeMap(generator *g)
 {
-	g->LLVMTypeMap.Count = 0;
+	g->LLVMTypeMap.Free();
+	g->LLVMTypeMap = {};
 }
 
 LLVMMetadataRef LLVMDebugFindMapType(generator *g, u32 ToFind, b32 *OutIsForwardDecl=NULL)
 {
-	ForArray(Idx, g->LLVMDebugTypeMap)
-	{
-		if(g->LLVMDebugTypeMap[Idx].TypeID == ToFind)
-		{
-			if(OutIsForwardDecl)
-				*OutIsForwardDecl = g->LLVMDebugTypeMap[Idx].IsForwardDecl;
-			return g->LLVMDebugTypeMap[Idx].Ref;
-		}
-	}
-	return NULL;
+	auto p = g->LLVMDebugTypeMap.GetUnstablePtr(ToFind);
+	if(!p)
+		return NULL;
+	if(OutIsForwardDecl)
+		*OutIsForwardDecl = p->IsForwardDecl;
+	return p->Ref;
 }
 
 void LLVMDebugMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType, b32 AsForwardDecl)
 {
 	LLVMDebugMetadataEntry Entry;
-	Entry.TypeID = TypeID;
 	Entry.Ref = LLVMType;
 	Entry.IsForwardDecl = AsForwardDecl;
-	g->LLVMDebugTypeMap.Push(Entry);
+	g->LLVMDebugTypeMap.Add(TypeID, Entry);
 }
 
 void LLVMDebugReMapType(generator *g, u32 TypeID, LLVMMetadataRef LLVMType)
 {
-	ForArray(Idx, g->LLVMDebugTypeMap)
-	{
-		if(g->LLVMDebugTypeMap[Idx].TypeID == TypeID)
-		{
-			g->LLVMDebugTypeMap.Data[Idx].Ref = LLVMType;
-			g->LLVMDebugTypeMap.Data[Idx].IsForwardDecl = false;
-			return;
-		}
-	}
-	unreachable;
+	auto p = g->LLVMDebugTypeMap.GetUnstablePtr(TypeID);
+	Assert(p);
+	p->Ref = LLVMType;
+	p->IsForwardDecl = false;
 }
 
 void LLVMDebugClearTypeMap(generator *g)
 {
-	g->LLVMDebugTypeMap.Count = 0;
+	g->LLVMDebugTypeMap.Free();
+	g->LLVMDebugTypeMap = {};
 }
 
 LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID) {

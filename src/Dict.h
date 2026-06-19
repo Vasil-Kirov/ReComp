@@ -204,7 +204,14 @@ struct dict {
 
 		return NULL;
 	}
-	T operator[](const string &Key)
+	T operator[](const string &Key) const
+	{
+		T* Ptr = GetUnstablePtr(Key);
+		if(Ptr)
+			return *Ptr;
+		return Default;
+	}
+	T& operator[](const string &Key)
 	{
 		T* Ptr = GetUnstablePtr(Key);
 		if(Ptr)
@@ -221,67 +228,53 @@ struct dict {
 
 template <typename T>
 struct map_int {
-	dynamic<int> Keys;
-	dynamic<T> Data;
+	dict<T> Dict = {};
+	dynamic<char *> Keys_ = {};
 	T Default = T{};
 	int Bottom = 0;
 
-	bool Add(int Key, T Item)
+	private:
+	string ConvertKey(u32 Key)
 	{
-		if(Contains(Key))
-			return false;
+		char *Data = (char *)VAlloc(4);
+		memcpy(Data, &Key, 4);
+		Keys_.Push(Data);
+		return string{Data, 4};
+	}
+	public:
 
-		Keys.Push(Key);
-		Data.Push(Item);
-		return true;
-	}
-	bool Contains(int Key)
+#define MapIntConvert(Key) string {(const char *)(&Key), 4}
+
+	bool Add(u32 Key, T Item)
 	{
-		ForArray(Idx, Keys)
-		{
-			if(Keys[Idx] == Key)
-				return true;
-		}
-		return false;
+		return Dict.Add(ConvertKey(Key), Item);
 	}
-	T* GetUnstablePtr(int Key)
+	bool Contains(u32 Key)
 	{
-		ForArray(Idx, Keys)
-		{
-			if(Keys[Idx] == Key)
-			{
-				return &Data.Data[Idx];
-			}
-		}
-		return NULL;
+		return Dict.Contains(MapIntConvert(Key));
 	}
-	T operator[](int Key) const
+	T* GetUnstablePtr(u32 Key)
 	{
-		T* Ptr = GetUnstablePtr(Key);
-		if(Ptr)
-			return *Ptr;
-		return Default;
+		return Dict.GetUnstablePtr(MapIntConvert(Key));
 	}
-	T& operator[](int Key)
+	T operator[](u32 Key) const
 	{
-		ForArray(Idx, Keys)
-		{
-			if(Keys[Idx] == Key)
-			{
-				return Data.Data[Idx];
-			}
-		}
-		unreachable;
+		string k = MapIntConvert(Key);
+		return Dict[k];
+	}
+	T& operator[](u32 Key)
+	{
+		string k = MapIntConvert(Key);
+		return Dict[k];
 	}
 	void Free()
 	{
-		Keys.Free();
-		Data.Free();
-	}
-	void Clear()
-	{
-		Keys.Count = Bottom;
-		Data.Count = Bottom;
+		for(char *Data : Keys_)
+		{
+			VFree(Data);
+		}
+		Keys_.Free();
+		Dict.Free();
 	}
 };
 

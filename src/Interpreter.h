@@ -121,10 +121,16 @@ struct value
 	};
 };
 
+enum result_flags
+{
+	ResultFlag_IsString = BIT(0),
+};
+
 struct interpret_result
 {
 	interpret_result_kind Kind;
 	value Result;
+	u8 Flags;
 };
 
 struct code_chunk

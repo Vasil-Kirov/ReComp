@@ -195,6 +195,13 @@ void ResetPipelineState()
 	CurrentPipeline.StagedFiles.FilePaths = {};
 }
 
+
+void BuildIRJob(void *Arg)
+{
+	((file *)Arg)->IR = NewType(ir);
+	*((file *)Arg)->IR = BuildIR((file *)Arg);
+}
+
 pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_module> CustomModules)
 {
 	ResetPipelineState();
@@ -217,10 +224,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		}
 	}
 
-	while(!IsQueueDone(CurrentPipeline.Queue))
-	{
-		TryDoWork(CurrentPipeline.Queue);
-	}
+	MainThreadWorkUntilDone(CurrentPipeline.Queue);
 
 	ExitIfErroredOut();
 	if(DumpingInfo)
@@ -381,9 +385,14 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 
 	For(Files)
 	{
-		(*it)->IR = NewType(ir);
-		*(*it)->IR = BuildIR(*it);
+		job Job = {BuildIRJob, *it};
+		PostJob(CurrentPipeline.Queue, Job);
+	}
 
+	MainThreadWorkUntilDone(CurrentPipeline.Queue);
+
+	For(Files)
+	{
 		if(ShouldOutputIR((*it)->Module->Name))
 		{
 			string Dissasembly = Dissasemble((*it)->IR);

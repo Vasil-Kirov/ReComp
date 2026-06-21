@@ -2652,6 +2652,23 @@ ANALYZE_SLICE_SELECTOR:
 		} break;
 		case AST_CONSTANT:
 		{
+			if(Expr->Constant.Value.Type == const_type::Aggr)
+			{
+				if(!Checker->AutoEnum.IsEmpty())
+				{
+					u32 Ti = Checker->AutoEnum.Peek();
+					const type *T = GetType(Ti);
+					if(T->Kind == TypeKind_Struct || T->Kind == TypeKind_Slice || T->Kind == TypeKind_Array)
+					{
+						Result = Ti;
+						Expr->Constant.Type = Result;
+						break;
+					}
+				}
+				RaiseError(false, *Expr->ErrorInfo, "Invalid constant, cannot determine type");
+				Result = Basic_error;
+				break;
+			}
 			Result = GetConstantType(Expr->Constant.Value);
 			Expr->Constant.Type = Result;
 			if(Expr->Constant.Value.Type != const_type::String)
@@ -2880,6 +2897,16 @@ u32 TypeCheckAndPromote(checker *Checker, const error_info *ErrorInfo, u32 Left,
 	b32 IsAssignment = LeftNode == NULL;
 	const type *LeftType  = GetType(Left);
 	const type *RightType = GetType(Right);
+	if(LeftType->Kind == TypeKind_Enum)
+	{
+		Left = LeftType->Enum.Type;
+		LeftType  = GetType(Left);
+	}
+	if(RightType->Kind == TypeKind_Enum)
+	{
+		Right = RightType->Enum.Type;
+		RightType  = GetType(Right);
+	}
 	const type *Promotion = NULL;
 	if(!IsTypeCompatible(LeftType, RightType, &Promotion, IsAssignment))
 	{
@@ -3866,6 +3893,7 @@ void AnalyzeUsing(checker *Checker, node *Node)
 
 	switch(Expr->Type)
 	{
+		case AST_SELECTOR:
 		case AST_ID:
 		{
 			if(T->Kind == TypeKind_Enum)

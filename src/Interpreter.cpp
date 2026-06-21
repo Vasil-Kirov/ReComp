@@ -2966,7 +2966,6 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				value R = {};
 				R.Type = I.Type;
 				const type *T = GetType(I.Type);
-				VM->Registers.AddValue(I.Result, R);
 				Assert(T->Kind == TypeKind_Basic && T->Basic.Flags & BasicFlag_Integer);
 				switch(T->Basic.Kind)
 				{
@@ -3006,6 +3005,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					} break;
 					default: unreachable;
 				}
+				VM->Registers.AddValue(I.Result, R);
 			} break;
 			case OP_ADD:
 			{

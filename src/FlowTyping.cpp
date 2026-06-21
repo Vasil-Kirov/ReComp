@@ -396,6 +396,10 @@ bool FlowTypeEvaluateBlock(flow_state *Flow, successor_block *Block)
 		NullState NotNull = NS_Unknown;
 		ForN(Block->Predecessors, Pred)
 		{
+			// @TODO: bug when removed, I don't think predecesours should be null
+			auto p = Flow->Blocks[*Pred].Block;
+			if(!p)
+				continue;
 			int ID = Flow->Blocks[*Pred].Block->ID;
 			if(!Info->State.Contains(Reg) || !Info->State[Reg].Contains(ID))
 				continue;

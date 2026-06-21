@@ -16,7 +16,7 @@ int RegisterBitSize = 64;
 #pragma clang diagnostic ignored "-Wmissing-braces"
 type BasicTypes[] = {
 	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_bool,   BasicFlag_Boolean | BasicFlag_Unsigned,        1, STR_LIT("bool")}},
-	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_string, BasicFlag_String,                             16, STR_LIT("string")}},
+	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_string, BasicFlag_String,                             -1, STR_LIT("string")}},
 	//{TypeKind_Basic, {Basic_cINVALID_TYPE, string,BasicFlag_CString,                            -1, STR_LIT("cstring")}},
 
 	{NOT_DEFINED, NOT_DEFINED, INVALID_TYPE, TypeKind_Basic, {Basic_u8,   BasicFlag_Integer | BasicFlag_Unsigned,          1, STR_LIT("u8")}},
@@ -127,6 +127,15 @@ struct saved_type_table
 	slice<type*> Pointers;
 	dict<u32> Dictionary;
 };
+
+void TypeTableInvalidateSizeCaches()
+{
+	for(size_t I = 0; I < TypeCount; ++I)
+	{
+		TypeTable[I]->CachedSize = NOT_DEFINED;
+		TypeTable[I]->CachedAlignment = NOT_DEFINED;
+	}
+}
 
 saved_type_table SaveTypeTableAndReset()
 {

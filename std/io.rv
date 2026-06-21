@@ -20,6 +20,8 @@ StreamError :: enum {
 	Ok,
 	InvalidOp,
 	Failed,
+	InvalidStream,
+	EOF,
 }
 
 Stream :: struct {
@@ -48,6 +50,14 @@ stream_size :: fn(s: *Stream) -> int {
 		return 0;
 	return n;
 }
+
+seek :: fn(s: *Stream, off: int) -> StreamError {
+	b: []u8 = .{};
+	b.count  = off;
+	_, err := s.func(s.data, .Seek, b);
+	return err;
+}
+
 
 sprint :: fn(str: string, args: ...) -> string {
     builder := internal_print(str, args);
@@ -86,6 +96,26 @@ write :: fn(w: *Stream, b: []u8) -> (int, StreamError) {
 
 read :: fn(r: *Stream, b: []u8) -> (int, StreamError) {
 	return r.func(r.data, .Read, b);
+}
+
+read_u8 :: fn(r: *Stream) -> u8 {
+	b: []u8 = .{0};
+	_, err := r.func(r.data, .Read, b);
+	return b[0];
+}
+
+read_u16 :: fn(r: *Stream) -> u16 {
+	b: []u8 = .{0, 0};
+	_, err := r.func(r.data, .Read, b);
+	res := cast(u16, b[1]) << 8 | cast(u16, b[0]);
+	return res;
+}
+
+read_u32 :: fn(r: *Stream) -> u32 {
+	b: []u8 = .{0, 0, 0, 0};
+	_, err := r.func(r.data, .Read, b);
+	res := cast(u32, b[3]) << 24 | cast(u32, b[2]) << 16 | cast(u32, b[1]) << 8 | cast(u32, b[0]);
+	return res;
 }
 
 close :: fn(s: *Stream) -> StreamError {

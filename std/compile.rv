@@ -1,5 +1,6 @@
 module compile
 
+#import str;
 #import io;
 #import os;
 #import mem;
@@ -115,13 +116,121 @@ module_add_function :: fn(m: *Module, location: FileLocation, fname: string, arg
 	return f;
 }
 
+module_make_const_data :: fn(m: *Module, location: FileLocation, data_in: []u8) -> *ast.Node {
+	data, ok := mem.dupe(data_in, m.alloc);
+	#assert ok;
+
+	ns := mem.make_type(ast.NodeString, m.alloc);
+	#assert ns;
+	ns.data = data.data;
+	ns.size = data.count as uint;
+	
+	cv: ast.ConstValue = .{};
+	cv.t = .String;
+	cv.u.str.data = ns;
+
+	n := ast.make_const(location, cv, m.alloc);
+	#assert n;
+	return n;
+}
+
+module_make_id :: fn(m: *Module, id: string, fl := #file_location) -> *ast.Node {
+	idn := ast.make_id(id, fl, m.alloc); #assert idn;
+	return idn;
+}
+
+module_add_constant :: fn(m: *Module, location: FileLocation, name: string, t: *ast.Node, v: *ast.Node) -> *ast.Node {
+	id := ast.make_id(name, location, m.alloc);
+	#assert id;
+	decl := ast.make_decl(name, id, v, t, .Const | .Public, location, m.alloc);
+	#assert decl;
+	array.add(&m.nodes, decl);
+	return decl;
+}
+
+module_make_const_int :: fn(m: *Module, n: i64, fl: FileLocation) -> *ast.Node {
+	intt := module_make_t(m, int);
+	cv: ast.ConstValue = .{};
+	cv.t = .Integer;
+	cv.u.int_.is_signed = true;
+	cv.u.int_.u.signed = n;
+	n := ast.make_const(fl, cv, m.alloc); #assert n;
+	return n;
+}
+
+module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
+	ti := type_info(t);
+	switch ti.kind {
+		case .Basic:
+		{
+			using ti.t.basic;
+			switch kind {
+				case .Bool, .U8, .U16, .U32, .U64, .I8, .I16, .I32, .I64, .F32, .F64, .Int, .Uint, .String, .Type:
+				{
+					n := ast.make_id(name, fl, m.alloc); #assert n;
+					return n;
+				}
+				case _: {}
+			};
+		}
+		case .Array:
+		{
+			using ti.t.array;
+			tn := module_make_t(m, t, fl);
+			sz := module_make_const_int(m, member_count as i64, fl);
+			st := ast.make_arraytype(fl, tn, sz, m.alloc); #assert st;
+			return st;
+		}
+		case .Slice:
+		{
+			using ti.t.slice;
+			tn := module_make_t(m, t, fl);
+			st := ast.make_arraytype(fl, tn, null, m.alloc); #assert st;
+			return st;
+		}
+		case .Struct:
+		{
+			using ti.t.struct_;
+			mems, ok := mem.make_slice(*ast.Node, members.count, m.alloc);
+			for i, mem in members {
+				memt := module_make_t(m, mem.t, fl);
+				n := ast.make_var(mem.name, memt, null, fl, m.alloc); #assert n;
+				mems[i] = n;
+			}
+			b := str.create_builder(m.alloc);
+			str.builder_append(&b, m.name);
+			str.builder_append(&b, ".");
+			dot := -1;
+			for i, c in name {
+				if c == '.' {
+					dot = i;
+					break;
+				}
+			}
+			if dot == -1
+				return ast.make_struct_decl(name, mems, .{}, flags & .Union != 0, fl, m.alloc);
+			else {
+				str.builder_append(&b, name[dot+1:]);
+				return ast.make_struct_decl(str.from_builder(&b, m.alloc), mems, .{}, flags & .Union != 0, fl, m.alloc);
+			}
+		}
+		case _:
+		{
+		}
+	};
+	raise_error(fl, "Unsupported type % passed to module_make_t()", t);
+	n := ast.make_id("int", fl, m.alloc); #assert n;
+	return n;
+}
+
+
 raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 	s := io.vsprint(fmt, args);
-	raise_error_(s, location);
+	raise_error_(&s, location);
 }
 
 no_compile_output :: fn() #intrinsic;
 
 #private
-raise_error_ :: fn(s: string, location: FileLocation) #intrinsic;
+raise_error_ :: fn(s: *string, location: FileLocation) #intrinsic;
 

@@ -745,6 +745,9 @@ main(int ArgCount, char *Args[])
 			ModuleArray = r.Modules;
 			FileTimer = r.Timers;
 
+			int SaveRegisterBitSize = RegisterBitSize;
+			RegisterBitSize = sizeof(void*) * 8;
+
 			function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
 			if(ASTFunction)
 			{
@@ -778,6 +781,7 @@ main(int ArgCount, char *Args[])
 
 			VMBuildTimer2 = VLibStartTimer("VM");
 
+			TypeTableInvalidateSizeCaches();
 			interpreter ComptimeVM = {};
 			MakeInterpreter(ComptimeVM, ModuleArray, 0);
 			PlatformClearSignalHandler();
@@ -786,9 +790,10 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer2);
 
-
+			RegisterBitSize = SaveRegisterBitSize;
 			if(!g_StopCompileOutput)
 			{
+				TypeTableInvalidateSizeCaches();
 				FileTimer.LLVM = VLibStartTimer("LLVM");
 				RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
 #if 0
@@ -934,7 +939,10 @@ main(int ArgCount, char *Args[])
 	if(AfterFunction)
 	{
 		if(NeedToRestoreForAfterFunction)
+		{
+			RegisterBitSize = sizeof(void*) * 8;
 			RestoreTypeTable(BuildTimeTypeTable);
+		}
 		if(g_InterpreterTrace)
 			LINFO("Interpreting after_link function");
 

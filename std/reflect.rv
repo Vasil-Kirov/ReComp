@@ -86,7 +86,7 @@ get_struct_size :: fn(st: type) -> int {
 		if member_size > biggest_member
 			biggest_member = member_size;
 	}
-	if (t.flags & (StructFlag.Union as u32)) != 0
+	if t.flags & .Union != 0
 		return biggest_member;
     align := get_type_alignment(st);
 	result += (align - ( result % align )) % align;
@@ -133,8 +133,9 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
         return 0;
     }
 
-	if (st.flags & StructFlag.Union as u32) != 0
+	if st.flags & .Union != 0
 		return 0;
+
 
     result := 0;
     for i := 0; i <= mem_idx; i += 1 {

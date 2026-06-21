@@ -91,7 +91,7 @@ StructMember :: struct {
 StructType :: struct {
     members: []StructMember,
     name: string,
-    flags: u32,
+    flags: StructFlag,
 }
 
 FunctionType :: struct {

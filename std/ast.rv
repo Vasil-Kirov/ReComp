@@ -370,12 +370,54 @@ make_node :: fn(kind: NodeType, location: FileLocation, alloc: *mem.Allocator) -
 	return n;
 }
 
+make_arraytype :: fn(location: FileLocation, t: ?*Node, expr: ?*Node, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.ARRAYTYPE, location, alloc);
+	if !n
+		return null;
+	n.u.array_type.t_node = t;
+	n.u.array_type.expression = expr;
+	return n;
+}
+
+make_const :: fn(location: FileLocation, const: ConstValue, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.CONSTANT, location, alloc);
+	if !n
+		return null;
+	n.u.constant.const_value = const;
+	return n;
+}
+
+make_decl :: fn(name: string, lhs: ?*Node, expr: ?*Node, t: ?*Node, flags: SymbolFlag, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.DECL, location, alloc);
+	if !n
+		return null;
+	n.u.decl.link_name = name;
+	n.u.decl.lhs = lhs;
+	n.u.decl.expression = expr;
+	n.u.decl.t = t;
+	n.u.decl.flags = flags;
+	return n;
+}
+
 make_id :: fn(id: string, location: FileLocation, alloc: *mem.Allocator) -> ?*Node {
 	n := make_node(.ID, location, alloc);
 	if !n
 		return null;
 
 	n.u.id.name = id;
+	return n;
+}
+
+make_struct_decl :: fn(name: string, mems: []*Node, type_params: []string, is_union: bool, loc: FileLocation, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.STRUCTDECL, loc, alloc);
+	if !n
+		return null;
+
+	using n.u;
+	struct_decl.name = name;
+	struct_decl.members = mems;
+	struct_decl.type_params = type_params;
+	struct_decl.is_union = is_union;
 	return n;
 }
 

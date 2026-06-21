@@ -1,4 +1,5 @@
 #include "PassAst.h"
+#include "Pipeline.h"
 
 InterpNode *NodeToInterp(node *N);
 interp_string StringToInterp(const string *S);
@@ -390,15 +391,35 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 	if(!R)
 		return nullptr;
 	
-	const string **Content = FileContents.GetUnstablePtr(StringFromInterp(R->location.file));
+	// @TODO: FIX THIS, it can lead to a lot of duplicate reads and saving the same file's
+	// contents into memory over and over again
+	string FileName = StringFromInterp(R->location.file);
+	const string **Content = FileContents.GetUnstablePtr(FileName);
+	const string *f = NULL;
 	if(!Content)
 	{
-		LogCompilerError("Source file in custom module node is not a full path to a module file: %.*s", R->location.file.Count, R->location.file.Data);
-		CountError();
-		return nullptr;
+		string Found = FindFile(FileName);
+		if(Found == "")
+		{
+			LogCompilerError("Source file in custom module node is not a valid path to a file: %.*s", R->location.file.Count, R->location.file.Data);
+			CountError();
+			return nullptr;
+		}
+		string ReadContent = ReadEntireFile(Found);
+		if(ReadContent.Data == NULL)
+		{
+			LogCompilerError("Source file in custom module node is not readable: %.*s", R->location.file.Count, R->location.file.Data);
+			CountError();
+			return nullptr;
+		}
+		string *NewContent = DupeType(ReadContent, string);
+		FileContents.Add(FileName, NewContent);
+		f = NewContent;
 	}
+	else
+		f = *Content;
 	node *N = NewType(node);
-	N->ErrorInfo = CreateErrorInfoFromInterpLocation(R->location, StringFromInterp(R->location.file), *Content);
+	N->ErrorInfo = CreateErrorInfoFromInterpLocation(R->location, StringFromInterp(R->location.file), f);
 
 	N->Type= R->t;
 	switch (R->t)

@@ -12,17 +12,17 @@ ReadError :: enum {
 	ReadFailed,
 }
 
-read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, ReadError) {
+read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> ([]u8, ReadError) {
 	f, ok := os.make_file_stream(name, .Read, alloc);
 	if !ok {
-		return "", ReadError.CantOpenFile;
+		return []u8 {}, ReadError.CantOpenFile;
 	}
 	defer io.close(&f);
 
 	size := io.stream_size(&f);
 	buf, ok2 := mem.make_slice(u8, size+1, alloc);
 	if !ok2 {
-		return "", ReadError.OOM;
+		return []u8 {}, ReadError.OOM;
 	}
 
 	buf.count -= 1;
@@ -31,10 +31,11 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> (string, ReadErro
 
 	if err != .Ok {
 		mem.destroy_slice(&buf, alloc);
-		return "", ReadError.ReadFailed;
+		return []u8 {}, ReadError.ReadFailed;
 	}
     buf[read] = 0;
-	return cast(string, buf), ReadError.Ok;
+	buf.count -= 1;
+	return buf, ReadError.Ok;
 }
 
 copy_dir :: fn(from: string, to: string) {
@@ -80,6 +81,21 @@ panic :: fn(err: string) #no_return {
 
 //
 //
+//      IO Streams
+//
+//
+make_binary_stream :: fn(data: []u8, alloc: *mem.Allocator) -> (io.Stream, bool) {
+	bs := mem.make_type(BinaryStream, alloc);
+	if !bs {
+		return io.Stream {func=io.dummy_stream_fn}, false;
+	}
+	bs.data = data;
+	bs.at = 0;
+	return io.Stream {func=binary_stream_fn, data=bs}, true;
+}
+
+//
+//
 //      PRINTING STUFF
 //
 //
@@ -101,6 +117,61 @@ println :: fn(str: string, args: ...) {
 //
 //
 #private
+
+BinaryStream :: struct {
+	data: []u8,
+	at: int,
+};
+
+binary_stream_fn :: fn(bs: ?*BinaryStream, op: io.StreamOp, p: []u8) -> (int, io.StreamError) {
+	if !bs {
+		return 0, io.StreamError.InvalidStream;
+	}
+
+	switch op {
+		case .Write:
+		{
+			written := 0;
+			for byte in p {
+				if bs.data.count <= bs.at {
+					return written, io.StreamError.EOF;
+				}
+				bs.data[bs.at++] = byte;
+				written++;
+			}
+			return written, io.StreamError.Ok;
+		}
+		case .Read:
+		{
+			p := p;
+			read := 0;
+			for i in p.count {
+				if bs.data.count <= bs.at {
+					return read, io.StreamError.EOF;
+				}
+				p[i] = bs.data[bs.at];
+				read++;
+				bs.at++;
+			}
+			return read, io.StreamError.Ok;
+		}
+		case .Seek:
+		{
+			bs.at = p.count;
+			return 0, io.StreamError.Ok;
+		}
+		case .Size:
+		{
+			return (bs.data.count - bs.at), io.StreamError.Ok;
+		}
+		case _:
+		{
+			return 0, io.StreamError.InvalidOp;
+		}
+	};
+	return 0, io.StreamError.InvalidOp;
+}
+
 copy_dir_ :: fn(data: *os.ListFileData, to: ?*string) -> bool {
 	if data.file == "." || data.file == ".."
 		return true;

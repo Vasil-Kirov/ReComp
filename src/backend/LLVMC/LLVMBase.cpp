@@ -28,6 +28,17 @@
 
 std::mutex LLVMNoThreadSafetyMutex;
 
+// @Note: LLVM's LLVMBuildPtrDiff2 pre version 23(?) is bugged.
+LLVMValueRef RCPtrDiff(generator *gen, LLVMValueRef LHS, LLVMValueRef RHS, u32 PointedT)
+{
+	LLVMTypeRef IntTy = ConvertToLLVMType(gen, Basic_uint);
+	LLVMValueRef l = LLVMBuildPtrToInt(gen->bld, LHS, IntTy, "");
+	LLVMValueRef r = LLVMBuildPtrToInt(gen->bld, RHS, IntTy, "");
+	LLVMValueRef diff = LLVMBuildSub(gen->bld, l, r, "");
+	LLVMValueRef sz = LLVMConstInt(IntTy, GetTypeSize(PointedT), false);
+	return LLVMBuildExactSDiv(gen->bld, diff, sz, "");
+}
+
 LLVMValueRef RCGenerateFunctionSignature(generator *gen, function *Fn)
 {
 	const type *T = GetType(Fn->Type);
@@ -788,8 +799,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			LLVMValueRef RHS = gen->map.Get(I.Right);
 			const type *T = GetType(I.Type);
 			Assert(T->Kind == TypeKind_Pointer);
-			LLVMTypeRef Type = ConvertToLLVMType(gen, T->Pointer.Pointed);
-			LLVMValueRef Val = LLVMBuildPtrDiff2(gen->bld, Type, LHS, RHS, "");
+			LLVMValueRef Val = RCPtrDiff(gen, LHS, RHS, T->Pointer.Pointed);
 			gen->map.Add(I.Result, Val);
 		} break;
 		LLVM_BIN_OP(ADD, Add) break;
@@ -1888,7 +1898,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 	DEBUG_RUN(LLVMDIBuilderFinalize(Gen.dbg);)
 
 	RunOptimizationPasses(&Gen, Machine.Target, Info->Optimization, Info->Flags);
-	RCEmitFile(Machine.Target, Gen.mod, M->Name, OutputBC);
+	RCEmitModule(Machine.Target, Gen.mod, M->Name, OutputBC);
 
 
 	DEBUG_RUN(LLVMDisposeDIBuilder(Gen.dbg);)
@@ -1898,14 +1908,14 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 	Gen.LLVMTypeMap.Free();
 }
 
-void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName, b32 OutputBC)
+void RCEmitModule(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC)
 {
 	char *Error = NULL;
 
 #if 1
 	if(LLVMVerifyModule(Mod, LLVMPrintMessageAction, &Error))
 	{
-		LERROR("Couldn't Verify LLVM Module: %s", Error);
+		LERROR("--- Internal Compiler Error---\nModule: %.*s\nCouldn't Verify LLVM Module: %s", (int)ModuleName.Size, ModuleName.Data, Error);
 		LLVMDisposeMessage(Error);
 	}
 #endif
@@ -1913,7 +1923,7 @@ void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName
 	if(OutputBC)
 	{
 		string_builder BCFileBuilder = MakeBuilder();
-		BCFileBuilder += FileName;
+		BCFileBuilder += ModuleName;
 		BCFileBuilder += ".bc";
 		string BCFile = MakeString(BCFileBuilder);
 
@@ -1925,7 +1935,7 @@ void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string FileName
 	}
 
 	string_builder Obj = MakeBuilder();
-	Obj += FileName;
+	Obj += ModuleName;
 	Obj += ".obj";
 
 	if(LLVMTargetMachineEmitToFile(Machine, Mod, MakeString(Obj).Data, LLVMObjectFile, (char **)&Error))

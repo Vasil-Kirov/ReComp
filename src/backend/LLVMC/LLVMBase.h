@@ -53,7 +53,7 @@ struct llvm_init_info
 
 rc_block RCCreateBlock(generator *gen, u32 ID, b32 Set = true);
 void RCSetBlock(generator *gen, int Index);
-void RCEmitFile(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC);
+void RCEmitModule(LLVMTargetMachineRef Machine, LLVMModuleRef Mod, string ModuleName, b32 OutputBC);
 void RCGenerateFunction(generator *gen, function fn);
 LLVMValueRef RCGenerateMainFn(generator *gen, slice<file*> Files, LLVMValueRef InitFn);
 llvm_init_info RCInitLLVM(struct compile_info *Info);

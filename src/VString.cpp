@@ -5,8 +5,6 @@
 #include <pmmintrin.h>
 
 
-int _mm_testc_si128 (__m128i a, __m128i b);
-
 __attribute__((no_sanitize("address")))
 size_t
 CStrLen(const char *str)

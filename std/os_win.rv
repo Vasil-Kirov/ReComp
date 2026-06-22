@@ -1,42 +1,79 @@
 module os
 
-#import "win32.rv"
+_ :: #import "win32.rv";
 #import io;
 #import mem;
 #import str;
 
+
+win_wide_to_str :: fn(s: []u16, alloc: *mem.Allocator) -> string {
+	slen := s.count as i32;
+	len := WideCharToMultiByte(CP_UTF8 as UINT, WC_ERR_INVALID_CHARS as DWORD, s.data, slen, null, 0, null, null);
+	if len == 0 return "";
+
+	res, ok := mem.make_slice(u8, len as int + 1, alloc);
+	if !ok return "";
+	written := WideCharToMultiByte(CP_UTF8 as UINT, WC_ERR_INVALID_CHARS as DWORD, s.data, slen, res.data, len, null, null);
+
+	if written == 0 {
+		mem.destroy_slice(&res, alloc);
+		return "";
+	}
+
+	res[len] = 0;
+	res.count -= 1;
+	return res as string;
+}
+
+win_str_to_wide :: fn(s: string, alloc: *mem.Allocator) -> []u16 {
+	slen := s.count as i32;
+	len := MultiByteToWideChar(CP_UTF8 as UINT, MB_ERR_INVALID_CHARS as DWORD, s.data, slen, null, 0);
+
+	if len == 0 return .{};
+
+	res, ok := mem.make_slice(u16, len as int + 1, alloc);
+	if !ok return .{};
+
+	written := MultiByteToWideChar(CP_UTF8 as UINT, MB_ERR_INVALID_CHARS as DWORD, s.data, slen, res.data, len);
+	if written == 0 {
+		mem.destroy_slice(&res, alloc);
+		return .{};
+	}
+
+	res[len] = 0;
+	res.count -= 1;
+	return res;
+}
+
 copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
-	from, ok1 := str.null_term(from_, &mem.temp_alloc);
-	if !ok1
+	from := win_str_to_wide(from_, &mem.temp_alloc);
+	if from.count == 0
 		return false;
-	to, ok2 := str.null_term(to_, &mem.temp_alloc);
-	if !ok2
+	to := win_str_to_wide(to_, &mem.temp_alloc);
+	if to.count == 0
 		return false;
-	return win32.CopyFileA(from.data as win32.LPCSTR, to.data as win32.LPCSTR, (!overwrite) as win32.BOOL) != 0;
+	return CopyFileW(from.data as LPCWSTR, to.data as LPCWSTR, (!overwrite) as BOOL) != 0;
 }
 
 mkdir :: fn(dir_: string) -> bool {
-	dir, ok := str.null_term(dir_, &mem.temp_alloc);
-	if !ok
+	dir := win_str_to_wide(dir_, &mem.temp_alloc);
+	if dir.count == 0
 		return false;
-	return win32.CreateDirectoryA(dir.data as win32.LPCSTR, null) != 0;
+	return CreateDirectoryW(dir.data as LPCWSTR, null) != 0;
 }
 
 list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
-		dirs, ok := str.null_term(dir_, &mem.temp_alloc);
-		if !ok
-			return false;
-		entry: win32.WIN32_FIND_DATAA = .{};
+		entry: WIN32_FIND_DATAW = .{};
 		b := str.create_builder(&mem.temp_alloc);
-		str.builder_append(&b, dirs);
+		str.builder_append(&b, dir_);
 		str.builder_append(&b, "\\*");
-		search := str.from_builder(&b, &mem.temp_alloc);
-		dir := win32.FindFirstFileA(search.data as win32.LPCSTR, &entry);
-		if dir == win32.INVALID_HANDLE_VALUE
+		search := win_str_to_wide(str.from_builder(&b, &mem.temp_alloc), &mem.temp_alloc);
+		if search.count == 0
 			return false;
-
-		defer win32.FindClose(dir);
-
+		dir := FindFirstFileW(search.data as LPCWSTR, &entry);
+		if dir == INVALID_HANDLE_VALUE
+			return false;
+		defer FindClose(dir);
 
 		for {
 			len := 0;
@@ -44,12 +81,12 @@ list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> boo
 				if entry.cFileName[i] == 0 break;
 				len++;
 			}
-			s := string {data = (&entry.cFileName[0]) as *u8, count = len};
-			data: ListFileData = .{dir=dirs, file=s, is_directory=entry.dwFileAttributes & win32.FILE_ATTRIBUTE_DIRECTORY as win32.DWORD != 0};
+			s := win_wide_to_str(entry.cFileName[:len], &mem.temp_alloc);
+			data: ListFileData = .{dir=dir_, file=s, is_directory=entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY as DWORD != 0};
 			if !callback(&data, arg)
 				break;
 
-			if !win32.FindNextFileA(dir, &entry)
+			if !FindNextFileW(dir, &entry)
 				break;
 		}
 		return true;
@@ -59,46 +96,46 @@ alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, b
 	pass := 0 as u32;
 	rwx := 0 as u32;
 	if flags & .Reserve {
-		pass |= win32.MEM_RESERVE as u32;
+		pass |= MEM_RESERVE as u32;
 	}
 	if flags & .Commit {
-		pass |= win32.MEM_COMMIT as u32;
+		pass |= MEM_COMMIT as u32;
 	}
 	if perms == .None
-		rwx |= win32.PAGE_NOACCESS as u32;
+		rwx |= PAGE_NOACCESS as u32;
 	else if perms == .Read
-		rwx |= win32.PAGE_READONLY as u32;
+		rwx |= PAGE_READONLY as u32;
 	else if perms == .Write
-		rwx |= win32.PAGE_WRITECOPY as u32;
+		rwx |= PAGE_WRITECOPY as u32;
 	else if perms == .Write | .Read
-		rwx |= win32.PAGE_READWRITE as u32;
+		rwx |= PAGE_READWRITE as u32;
 	else if perms == .Read | .Exec
-		rwx |= win32.PAGE_EXECUTE_READ as u32;
+		rwx |= PAGE_EXECUTE_READ as u32;
 	else if perms == .Write | .Exec
-		rwx |= win32.PAGE_EXECUTE_WRITECOPY as u32;
+		rwx |= PAGE_EXECUTE_WRITECOPY as u32;
 	else if perms == .Write | .Read | .Exec
-		rwx |= win32.PAGE_EXECUTE_READWRITE as u32;
+		rwx |= PAGE_EXECUTE_READWRITE as u32;
 	else
 		return null, false;
 
-	p := win32.VirtualAlloc(null, size as uint, pass, rwx);
+	p := VirtualAlloc(null, size as uint, pass, rwx);
 	if p
 		return p, true;
 	return p, false;
 }
 
 free :: fn(ptr: *) {
-	win32.VirtualFree(ptr, 0, win32.MEM_RELEASE as u32);
+	VirtualFree(ptr, 0, MEM_RELEASE as u32);
 }
 
 abort :: fn() #no_return {
-    win32.ExitProcess(1);
+    ExitProcess(1);
     return;
 }
 
 StreamHandles :: struct {
-	write: win32.HANDLE,
-	read: win32.HANDLE,
+	write: HANDLE,
+	read: HANDLE,
 	closeable: bool,
 };
 
@@ -117,7 +154,7 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 			written := 0 as u32;
 			for (written as int) < p.count {
 				wrote := 0 as u32;
-				ret := win32.WriteFile(stream_data.write, at+written, p.count as u32 - written, &wrote, null);
+				ret := WriteFile(stream_data.write, at+written, p.count as u32 - written, &wrote, null);
 				if !ret
 					return (written+wrote) as int, io.StreamError.Failed;
 				written += wrote;
@@ -130,7 +167,7 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 			read_total := 0 as u32;
 			for (read_total as int) < p.count {
 				read := 0 as u32;
-				ret := win32.ReadFile(stream_data.read, at + read_total, p.count as u32 - read_total, &read, null);
+				ret := ReadFile(stream_data.read, at + read_total, p.count as u32 - read_total, &read, null);
 				if !ret
 					return (read_total+read) as int, io.StreamError.Failed;
 				read_total += read;
@@ -143,26 +180,25 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 				return 0, io.StreamError.InvalidOp;
 
 			if stream_data.write != stream_data.read {
-				if stream_data.write != win32.INVALID_HANDLE_VALUE
-					win32.CloseHandle(stream_data.write);
-				if stream_data.read != win32.INVALID_HANDLE_VALUE
-					win32.CloseHandle(stream_data.read);
+				if stream_data.write != INVALID_HANDLE_VALUE
+					CloseHandle(stream_data.write);
+				if stream_data.read != INVALID_HANDLE_VALUE
+					CloseHandle(stream_data.read);
 			}
 			else {
-				if stream_data.write != win32.INVALID_HANDLE_VALUE
-					win32.CloseHandle(stream_data.write);
+				if stream_data.write != INVALID_HANDLE_VALUE
+					CloseHandle(stream_data.write);
 			}
 			return 0, io.StreamError.Ok;
 		}
 		case .Size:
 		{
+			li: LARGE_INTEGER;
 			high := 0 as u32;
-			low := win32.GetFileSize(stream_data.read, &high);
-			if low == win32.INVALID_FILE_SIZE {
+			if GetFileSizeEx(stream_data.read, &li) == 0 {
 				return 0, io.StreamError.Failed;
 			}
-			sz := (low as u64) | ((high as u64) << 32);
-			return sz as int, io.StreamError.Ok;
+			return li.QuadPart as int, io.StreamError.Ok;
 		}
 		case _:
 		{
@@ -173,28 +209,34 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 }
 
 make_std_stream :: fn() -> io.Stream {
-	std_handles.write = win32.GetStdHandle(win32.STD_OUTPUT_HANDLE);
-	std_handles.read = win32.GetStdHandle(win32.STD_INPUT_HANDLE);
+	std_handles.write = GetStdHandle(STD_OUTPUT_HANDLE);
+	std_handles.read = GetStdHandle(STD_INPUT_HANDLE);
 	std_handles.closeable = false;
 	return .{ func = os_stream_fn, data = &std_handles };
 }
 
 make_file_stream :: fn(name: string, flags: FileOpenFlags, alloc: *mem.Allocator) -> (io.Stream, bool) {
 	access := 0 as u32;
-	open_f := win32.OPEN_EXISTING as u32;
+	open_f := OPEN_EXISTING as u32;
 	if flags & .Read
-		access |= win32.GENERIC_READ as u32;
+		access |= GENERIC_READ as u32;
 	if flags & .Write
-		access |= win32.GENERIC_WRITE as u32;
+		access |= GENERIC_WRITE as u32;
 	if flags & .Create
-		open_f = win32.CREATE_NEW as u32;
+		open_f = CREATE_NEW as u32;
 	if flags & .Overwrite
-		open_f = win32.CREATE_ALWAYS as u32;
-	handle := win32.CreateFileA(name.data as *i8, access, win32.FILE_SHARE_READ as u32, null, open_f, win32.FILE_ATTRIBUTE_NORMAL as u32, null);
-	if handle == win32.INVALID_HANDLE_VALUE
-		return io.Stream {func=os_stream_fn}, false;
+		open_f = CREATE_ALWAYS as u32;
+
+	namew := win_str_to_wide(name, &mem.temp_alloc);
+	if namew.count == 0
+		return  io.Stream {func=os_stream_fn}, false;
+
 	data := mem.make_type(StreamHandles, alloc);
 	if data == null
+		return io.Stream {func=os_stream_fn}, false;
+
+	handle := CreateFileW(namew.data, access, FILE_SHARE_READ as u32, null, open_f, FILE_ATTRIBUTE_NORMAL as u32, null);
+	if handle == INVALID_HANDLE_VALUE
 		return io.Stream {func=os_stream_fn}, false;
 	data.write = handle;
 	data.read = handle;

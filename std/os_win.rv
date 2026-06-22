@@ -1,6 +1,6 @@
 module os
 
-_ :: #import "win32.rv";
+_ :: #import "sys/win32.rv";
 #import io;
 #import mem;
 #import str;

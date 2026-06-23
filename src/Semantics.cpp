@@ -460,6 +460,7 @@ u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
 	return Basic_error;
 }
 
+static bool ErrorOnFoundGeneric = false;
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAutoDef)
 {
 	if(TypeNode == NULL)
@@ -591,47 +592,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		} break;
 		case AST_FN:
 		{
-			type *FnType = AllocType(TypeKind_Function);
-			if(TypeNode->Fn.ReturnTypes.IsValid())
-			{
-				array<u32> Returns = array<u32>(TypeNode->Fn.ReturnTypes.Count);
-				ForArray(Idx, TypeNode->Fn.ReturnTypes)
-				{
-					Returns[Idx] = GetTypeFromTypeNode(Checker, TypeNode->Fn.ReturnTypes[Idx], Error, OutAutoDef);
-					if(Returns[Idx] == Basic_error)
-						return Basic_error;
-				}
-
-				FnType->Function.Returns = SliceFromArray(Returns);
-			}
-			else
-			{
-				FnType->Function.Returns = {};
-			}
-
-			FnType->Function.Flags = TypeNode->Fn.Flags;
-			FnType->Function.ArgCount = TypeNode->Fn.Args.Count;
-			FnType->Function.Args = (u32 *)VAlloc(TypeNode->Fn.Args.Count * sizeof(u32));
-
-			ForArray(Idx, TypeNode->Fn.Args)
-			{
-				node *Arg = TypeNode->Fn.Args[Idx];
-				if(Arg->Var.TypeNode == (node *)0x1)
-				{
-					FnType->Function.Flags |= SymbolFlag_VarFunc;
-					if(Idx + 1 != TypeNode->Fn.Args.Count)
-						return Basic_error;
-					FnType->Function.ArgCount-=1;
-					continue;
-				}
-				FnType->Function.Args[Idx] = FillFunctionArgumentType(Checker, Arg, Error, OutAutoDef);
-
-				if(FnType->Function.Args[Idx] == Basic_error)
-					return Basic_error;
-			}
-			FnType->Function.DefaultValues = GetDefaultValues(Checker, TypeNode->Fn.Args, FnType->Function.Args);
-			
-			return AddType(FnType);
+			return CreateFunctionType(Checker, TypeNode, Error);
 		} break;
 		case AST_SELECTOR:
 		{
@@ -699,8 +660,12 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		} break;
 		case AST_GENERIC:
 		{
-			// @HACK
-			if(!Error)
+			// @TODO:
+			// This is hack so that CreateFunctionType gets an error and knows
+			// that it needs a generic argument. That entire function should probably be rewritten
+			// @THREADING: Global abuse
+			// Vasko - 06/23/2026
+			if(ErrorOnFoundGeneric)
 				return Basic_error;
 
 			if(!Checker->Scope.TryPeek() || (Checker->Scope.Peek()->ScopeNode->Type != AST_FN))
@@ -946,7 +911,7 @@ b32 ScopesMatch(scope *A, scope *B)
 	return A->ScopeNode == B->ScopeNode;
 }
 
-u32 CreateFunctionType(checker *Checker, node *FnNode)
+u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 {
 	scope *FnScope = AllocScope(FnNode, Checker->Scope.TryPeek());
 	Checker->Scope.Push(FnScope);
@@ -1001,6 +966,8 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 	if(Function.ArgCount > 0)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
+	bool ErrOnGenSave = ErrorOnFoundGeneric;
+	ErrorOnFoundGeneric = false;
 	bool NeedToAddGeneric = false;
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
@@ -1023,12 +990,16 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 			}
 		}
 	}
+	ErrorOnFoundGeneric = ErrOnGenSave; // @Note: Probably can just set it to false? eh  Vasko - 06/23/2026
 
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		b32 IsAutoDefine = false;
 		node *Arg = FnNode->Fn.Args[I];
-		Function.Args[I] = FillFunctionArgumentType(Checker, Arg, true, &IsAutoDefine);
+		Function.Args[I] = FillFunctionArgumentType(Checker, Arg, Error, &IsAutoDefine);
+		if(Function.Args[I] == Basic_error)
+			return Basic_error;
+
 		FnNode->Fn.Args[I]->Var.IsAutoDefineGeneric = IsAutoDefine;
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
@@ -1050,7 +1021,9 @@ u32 CreateFunctionType(checker *Checker, node *FnNode)
 		array<u32> Returns = array<u32>(FnNode->Fn.ReturnTypes.Count);
 		ForArray(Idx, FnNode->Fn.ReturnTypes)
 		{
-			Returns[Idx] = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnTypes[Idx]);
+			Returns[Idx] = GetTypeFromTypeNode(Checker, FnNode->Fn.ReturnTypes[Idx], Error);
+			if(Returns[Idx] == Basic_error)
+				return Basic_error;
 		}
 
 		Function.Returns = SliceFromArray(Returns);
@@ -2679,6 +2652,11 @@ ANALYZE_SLICE_SELECTOR:
 		case AST_FN:
 		{
 			symbol *Sym = AnalyzeFunctionDecl(Checker, Expr);
+			if(!Sym)
+			{
+				Result = Basic_error;
+				break;
+			}
 			if(IsGeneric(Expr->Fn.TypeIdx))
 			{
 				RaiseError(false, *Expr->ErrorInfo, "Lambdas currently cannot be generic");
@@ -4257,6 +4235,8 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 	}
 	u32 FnType = CreateFunctionType(Checker, Node);
 	Node->Fn.TypeIdx = FnType;
+	if(FnType == Basic_error)
+		return nullptr;
 	return CreateFunctionSymbol(Checker, Node);
 }
 
@@ -4379,6 +4359,10 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *M
 		{
 			node *Node = Nodes[I];
 			symbol *Sym = AnalyzeFunctionDecl(Checker, Node);
+			if(!Sym) {
+				Node->Fn.AlreadyAnalyzed = true;
+				continue;
+			}
 			bool Success = Checker->Module->Globals.Add(*Node->Fn.Name, Sym);
 			if(!Success)
 			{
@@ -4658,6 +4642,8 @@ void Analyze(checker *Checker, dynamic<node *> &Nodes)
 		node *Node = Nodes[I];
 		if(Node->Type == AST_FN)
 		{
+			if(Node->Fn.TypeIdx == Basic_error)
+				continue;
 			if((Node->Fn.Flags & SymbolFlag_Intrinsic) == 0 && (Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
 				if(Node->Fn.ProfileCallback)

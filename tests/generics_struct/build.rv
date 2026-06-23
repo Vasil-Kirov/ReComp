@@ -1,0 +1,11 @@
+module build
+#import compile as c
+
+compile :: fn() -> c.CompileInfo {
+    out := c.CompileInfo {
+        files = []string { "generics_struct.rv" },
+        opt = 0,
+        flags = .SanAddress,
+    };
+    return out;
+}

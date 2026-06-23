@@ -1,0 +1,14 @@
+module main
+
+_ :: #import "collections.rv";
+
+main :: fn() -> i32 {
+	q := make_queue(i32, 3);
+	enqueue(&q, 5);
+	enqueue(&q, 15);
+	s := make_stack(i32);
+	push(&s, 10);
+	push(&s, 20);
+	push(&s, 30);
+	return unwrap(pop(&s)) - unwrap(pop(&s)) - dequeue(&q) - 5;
+}

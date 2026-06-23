@@ -69,8 +69,9 @@ Queue :: struct<T>
 make_queue :: fn(t: type, capacity: int, alloc: *mem.Allocator = null) -> Queue<t> {
 	if alloc == null
 		alloc = &mem.temp_alloc;
+	data, ok := mem.make_slice(t, capacity, alloc); #assert ok; // @TODO: remove assert
 	return Queue<t> {
-		data = mem.make_slice(t, capacity, alloc),
+		data = data,
 		front = 0,
 		size = 0,
 		capacity = capacity,

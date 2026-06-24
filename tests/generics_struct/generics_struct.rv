@@ -1,8 +1,49 @@
 module main
 
 _ :: #import "collections.rv";
+_ :: #import mem;
+
+Node :: struct<T> {
+	left: ?*Node<T>,
+	right: ?*Node<T>,
+	val: T,
+}
+
+make_node :: fn(T: type, l: ?*Node<T>, r: ?*Node<T>, v: T) -> ?*Node<T> {
+	t := make_type(Node<T>, &temp_alloc);
+	if !t return null;
+	t.left = l;
+	t.right = r;
+	t.val = v;
+	return t;
+}
+
+walk :: fn(n: *Node<$T>, f: fn(n: *Node<T>, arg: ?*), arg: ?*) {
+	l := n.left;
+	r := n.right;
+	if l
+		walk(l, f, arg);
+	if r
+		walk(r, f, arg);
+	f(n, arg);
+}
 
 main :: fn() -> i32 {
+	n := make_node(i32,
+		make_node(i32,
+			make_node(i32, null, null, 5),
+			null, 10),
+		make_node(i32, null, null, 20),
+		30); #assert n;
+
+	sumf := fn(n: *Node<i32>, arg: ?*i32) {
+ 		#assert arg;
+		*arg += n.val;
+	};
+
+	sum: i32 = 0;
+	walk(n, sumf, &sum);
+
 	q := make_queue(i32, 3);
 	enqueue(&q, 5);
 	enqueue(&q, 15);
@@ -10,5 +51,5 @@ main :: fn() -> i32 {
 	push(&s, 10);
 	push(&s, 20);
 	push(&s, 30);
-	return unwrap(pop(&s)) - unwrap(pop(&s)) - dequeue(&q) - 5;
+	return sum - 65 - (unwrap(pop(&s)) - unwrap(pop(&s)) - dequeue(&q) - 5);
 }

@@ -230,7 +230,7 @@ struct type
 };
 
 u32 AddType(type *Type);
-u32 AddTypeWithName(type *Type, string Name);
+u32 AddTypeWithName(type *Type, string Name, bool ComputeCache=true);
 void FillOpaqueStruct(u32 TypeIdx, type T);
 
 const type *GetType(u32 TypeIdx);
@@ -286,6 +286,7 @@ u32 ComplexTypeToSizeType(const type *T);
 b32 TypeCheckPointers(const type *L, const type *R, b32 IsAssignment);
 u32 AllFloatsStructToReturnType(const type *T);
 u32 FindStruct(string Name);
+u32 FindStructCanFail(string Name);
 u32 FindEnum(string Name);
 u32 VarArgArrayType(u32 ElemCount, u32 ArgT);
 u32 MakeStruct(string Name, slice<struct_member> Members, slice<struct_generic_argument> GenArgs, u32 Flags);
@@ -310,6 +311,7 @@ b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx);
 void AddNameToTypeMap(const string *Name, u32 T);
 u32 LookupNameOnTypeMap(const string *Name);
 b32 IsErrorT(const type *T);
+string GetGenericResolvedStructName(string Name, slice<struct_generic_argument> GenericArguments);
 void ErrorOutType(u32 TypeIdx);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);

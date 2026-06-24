@@ -418,7 +418,8 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 
 	VLibStopTimer(&Timers.FlowTyping);
-	// START OF FLOW TYPING     --------------------------------------------------
+	ExitIfErroredOut();
+	// END OF FLOW TYPING     --------------------------------------------------
 
 	GlobalBlob = NULL;
 	return pipeline_result {

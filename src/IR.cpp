@@ -2086,8 +2086,13 @@ BUILD_SLICE_SELECTOR:
 		{
 			Result = PushInt(Node->ArrayType.Analyzed, Builder);
 		} break;
+		case AST_GENSTRUCTTYPE:
+		{
+			Result = PushInt(Node->GenericStructType.Analyzed, Builder);
+		} break;
 		default:
 		{
+			LERROR("Unkown node type: %d", Node->Type);
 			Assert(false);
 		} break;
 	}

@@ -508,7 +508,6 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			}
 			dynamic<struct_generic_argument> GenArgs = {};
 			int ArgCount = 0;
-			bool IsStillGeneric = false;
 			For(TypeNode->GenericStructType.Args)
 			{
 				b32 IsAutoDefine = false;
@@ -516,8 +515,6 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				if(OutAutoDef)
 					*OutAutoDef = *OutAutoDef || IsAutoDefine;
 
-				if(IsGeneric(T))
-					IsStillGeneric = true;
 
 				if(T == Basic_error)
 				{
@@ -538,12 +535,8 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				return Basic_error;
 			}
 
-			u32 Flags = StructT->Struct.Flags;
-			if(!IsStillGeneric)
-				Flags &= ~StructFlag_Generic;
 			slice<struct_generic_argument> ArgsS = SliceFromArray(GenArgs);
-			slice<struct_member> Members = ResolveGenericStruct(StructT, ArgsS, NULL);
-			return MakeStruct(StructT->Struct.Name, Members, ArgsS, Flags);
+			return ResolveGenericStruct(StructT, ArgsS, NULL);
 		} break;
 		case AST_PTRTYPE:
 		{
@@ -967,7 +960,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		Function.Args = (u32 *)AllocatePermanent(sizeof(u32) * Function.ArgCount);
 
 	bool ErrOnGenSave = ErrorOnFoundGeneric;
-	ErrorOnFoundGeneric = false;
+	ErrorOnFoundGeneric = true;
 	bool NeedToAddGeneric = false;
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
@@ -992,6 +985,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 	}
 	ErrorOnFoundGeneric = ErrOnGenSave; // @Note: Probably can just set it to false? eh  Vasko - 06/23/2026
 
+	int AddedGenerics = 0;
 	for(int I = 0; I < Function.ArgCount; ++I)
 	{
 		b32 IsAutoDefine = false;
@@ -1000,6 +994,9 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		if(Function.Args[I] == Basic_error)
 			return Basic_error;
 
+		if(IsAutoDefine)
+			AddedGenerics++;
+
 		FnNode->Fn.Args[I]->Var.IsAutoDefineGeneric = IsAutoDefine;
 		const type *T = GetType(Function.Args[I]);
 		if(T->Kind == TypeKind_Function)
@@ -1007,7 +1004,10 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		else if(HasBasicFlag(T, BasicFlag_TypeID))
 		{
 			if(NeedToAddGeneric)
+			{
 				MakeGeneric(FnScope, *FnNode->Fn.Args[I]->Var.Name);
+				AddedGenerics++;
+			}
 		}
 		else if(IsGeneric(T))
 		{
@@ -1043,6 +1043,16 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 				Function.Flags |= SymbolFlag_Generic;
 			}
 		}
+	}
+
+	if(NeedToAddGeneric && AddedGenerics > 1)
+	{
+		// @TODO: fix this, need to change GetGenericPart to return a slice,
+		// and resolve generic code
+		// Vasko - 06/24/2026
+		if(Error)
+			RaiseError(false, *FnNode->ErrorInfo, "Function cannot have multiple generics");
+		return Basic_error;
 	}
 
 	Function.DefaultValues = GetDefaultValues(Checker, FnNode->Fn.Args, Function.Args);
@@ -1282,6 +1292,9 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				if(Result == Basic_error)
 				{
+					for(auto sym : Checker->Module->Globals) {
+						LDEBUG("s: %s", sym.first.Data);
+					}
 					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 					return Basic_error;
 				}
@@ -4233,7 +4246,7 @@ symbol *AnalyzeFunctionDecl(checker *Checker, node *Node)
 			RaiseError(false, *Node->ErrorInfo, "Declaration for an unknown intrinsic: %s", Node->Fn.Name->Data);
 		}
 	}
-	u32 FnType = CreateFunctionType(Checker, Node);
+	u32 FnType = CreateFunctionType(Checker, Node, true);
 	Node->Fn.TypeIdx = FnType;
 	if(FnType == Basic_error)
 		return nullptr;

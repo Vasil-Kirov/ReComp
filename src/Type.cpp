@@ -387,7 +387,7 @@ u32 GetReturnType(const type *Type)
 	return ReturnsToType(Type->Function.Returns);
 }
 
-u32 AddTypeWithName(type *Type, string Name)
+u32 AddTypeWithName(type *Type, string Name, bool ComputeCache)
 {
 	TypeMutex.lock();
 	
@@ -405,7 +405,7 @@ u32 AddTypeWithName(type *Type, string Name)
 	Type->CachedSize = -1;
 	Type->CachedAlignment = -1;
 	Type->CachedAsPointer = INVALID_TYPE;
-	if(!IsGeneric(Type))
+	if(!IsGeneric(Type) && ComputeCache)
 	{
 		Type->CachedSize = GetTypeSize(Type);
 		Type->CachedAlignment = GetTypeAlignment(Type);

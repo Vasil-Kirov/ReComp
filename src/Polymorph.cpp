@@ -71,37 +71,6 @@ u32 FunctionTypeGetNonGeneric(const type *Old, dict<u32> DefinedGenerics)
 	return AddType(NewFT);
 }
 
-void FinishStructPolymorph(type *T)
-{
-
-	For(T->Struct.Members)
-	{
-		const type *MemT = GetTypeRaw(it->Type);
-		if(IsGeneric(MemT))
-		{
-			Assert(MemT->Kind == TypeKind_Struct);
-			array<struct_generic_argument> Args = {};
-			ForArray(Idx, MemT->Struct.GenericArguments)
-			{
-				auto Arg = MemT->Struct.GenericArguments[Idx];
-				Assert(Arg.DefinedAs == INVALID_TYPE);
-				ForN(T->Struct.GenericArguments, g)
-				{
-					if(g->Name == Arg.Name)
-					{
-						Arg.DefinedAs = g->DefinedAs;
-						break;
-					}
-				}
-				Assert(Arg.DefinedAs != INVALID_TYPE);
-				Args[Idx] = Arg;
-			}
-			//PolymorphGenericStruct();
-		}
-	}
-
-}
-
 u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, const type *Gen, dict<u32> &DefinedGenerics, u32 ArgTypeIdx)
 {
 	array<struct_generic_argument> NewArgs(Gen->Struct.GenericArguments.Count);
@@ -145,13 +114,7 @@ u32 PolymorphGenericStruct(const error_info *err_i, const type *PassedStruct, co
 		}
 		NewArgs[Idx] = Arg;
 	}
-	string_builder B = {};
-	for(int i = 0; i < Gen->Struct.Name.Size && Gen->Struct.Name.Data[i] != '<'; ++i)
-	{
-		B += Gen->Struct.Name.Data[i];
-	}
-	slice<struct_member> Members = ResolveGenericStruct(Gen, SliceFromArray(NewArgs), &DefinedGenerics);
-	u32 AsDefined = MakeStruct(MakeString(B), Members, SliceFromArray(NewArgs), Gen->Struct.Flags & ~StructFlag_Generic);
+	u32 AsDefined = ResolveGenericStruct(Gen, SliceFromArray(NewArgs), &DefinedGenerics);
 	DefinedGenerics.Add(Gen->Struct.Name, AsDefined);
 
 
@@ -209,7 +172,14 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 
 				if(GenT->Kind == TypeKind_Struct)
 				{
-					const type *Defined = GetType(GetGenericPart(ExprTypeIdx, ArgTypeIdx));
+					u32 GenPart = GetGenericPart(ExprTypeIdx, ArgTypeIdx);
+					if(GenPart == Basic_error)
+					{
+						RaiseError(false, *Call->Call.Args[ArgI]->ErrorInfo, "Couldn't resolve generic parameter from this argument");
+						return nullptr;
+					}
+					const type *Defined = GetType(GenPart);
+					Assert(Defined->Kind == TypeKind_Struct);
 					ForArray(Idx, GenT->Struct.GenericArguments)
 					{
 						auto it = GenT->Struct.GenericArguments[Idx];
@@ -385,8 +355,37 @@ symbol *GenerateFunctionFromPolymorphicCall(checker *Checker, node *Call)
 	return NewSym;
 }
 
-slice<struct_member> ResolveGenericStruct(const type *StructT, slice<struct_generic_argument> GenArgs, dict<u32> *ParameterTypes)
+u32 ResolveGenericStruct(const type *StructT, slice<struct_generic_argument> GenArgs, dict<u32> *ParameterTypes)
 {
+	Assert(StructT->Kind == TypeKind_Struct);
+
+	// @Note: not sure about doing this, could a generic struct ever have a name like Foo<T><B>?
+	// Vasko - 6/24/2026
+	string_builder B = {};
+	for(int i = 0; i < StructT->Struct.Name.Size && StructT->Struct.Name.Data[i] != '<'; ++i)
+	{
+		B += StructT->Struct.Name.Data[i];
+	}
+	string Name = GetGenericResolvedStructName(MakeString(B), GenArgs);
+	u32 Found = FindStructCanFail(Name);
+	if(Found != Basic_error)
+		return Found;
+
+	bool IsStillGeneric = false;
+	For(GenArgs)
+	{
+		if(IsGeneric(it->DefinedAs))
+			IsStillGeneric = true;
+	}
+
+	type *New = AllocType(TypeKind_Struct);
+	*New  = *StructT;
+	if(!IsStillGeneric)
+		New->Struct.Flags &= ~StructFlag_Generic;
+	New->Struct.Name = Name;
+	New->Struct.GenericArguments = GenArgs;
+	u32 ResT = AddTypeWithName(New, Name, false);
+
 	array<struct_member> Members(StructT->Struct.Members.Count);
 	ForArray(Idx, StructT->Struct.Members)
 	{
@@ -396,24 +395,8 @@ slice<struct_member> ResolveGenericStruct(const type *StructT, slice<struct_gene
 			const type *G = GetTypeRaw(GetGenericPart(m.Type, m.Type));
 			if(G->Kind == TypeKind_Struct)
 			{
-#if 0
-				if(m.Type == StructIdx)
-				{
-					*IsRecursiveGeneric = true;
-					m.Type = ToNonGeneric(m.Type, INVALID_TYPE);
-				}
-				else
-				{
-					slice<struct_member> Members = ResolveGenericStruct(m.Type, G, GenArgs, ParameterTypes, IsRecursiveGeneric);
-					string_builder B = {};
-					for(int i = 0; i < G->Struct.Name.Size && G->Struct.Name.Data[i] != '<'; ++i)
-					{
-						B += G->Struct.Name.Data[i];
-					}
-					u32 AsDefined = MakeStruct(MakeString(B), Members, GenArgs, G->Struct.Flags & ~StructFlag_Generic);
-					m.Type = ToNonGeneric(m.Type, AsDefined);
-				}
-#endif
+				u32 Resolved = ResolveGenericStruct(G, GenArgs, ParameterTypes);
+				m.Type = ToNonGeneric(m.Type, Resolved);
 			}
 			else
 			{
@@ -441,7 +424,9 @@ slice<struct_member> ResolveGenericStruct(const type *StructT, slice<struct_gene
 		}
 		Members[Idx] = m;
 	}
+	New->Struct.Members = SliceFromArray(Members);
 
-	return SliceFromArray(Members);
+	FillOpaqueStruct(ResT, *New);
+	return ResT;
 }
 

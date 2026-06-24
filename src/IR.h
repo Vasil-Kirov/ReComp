@@ -14,6 +14,7 @@ enum compiler_intrinsic
 	IN_ATOMIC_ADD,
 	IN_RAISE_ERROR,
 	IN_NO_COMPILE_OUTPUT,
+	IN_GET_BUILD_ARGS,
 };
 
 enum op

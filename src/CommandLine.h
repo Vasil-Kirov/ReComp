@@ -54,3 +54,5 @@ struct command_line
 
 bool ShouldOutputIR(string MName);
 
+extern slice<string> CommandLineArgs;
+

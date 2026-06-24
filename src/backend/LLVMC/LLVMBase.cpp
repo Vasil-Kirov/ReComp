@@ -607,6 +607,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			intrin_info *Info = (intrin_info *)I.Ptr;
 			switch(Info->Intrin)
 			{
+				case IN_GET_BUILD_ARGS:
+				{} break;
 				case IN_NOT_INTRIN:
 				{} break;
 				case IN_NO_COMPILE_OUTPUT:

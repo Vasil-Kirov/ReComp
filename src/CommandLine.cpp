@@ -6,6 +6,7 @@
 extern bool g_InterpreterTrace;
 extern bool NoThreads;
 slice<string> GlobalIRModules;
+slice<string> CommandLineArgs;
 
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rv
@@ -40,13 +41,14 @@ OPTIONS:
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
 {
-	string Args[64] = {};
+	dynamic<string> Args = {};
 	Assert(ArgCount < 64);
 	for(int i = 1; i < ArgCount; ++i)
 	{
-		Args[i - 1] = MakeString(CArgs[i]);
+		Args.Push(MakeString(CArgs[i]));
 	}
 	ArgCount--;
+	CommandLineArgs = SliceFromArray(Args);
 	command_line Result = {};
 
 	const string CompileCommands[] = {
@@ -167,7 +169,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			i++;
 			Substitutes.Push(Args[i]);
 		}
-		else
+		else if(Arg.Size < 2 || Arg.Data[0] != '-')
 		{
 			if(Result.BuildFile.Data != NULL)
 			{

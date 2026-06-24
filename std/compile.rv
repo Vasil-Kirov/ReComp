@@ -7,6 +7,14 @@ module compile
 #import array;
 #import ast;
 
+raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
+	s := io.vsprint(fmt, args);
+	raise_error_(&s, location);
+}
+
+no_compile_output :: fn() #intrinsic;
+get_build_args :: fn() -> []string #intrinsic;
+
 CompileFlag :: enum: u32 {
     Debug       = 0b000000000001,
     SanAddress  = 0b000000000010,
@@ -222,14 +230,6 @@ module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
 	n := ast.make_id("int", fl, m.alloc); #assert n;
 	return n;
 }
-
-
-raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
-	s := io.vsprint(fmt, args);
-	raise_error_(&s, location);
-}
-
-no_compile_output :: fn() #intrinsic;
 
 #private
 raise_error_ :: fn(s: *string, location: FileLocation) #intrinsic;

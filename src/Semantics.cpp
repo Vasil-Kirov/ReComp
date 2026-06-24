@@ -4224,6 +4224,7 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("debug_break"),
 		STR_LIT("no_compile_output"),
 		STR_LIT("raise_error_"),
+		STR_LIT("get_build_args"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)

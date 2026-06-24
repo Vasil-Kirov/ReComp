@@ -1399,6 +1399,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					Intrin = IN_NO_COMPILE_OUTPUT;
 				}
+				else if(Node->Call.SymName == "get_build_args")
+				{
+					Intrin = IN_GET_BUILD_ARGS;
+				}
 				else
 				{
 					unreachable;
@@ -4147,6 +4151,11 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 			{
 				case IN_NOT_INTRIN:
 				{} break;
+				case IN_GET_BUILD_ARGS:
+				{
+					call_info *ci = Info->CallInfo;
+					Builder->printf("%%%d = get_build_args()", ci->Args[0]);
+				} break;
 				case IN_NO_COMPILE_OUTPUT:
 				{
 					*Builder += "NO_COMPILE_OUTPUT()";
@@ -4598,7 +4607,11 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 			switch(Info->Intrin)
 			{
 				case IN_NOT_INTRIN:
-				{} break;
+				{
+				} break;
+				case IN_GET_BUILD_ARGS:
+				{
+				} break;
 				case IN_NO_COMPILE_OUTPUT:
 				{
 				} break;

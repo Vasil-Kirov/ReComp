@@ -1909,7 +1909,7 @@ basic_block FindBlockByID(slice<basic_block> Blocks, int ID)
 	unreachable;
 }
 
-#define ALLOC(SIZE) Globals ? ArenaAllocate(&VM->Arena, SIZE) : VM->Stack.Peek().Allocate(SIZE)
+#define ALLOC(SIZE) (Globals ? ArenaAllocate(&VM->Arena, (SIZE)) : VM->Stack.Peek().Allocate((SIZE)))
 
 void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instructions, b32 Globals)
 {
@@ -2009,6 +2009,21 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 					Value.ptr  = InterpreterAllocateString(VM, Val->String.Data);;
 
 					VM->Registers.AddValue(it->Result, Value);
+				}
+			} break;
+			case OP_INTRIN:
+			{
+				intrin_info *Info = (intrin_info *)it->Ptr;
+				if(Info->Intrin == IN_GET_BUILD_ARGS)
+				{
+					const type *Type = GetType(it->Type);
+					if(Type->Kind == TypeKind_Pointer)
+						Type = GetType(Type->Pointer.Pointed);
+
+					value *V = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+					u32 Out;
+					auto Data = (interp_string **)IndexVM(VM, V, 1, Type->Function.Returns[0], &Out);
+					*Data = (interp_string *)ALLOC(sizeof(interp_string) * CommandLineArgs.Count);
 				}
 			} break;
 			default: break;
@@ -2155,7 +2170,8 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				switch(Info->Intrin)
 				{
 					case IN_NOT_INTRIN:
-					{} break;
+					{
+					} break;
 					case IN_NO_COMPILE_OUTPUT:
 					{
 						g_StopCompileOutput = true;
@@ -2168,6 +2184,22 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						value *Location = VM->Registers.GetValue(ci->Args[1]);
 						//string;
 						DoCompileTimeRaiseError(VM, Fmt, Location);
+					} break;
+					case IN_GET_BUILD_ARGS:
+					{
+						const type *Type = GetType(I.Type);
+						if(Type->Kind == TypeKind_Pointer)
+							Type = GetType(Type->Pointer.Pointed);
+
+						value *V = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+						u32 o;
+						auto Count = (size_t *)IndexVM(VM, V, 0, Type->Function.Returns[0], &o);
+						auto Data = *(interp_string **)IndexVM(VM, V, 1, Type->Function.Returns[0], &o);
+						*Count = CommandLineArgs.Count;
+						for(size_t i = 0; i < CommandLineArgs.Count; ++i)
+						{
+							Data[i] = StringToInterp(&CommandLineArgs.Data[i]);
+						}
 					} break;
 					case IN_DEBUG_BREAK:
 					{

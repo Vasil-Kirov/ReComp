@@ -31,6 +31,13 @@ struct InterpNode
             //type T;
         } if_x;
 
+		struct
+		{
+			InterpNode * args;
+			InterpNode * single_expr;
+			interp_slice body;
+		} lambda;
+
         struct
         {
             interp_slice body;
@@ -154,7 +161,7 @@ struct InterpNode
             interp_string name;
             interp_slice members;
             interp_slice type_params;
-            bool is_union;
+            u32 flags;
         } struct_decl;
 
         struct

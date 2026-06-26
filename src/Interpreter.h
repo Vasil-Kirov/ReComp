@@ -216,7 +216,7 @@ struct interpreter
 	ap_memory Arena;
 	stack_alloc StackAllocator;
 	stack<binary_stack> Stack;
-	stack<string> FunctionStack;
+	stack<function*> FunctionStack;
 	stack<const error_info *> ErrorInfo;
 	slice<function> Imported;
 	std::unordered_map<void *, uint> StoredGlobals;
@@ -238,7 +238,7 @@ interpreter MakeInterpreter(slice<module> Modules, u32 MaxRegisters);
 void DoRuns(interpreter *VM, ir *IR);
 void EvaluateEnums(interpreter *VM);
 size_t DoGlobals(interpreter *VM, ir *IR);
-void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrIdx);
+void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, slice<basic_block> Blocks, int InstrIdx);
 string StringFromInterp(interp_string S);
 error_info *CreateErrorInfoFromInterpLocation(interp_file_location Location, string FullName, const string *FileData);
 interp_string StringToInterp(const string *S);;

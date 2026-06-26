@@ -464,12 +464,6 @@ void SetStructCache(u32 TypeIdx)
 	TypeTable[TypeIdx]->CachedAlignment = GetTypeAlignment(TypeTable[TypeIdx]);
 }
 
-int GetHostRegisterTypeSize()
-{
-	// @TODO: detect host machine?
-	return 64;
-}
-
 int GetRegisterTypeSize()
 {
 	return RegisterBitSize;
@@ -510,17 +504,23 @@ int GetStructSize(const type *Type)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
 		int MemberSize = GetTypeSize(m);
-		int Alignment = GetTypeAlignment(m);
-		if(Alignment != 0)
-			Result = AlignTo(Result, Alignment);
+		if((Type->Struct.Flags & StructFlag_Packed) == 0)
+		{
+			int Alignment = GetTypeAlignment(m);
+			if(Alignment != 0)
+				Result = AlignTo(Result, Alignment);
+		}
 		Result += MemberSize;
 		if(MemberSize > BiggestMember)
 			BiggestMember = MemberSize;
 	}
 	if(Type->Struct.Flags & StructFlag_Union)
 		return BiggestMember;
-	auto sa = GetTypeAlignment(Type);
-	Result = AlignTo(Result, sa);
+	if((Type->Struct.Flags & StructFlag_Packed) == 0)
+	{
+		auto sa = GetTypeAlignment(Type);
+		Result = AlignTo(Result, sa);
+	}
 	return Result;
 }
 
@@ -545,9 +545,12 @@ int GetStructMemberOffset(const type *Type, uint Member)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
 		int MemberSize = GetTypeSize(m);
-		int Alignment = GetTypeAlignment(m);
-		if(Alignment != 0)
-			Result = AlignTo(Result, Alignment);
+		if((Type->Struct.Flags & StructFlag_Packed) == 0)
+		{
+			int Alignment = GetTypeAlignment(m);
+			if(Alignment != 0)
+				Result = AlignTo(Result, Alignment);
+		}
 		Result += MemberSize;
 	}
 	const type *m = GetType(Type->Struct.Members[Member].Type);
@@ -559,6 +562,9 @@ int GetStructAlignment(const type *Type)
 {
 	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
+		return 1;
+
+	if(Type->Struct.Flags & StructFlag_Packed)
 		return 1;
 
 	int Alignment = 1;

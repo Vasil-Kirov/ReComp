@@ -2,5 +2,5 @@
 #include "Interpreter.h"
 #include "IR.h"
 
-DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine);
+DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine, slice<basic_block> Blocks);
 

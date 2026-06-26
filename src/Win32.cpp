@@ -14,6 +14,11 @@ struct windows_signal_handler
 
 thread_local windows_signal_handler SignalHandlerGlobal = {};
 
+bool PlatformCopyFile(const char *From, const char *To)
+{
+	return CopyFileA(From, To, true) != 0;
+}
+
 bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
 {
 	DWORD Total = 0;

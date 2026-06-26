@@ -123,7 +123,7 @@ void InterpSegFault(void *VMPtr)
 		b += " Function Stack:\n";
 		for(int i = VM->FunctionStack.Data.Count-1; i >= 0; --i)
 		{
-			string Name = VM->FunctionStack.Data[i];
+			string Name = *VM->FunctionStack.Data[i]->Name;
 			b.printf("\t%.*s\n", (int)Name.Size, Name.Data);
 		}
 	}
@@ -133,7 +133,10 @@ void InterpSegFault(void *VMPtr)
 	string msg = MakeString(b);
 	LogCompilerError("%.*s", msg.Size, msg.Data);
 
-	DoDebugPrompt(VM, VM->Executing->Code, VM->AtInstructionIndex);
+	slice<basic_block> Blocks = {};
+	if(!VM->FunctionStack.IsEmpty())
+		Blocks = SliceFromArray(VM->FunctionStack.Peek()->Blocks);
+	DoDebugPrompt(VM, VM->Executing->Code, Blocks, VM->AtInstructionIndex);
 
 	printf("Exiting...\n");
 	exit(1);
@@ -198,7 +201,7 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 				case Basic_type:
 				case Basic_int:
 				{
-					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					int RegisterSize = GetRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: Sig = DC_SIGCHAR_LONGLONG; break;
@@ -209,7 +212,7 @@ char GetSigChar(const type *T, int *NumberOfElems, DCaggr **ExtraArg, dynamic<DC
 				} break;
 				case Basic_uint:
 				{
-					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					int RegisterSize = GetRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: Sig = DC_SIGCHAR_ULONGLONG; break;
@@ -360,7 +363,7 @@ DCsigchar DynCallbackHandler(DCCallback *_, DCArgs *args, DCValue *result, void 
 					case Basic_type:
 					case Basic_int:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: v.i64 = dcbArgLongLong(args); break;
@@ -371,7 +374,7 @@ DCsigchar DynCallbackHandler(DCCallback *_, DCArgs *args, DCValue *result, void 
 					} break;
 					case Basic_uint:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: v.u64 = dcbArgULongLong(args); break;
@@ -480,7 +483,7 @@ DCsigchar DynCallbackHandler(DCCallback *_, DCArgs *args, DCValue *result, void 
 					case Basic_type:
 					case Basic_int:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: result->l = r.i64; ret = 'l'; break;
@@ -491,7 +494,7 @@ DCsigchar DynCallbackHandler(DCCallback *_, DCArgs *args, DCValue *result, void 
 					} break;
 					case Basic_uint:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: result->L = r.u64; ret = 'L'; break;
@@ -551,14 +554,14 @@ DCaggr *MakeAggr(const type *T, dynamic<DCaggr*> AggrToFree)
 		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
 		char Second = DC_SIGCHAR_POINTER;
 		dcAggrField(Aggr, First, 0, 0);
-		dcAggrField(Aggr, Second, GetHostRegisterTypeSize()/8, 0);
+		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
 	}
 	else if(IsString(T))
 	{
 		char First = GetSigChar(GetType(Basic_int), NULL, NULL, AggrToFree);
 		char Second = DC_SIGCHAR_STRING;
 		dcAggrField(Aggr, First, 0, 0);
-		dcAggrField(Aggr, Second, GetHostRegisterTypeSize()/8, 0);
+		dcAggrField(Aggr, Second, GetRegisterTypeSize()/8, 0);
 	}
 
 	dcCloseAggr(Aggr);
@@ -743,7 +746,7 @@ char DyncallSigForType(const type *T)
 				case Basic_type:
 				case Basic_int:
 				{
-					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					int RegisterSize = GetRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: return 'l'; break;
@@ -754,7 +757,7 @@ char DyncallSigForType(const type *T)
 				} break;
 				case Basic_uint:
 				{
-					int RegisterSize = GetHostRegisterTypeSize() / 8;
+					int RegisterSize = GetRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: return 'L'; break;
@@ -938,7 +941,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 					case Basic_type:
 					case Basic_int:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: dcArgLongLong(dc, Arg->i64); break;
@@ -949,7 +952,7 @@ value PerformForeignFunctionCall(interpreter *VM, call_info *Info, value *Operan
 					} break;
 					case Basic_uint:
 					{
-						int RegisterSize = GetHostRegisterTypeSize() / 8;
+						int RegisterSize = GetRegisterTypeSize() / 8;
 						switch(RegisterSize)
 						{
 							case 8: dcArgLongLong(dc, Arg->u64); break;
@@ -1479,11 +1482,17 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 				case Basic_string:
 				{
 					*NoResult = true;
-					// @Note: Done before execution
-					//Result.ptr = VM->Stack.Peek().Allocate(Size);
-					uint Size = sizeof(size_t) * 2;
-					value *Result = VM->Registers.GetValue(ResultReg);
-					memcpy(Result->ptr, Value->ptr, Size);
+					uint Size = (GetRegisterTypeSize()/8) * 2;
+					if(ResultReg==-1)
+					{
+						R.ptr = VM->Stack.Peek().Allocate(Size);
+						memcpy(R.ptr, Value->ptr, Size);
+					}
+					else
+					{
+						value *Result = VM->Registers.GetValue(ResultReg);
+						memcpy(Result->ptr, Value->ptr, Size);
+					}
 				} break;
 
 				default: 
@@ -1501,18 +1510,32 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 		case TypeKind_Array:
 		{
 			*NoResult = true;
-			// @Note: Done before execution
 			uint Size = GetTypeSize(T);
-			value *Result = VM->Registers.GetValue(ResultReg);
-			memcpy(Result->ptr, Value->ptr, Size);
+			if(ResultReg==-1)
+			{
+				R.ptr = VM->Stack.Peek().Allocate(Size);
+				memcpy(R.ptr, Value->ptr, Size);
+			}
+			else
+			{
+				value *Result = VM->Registers.GetValue(ResultReg);
+				memcpy(Result->ptr, Value->ptr, Size);
+			}
 		} break;
 		case TypeKind_Slice:
 		{
 			*NoResult = true;
-			// @Note: Done before execution
-			uint Size = sizeof(size_t) * 2;
-			value *Result = VM->Registers.GetValue(ResultReg);
-			memcpy(Result->ptr, Value->ptr, Size);
+			uint Size = (GetRegisterTypeSize()/8) * 2;
+			if(ResultReg==-1)
+			{
+				R.ptr = VM->Stack.Peek().Allocate(Size);
+				memcpy(R.ptr, Value->ptr, Size);
+			}
+			else
+			{
+				value *Result = VM->Registers.GetValue(ResultReg);
+				memcpy(Result->ptr, Value->ptr, Size);
+			}
 		} break;
 		case TypeKind_Vector:
 		{
@@ -1756,7 +1779,7 @@ void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutT
 		{
 			if(HasBasicFlag(Type, BasicFlag_String))
 			{
-				int Offset = Right * GetHostRegisterTypeSize() / 8;
+				int Offset = Right * GetRegisterTypeSize() / 8;
 				Result = ((u8 *)Operand->ptr) + Offset;
 
 				if(Right == 1)
@@ -1769,7 +1792,7 @@ void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutT
 		} break;
 		case TypeKind_Slice:
 		{
-			int Offset = Right * GetHostRegisterTypeSize() / 8;
+			int Offset = Right * GetRegisterTypeSize() / 8;
 			Result = ((u8 *)Operand->ptr) + Offset;
 
 			if(Right == 1)
@@ -1947,7 +1970,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 						if(T->Basic.Kind != Basic_string)
 							break;
 
-						uint Size = sizeof(size_t) * 2;
+						uint Size = (GetRegisterTypeSize()/8) * 2;
 						value Value;
 						Value.Type = Basic_string;
 						Value.ptr = ALLOC(Size);
@@ -1964,7 +1987,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 					} break;
 					case TypeKind_Slice:
 					{
-						uint Size = sizeof(size_t) * 2;
+						uint Size = (GetRegisterTypeSize()/8) * 2;
 						value Value;
 						Value.Type = it->Type;
 						Value.ptr = ALLOC(Size);
@@ -1987,7 +2010,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 				if(IsString(Type))
 				{
 					const_value *Val = (const_value *)it->BigRegister;
-					void *Memory = ALLOC(sizeof(size_t)*2);
+					void *Memory = ALLOC((GetRegisterTypeSize()/8)*2);
 
 					*(size_t *)Memory = Val->String.Data->Size;
 
@@ -2022,8 +2045,8 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 
 					value *V = VM->Registers.GetValue(Info->CallInfo->Args[0]);
 					u32 Out;
-					auto Data = (interp_string **)IndexVM(VM, V, 1, Type->Function.Returns[0], &Out);
-					*Data = (interp_string *)ALLOC(sizeof(interp_string) * CommandLineArgs.Count);
+					auto Data = (void **)IndexVM(VM, V, 1, Type->Function.Returns[0], &Out);
+					*Data = (void *)ALLOC((GetRegisterTypeSize()/8) * CommandLineArgs.Count);
 				}
 			} break;
 			default: break;
@@ -2063,12 +2086,12 @@ void PrintLocation(slice<instruction> Instructions, int InstrIdx, int BackOffset
 	printf("%.*s", (int)List.Size, List.Data);
 }
 
-void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, int InstrIdx)
+void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, slice<basic_block> Blocks, int InstrIdx)
 {
 	b32 ShowLine = true;
 	DebugAction Action;
 	do {
-		Action = DebugPrompt(VM, Instructions[InstrIdx], ShowLine);
+		Action = DebugPrompt(VM, Instructions[InstrIdx], ShowLine, Blocks);
 		ShowLine = false;
 		if(Action == DebugAction_list_instructions && Instructions.Count > 0)
 		{
@@ -2151,7 +2174,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 		instruction I = VM->Executing->Code[InstrIdx];
 		if(VM->PerformingDebugAction == DebugAction_break)
 		{
-			DoDebugPrompt(VM, VM->Executing->Code, InstrIdx);
+			DoDebugPrompt(VM, VM->Executing->Code, OptionalBlocks, InstrIdx);
 		}
 		if(VM->PerformingDebugAction == DebugAction_step_instruction)
 		{
@@ -3091,13 +3114,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				if(Info->type == IR_DBG_ERROR_INFO)
 				{
 					VM->ErrorInfo.Peek() = Info->err_i.ErrorInfo;
-					if(VM->PerformingDebugAction == DebugAction_next_stmt)
-						VM->PerformingDebugAction = DebugAction_break;
 				}
 				else if(VM->PerformingDebugAction == DebugAction_break)
 				{
 					VM->PerformingDebugAction = DebugAction_step_instruction;
 				}
+				if(Info->type == IR_DBG_STEP_LOCATION && VM->PerformingDebugAction == DebugAction_next_stmt)
+					VM->PerformingDebugAction = DebugAction_break;
 			} break;
 			case OP_RESULT:
 			{
@@ -3300,7 +3323,7 @@ interpret_result RunBlocks(interpreter *VM, function Fn, slice<basic_block> Bloc
 
 interpret_result InterpretFunction(interpreter *VM, function Function, slice<value> Args)
 {
-	VM->FunctionStack.Push(*Function.Name);
+	VM->FunctionStack.Push(&Function);
 
 	string SaveCurrentFn = VM->CurrentFnName;
 

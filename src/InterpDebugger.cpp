@@ -26,6 +26,99 @@ print_stack -- prints the function stack
 #include <iostream>
 #include <string>
 
+value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 ResultReg);
+
+value FindVariableRegister(interpreter *VM, string Name, slice<basic_block> Blocks, bool *Failed)
+{
+	*Failed = false;
+	if(Blocks.Count == 0)
+	{
+		*Failed = true;
+		return {};
+	}
+	u32 ClosestLine = -1;
+	u32 Result = -1;
+	for(auto& b : Blocks)
+	{
+		for(auto i : b.Code)
+		{
+			if(i.Op == OP_DEBUGINFO)
+			{
+				ir_debug_info *info = (ir_debug_info *)i.Ptr;
+				if(info->type == IR_DBG_VAR && info->var.Name == Name)
+				{
+					if(VM->ErrorInfo.IsEmpty()) return *VM->Registers.GetValue(info->var.Register);
+					auto end = VM->ErrorInfo.Peek()->Range.EndLine;
+					if(end < info->var.LineNo)
+						continue;
+
+					if(end - info->var.LineNo < ClosestLine)
+					{
+						ClosestLine = info->var.LineNo;
+						Result = info->var.Register;
+					}
+				}
+			}
+		}
+	}
+	if(Result == -1)
+	{
+		*Failed = true;
+		return {};
+	}
+	value *v = VM->Registers.GetValue(Result);
+	const type *T = GetType(v->Type);
+	if(T->Kind == TypeKind_Pointer && T->Pointer.Pointed != INVALID_TYPE && v->ptr != nullptr && IsLoadableType(T))
+	{
+		b32 _;
+		value V = Load(VM, v, T->Pointer.Pointed, &_, -1);
+		return V;
+	}
+	return *v;
+}
+
+void PrintCodeAround(interpreter *VM)
+{
+	if(VM->ErrorInfo.IsEmpty() || VM->ErrorInfo.Peek() == NULL)
+		return;
+
+	auto b = MakeBuilder();
+	auto err_i = VM->ErrorInfo.Peek();
+	int start = err_i->Range.StartLine-5;
+	if(start < 1) start = 1;
+	int atline = 1;
+	int at = 0;
+	while(atline < start)
+	{
+		b += err_i->Data->Data[at];
+		if(err_i->Data->Data[at] == '\n')
+		{
+			atline++;
+			if(atline == err_i->Range.EndLine)
+				b += ">>>";
+		}
+		if(atline < start)
+			at++;
+	}
+	int end = err_i->Range.EndLine+5;
+	while(atline < end && at < err_i->Data->Size)
+	{
+		b += err_i->Data->Data[at];
+		if(err_i->Data->Data[at] == '\n')
+		{
+			atline++;
+			if(atline == err_i->Range.EndLine)
+				b += ">>>";
+		}
+		if(atline < end)
+			at++;
+	}
+
+	scratch_arena sarena{};
+	auto s = MakeString(b, sarena.Allocate(b.Data.Count));
+	printf("%.*s\n", (int)s.Size, s.Data);
+}
+
 int getline(char **OutLine, size_t *OutSize, FILE *s)
 {
 	Assert(s == stdin);
@@ -48,12 +141,10 @@ int getline(char **OutLine, size_t *OutSize, FILE *s)
 }
 #endif
 
-void PrintRegisterValue(interpreter *VM, long long Register)
+void PrintRegisterValue(value *V)
 {
-	value *V = VM->Registers.GetValue(Register);
 	const type *T = GetType(V->Type);
 	auto b = MakeBuilder();
-	b.printf("%%%lld = %s ", Register, GetTypeName(T));
 	switch(T->Kind)
 	{
 		case TypeKind_Basic:
@@ -132,12 +223,13 @@ void PrintRegisterValue(interpreter *VM, long long Register)
 			b.printf("<not printable>");
 		} break;
 	}
+	b.printf(" |%s|", GetTypeName(T));
 	b += "\n";
 	string ToPrint = MakeString(b);
 	printf("%.*s", (int)ToPrint.Size, ToPrint.Data);
 }
 
-DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
+DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine, slice<basic_block> Blocks)
 {
 	auto b = MakeBuilder();
 	if(ShowLine)
@@ -209,18 +301,7 @@ DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
 	}
 	else if(Action == "l" || Action == "list")
 	{
-		if(!VM->ErrorInfo.IsEmpty())
-		{
-			auto err_i = VM->ErrorInfo.Peek();
-			string One;
-			string Two;
-			string Three;
-			GetErrorSegments(*err_i, &One, &Two, &Three);
-
-			PlatformOutputString(One, LOG_CLEAN);
-			PlatformOutputString(Two, LOG_ERROR);
-			PlatformOutputString(Three, LOG_CLEAN);
-		}
+		PrintCodeAround(VM);
 		r = DebugAction_prompt_again;
 	}
 	else if(Action == "p" || Action == "print")
@@ -234,28 +315,37 @@ DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
 		else
 		{
 			string ToPrint = { .Data = word, .Size = strlen(word) };
-			if(ToPrint.Data[0] == 'r')
+			if(ToPrint.Data[0] == '#')
 			{
+				u32 Register = -1;
 				if(ToPrint.Size <= 1)
 				{
-					puts("Expected number after r");
+					puts("Expected number after #");
 				}
 				else
 				{
-					auto Number = atoll(&ToPrint.Data[1]);
-					if(Number < 0 || Number > VM->Registers.LastRegister)
+					Register = atoll(&ToPrint.Data[1]);
+					if(Register < 0 || Register > VM->Registers.LastRegister)
 					{
-						printf("Register number %lld is out of range, 0 < x < %d\n", Number, VM->Registers.LastRegister+1);
-					}
-					else
-					{
-						PrintRegisterValue(VM, Number);
+						printf("Register number %u is out of range, 0 < x < %d\n", Register, VM->Registers.LastRegister+1);
+						Register = -1;
 					}
 				}
+				if(Register != -1)
+					PrintRegisterValue(VM->Registers.GetValue(Register));
 			}
 			else
 			{
-				puts("print argument doesn't start with r, currently non register arguments are not supported");
+				bool Failed = false;
+				value V = FindVariableRegister(VM, ToPrint, Blocks, &Failed);
+				if(Failed)
+				{
+					printf("Couldn't find variable %.*s\n", (int)ToPrint.Size, ToPrint.Data);
+				}
+				else
+				{
+					PrintRegisterValue(&V);
+				}
 			}
 		}
 	}
@@ -264,7 +354,7 @@ DebugAction DebugPrompt(interpreter *VM, instruction I, b32 ShowLine)
 		r = DebugAction_prompt_again;
 		for(int i = 0; i < VM->FunctionStack.Data.Count; ++i)
 		{
-			string FnName = VM->FunctionStack.PeekNth(i);
+			string FnName = *VM->FunctionStack.PeekNth(i)->Name;
 			printf("%.*s\n", (int)FnName.Size, FnName.Data);
 		}
 	}

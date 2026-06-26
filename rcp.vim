@@ -54,6 +54,7 @@ syn match rcpSCompilerDir /#load_dl/
 syn match rcpSCompilerDir /#intrinsic/
 syn match rcpSCompilerDir /#file_location/
 syn match rcpSCompilerDir /#tag/
+syn match rcpSCompilerDir /#pack/
 syn match rcpSCompilerDir /#wasm_import/
 syn match rcpSCompilerDir /#cc/
 

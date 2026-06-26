@@ -14,18 +14,19 @@ enum command_flags
 
 enum compile_flags
 {
-    CF_Debug       	= 0b000000000001,
-    CF_SanAdress   	= 0b000000000010,
-    CF_SanMemory   	= 0b000000000100,
-    CF_SanThread   	= 0b000000001000,
-    CF_SanUndefined	= 0b000000010000,
-    CF_NoLibC		= 0b000000100000,
-    CF_SharedLib	= 0b000001000000,
-	CF_CrossAndroid = 0b000010000000,
-	CF_NoLink	    = 0b000100000000,
-	CF_Standalone	= 0b001000000000,
-	CF_DebugInfo	= 0b010000000000,
-	CF_DisableAssert= 0b100000000000,
+    //CF_Debug       	= 0b0000000000001,
+    CF_SanAdress   	= 0b0000000000010,
+    CF_SanMemory   	= 0b0000000000100,
+    CF_SanThread   	= 0b0000000001000,
+    CF_SanUndefined	= 0b0000000010000,
+    CF_NoLibC		= 0b0000000100000,
+    CF_SharedLib	= 0b0000001000000,
+	CF_CrossAndroid = 0b0000010000000,
+	CF_NoLink	    = 0b0000100000000,
+	CF_Standalone	= 0b0001000000000,
+	CF_DebugInfo	= 0b0010000000000,
+	CF_DisableAssert= 0b0100000000000,
+	CF_DisableBoundsCheck= 0b1000000000000,
 };
 
 enum arch

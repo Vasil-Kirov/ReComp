@@ -38,6 +38,7 @@ enum node_type
 	AST_FOR,
 	AST_ID,
 	AST_DECL,
+	AST_LAMBDA,
 	
 	AST_PTRTYPE,
 	AST_ARRAYTYPE,
@@ -98,6 +99,14 @@ struct node
 			node *False;
 			u32 TypeIdx; // Set by semantic analyzer
 		} IfX;
+		struct {
+			node *Args;
+			node *SingleExpr;   // @Note: Either SingleExpr, or Body is empty
+			slice<node *> Body; // Vasko - 06/26/2026
+			u32 FnT; // Set by semantic analyzer
+			slice<node *> ArgsVar; // Set by semantic analyzer
+			node *Fn; // Set by semantic analyzer
+		} Lambda;
 		struct {
 			slice<node *> Body;
 			u32 TypeIdx;
@@ -184,7 +193,7 @@ struct node
 			const string *Name;
 			slice<node *> Members;
 			slice<string> TypeParams;
-			b32 IsUnion;
+			u32 Flags;
 			b32 IsError;
 		} StructDecl;
 		struct {
@@ -339,6 +348,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon=true);
 node *ParseUnary(parser *Parser);
 node *ParseExpression(parser *Parser, int CurrentPrecedence=-999);
 node *ParseFunctionType(parser *Parser);
+node *MakeScope(const error_info *ErrorInfo, b32 IsUp);
 node *MakeSelector(const error_info *ErrorInfo, node *Operand, const string *Member);
 node *MakeCast(const error_info *ErrorInfo, node *Expression, node *TypeNode, u32 FromType, u32 ToType);
 node *MakeVar(const error_info *ErrorInfo, const string *Name, node *Type, node *DefaultExpr);
@@ -354,7 +364,9 @@ node *MakePointerType(const error_info *ErrorInfo, node *Pointed);
 node *MakePointerDiff(const error_info *ErrorInfo, node *Left, node *Right, u32 Type);
 node *ParseTopLevel(parser *Parser);
 node *ParseType(parser *Parser, b32 ShouldError = true);
+node *TypeNodeFromType(const error_info *erri, const type *T);
 node *CopyASTNode(node *N);
+node *MakeFunction(const error_info *ErrorInfo, const string *CallConv, const string *LinkName, const string *Tag, const string *WasmModule, const string *WasmName, slice<node *> Args, slice<node *> ReturnTypes, u32 Flags);
 string *StructToModuleNamePtr(string &StructName, string &ModuleName);
 string StructToModuleName(string &StructName, string &ModuleName);
 bool IsOpAssignment(token_type Op);

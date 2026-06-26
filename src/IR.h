@@ -354,7 +354,7 @@ inline instruction Instruction(op Op, u32 Left, u32 Right, u32 ResultRegister, u
 u32 PushInstruction(block_builder *Builder, instruction I);
 void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module);
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS = false, b32 NeedResult = true);
-function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
+function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported);
 b32 CanGetPointerAfterSize(const type *T, int Size);
 void PushErrorInfo(block_builder *Builder, node *Node);

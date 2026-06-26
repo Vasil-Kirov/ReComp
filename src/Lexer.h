@@ -112,6 +112,7 @@ enum token_type
 	T_WASM_IMPORT = -88,
 	T_TAG = -89,
 	T_CALLC = -90,
+	T_PACK  = -91,
 };
 
 struct token

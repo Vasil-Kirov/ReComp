@@ -15,6 +15,11 @@
 #include "Log.h"
 #include <cmath>
 
+bool ShouldDoBoundsChecking()
+{
+	return (g_CompileFlags & CF_DisableAssert) == 0 && (g_CompileFlags & CF_DisableBoundsCheck) == 0;
+}
+
 void Terminate(block_builder *Builder, basic_block GoTo)
 {
 	Builder->CurrentBlock.HasTerminator = true;
@@ -429,7 +434,7 @@ u32 GetPointerPassSize(block_builder *Builder, u32 StructPtr, u32 TypeIdx, uint 
 			Instruction(OP_INDEX, StructPtr, Idx, TypeIdx, Builder));
 }
 
-void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsLHS, b32 IsForeign)
+void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32 ArgTypeIdx, node *Expr, b32 IsForeign)
 {
 	const type *ArgType = GetType(ArgTypeIdx);
 	if(ArgType->Kind == TypeKind_Array || IsString(ArgType))
@@ -442,13 +447,13 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	}
 	else if(ArgType->Kind == TypeKind_Function)
 	{
-		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		u32 Res = BuildIRFromExpression(Builder, Expr, false);
 		Args.Push(Res);
 		return;
 	}
 	else if(ArgType->Kind == TypeKind_Slice)
 	{
-		u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+		u32 Res = BuildIRFromExpression(Builder, Expr, true);
 		if(IsForeign)
 			Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
 		Args.Push(Res);
@@ -456,6 +461,22 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	}
 	Assert(ArgType->Kind == TypeKind_Struct);
 	int Size = GetTypeSize(ArgType);
+	if(PTarget == platform_target::Wasm)
+	{
+		if(ArgType->Struct.Members.Count > 1 || Size > 8 || !IsLoadableType(ArgType->Struct.Members[0].Type))
+		{
+			u32 Res = BuildIRFromExpression(Builder, Expr, true);
+			if(IsForeign)
+				Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
+			Args.Push(Res);
+			return;
+		}
+		u32 Res = BuildIRFromExpression(Builder, Expr, true);
+		u32 Val = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, Res, ArgType->Struct.Members[0].Type, Builder));
+		Args.Push(Val);
+		return;
+	}
 
 	if(Size > MAX_PARAMETER_SIZE)
 	{
@@ -474,7 +495,7 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		Type->Vector.Kind = Vector_Float;
 		Type->Vector.ElementCount = 2;
 		u32 FloatVector = AddType(Type);
-		u32 StructPtr = BuildIRFromExpression(Builder, Expr, IsLHS);
+		u32 StructPtr = BuildIRFromExpression(Builder, Expr, false);
 
 		int i = 0;
 		for(; i+1 < ArgType->Struct.Members.Count; ++i)
@@ -587,7 +608,7 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 		default:
 		{
 PUSH_PTR:
-			u32 Res = BuildIRFromExpression(Builder, Expr, IsLHS);
+			u32 Res = BuildIRFromExpression(Builder, Expr, false);
 			if(IsForeign)
 				Res = AllocateAndCopy(Builder, ArgTypeIdx, Res);
 			Args.Push(Res);
@@ -1016,7 +1037,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					u32 ElemP = GetPointerTo(T->Slice.Type);
 					auto [Data, Count] = SliceGetFields(Builder, Operand, Node->Slice.OperandType, true);
-					if((g_CompileFlags & CF_DisableAssert) == 0)
+					if(ShouldDoBoundsChecking())
 					{
 						BuildSliceAssert(Builder, Node, From, To, Count);
 					}
@@ -1034,7 +1055,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					if(To == -1)
 						To = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
 					u32 Data = Operand;
-					if((g_CompileFlags & CF_DisableAssert) == 0)
+					if(ShouldDoBoundsChecking())
 					{
 						u32 Count = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
 						BuildSliceAssert(Builder, Node, From, To, Count);
@@ -1062,7 +1083,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Assert(IsString(T));
 					u32 ElemP = GetPointerTo(Basic_u8);
 					auto [Data, Count] = StringGetFields(Builder, Operand, true);
-					if((g_CompileFlags & CF_DisableAssert) == 0)
+					if(ShouldDoBoundsChecking())
 					{
 						BuildSliceAssert(Builder, Node, From, To, Count);
 					}
@@ -1478,7 +1499,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 						u32 ArgType = Node->Call.ArgTypes[Idx];
 						if(!IsLoadableType(ArgType))
 						{
-							FixCallWithComplexParameter(Builder, Args, ArgType, Node->Call.Args[Idx], IsLHS, Type->Function.Flags & SymbolFlag_Foreign);
+							FixCallWithComplexParameter(Builder, Args, ArgType, Node->Call.Args[Idx], Type->Function.Flags & SymbolFlag_Foreign);
 						}
 						else
 						{
@@ -1522,7 +1543,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					const type *ArgType = GetType(Type->Function.Args[Idx]);
 					if(!IsLoadableType(ArgType))
 					{
-						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], IsLHS, Type->Function.Flags & SymbolFlag_Foreign);
+						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], Type->Function.Flags & SymbolFlag_Foreign);
 					}
 					else
 					{
@@ -1788,7 +1809,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(Type->Kind == TypeKind_Slice)
 			{
 				auto [LoadedPtr, LoadedCount] = SliceGetFields(Builder, Operand, Node->Index.OperandType, true);
-				if((g_CompileFlags & CF_DisableAssert) == 0)
+				if(ShouldDoBoundsChecking())
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)
@@ -1806,7 +1827,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			else if(HasBasicFlag(Type, BasicFlag_String))
 			{
 				auto [LoadedPtr, LoadedCount] = StringGetFields(Builder, Operand, true);
-				if((g_CompileFlags & CF_DisableAssert) == 0)
+				if(ShouldDoBoundsChecking())
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)
@@ -1823,7 +1844,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			else
 			{
-				if((g_CompileFlags & CF_DisableAssert) == 0 && Type->Kind == TypeKind_Array)
+				if(ShouldDoBoundsChecking() && Type->Kind == TypeKind_Array)
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)
@@ -2071,9 +2092,16 @@ BUILD_SLICE_SELECTOR:
 				}
 			}
 		} break;
+		case AST_LAMBDA:
+		{
+			string Name = MakeLambdaName(Node->ErrorInfo);
+			function fn = BuildFunctionIR(Builder->Function->IR, Node->Lambda.Body, DupeType(Name, string), Node->Lambda.FnT, Node->Lambda.ArgsVar, Node->Lambda.Fn, Builder->Imported);
+			Result = PushInstruction(Builder,
+					Instruction(OP_FN, DupeType(fn, function), fn.Type, Builder, 0));
+		} break;
 		case AST_FN:
 		{
-			function fn = BuildFunctionIR(Builder->Function->IR, Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
+			function fn = BuildFunctionIR(Builder->Function->IR, SliceFromArray(Node->Fn.Body), Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Builder->Imported);
 
 			Result = PushInstruction(Builder,
 					Instruction(OP_FN, DupeType(fn, function), fn.Type, Builder, 0));
@@ -3548,7 +3576,7 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 	return AddType(NewT);
 }
 
-function BuildFunctionIR(ir *IR, dynamic<node *> &Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
+function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 TypeIdx, slice<node *> &Args, node *Node,
 		slice<import> Imported)
 {
 	module *Module = Node->Fn.FnModule;
@@ -3962,7 +3990,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 
 			if((Node->Fn.Flags & SymbolFlag_Generic) == 0)
 			{
-				function Fn = BuildFunctionIR(IR, Node->Fn.Body, Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported);
+				function Fn = BuildFunctionIR(IR, SliceFromArray(Node->Fn.Body), Node->Fn.Name, Node->Fn.TypeIdx, Node->Fn.Args, Node, Imported);
 				if(Fn.LastRegister > IR->MaxRegisters)
 					IR->MaxRegisters = Fn.LastRegister;
 
@@ -4162,7 +4190,17 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 				} break;
 				case IN_RAISE_ERROR:
 				{
-					*Builder += "RAISE_ERROR()";
+					call_info *ci = Info->CallInfo;
+					*Builder += "RAISE_ERROR(";
+					bool i = false;
+					for(auto Arg : ci->Args)
+					{
+						if(i)
+							*Builder += ", ";
+						Builder->printf("%%%d", Arg);
+						i = true;
+					}
+					*Builder += ")";
 				} break;
 				case IN_DEBUG_BREAK:
 				{

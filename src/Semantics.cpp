@@ -1063,6 +1063,21 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 	return AddType(NewType);
 }
 
+void FunctionAddArugmentsToScope(checker *Checker, const type *FnT, slice<node *> Args)
+{
+	for(int I = 0; I < FnT->Function.ArgCount; ++I)
+	{
+		node *Arg = Args[I];
+		u32 flags = 0;
+		const type *ArgT = GetType(FnT->Function.Args[I]);
+		if(IsFnOrPtr(ArgT))
+			flags |= SymbolFlag_Function;
+		if(!IsLoadableType(ArgT))
+			flags |= SymbolFlag_Const;
+		AddVariable(Checker, Arg->ErrorInfo, FnT->Function.Args[I], Arg->Var.Name, Arg, flags);
+	}
+}
+
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode)
 {
 	if(FnNode->Fn.AlreadyAnalyzed)
@@ -1077,18 +1092,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	const type *FunctionType = GetType(FunctionTypeIdx);
 	Checker->CurrentFnReturnTypeIdx = FunctionType->Function.Returns;
 
-	for(int I = 0; I < FunctionType->Function.ArgCount; ++I)
-	{
-		node *Arg = FnNode->Fn.Args[I];
-		u32 flags = 0;
-		const type *ArgT = GetType(FunctionType->Function.Args[I]);
-		if(IsFnOrPtr(ArgT))
-			flags |= SymbolFlag_Function;
-		if(!IsLoadableType(ArgT))
-			flags |= SymbolFlag_Const;
-		AddVariable(Checker, Arg->ErrorInfo, FunctionType->Function.Args[I], Arg->Var.Name, Arg, flags);
-		//Arg->Decl.Flags = flags;
-	}
+	FunctionAddArugmentsToScope(Checker, FunctionType, FnNode->Fn.Args);
 	if(FunctionType->Function.Flags & SymbolFlag_VarFunc && !IsForeign(FunctionType))
 	{
 		int I = FunctionType->Function.ArgCount;
@@ -1219,6 +1223,54 @@ b32 IsConstant(checker *Checker, node *Expr)
 	}
 
 	return false;
+}
+
+void AnalyzeReturn(checker *Checker, u32 RetType, node **ExprIn, const error_info *erri)
+{
+	node *Expr = *ExprIn;
+	Checker->AutoEnum.Push(RetType);
+	u32 Result = AnalyzeExpression(Checker, Expr);
+	Checker->AutoEnum.Pop();
+
+	const type *Type = GetType(Result);
+	const type *Return = GetType(RetType);
+	const type *Promotion = NULL;
+
+	if(Checker->CurrentFnReturnTypeIdx.Count > 1)
+	{
+		if(Type->Kind != TypeKind_Struct || (Type->Struct.Flags & StructFlag_FnReturn) == 0)
+		{
+			RaiseError(false, *erri, "Function expects %d values to be returned but only 1 was provided", Checker->CurrentFnReturnTypeIdx.Count);
+		}
+		else if(Type->Struct.Members.Count != Checker->CurrentFnReturnTypeIdx.Count)
+		{
+			RaiseError(false, *erri, "Function expects %d values to be returned but %d were provided", Checker->CurrentFnReturnTypeIdx.Count, Type->Struct.Members.Count);
+		}
+		return;
+	}
+
+	if(!IsTypeCompatible(Return, Type, &Promotion, true))
+	{
+RetErr:
+		RaiseError(false, *erri, "Type of return expression does not match function return type!\n"
+				"Expected: %s\n"
+				"Got: %s",
+				GetTypeName(Return),
+				GetTypeName(Type));
+		return;
+	}
+	if(Promotion)
+	{
+		promotion_description Promote = PromoteType(Promotion, Return, Type, RetType, Result);
+		if(Promote.To == Result)
+			goto RetErr;
+		if(!IsUntyped(Type))
+			*ExprIn = MakeCast(erri, Expr, NULL, Promote.From, Promote.To);
+		else
+		{
+			FillUntypedStack(Checker, Promote.To);
+		}
+	}
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -1429,6 +1481,141 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			Expr->IfX.TypeIdx = Result;
 			if(IsUntyped(Result))
 				Checker->UntypedStack.Push(&Expr->IfX.TypeIdx);
+		} break;
+		case AST_LAMBDA:
+		{
+			u32 FnTi = Basic_error;
+			const type *FnT = nullptr;
+			for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
+			{
+				const type *T = GetType(Checker->AutoEnum.Data[i]);
+				if(T->Kind == TypeKind_Function)
+				{
+					FnT = T;
+					FnTi = Checker->AutoEnum.Data[i];
+					break;
+				}
+				if(T->Kind == TypeKind_Pointer && T->Pointer.Pointed != INVALID_TYPE)
+				{
+					const type *Pointed = GetType(T->Pointer.Pointed);
+					if(Pointed->Kind == TypeKind_Function)
+					{
+						FnT = Pointed;
+						FnTi = T->Pointer.Pointed;
+						break;
+					}
+				}
+			}
+			if(FnT == nullptr)
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Invalid context for a lambda, couldn't deduce a funciton type.");
+				goto AnalyzeAtomEnd;
+			}
+			Assert(FnTi != Basic_error);
+			dynamic<node*> Args = {};
+			if(Expr->Lambda.Args->Type == AST_ID)
+			{
+				Args.Push(Expr->Lambda.Args);
+			}
+			else if(Expr->Lambda.Args->Type == AST_LIST)
+			{
+				for(node *Node : Expr->Lambda.Args->List.Nodes)
+				{
+					if(Node->Type != AST_ID)
+					{
+						RaiseError(false, *Node->ErrorInfo, "Unexpected expression in lambda list of arguments, expected only names for arguments.");
+						goto AnalyzeAtomEnd;
+					}
+					Args.Push(Node);
+				}
+			}
+			else
+			{
+				RaiseError(false, *Expr->Lambda.Args->ErrorInfo, "Expected arguments for lambda here, either a name or list of names.");
+				goto AnalyzeAtomEnd;
+			}
+			if(Args.Count != FnT->Function.ArgCount)
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Deduced type for lambda requires %d %s, but %d %s provided.",
+						FnT->Function.ArgCount, FnT->Function.ArgCount == 1 ? "argument" : "arguments",
+						Args.Count, Args.Count == 1 ? "was" : "were");
+				goto AnalyzeAtomEnd;
+			}
+			array<node*> ArgVars = {Args.Count};
+			int At = 0;
+			for(node *Arg : Args)
+			{
+				Assert(Arg->Type == AST_ID);
+				if(FnT->Function.Args[At] == Basic_error)
+					goto AnalyzeAtomEnd;
+				node *TypeNode = TypeNodeFromType(Arg->ErrorInfo, GetType(FnT->Function.Args[At]));
+				if(!TypeNode)
+				{
+					RaiseError(false, *Arg->ErrorInfo, "Type %s cannot be passed to lambda.", GetTypeName(FnT->Function.Args[At]));
+					goto AnalyzeAtomEnd;
+				}
+				ArgVars[At] = MakeVar(Arg->ErrorInfo, Arg->ID.Name, TypeNode, nullptr);
+				At++;
+			}
+			array<node*> Rets = {FnT->Function.Returns.Count};
+			for(int i = 0; i < FnT->Function.Returns.Count; ++i)
+			{
+				if(FnT->Function.Returns[i] == Basic_error)
+					goto AnalyzeAtomEnd;
+				Rets[i] = TypeNodeFromType(Expr->ErrorInfo, GetType(FnT->Function.Returns[i]));
+				if(!Rets[i])
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Function return type %s cannot be used by lambda.", GetTypeName(FnT->Function.Returns[i]));
+					goto AnalyzeAtomEnd;
+				}
+			}
+
+			// @Note: duplicates code from Parser's TypeNodeFromType, could just pass FnT but error messages would be worse
+			// Vasko - 06/26/2026
+			node *Fn = MakeFunction(Expr->ErrorInfo, nullptr, nullptr, nullptr, nullptr, nullptr, SliceFromArray(ArgVars), SliceFromArray(Rets), FnT->Function.Flags);
+			string LambdaName = MakeLambdaName(Expr->ErrorInfo);
+			Fn->Fn.Name = DupeType(LambdaName, string);
+			symbol *Sym = AnalyzeFunctionDecl(Checker, Fn);
+			if(!Sym)
+			{
+				Result = Basic_error;
+				goto AnalyzeAtomEnd;
+			}
+			if(IsGeneric(Sym->Type))
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Lambdas cannot be generic");
+				goto AnalyzeAtomEnd;
+			}
+			if(FnT->Function.Flags & SymbolFlag_VarFunc)
+			{
+				RaiseError(false, *Expr->ErrorInfo, "Lambdas cannot have var args");
+				goto AnalyzeAtomEnd;
+			}
+			if(Expr->Lambda.SingleExpr)
+			{
+				if(FnT->Function.Returns.Count > 0)
+				{
+					Expr->Lambda.SingleExpr = MakeReturn(Expr->ErrorInfo, Expr->Lambda.SingleExpr);
+				}
+				dynamic<node *> Body = {};
+				Body.Push(MakeScope(Expr->ErrorInfo, true));
+				Body.Push(Expr->Lambda.SingleExpr);
+				Body.Push(MakeScope(Expr->ErrorInfo, false));
+				AnalyzeFunctionBody(Checker, Body, Fn, Sym->Type);
+				Expr->Lambda.Body = SliceFromArray(Body);
+			}
+			else
+			{
+				dynamic<node *> Body = {};
+				for(node *n : Expr->Lambda.Body)
+					Body.Push(n);
+				AnalyzeFunctionBody(Checker, Body, Fn, Sym->Type);
+				Expr->Lambda.Body = SliceFromArray(Body);
+			}
+			Expr->Lambda.FnT = Sym->Type;
+			Expr->Lambda.ArgsVar = SliceFromArray(ArgVars);
+			Expr->Lambda.Fn = Fn;
+			Result = GetPointerTo(Sym->Type);
 		} break;
 		case AST_RUN:
 		{
@@ -2672,7 +2859,7 @@ ANALYZE_SLICE_SELECTOR:
 			}
 			if(IsGeneric(Expr->Fn.TypeIdx))
 			{
-				RaiseError(false, *Expr->ErrorInfo, "Lambdas currently cannot be generic");
+				RaiseError(false, *Expr->ErrorInfo, "Lambdas cannot be generic");
 				return Basic_error;
 			}
 			AnalyzeFunctionBody(Checker, Expr->Fn.Body, Expr, Sym->Type);
@@ -3712,6 +3899,7 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 	type New = {};
 	New.Kind = TypeKind_Struct;
 	New.Struct.Name = *Node->StructDecl.Name;
+	New.Struct.Flags = Node->StructDecl.Flags;
 
 	array<struct_generic_argument> TypeParams(Node->StructDecl.TypeParams.Count);
 	ForArray(Idx, Node->StructDecl.TypeParams)
@@ -3798,13 +3986,12 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 
 	New.Struct.Members = SliceFromArray(Members);
 	New.Struct.SubType = SubTypes;
-	if(Node->StructDecl.IsUnion)
+	if(Node->StructDecl.Flags & StructFlag_Union)
 	{
 		if(Node->StructDecl.Members.Count == 0)
 			RaiseError(false, *Node->ErrorInfo, "Empty unions are not allowed");
 		if(SubTypes != INVALID_TYPE)
 			RaiseError(false, *Node->ErrorInfo, "Unions cannot use subtyping");
-		New.Struct.Flags |= StructFlag_Union;
 	}
 
 	FillOpaqueStruct(OpaqueType, New);
@@ -3998,48 +4185,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 					RaiseError(false, *Node->ErrorInfo, "Trying to return a value in a void function");
 					break;
 				}
-
-				Checker->AutoEnum.Push(FnRetTypeID);
-				u32 Result = AnalyzeExpression(Checker, Node->Return.Expression);
-				Checker->AutoEnum.Pop();
-
-				const type *Type = GetType(Result);
-				const type *Return = GetType(FnRetTypeID);
-				const type *Promotion = NULL;
-
-				if(Checker->CurrentFnReturnTypeIdx.Count > 1)
-				{
-					if(Type->Kind != TypeKind_Struct || (Type->Struct.Flags & StructFlag_FnReturn) == 0)
-					{
-						RaiseError(false, *Node->ErrorInfo, "Function expects %d values to be returned but only 1 was provided", Checker->CurrentFnReturnTypeIdx.Count);
-					}
-					else if(Type->Struct.Members.Count != Checker->CurrentFnReturnTypeIdx.Count)
-					{
-						RaiseError(false, *Node->ErrorInfo, "Function expects %d values to be returned but %d were provided", Checker->CurrentFnReturnTypeIdx.Count, Type->Struct.Members.Count);
-					}
-				}
-
-				if(!IsTypeCompatible(Return, Type, &Promotion, true))
-				{
-RetErr:
-					RaiseError(false, *Node->ErrorInfo, "Type of return expression does not match function return type!\n"
-							"Expected: %s\n"
-							"Got: %s",
-							GetTypeName(Return),
-							GetTypeName(Type));
-				}
-				if(Promotion)
-				{
-					promotion_description Promote = PromoteType(Promotion, Return, Type, FnRetTypeID, Result);
-					if(Promote.To == Result)
-						goto RetErr;
-					if(!IsUntyped(Type))
-						Node->Return.Expression = MakeCast(Node->ErrorInfo, Node->Return.Expression, NULL, Promote.From, Promote.To);
-					else
-					{
-						FillUntypedStack(Checker, Promote.To);
-					}
-				}
+				AnalyzeReturn(Checker, FnRetTypeID, &Node->Return.Expression, Node->ErrorInfo);
 			}
 			else if(Checker->CurrentFnReturnTypeIdx.Count != 0)
 			{

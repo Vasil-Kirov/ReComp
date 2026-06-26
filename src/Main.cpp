@@ -185,6 +185,14 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 			Builder += "LINK.EXE ";
 		}
 
+
+		if(CompileFlags & CF_SanAdress)
+		{
+			auto b = MakeBuilder();
+			b.printf("%ls\\clang_rt.asan_dynamic-x86_64.dll", WinSdk.vs_exe_path);
+			auto s = MakeString(b);
+			PlatformCopyFile(s.Data, "clang_rt.asan_dynamic-x86_64.dll");
+		}
 		free_resources(&WinSdk);
 	}
 
@@ -199,7 +207,7 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 	{
 		Builder += "/nologo /OUT:a.exe ";
 		if(g_CompileFlags & CF_DebugInfo)
-			Builder += "/DEBUG";
+			Builder += "/DEBUG ";
 	}
 
 	if(Info->EntryPoint.Data)
@@ -215,23 +223,46 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 		}
 	}
 
+	bool SwitchLibCMT = false;
+	if(CompileFlags & CF_SanUndefined)
+	{
+		string UBsanLib = STR_LIT("clang_rt.ubsan_standalone-x86_64.lib");
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(UBsanLib);
+		}
+		else
+		{
+			Builder += UBsanLib;
+			Builder += " ";
+		}
+
+		SwitchLibCMT = true;
+	}
 	if(CompileFlags & CF_SanAdress)
 	{
-		string Std = MakeString(GetStdDir());
-		string AsanLib = GetFilePath(Std, "libs/clang_rt.asan-x86_64.lib ");
+		string AsanLib = STR_LIT("clang_rt.asan_dynamic-x86_64.lib");
 		if(LinkCommand.Type == LCT_List)
-			Args.Push(AsanLib);
-		else
-			Builder += AsanLib;
-
-		if((CompileFlags & CF_NoLibC) == 0)
 		{
-			NoSetDefaultLib = true;
-			if(LinkCommand.Type == LCT_List)
-				Args.Push(STR_LIT("/DEFAULTLIB:LIBCMT"));
-			else
-				Builder += "/DEFAULTLIB:LIBCMT ";
+			Args.Push(AsanLib);
+			Args.Push(STR_LIT("/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib"));
 		}
+		else
+		{
+			Builder += AsanLib;
+			Builder += " ";
+			Builder += "/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib ";
+		}
+
+		SwitchLibCMT = true;
+	}
+	if(SwitchLibCMT && (CompileFlags & CF_NoLibC) == 0)
+	{
+		NoSetDefaultLib = true;
+		if(LinkCommand.Type == LCT_List)
+			Args.Push(STR_LIT("/DEFAULTLIB:LIBCMT"));
+		else
+			Builder += "/DEFAULTLIB:LIBCMT ";
 	}
 
 	if(CompileFlags & CF_NoLibC)
@@ -788,9 +819,9 @@ main(int ArgCount, char *Args[])
 			if(HasErroredOut())
 				exit(1);
 
+			RegisterBitSize = SaveRegisterBitSize;
 			VLibStopTimer(&VMBuildTimer2);
 
-			RegisterBitSize = SaveRegisterBitSize;
 			if(!g_StopCompileOutput)
 			{
 				TypeTableInvalidateSizeCaches();

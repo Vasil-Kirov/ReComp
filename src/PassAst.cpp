@@ -140,6 +140,13 @@ InterpNode *NodeToInterp(node *N)
 			//R->if_x.TypeIdx = N->IfX.TypeIdx;
 		} break;
 
+		case AST_LAMBDA:
+		{
+			R->lambda.args = NodeToInterp(N->Lambda.Args);
+			R->lambda.single_expr = NodeToInterp(N->Lambda.SingleExpr);
+			R->lambda.body = NodeToInterpSlice(N->Lambda.Body);
+		} break;
+
 		case AST_IF:
 		{
 			R->if_.expression = NodeToInterp(N->If.Expression);
@@ -248,7 +255,7 @@ InterpNode *NodeToInterp(node *N)
 		{
 			R->struct_decl.name = StringToInterp(N->StructDecl.Name);
 			R->struct_decl.members = NodeToInterpSlice(N->StructDecl.Members);
-			R->struct_decl.is_union = N->StructDecl.IsUnion;
+			R->struct_decl.flags = N->StructDecl.Flags;
 			R->struct_decl.type_params = StringSliceToInterp(N->StructDecl.TypeParams);
 			//R->struct_decl.IsError = N->StructDecl.IsError;
 		} break;
@@ -512,6 +519,13 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 			//R->if_x.TypeIdx = N->IfX.TypeIdx;
 		} break;
 
+		case AST_LAMBDA:
+		{
+			N->Lambda.Args = InterpToNode(R->lambda.args, FileContents);
+			N->Lambda.SingleExpr = InterpToNode(R->lambda.single_expr, FileContents);
+			N->Lambda.Body = InterpSliceToNode(R->lambda.body, FileContents);
+		} break;
+
 		case AST_IF:
 		{
 			N->If.Expression = InterpToNode(R->if_.expression, FileContents);
@@ -620,7 +634,7 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 		{
 			N->StructDecl.Name = StringFromInterpPtr(R->struct_decl.name);
 			N->StructDecl.Members = InterpSliceToNode(R->struct_decl.members, FileContents);
-			N->StructDecl.IsUnion = R->struct_decl.is_union;
+			N->StructDecl.Flags = R->struct_decl.flags;
 
 			array<string> TypeParams(R->struct_decl.type_params.Count);
 			for(int i = 0; i < R->struct_decl.type_params.Count; ++i)

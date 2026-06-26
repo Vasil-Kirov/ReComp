@@ -28,6 +28,15 @@ node *AllocateNode(const error_info *ErrorInfo, node_type Type)
 	return Result;
 }
 
+node *MakeShortLambda(const error_info *ErrorInfo, node *Args, node *SingleExpr, slice<node*> Body)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_LAMBDA);
+	Result->Lambda.Args = Args;
+	Result->Lambda.Body = Body;
+	Result->Lambda.SingleExpr = SingleExpr;
+	return Result;
+}
+
 node *MakeSliceExpr(const error_info *ErrorInfo, node *Operand, node *From, node *To)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_SLICE);
@@ -240,13 +249,13 @@ node *MakeEnum(const error_info *ErrorInfo, const string *Name, slice<node *> It
 	return Result;
 }
 
-node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members, slice<string> GenericTypeParams, b32 IsUnion)
+node *MakeStructDecl(const error_info *ErrorInfo, const string *Name, slice<node *> Members, slice<string> GenericTypeParams, u32 Flags)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_STRUCTDECL);
 	Result->StructDecl.Name = Name;
 	Result->StructDecl.Members = Members;
 	Result->StructDecl.TypeParams = GenericTypeParams;
-	Result->StructDecl.IsUnion = IsUnion;
+	Result->StructDecl.Flags = Flags;
 
 	return Result;
 }
@@ -763,6 +772,9 @@ string *MakeAnonStructName(const error_info *e)
 
 node *ParseStruct(parser *Parser, b32 IsUnion, string *StructName)
 {
+	u32 Flags = 0;
+	if(IsUnion)
+		Flags |= StructFlag_Union;
 	ERROR_INFO;
 	GetToken(Parser);
 	if(!StructName)
@@ -785,6 +797,12 @@ node *ParseStruct(parser *Parser, b32 IsUnion, string *StructName)
 			GetToken(Parser);
 		}
 		EatToken(Parser, '>');
+	}
+
+	if(Parser->Current->Type == T_PACK)
+	{
+		GetToken(Parser);
+		Flags |= StructFlag_Packed;
 	}
 
 	if(EatToken(Parser, T_STARTSCOPE).Type != T_STARTSCOPE)
@@ -825,7 +843,7 @@ node *ParseStruct(parser *Parser, b32 IsUnion, string *StructName)
 	slice<node *> Members = Delimited(Parser, ',', ParseFn);
 	if(EatToken(Parser, T_ENDSCOPE).Type != T_ENDSCOPE)
 		return NULL;
-	return MakeStructDecl(ErrorInfo, Name, Members, SliceFromArray(TypeParams), IsUnion);
+	return MakeStructDecl(ErrorInfo, Name, Members, SliceFromArray(TypeParams), Flags);
 }
 
 node *ParseType(parser *Parser, b32 ShouldError)
@@ -1162,6 +1180,192 @@ node *ParseFunctionType(parser *Parser)
 	return MakeFunction(ErrorInfo, CallConv, LinkName, Tag, WasmModule, WasmName, Args, SliceFromArray(ReturnTypes), Flags);
 }
 
+node *TypeNodeFromType(const error_info *erri, const type *T)
+{
+	switch(T->Kind)
+	{
+		case TypeKind_Function:
+		{
+			array<node *> Args = {(size_t)T->Function.ArgCount};
+			for(int i = 0; i < T->Function.ArgCount; ++i)
+			{
+				Args[i] = TypeNodeFromType(erri, GetType(T->Function.Args[i]));
+				if(Args[i] == nullptr)
+					return nullptr;
+			}
+			array<node *> Rets = {T->Function.Returns.Count};
+			size_t At = 0;
+			for(u32 Ret : T->Function.Returns)
+			{
+				Rets[At] = TypeNodeFromType(erri, GetType(Ret));
+				if(Rets[At] == nullptr)
+					return nullptr;
+				At++;
+			}
+			// @TODO: calling convention
+			// Vasko - 06/26/2026
+			if(T->Function.Conv != CallConv_Default && T->Function.Conv != CallConv_RVC)
+				return nullptr;
+			return MakeFunction(erri, nullptr, nullptr, nullptr, nullptr, nullptr,
+					SliceFromArray(Args), SliceFromArray(Rets), T->Function.Flags);
+		} break;
+		case TypeKind_Generic:
+		return nullptr;
+		case TypeKind_Struct:
+		case TypeKind_Enum:
+		{
+			string Name = STR_LIT("");
+			if(T->Kind == TypeKind_Struct)
+				Name = T->Struct.Name;
+			else
+				Name = T->Enum.Name;
+			return MakeID(erri, DupeType(Name, string));
+		} break;
+		case TypeKind_Vector:
+		{
+			string Name = STR_LIT("");
+			switch(T->Vector.Kind)
+			{
+				case Vector_Float:
+				{
+					if(T->Vector.ElementCount == 2)
+					{
+						Name = STR_LIT("v2");
+					}
+					else if(T->Vector.ElementCount == 4)
+					{
+						Name = STR_LIT("v4");
+					}
+					else unreachable;
+				} break;
+				case Vector_Int:
+				{
+					if(T->Vector.ElementCount == 2)
+					{
+						Name = STR_LIT("iv2");
+					}
+					else if(T->Vector.ElementCount == 4)
+					{
+						Name = STR_LIT("iv4");
+					}
+					else unreachable;
+				} break;
+			}
+			return MakeID(erri, DupeType(Name, string));
+		} break;
+		case TypeKind_Slice:
+		case TypeKind_Array:
+		{
+			node *Elem = nullptr;
+			node *Expr = nullptr;
+			if(T->Kind == TypeKind_Array)
+			{
+				const_value Value = {};
+				Value.Type = const_type::Integer;
+				Value.Int.Signed = false;
+				Value.Int.Unsigned = T->Array.MemberCount;
+				Expr = MakeConstant(erri, Value);
+				Elem = TypeNodeFromType(erri, GetType(T->Array.Type));
+			}
+			else
+			{
+				Elem = TypeNodeFromType(erri, GetType(T->Slice.Type));
+			}
+			if(Elem == nullptr)
+				return nullptr;
+			return MakeArrayType(erri, Elem, Expr);
+		} break;
+		case TypeKind_Pointer:
+		{
+			if(T->Pointer.Pointed == INVALID_TYPE)
+				return MakePointerType(erri, nullptr);
+			node *Pointed = TypeNodeFromType(erri, GetType(T->Pointer.Pointed));
+			if(Pointed == nullptr)
+				return nullptr;
+			return MakePointerType(erri, Pointed);
+		} break;
+		case TypeKind_Invalid:
+		return nullptr;
+
+		case TypeKind_Basic:
+		{
+			string Name = STR_LIT("");
+			switch(T->Basic.Kind)
+			{
+				case Basic_auto:
+				case Basic_UntypedFloat:
+				case Basic_UntypedInteger:
+				case Basic_module:
+				case Basic_error:
+				return nullptr;
+
+				case Basic_type:
+				{
+					Name = STR_LIT("type");
+				} break;
+				case Basic_string:
+				{
+					Name = STR_LIT("string");
+				} break;
+				case Basic_bool:
+				{
+					Name = STR_LIT("bool");
+				} break;
+				case Basic_u8:
+				{
+					Name = STR_LIT("u8");
+				} break;
+				case Basic_u16:
+				{
+					Name = STR_LIT("u16");
+				} break;
+				case Basic_u32:
+				{
+					Name = STR_LIT("u32");
+				} break;
+				case Basic_u64:	
+				{
+					Name = STR_LIT("u64");
+				} break;
+				case Basic_uint:
+				{
+					Name = STR_LIT("uint");
+				} break;
+				case Basic_i8:
+				{
+					Name = STR_LIT("i8");
+				} break;
+				case Basic_i16:
+				{
+					Name = STR_LIT("i16");
+				} break;
+				case Basic_i32:
+				{
+					Name = STR_LIT("i32");
+				} break;
+				case Basic_i64:	
+				{
+					Name = STR_LIT("i64");
+				} break;
+				case Basic_int:
+				{
+					Name = STR_LIT("int");
+				} break;
+				case Basic_f32:
+				{
+					Name = STR_LIT("f32");
+				} break;
+				case Basic_f64:
+				{
+					Name = STR_LIT("f64");
+				} break;
+			}
+			return MakeID(erri, DupeType(Name, string));
+		} break;
+	}
+	return nullptr;
+}
+
 bool ParseBody(parser *Parser, dynamic<node *> &OutBody)
 {
 	ERROR_INFO;
@@ -1418,10 +1622,27 @@ node *ParseAtom(parser *Parser, node *Operand)
 			} break;
 			case T_AS:
 			{
-				GetToken(Parser);
 				ERROR_INFO;
+				GetToken(Parser);
 				node *Type = ParseType(Parser, true);
 				Operand = MakeCast(ErrorInfo, Operand, Type, INVALID_TYPE, INVALID_TYPE);
+			} break;
+			case T_ARR:
+			{
+				ERROR_INFO;
+				GetToken(Parser);
+				if(PeekToken(Parser).Type == T_STARTSCOPE)
+				{
+					dynamic<node *> Body = {};
+					ParseBody(Parser, Body);
+					Operand = MakeShortLambda(ErrorInfo, Operand, nullptr, SliceFromArray(Body));
+				}
+				else
+				{
+					node *Expr = ParseExpression(Parser);
+					Operand = MakeShortLambda(ErrorInfo, Operand, Expr, {});
+				}
+				Loop = false;
 			} break;
 			default:
 			{
@@ -1711,9 +1932,17 @@ node *ParseOperand(parser *Parser)
 		} break;
 		case T_OPENPAREN:
 		{
+			b32 SaveILists = Parser->NoItemLists;
+			b32 SaveSLists = Parser->NoStructLists;
+			Parser->NoStructLists = true;
+			Parser->NoItemLists = false;
+
 			GetToken(Parser);
 			Result = ParseExpression(Parser);
 			EatToken(Parser, T_CLOSEPAREN);
+
+			Parser->NoStructLists = SaveSLists;
+			Parser->NoItemLists = SaveILists;
 		} break;
 		case T_RUN:
 		{
@@ -1878,7 +2107,7 @@ node *ParseExpression(parser *Parser, int CurrentPrecedence)
 	return LHS;
 }
 
-node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, b32 IsStatic=false)
+node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, u32 BeforeFlags)
 {
 	b32 IsConst = false;
 
@@ -1951,10 +2180,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, b32 IsStatic=fal
 		Expression = ParseExpression(Parser);
 	}
 	u32 Flags = IsConst ? SymbolFlag_Const : 0 | IsShadow ? SymbolFlag_Shadow : 0;
-	if(IsStatic)
-	{
-		Flags |= SymbolFlag_LocalStatic;
-	}
+	Flags |= BeforeFlags;
 	return MakeDecl(ErrorInfo, LHS, Expression, MaybeTypeNode, Flags);
 }
 
@@ -2042,7 +2268,7 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 
 			node *LHS = ParseExpression(Parser);
 			if(Parser->Current->Type == T_DECL || Parser->Current->Type == T_CONST)
-				Result = ParseDeclaration(Parser, false, LHS, IsParsingStaticVariable);
+				Result = ParseDeclaration(Parser, false, LHS, IsParsingStaticVariable ? SymbolFlag_LocalStatic : 0);
 			else
 				Result = LHS;
 
@@ -2410,7 +2636,7 @@ node *ParseTopLevel(parser *Parser)
 					break;
 				}
 			}
-			node *Decl = ParseDeclaration(Parser, false, LHS);
+			node *Decl = ParseDeclaration(Parser, false, LHS, 0);
 			Parser->NoItemLists = SaveILists;
 			if(!Decl)
 				break;
@@ -2620,6 +2846,15 @@ node *CopyASTNode(node *N)
 			unreachable; 
 			break;
 
+		case AST_LAMBDA:
+		{
+			R->Lambda.SingleExpr = CopyASTNode(N->Lambda.SingleExpr);
+			R->Lambda.Body = CopyNodeSlice(N->Lambda.Body);
+			R->Lambda.Args = CopyASTNode(N->Lambda.Args);
+			R->Lambda.ArgsVar = CopyNodeSlice(N->Lambda.ArgsVar);
+			R->Lambda.FnT = N->Lambda.FnT;
+		} break;
+
 		case AST_SLICE:
 		{
 			R->Slice.Operand = CopyASTNode(N->Slice.Operand);
@@ -2819,7 +3054,7 @@ node *CopyASTNode(node *N)
 		{
 			R->StructDecl.Name = N->StructDecl.Name;
 			R->StructDecl.Members = CopyNodeSlice(N->StructDecl.Members);
-			R->StructDecl.IsUnion = N->StructDecl.IsUnion;
+			R->StructDecl.Flags = N->StructDecl.Flags;
 			R->StructDecl.TypeParams = N->StructDecl.TypeParams;
 			R->StructDecl.IsError = N->StructDecl.IsError;
 		} break;
@@ -2948,6 +3183,16 @@ void WalkASTNode(node *N, walker_fn Walker, void *Arg)
 		case AST_INVALID: 
 			unreachable; 
 			break;
+
+		case AST_LAMBDA:
+		{
+			WalkASTNode(N->Lambda.Args, Walker, Arg);
+			WalkASTNode(N->Lambda.SingleExpr, Walker, Arg);
+			for(node *Node : N->Lambda.Body)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+		} break;
 
 		case AST_SLICE:
 		{

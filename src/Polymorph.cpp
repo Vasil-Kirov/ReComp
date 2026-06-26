@@ -360,7 +360,7 @@ u32 ResolveGenericStruct(const type *StructT, slice<struct_generic_argument> Gen
 	Assert(StructT->Kind == TypeKind_Struct);
 
 	// @Note: not sure about doing this, could a generic struct ever have a name like Foo<T><B>?
-	// Vasko - 6/24/2026
+	// Vasko - 06/24/2026
 	string_builder B = {};
 	for(int i = 0; i < StructT->Struct.Name.Size && StructT->Struct.Name.Data[i] != '<'; ++i)
 	{

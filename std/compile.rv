@@ -16,18 +16,19 @@ no_compile_output :: fn() #intrinsic;
 get_build_args :: fn() -> []string #intrinsic;
 
 CompileFlag :: enum: u32 {
-    Debug       = 0b000000000001,
-    SanAddress  = 0b000000000010,
-    SanMemory   = 0b000000000100,
-    SanThread   = 0b000000001000,
-    SanUndefined= 0b000000010000,
-	NoLibC	    = 0b000000100000,
-    SharedLib   = 0b000001000000,
-    CrossAndroid= 0b000010000000,
-    NoLink      = 0b000100000000,
-    Standalone  = 0b001000000000,
-    DebugInfo   = 0b010000000000,
-	DisableAssert=0b100000000000,
+    Debug       = 0b0000000000001,
+    SanAddress  = 0b0000000000010,
+    SanMemory   = 0b0000000000100,
+    SanThread   = 0b0000000001000,
+    SanUndefined= 0b0000000010000,
+	NoLibC	    = 0b0000000100000,
+    SharedLib   = 0b0000001000000,
+    CrossAndroid= 0b0000010000000,
+    NoLink      = 0b0000100000000,
+    Standalone  = 0b0001000000000,
+    DebugInfo   = 0b0010000000000,
+	DisableAssert=0b0100000000000,
+	DisableBoundsCheck=0b1000000000000,
 }
 
 Arch :: enum: u32 {
@@ -216,10 +217,10 @@ module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
 				}
 			}
 			if dot == -1
-				return ast.make_struct_decl(name, mems, .{}, flags & .Union != 0, fl, m.alloc);
+				return ast.make_struct_decl(name, mems, .{}, flags as u32, fl, m.alloc);
 			else {
 				str.builder_append(&b, name[dot+1:]);
-				return ast.make_struct_decl(str.from_builder(&b, m.alloc), mems, .{}, flags & .Union != 0, fl, m.alloc);
+				return ast.make_struct_decl(str.from_builder(&b, m.alloc), mems, .{}, flags as u32, fl, m.alloc);
 			}
 		}
 		case _:

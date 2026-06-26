@@ -3454,6 +3454,11 @@ u32 AnalyzeDeclerations(checker *Checker, node *Node, b32 NoAdd = false)
 		Type = UntypedGetType(T);
 		FillUntypedStack(Checker, Type);
 	}
+	if(T->Kind == TypeKind_Function)
+	{
+		Type = GetPointerTo(Type);
+		T = GetType(Type);
+	}
 	Node->Decl.TypeIndex = Type;
 	if(IsFnOrPtr(T))
 		Node->Decl.Flags |= SymbolFlag_Function;

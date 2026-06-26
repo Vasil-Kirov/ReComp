@@ -1568,6 +1568,11 @@ value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 Result
 				}
 			}
 		} break;
+		case TypeKind_Function:
+		{
+			R.Type = GetPointerTo(TypeIdx);
+			R.ptr = Value->ptr;
+		} break;
 		default:
 		{
 			LDEBUG("%s", GetTypeName(T));
@@ -1697,6 +1702,10 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 				unreachable;
 			}
 		}
+	}
+	else if(Type->Kind == TypeKind_Function)
+	{
+		Ptr->ptr = Value->ptr;
 	}
 	else
 	{

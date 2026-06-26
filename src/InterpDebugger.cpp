@@ -94,7 +94,7 @@ void PrintCodeAround(interpreter *VM)
 		if(err_i->Data->Data[at] == '\n')
 		{
 			atline++;
-			if(atline == err_i->Range.EndLine)
+			if(atline == err_i->Range.EndLine+1)
 				b += ">>>";
 		}
 		if(atline < start)
@@ -107,7 +107,7 @@ void PrintCodeAround(interpreter *VM)
 		if(err_i->Data->Data[at] == '\n')
 		{
 			atline++;
-			if(atline == err_i->Range.EndLine)
+			if(atline == err_i->Range.EndLine+1)
 				b += ">>>";
 		}
 		if(atline < end)
@@ -208,6 +208,7 @@ void PrintRegisterValue(value *V)
 			}
 		} break;
 		case TypeKind_Struct:
+		case TypeKind_Function:
 		case TypeKind_Pointer:
 		{
 			b.printf("%p", V->ptr);

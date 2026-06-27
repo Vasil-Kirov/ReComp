@@ -660,6 +660,8 @@ main(int ArgCount, char *Args[])
 				}
 			}
 
+			g_TargetArch = (arch)Info->Arch;
+
 			if((Info->Flags & CF_NoLibC) == 0)
 			{
 				ConfigIDs.Push(STR_LIT("LIBC"));

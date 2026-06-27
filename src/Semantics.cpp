@@ -941,13 +941,33 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		else if(s == "cdecl")
 			Function.Conv = CallConv_CDecl;
 		else if(s == "stdcall")
-			Function.Conv = CallConv_StdCall;
+		{
+			if(g_TargetArch == Arch_x86)
+				Function.Conv = CallConv_StdCall;
+			else
+				Function.Conv = CallConv_CDecl;
+		}
 		else if(s == "fastcall")
-			Function.Conv = CallConv_FastCall;
+		{
+			if(g_TargetArch == Arch_x86)
+				Function.Conv = CallConv_FastCall;
+			else
+				Function.Conv = CallConv_CDecl;
+		}
 		else if(s == "thiscall")
-			Function.Conv = CallConv_ThisCall;
+		{
+			if(g_TargetArch == Arch_x86)
+				Function.Conv = CallConv_ThisCall;
+			else
+				Function.Conv = CallConv_CDecl;
+		}
 		else if(s == "vectorcall")
-			Function.Conv = CallConv_VectorCall;
+		{
+			if(g_TargetArch == Arch_x86 || g_TargetArch  == Arch_x86_64)
+				Function.Conv = CallConv_VectorCall;
+			else
+				Function.Conv = CallConv_CDecl;
+		}
 		else if(s == "sysv")
 			Function.Conv = CallConv_SystemV;
 		else if(s == "msabi")

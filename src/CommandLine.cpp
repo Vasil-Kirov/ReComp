@@ -7,6 +7,7 @@ extern bool g_InterpreterTrace;
 extern bool NoThreads;
 slice<string> GlobalIRModules;
 slice<string> CommandLineArgs;
+arch g_TargetArch = Arch_x86_64;
 
 const char *HELP = R"#(
 USAGE: rcp.exe [options] build.rv

@@ -1,11 +1,20 @@
 module win32;
 
+memset :: fn (dst: *, c: i32, size: int) -> * #foreign #link="memset";
+
 va_list: type: ?*u8;
 
 __va_start :: fn(
 	a: ?*va_list
 ) #cc="cdecl" #foreign #link="__va_start";
 
+MAKEWORD :: fn(a: BYTE, b: BYTE) -> WORD #inline {
+	return cast(WORD, a) | (cast(WORD, b) << 8);
+}
+
+ZeroMemory :: fn(dst: *void, len: int) #inline {
+	memset(dst,0,len);
+}
 
 LPWIN32_FIND_DATAW : type : ?*_WIN32_FIND_DATAW;
 
@@ -89,8 +98,6 @@ HIMC: type: ?*void;
 
 HDC: type: ?*void;
 
-SOCKET: type: ?*void;
-
 PROC: type: ?*void;
 
 FARPROC: type: ?*void;
@@ -158,6 +165,8 @@ LRESULT: type: int;
 LPARAM: type: int;
 
 WPARAM: type: uint;
+
+SOCKET: type: UINT_PTR;
 
 LPTHREAD_START_ROUTINE: type: ?*fn(a: LPVOID) -> DWORD #foreign;
 
@@ -635,7 +644,7 @@ WSADATA :: struct  {
 LPWSADATA: type: ?*WSADATA;
 
 sockaddr :: struct  {
-	sa_family: WORD,
+	sa_family: ADDRESS_FAMILY,
 	sa_data: [14]i8,
 }
 
@@ -687,13 +696,45 @@ in_addr :: struct  {
 		S_addr: DWORD,
 	},
 }
-
+ 
+ADDRESS_FAMILY: type: USHORT;
+IN_ADDR: type: in_addr;
 sockaddr_in :: struct  {
-	sin_family: i16,
-	sin_port: WORD,
-	sin_addr: in_addr,
-	sin_zero: [8]i8,
+	sin_family: ADDRESS_FAMILY,
+	sin_port: USHORT,
+	sin_addr: IN_ADDR,
+	sin_zero: [8]CHAR,
 }
+
+
+sockaddr_in6 :: struct {
+	sin6_family: ADDRESS_FAMILY,
+	sin6_port: USHORT,
+	sin6_flowinfo: ULONG,
+  	sin6_addr: IN6_ADDR,
+  	u: union {
+		sin6_scope_id: ULONG,
+	  	sin6_scope_struct: SCOPE_ID,
+  	},
+}
+
+SCOPE_ID :: struct {
+	u: union {
+		s: struct {
+			zone_level_bitfield: ULONG,
+		},
+		value: ULONG,
+	},
+}
+
+in6_addr :: struct {
+	u: union {
+		Byte: [16]UCHAR,
+		Word: [8]USHORT,
+	},
+}
+
+IN6_ADDR: type: in6_addr;
 
 fd_set :: struct  {
 	fd_count: DWORD,
@@ -766,7 +807,7 @@ DwmSetWindowAttribute :: fn(
 	dwAttribute: DWORD,
 	pvAttribute: LPCVOID,
 	cbAttribute: DWORD
-) -> HRESULT #cc="cdecl" #foreign #link="DwmSetWindowAttribute";
+) -> HRESULT #cc="stdcall" #foreign #link="DwmSetWindowAttribute";
 
 RegOpenKeyExW :: fn(
 	hKey: HKEY,
@@ -774,7 +815,7 @@ RegOpenKeyExW :: fn(
 	ulOptions: DWORD,
 	samDesired: REGSAM,
 	phkResult: PHKEY
-) -> LONG #cc="cdecl" #foreign #link="RegOpenKeyExW";
+) -> LONG #cc="stdcall" #foreign #link="RegOpenKeyExW";
 
 RegQueryValueExW :: fn(
 	hKey: HKEY,
@@ -783,85 +824,106 @@ RegQueryValueExW :: fn(
 	lpType: LPDWORD,
 	lpData: LPBYTE,
 	lpcbData: LPDWORD
-) -> LONG #cc="cdecl" #foreign #link="RegQueryValueExW";
+) -> LONG #cc="stdcall" #foreign #link="RegQueryValueExW";
 
 RegCloseKey :: fn(
 	hKey: HKEY
-) -> LONG #cc="cdecl" #foreign #link="RegCloseKey";
+) -> LONG #cc="stdcall" #foreign #link="RegCloseKey";
 
 ImmGetContext :: fn(
 	unnamedParam1: HWND
-) -> HIMC #cc="cdecl" #foreign #link="ImmGetContext";
+) -> HIMC #cc="stdcall" #foreign #link="ImmGetContext";
 
 ImmReleaseContext :: fn(
 	unnamedParam1: HWND,
 	unnamedParam2: HIMC
-) -> BOOL #cc="cdecl" #foreign #link="ImmReleaseContext";
+) -> BOOL #cc="stdcall" #foreign #link="ImmReleaseContext";
 
 ImmAssociateContext :: fn(
 	unnamedParam1: HWND,
 	unnamedParam2: HIMC
-) -> HIMC #cc="cdecl" #foreign #link="ImmAssociateContext";
+) -> HIMC #cc="stdcall" #foreign #link="ImmAssociateContext";
 
 ImmGetCandidateListCountW :: fn(
 	unnamedParam1: HIMC,
 	lpdwListCount: LPDWORD
-) -> DWORD #cc="cdecl" #foreign #link="ImmGetCandidateListCountW";
+) -> DWORD #cc="stdcall" #foreign #link="ImmGetCandidateListCountW";
 
 ImmGetCandidateListW :: fn(
 	unnamedParam1: HIMC,
 	deIndex: DWORD,
 	lpCandList: LPCANDIDATELIST,
 	dwBufLen: DWORD
-) -> DWORD #cc="cdecl" #foreign #link="ImmGetCandidateListW";
+) -> DWORD #cc="stdcall" #foreign #link="ImmGetCandidateListW";
 
 ImmGetCompositionStringW :: fn(
 	unnamedParam1: HIMC,
 	unnamedParam2: DWORD,
 	lpBuf: LPVOID,
 	dwBufLen: DWORD
-) -> LONG #cc="cdecl" #foreign #link="ImmGetCompositionStringW";
+) -> LONG #cc="stdcall" #foreign #link="ImmGetCompositionStringW";
 
 ImmNotifyIME :: fn(
 	unnamedParam1: HIMC,
 	dwAction: DWORD,
 	dwIndex: DWORD,
 	dwValue: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="ImmNotifyIME";
+) -> BOOL #cc="stdcall" #foreign #link="ImmNotifyIME";
 
 WSAStartup :: fn(
 	wVersionRequired: WORD,
 	lpWSAData: LPWSADATA
-) -> i32 #cc="cdecl" #foreign #link="WSAStartup";
+) -> i32 #cc="stdcall" #foreign #link="WSAStartup";
+
+WSACleanup :: fn() -> i32 #cc="stdcall"  #foreign #link="WSACleanup";
 
 htons :: fn(
 	hostshort: u_short
-) -> u_short #cc="cdecl" #foreign #link="htons";
+) -> u_short #cc="stdcall" #foreign #link="htons";
+
+setsockopt :: fn(
+	s: SOCKET,
+	level: i32,
+	optname: i32,
+	optval: ?*u8,
+	optlen: i32
+) -> i32 #cc="stdcall"  #foreign #link="setsockopt";
 
 socket :: fn(
 	af: i32,
 	type: i32,
 	protocol: i32
-) -> SOCKET #cc="cdecl" #foreign #link="socket";
+) -> SOCKET #cc="stdcall" #foreign #link="socket";
 
 connect :: fn(
 	s: SOCKET,
 	name: ?*sockaddr,
 	namelen: i32
-) -> i32 #cc="cdecl" #foreign #link="connect";
+) -> i32 #cc="stdcall" #foreign #link="connect";
+
+listen :: fn(
+	s: SOCKET,
+	backlog: i32
+) -> i32 #cc="stdcall"  #foreign #link="listen";
+
+accept :: fn(
+	s: SOCKET,
+	addr: ?*sockaddr,
+	addrlen: ?*i32
+) -> SOCKET #cc="stdcall"  #foreign #link="accept";
 
 bind :: fn(
 	s: SOCKET,
 	addr: ?*sockaddr,
 	namelen: i32
-) -> i32 #cc="cdecl" #foreign #link="bind";
+) -> i32 #cc="stdcall" #foreign #link="bind";
 
 recv :: fn(
 	s: SOCKET,
 	buf: ?*u8,
 	len: i32,
 	flags: i32
-) -> i32 #cc="cdecl" #foreign #link="recv";
+) -> i32 #cc="stdcall" #foreign #link="recv";
 
 recvfrom :: fn(
 	s: SOCKET,
@@ -870,14 +932,14 @@ recvfrom :: fn(
 	flags: i32,
 	from: ?*sockaddr,
 	fromlen: ?*i32
-) -> i32 #cc="cdecl" #foreign #link="recvfrom";
+) -> i32 #cc="stdcall" #foreign #link="recvfrom";
 
 send :: fn(
 	s: SOCKET,
 	buf: ?*u8,
 	len: i32,
 	flags: i32
-) -> i32 #cc="cdecl" #foreign #link="send";
+) -> i32 #cc="stdcall" #foreign #link="send";
 
 sendto :: fn(
 	s: SOCKET,
@@ -886,7 +948,7 @@ sendto :: fn(
 	flags: i32,
 	from: ?*sockaddr,
 	fromlen: i32
-) -> i32 #cc="cdecl" #foreign #link="sendto";
+) -> i32 #cc="stdcall" #foreign #link="sendto";
 
 select :: fn(
 	nfds: i32,
@@ -894,42 +956,51 @@ select :: fn(
 	writefds: ?*fd_set,
 	exceptfds: ?*fd_set,
 	timeout: ?*timeval
-) -> i32 #cc="cdecl" #foreign #link="select";
+) -> i32 #cc="stdcall" #foreign #link="select";
 
-WSAGetLastError :: fn() -> i32 #cc="cdecl" #foreign #link="WSAGetLastError";
+closesocket :: fn(
+	s: SOCKET
+) -> i32 #cc="stdcall" #foreign #link="closesocket";
+
+shutdown :: fn(
+	s: SOCKET,
+	how: i32
+) -> i32 #cc="stdcall" #foreign #link="shutdown";
+
+WSAGetLastError :: fn() -> i32 #cc="stdcall" #foreign #link="WSAGetLastError";
 
 gethostbyname :: fn(
 	name: ?*u8
-) -> ?*hostent #cc="cdecl" #foreign #link="gethostbyname";
+) -> ?*hostent #cc="stdcall" #foreign #link="gethostbyname";
 
 getpeername :: fn(
 	s: SOCKET,
 	name: ?*sockaddr,
 	namelen: ?*i32
-) -> i32 #cc="cdecl" #foreign #link="getpeername";
+) -> i32 #cc="stdcall" #foreign #link="getpeername";
 
 getsockname :: fn(
 	s: SOCKET,
 	name: ?*sockaddr,
 	namelen: ?*i32
-) -> i32 #cc="cdecl" #foreign #link="getsockname";
+) -> i32 #cc="stdcall" #foreign #link="getsockname";
 
 wglGetProcAddress :: fn(
 	unnamedParam1: LPCSTR
-) -> PROC #cc="cdecl" #foreign #link="wglGetProcAddress";
+) -> PROC #cc="stdcall" #foreign #link="wglGetProcAddress";
 
 wglCreateContext :: fn(
 	unnamedParam1: HDC
-) -> HGLRC #cc="cdecl" #foreign #link="wglCreateContext";
+) -> HGLRC #cc="stdcall" #foreign #link="wglCreateContext";
 
 wglMakeCurrent :: fn(
 	unnamedParam1: HDC,
 	unnamedParam2: HGLRC
-) -> BOOL #cc="cdecl" #foreign #link="wglMakeCurrent";
+) -> BOOL #cc="stdcall" #foreign #link="wglMakeCurrent";
 
 wglDeleteContext :: fn(
 	unnamedParam1: HGLRC
-) -> BOOL #cc="cdecl" #foreign #link="wglDeleteContext";
+) -> BOOL #cc="stdcall" #foreign #link="wglDeleteContext";
 
 MsgWaitForMultipleObjects :: fn(
 	nCount: DWORD,
@@ -937,42 +1008,42 @@ MsgWaitForMultipleObjects :: fn(
 	fWaitAll: BOOL,
 	dwMilliseconds: DWORD,
 	dwWakeMask: DWORD
-) -> DWORD #cc="cdecl" #foreign #link="MsgWaitForMultipleObjects";
+) -> DWORD #cc="stdcall" #foreign #link="MsgWaitForMultipleObjects";
 
 SetCursor :: fn(
 	hCursor: HCURSOR
-) -> HCURSOR #cc="cdecl" #foreign #link="SetCursor";
+) -> HCURSOR #cc="stdcall" #foreign #link="SetCursor";
 
 GetCursorPos :: fn(
 	lpPoint: LPPOINT
-) -> BOOL #cc="cdecl" #foreign #link="GetCursorPos";
+) -> BOOL #cc="stdcall" #foreign #link="GetCursorPos";
 
 ScreenToClient :: fn(
 	hWnd: HWND,
 	lpPoint: LPPOINT
-) -> BOOL #cc="cdecl" #foreign #link="ScreenToClient";
+) -> BOOL #cc="stdcall" #foreign #link="ScreenToClient";
 
 MessageBoxA :: fn(
 	hWnd: HWND,
 	lpText: LPCSTR,
 	lpCaption: LPCSTR,
 	uType: UINT
-) -> i32 #cc="cdecl" #foreign #link="MessageBoxA";
+) -> i32 #cc="stdcall" #foreign #link="MessageBoxA";
 
 GetMessageW :: fn(
 	lpMsg: LPMSG,
 	hWnd: HWND,
 	wMsgFilterMin: UINT,
 	wMsgFilterMax: UINT
-) -> BOOL #cc="cdecl" #foreign #link="GetMessageW";
+) -> BOOL #cc="stdcall" #foreign #link="GetMessageW";
 
 TranslateMessage :: fn(
 	lpMsg: ?*MSG
-) -> BOOL #cc="cdecl" #foreign #link="TranslateMessage";
+) -> BOOL #cc="stdcall" #foreign #link="TranslateMessage";
 
 DispatchMessageW :: fn(
 	lpMsg: ?*MSG
-) -> LRESULT #cc="cdecl" #foreign #link="DispatchMessageW";
+) -> LRESULT #cc="stdcall" #foreign #link="DispatchMessageW";
 
 CreateWindowExW :: fn(
 	dwExStyle: DWORD,
@@ -987,29 +1058,29 @@ CreateWindowExW :: fn(
 	hMenu: HMENU,
 	hInstance: HINSTANCE,
 	lpParam: LPVOID
-) -> HWND #cc="cdecl" #foreign #link="CreateWindowExW";
+) -> HWND #cc="stdcall" #foreign #link="CreateWindowExW";
 
 GetSystemMetrics :: fn(
 	nIndex: i32
-) -> i32 #cc="cdecl" #foreign #link="GetSystemMetrics";
+) -> i32 #cc="stdcall" #foreign #link="GetSystemMetrics";
 
 RegisterClassExW :: fn(
 	unnamedParam1: ?*WNDCLASSEXW
-) -> ATOM #cc="cdecl" #foreign #link="RegisterClassExW";
+) -> ATOM #cc="stdcall" #foreign #link="RegisterClassExW";
 
 DefWindowProcW :: fn(
 	hWnd: HWND,
 	Msg: UINT,
 	wParam: WPARAM,
 	lParam: LPARAM
-) -> LRESULT #cc="cdecl" #foreign #link="DefWindowProcW";
+) -> LRESULT #cc="stdcall" #foreign #link="DefWindowProcW";
 
 SendMessageW :: fn(
 	hWnd: HWND,
 	Msg: UINT,
 	wParam: WPARAM,
 	lParam: LPARAM
-) -> LRESULT #cc="cdecl" #foreign #link="SendMessageW";
+) -> LRESULT #cc="stdcall" #foreign #link="SendMessageW";
 
 LoadImageW :: fn(
 	hInst: HINSTANCE,
@@ -1018,19 +1089,19 @@ LoadImageW :: fn(
 	cx: i32,
 	cy: i32,
 	fuLoad: UINT
-) -> HANDLE #cc="cdecl" #foreign #link="LoadImageW";
+) -> HANDLE #cc="stdcall" #foreign #link="LoadImageW";
 
 AdjustWindowRectEx :: fn(
 	lpRect: LPRECT,
 	dwStyle: DWORD,
 	bMenu: BOOL,
 	dwExStyle: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="AdjustWindowRectEx";
+) -> BOOL #cc="stdcall" #foreign #link="AdjustWindowRectEx";
 
 GetClientRect :: fn(
 	hWnd: HWND,
 	lpRect: LPRECT
-) -> BOOL #cc="cdecl" #foreign #link="GetClientRect";
+) -> BOOL #cc="stdcall" #foreign #link="GetClientRect";
 
 SetWindowPos :: fn(
 	hWnd: HWND,
@@ -1040,101 +1111,101 @@ SetWindowPos :: fn(
 	cx: i32,
 	cy: i32,
 	uFlags: UINT
-) -> BOOL #cc="cdecl" #foreign #link="SetWindowPos";
+) -> BOOL #cc="stdcall" #foreign #link="SetWindowPos";
 
 GetWindowDC :: fn(
 	hWnd: HWND
-) -> HDC #cc="cdecl" #foreign #link="GetWindowDC";
+) -> HDC #cc="stdcall" #foreign #link="GetWindowDC";
 
 GetDC :: fn(
 	hWnd: HWND
-) -> HDC #cc="cdecl" #foreign #link="GetDC";
+) -> HDC #cc="stdcall" #foreign #link="GetDC";
 
 ReleaseDC :: fn(
 	hWnd: HWND,
 	hDC: HDC
-) -> i32 #cc="cdecl" #foreign #link="ReleaseDC";
+) -> i32 #cc="stdcall" #foreign #link="ReleaseDC";
 
 GetLayeredWindowAttributes :: fn(
 	hwnd: HWND,
 	pcrKey: ?*COLORREF,
 	pbAlpha: ?*BYTE,
 	pdwFlags: ?*DWORD
-) -> BOOL #cc="cdecl" #foreign #link="GetLayeredWindowAttributes";
+) -> BOOL #cc="stdcall" #foreign #link="GetLayeredWindowAttributes";
 
 SetLayeredWindowAttributes :: fn(
 	hwnd: HWND,
 	crKey: COLORREF,
 	bAlpha: BYTE,
 	dwFlags: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="SetLayeredWindowAttributes";
+) -> BOOL #cc="stdcall" #foreign #link="SetLayeredWindowAttributes";
 
 AnimateWindow :: fn(
 	hWnd: HWND,
 	dwTime: DWORD,
 	dwFlags: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="AnimateWindow";
+) -> BOOL #cc="stdcall" #foreign #link="AnimateWindow";
 
 ShowWindow :: fn(
 	hWnd: HWND,
 	nCmdShow: i32
-) -> BOOL #cc="cdecl" #foreign #link="ShowWindow";
+) -> BOOL #cc="stdcall" #foreign #link="ShowWindow";
 
 GetRawInputBuffer :: fn(
 	pData: PRAWINPUT,
 	pcbSize: PUINT,
 	cbSizeHeader: UINT
-) -> UINT #cc="cdecl" #foreign #link="GetRawInputBuffer";
+) -> UINT #cc="stdcall" #foreign #link="GetRawInputBuffer";
 
 RegisterRawInputDevices :: fn(
 	pRawInputDevices: PCRAWINPUTDEVICE,
 	uiNumDevices: UINT,
 	cbSize: UINT
-) -> BOOL #cc="cdecl" #foreign #link="RegisterRawInputDevices";
+) -> BOOL #cc="stdcall" #foreign #link="RegisterRawInputDevices";
 
 GetRawInputDeviceList :: fn(
 	pRawInputDeviceList: PRAWINPUTDEVICELIST,
 	puiNumDevices: PUINT,
 	cbSize: UINT
-) -> UINT #cc="cdecl" #foreign #link="GetRawInputDeviceList";
+) -> UINT #cc="stdcall" #foreign #link="GetRawInputDeviceList";
 
 GetRawInputDeviceInfoW :: fn(
 	hDevice: HANDLE,
 	uiCommand: UINT,
 	pData: LPVOID,
 	pcbSize: PUINT
-) -> UINT #cc="cdecl" #foreign #link="GetRawInputDeviceInfoW";
+) -> UINT #cc="stdcall" #foreign #link="GetRawInputDeviceInfoW";
 
 HidD_GetProductString :: fn(
 	HidDeviceObject: HANDLE,
 	Buffer: PVOID,
 	BufferLength: ULONG
-) -> BOOLEAN #cc="cdecl" #foreign #link="HidD_GetProductString";
+) -> BOOLEAN #cc="stdcall" #foreign #link="HidD_GetProductString";
 
 HidD_GetManufacturerString :: fn(
 	HidDeviceObject: HANDLE,
 	Buffer: PVOID,
 	BufferLength: ULONG
-) -> BOOLEAN #cc="cdecl" #foreign #link="HidD_GetManufacturerString";
+) -> BOOLEAN #cc="stdcall" #foreign #link="HidD_GetManufacturerString";
 
 HidP_GetCaps :: fn(
 	PreparsedData: PHIDP_PREPARSED_DATA,
 	Capabilities: PHIDP_CAPS
-) -> NTSTATUS #cc="cdecl" #foreign #link="HidP_GetCaps";
+) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetCaps";
 
 HidP_GetButtonCaps :: fn(
 	ReportType: HIDP_REPORT_TYPE,
 	ButtonCaps: PHIDP_BUTTON_CAPS,
 	ButtonCapsLength: PUSHORT,
 	PreparsedData: PHIDP_PREPARSED_DATA
-) -> NTSTATUS #cc="cdecl" #foreign #link="HidP_GetButtonCaps";
+) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetButtonCaps";
 
 HidP_GetValueCaps :: fn(
 	ReportType: HIDP_REPORT_TYPE,
 	ValueCaps: PHIDP_VALUE_CAPS,
 	ValueCapsLength: PUSHORT,
 	PreparsedData: PHIDP_PREPARSED_DATA
-) -> NTSTATUS #cc="cdecl" #foreign #link="HidP_GetValueCaps";
+) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetValueCaps";
 
 HidP_GetUsages :: fn(
 	ReportType: HIDP_REPORT_TYPE,
@@ -1145,7 +1216,7 @@ HidP_GetUsages :: fn(
 	PreparsedData: PHIDP_PREPARSED_DATA,
 	Report: PCHAR,
 	ReportLength: ULONG
-) -> NTSTATUS #cc="cdecl" #foreign #link="HidP_GetUsages";
+) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetUsages";
 
 HidP_GetUsageValue :: fn(
 	ReportType: HIDP_REPORT_TYPE,
@@ -1156,56 +1227,56 @@ HidP_GetUsageValue :: fn(
 	PreparsedData: PHIDP_PREPARSED_DATA,
 	Report: PCHAR,
 	ReportLength: ULONG
-) -> NTSTATUS #cc="cdecl" #foreign #link="HidP_GetUsageValue";
+) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetUsageValue";
 
 ChoosePixelFormat :: fn(
 	hdc: HDC,
 	ppfd: ?*PIXELFORMATDESCRIPTOR
-) -> i32 #cc="cdecl" #foreign #link="ChoosePixelFormat";
+) -> i32 #cc="stdcall" #foreign #link="ChoosePixelFormat";
 
 DescribePixelFormat :: fn(
 	hdc: HDC,
 	iPixelFormat: i32,
 	nBytes: UINT,
 	ppfd: LPPIXELFORMATDESCRIPTOR
-) -> i32 #cc="cdecl" #foreign #link="DescribePixelFormat";
+) -> i32 #cc="stdcall" #foreign #link="DescribePixelFormat";
 
 SetPixelFormat :: fn(
 	hdc: HDC,
 	format: i32,
 	ppfd: ?*PIXELFORMATDESCRIPTOR
-) -> BOOL #cc="cdecl" #foreign #link="SetPixelFormat";
+) -> BOOL #cc="stdcall" #foreign #link="SetPixelFormat";
 
 SwapBuffers :: fn(
 	hdc: HDC
-) -> BOOL #cc="cdecl" #foreign #link="SwapBuffers";
+) -> BOOL #cc="stdcall" #foreign #link="SwapBuffers";
 
 timeBeginPeriod :: fn(
 	uPeriod: UINT
-) -> MMRESULT #cc="cdecl" #foreign #link="timeBeginPeriod";
+) -> MMRESULT #cc="stdcall" #foreign #link="timeBeginPeriod";
 
 GetNumaHighestNodeNumber :: fn(
 	HighestNodeNumber: PULONG
-) -> BOOL #cc="cdecl" #foreign #link="GetNumaHighestNodeNumber";
+) -> BOOL #cc="stdcall" #foreign #link="GetNumaHighestNodeNumber";
 
 GetCurrentProcessorNumberEx :: fn(
 	ProcNumber: PPROCESSOR_NUMBER
-) #cc="cdecl" #foreign #link="GetCurrentProcessorNumberEx";
+) #cc="stdcall" #foreign #link="GetCurrentProcessorNumberEx";
 
 GetNumaProcessorNodeEx :: fn(
 	Processor: PPROCESSOR_NUMBER,
 	NodeNumber: PUSHORT
-) -> BOOL #cc="cdecl" #foreign #link="GetNumaProcessorNodeEx";
+) -> BOOL #cc="stdcall" #foreign #link="GetNumaProcessorNodeEx";
 
 GetNumaNodeProcessorMaskEx :: fn(
 	Node: USHORT,
 	ProcessorMask: PGROUP_AFFINITY
-) -> BOOL #cc="cdecl" #foreign #link="GetNumaNodeProcessorMaskEx";
+) -> BOOL #cc="stdcall" #foreign #link="GetNumaNodeProcessorMaskEx";
 
 SetProcessAffinityMask :: fn(
 	hProcess: HANDLE,
 	dwProcessAffinityMask: DWORD_PTR
-) -> BOOL #cc="cdecl" #foreign #link="SetProcessAffinityMask";
+) -> BOOL #cc="stdcall" #foreign #link="SetProcessAffinityMask";
 
 CreateFileMappingW :: fn(
 	hFile: HANDLE,
@@ -1214,56 +1285,56 @@ CreateFileMappingW :: fn(
 	dwMaximumSizeHigh: DWORD,
 	dwMaximumSizeLow: DWORD,
 	lpName: LPCWSTR
-) -> HANDLE #cc="cdecl" #foreign #link="CreateFileMappingW";
+) -> HANDLE #cc="stdcall" #foreign #link="CreateFileMappingW";
 
-GetCurrentProcess :: fn() -> HANDLE #cc="cdecl" #foreign #link="GetCurrentProcess";
+GetCurrentProcess :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentProcess";
 
-GetCurrentThread :: fn() -> HANDLE #cc="cdecl" #foreign #link="GetCurrentThread";
+GetCurrentThread :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentThread";
 
 SetPriorityClass :: fn(
 	hProcess: HANDLE,
 	dwPriorityClass: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="SetPriorityClass";
+) -> BOOL #cc="stdcall" #foreign #link="SetPriorityClass";
 
 SetThreadPriority :: fn(
 	hThread: HANDLE,
 	nPriority: i32
-) -> BOOL #cc="cdecl" #foreign #link="SetThreadPriority";
+) -> BOOL #cc="stdcall" #foreign #link="SetThreadPriority";
 
 SetThreadIdealProcessorEx :: fn(
 	hThread: HANDLE,
 	lpIdealProcessor: PPROCESSOR_NUMBER,
 	lpPreviousIdealProcessor: PPROCESSOR_NUMBER
-) -> BOOL #cc="cdecl" #foreign #link="SetThreadIdealProcessorEx";
+) -> BOOL #cc="stdcall" #foreign #link="SetThreadIdealProcessorEx";
 
 IsWow64Process :: fn(
 	hProcess: HANDLE,
 	Wow64Process: PBOOL
-) -> BOOL #cc="cdecl" #foreign #link="IsWow64Process";
+) -> BOOL #cc="stdcall" #foreign #link="IsWow64Process";
 
-GetCommandLineW :: fn() -> LPWSTR #cc="cdecl" #foreign #link="GetCommandLineW";
+GetCommandLineW :: fn() -> LPWSTR #cc="stdcall" #foreign #link="GetCommandLineW";
 
 CreateEventW :: fn(
 	lpEventAttributes: LPSECURITY_ATTRIBUTES,
 	bManualReset: BOOL,
 	bInitialState: BOOL,
 	lpName: LPCWSTR
-) -> HANDLE #cc="cdecl" #foreign #link="CreateEventW";
+) -> HANDLE #cc="stdcall" #foreign #link="CreateEventW";
 
 SetEvent :: fn(
 	hEvent: HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="SetEvent";
+) -> BOOL #cc="stdcall" #foreign #link="SetEvent";
 
 GetWindowsDirectoryW :: fn(
 	lpBuffer: LPWSTR,
 	uSize: UINT
-) -> UINT #cc="cdecl" #foreign #link="GetWindowsDirectoryW";
+) -> UINT #cc="stdcall" #foreign #link="GetWindowsDirectoryW";
 
 QueryDosDeviceW :: fn(
 	lpDeviceName: LPCWSTR,
 	lpTargetPath: LPWSTR,
 	ucchMax: DWORD
-) -> DWORD #cc="cdecl" #foreign #link="QueryDosDeviceW";
+) -> DWORD #cc="stdcall" #foreign #link="QueryDosDeviceW";
 
 DeviceIoControl :: fn(
 	hDevice: HANDLE,
@@ -1274,24 +1345,24 @@ DeviceIoControl :: fn(
 	nOutBufferSize: DWORD,
 	lpBytesReturned: LPDWORD,
 	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="cdecl" #foreign #link="DeviceIoControl";
+) -> BOOL #cc="stdcall" #foreign #link="DeviceIoControl";
 
 QueryPerformanceFrequency :: fn(
 	lpFrequency: ?*LARGE_INTEGER
-) -> BOOL #cc="cdecl" #foreign #link="QueryPerformanceFrequency";
+) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceFrequency";
 
 QueryPerformanceCounter :: fn(
 	lpPerformanceCount: ?*LARGE_INTEGER
-) -> BOOL #cc="cdecl" #foreign #link="QueryPerformanceCounter";
+) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceCounter";
 
 LoadLibraryW :: fn(
 	lpLibFileName: LPCWSTR
-) -> HMODULE #cc="cdecl" #foreign #link="LoadLibraryW";
+) -> HMODULE #cc="stdcall" #foreign #link="LoadLibraryW";
 
 GetProcAddress :: fn(
 	hModule: HMODULE,
 	lpProcName: LPCSTR
-) -> FARPROC #cc="cdecl" #foreign #link="GetProcAddress";
+) -> FARPROC #cc="stdcall" #foreign #link="GetProcAddress";
 
 FormatMessageA :: fn(
 	dwFlags: DWORD,
@@ -1301,21 +1372,21 @@ FormatMessageA :: fn(
 	lpBuffer: LPSTR,
 	nSize: DWORD,
 	Arguments: ?*va_list
-) -> DWORD #cc="cdecl" #foreign #link="FormatMessageA";
+) -> DWORD #cc="stdcall" #foreign #link="FormatMessageA";
 
 GetModuleHandleW :: fn(
 	lpModuleName: LPCWSTR
-) -> HMODULE #cc="cdecl" #foreign #link="GetModuleHandleW";
+) -> HMODULE #cc="stdcall" #foreign #link="GetModuleHandleW";
 
 WaitForSingleObjectEx :: fn(
 	hHandle: HANDLE,
 	dwMilliseconds: DWORD,
 	bAlertable: BOOL
-) -> DWORD #cc="cdecl" #foreign #link="WaitForSingleObjectEx";
+) -> DWORD #cc="stdcall" #foreign #link="WaitForSingleObjectEx";
 
 GetQueueStatus :: fn(
 	flags: UINT
-) -> DWORD #cc="cdecl" #foreign #link="GetQueueStatus";
+) -> DWORD #cc="stdcall" #foreign #link="GetQueueStatus";
 
 CreateSemaphoreExW :: fn(
 	lpSemaphoreAttributes: LPSECURITY_ATTRIBUTES,
@@ -1324,24 +1395,24 @@ CreateSemaphoreExW :: fn(
 	lpName: LPCWSTR,
 	dwFlags: DWORD,
 	dwDesiredAccess: DWORD
-) -> HANDLE #cc="cdecl" #foreign #link="CreateSemaphoreExW";
+) -> HANDLE #cc="stdcall" #foreign #link="CreateSemaphoreExW";
 
 ReleaseSemaphore :: fn(
 	hSemaphore: HANDLE,
 	lReleaseCount: LONG,
 	lpPreviousCount: LPLONG
-) -> BOOL #cc="cdecl" #foreign #link="ReleaseSemaphore";
+) -> BOOL #cc="stdcall" #foreign #link="ReleaseSemaphore";
 
 GetSystemInfo :: fn(
 	lpSystemInfo: LPSYSTEM_INFO
-) #cc="cdecl" #foreign #link="GetSystemInfo";
+) #cc="stdcall" #foreign #link="GetSystemInfo";
 
 SleepEx :: fn(
 	dwMilliseconds: DWORD,
 	bAlertable: BOOL
-) -> DWORD #cc="cdecl" #foreign #link="SleepEx";
+) -> DWORD #cc="stdcall" #foreign #link="SleepEx";
 
-GetLastError :: fn() -> DWORD #cc="cdecl" #foreign #link="GetLastError";
+GetLastError :: fn() -> DWORD #cc="stdcall" #foreign #link="GetLastError";
 
 SetLastError :: fn(
 	dwErrCode: DWORD
@@ -1349,26 +1420,26 @@ SetLastError :: fn(
 
 ExitProcess :: fn(
 	uExitCode: UINT
-) #cc="cdecl" #foreign #link="ExitProcess";
+) #cc="stdcall" #foreign #link="ExitProcess";
 
 FlushFileBuffers :: fn(
 	hFile: HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="FlushFileBuffers";
+) -> BOOL #cc="stdcall" #foreign #link="FlushFileBuffers";
 
 GetStdHandle :: fn(
 	nStdHandle: DWORD
-) -> HANDLE #cc="cdecl" #foreign #link="GetStdHandle";
+) -> HANDLE #cc="stdcall" #foreign #link="GetStdHandle";
 
 SetStdHandle :: fn(
 	nStdHandle: DWORD,
 	hHandle: HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="SetStdHandle";
+) -> BOOL #cc="stdcall" #foreign #link="SetStdHandle";
 
 SetStdHandleEx :: fn(
 	nStdHandle: DWORD,
 	hHandle: HANDLE,
 	phPrevValue: ?*HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="SetStdHandleEx";
+) -> BOOL #cc="stdcall" #foreign #link="SetStdHandleEx";
 
 
 CreateFileW :: fn(
@@ -1379,12 +1450,12 @@ CreateFileW :: fn(
 	dwCreationDisposition: DWORD,
 	dwFlagsAndAttributes: DWORD,
 	hTemplateFile: HANDLE
-) -> HANDLE #cc="cdecl" #foreign #link="CreateFileW";
+) -> HANDLE #cc="stdcall" #foreign #link="CreateFileW";
 
 CreateDirectoryW :: fn(
 	lpPathName: LPCWSTR,
 	lpSecurityAttributes: LPSECURITY_ATTRIBUTES
-) -> BOOL #cc="cdecl" #foreign #link="CreateDirectoryW";
+) -> BOOL #cc="stdcall" #foreign #link="CreateDirectoryW";
 
 CopyFileW :: fn(
 	lpExistingFileName: LPCWSTR,
@@ -1404,12 +1475,12 @@ FindNextFileW :: fn(
 
 FindClose :: fn(
 	hFindFile: HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="FindClose";
+) -> BOOL #cc="stdcall" #foreign #link="FindClose";
 
 GetFileSizeEx :: fn(
 	hFile: HANDLE,
 	lpFileSize: PLARGE_INTEGER
-) -> BOOL #cc="cdecl" #foreign #link="GetFileSizeEx";
+) -> BOOL #cc="stdcall" #foreign #link="GetFileSizeEx";
 
 WriteFile :: fn(
 	hFile: HANDLE,
@@ -1417,7 +1488,7 @@ WriteFile :: fn(
 	nNumberOfBytesToWrite: DWORD,
 	lpNumberOfBytesWritten: LPDWORD,
 	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="cdecl" #foreign #link="WriteFile";
+) -> BOOL #cc="stdcall" #foreign #link="WriteFile";
 
 ReadFile :: fn(
 	hFile: HANDLE,
@@ -1425,7 +1496,7 @@ ReadFile :: fn(
 	nNumberOfBytesToRead: DWORD,
 	lpNumberOfBytesRead: LPDWORD,
 	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="cdecl" #foreign #link="ReadFile";
+) -> BOOL #cc="stdcall" #foreign #link="ReadFile";
 
 CreateThread :: fn(
 	lpThreadAttributes: LPSECURITY_ATTRIBUTES,
@@ -1434,32 +1505,32 @@ CreateThread :: fn(
 	lpParameter: LPVOID,
 	dwCreationFlags: DWORD,
 	lpThreadId: LPDWORD
-) -> HANDLE #cc="cdecl" #foreign #link="CreateThread";
+) -> HANDLE #cc="stdcall" #foreign #link="CreateThread";
 
 CloseHandle :: fn(
 	hObject: HANDLE
-) -> BOOL #cc="cdecl" #foreign #link="CloseHandle";
+) -> BOOL #cc="stdcall" #foreign #link="CloseHandle";
 
-GetVersion :: fn() -> DWORD #cc="cdecl" #foreign #link="GetVersion";
+GetVersion :: fn() -> DWORD #cc="stdcall" #foreign #link="GetVersion";
 
 VirtualAlloc :: fn(
 	lpAddress: LPVOID,
 	dwSize: SIZE_T,
 	flAllocationType: DWORD,
 	flProtect: DWORD
-) -> LPVOID #cc="cdecl" #foreign #link="VirtualAlloc";
+) -> LPVOID #cc="stdcall" #foreign #link="VirtualAlloc";
 
 VirtualFree :: fn(
 	lpAddress: LPVOID,
 	dwSize: SIZE_T,
 	dwFreeType: DWORD
-) -> BOOL #cc="cdecl" #foreign #link="VirtualFree";
+) -> BOOL #cc="stdcall" #foreign #link="VirtualFree";
 
 GetModuleFileNameW :: fn(
 	hModule: HMODULE,
 	lpFilename: LPWSTR,
 	nSize: DWORD
-) -> DWORD #cc="cdecl" #foreign #link="GetModuleFileNameW";
+) -> DWORD #cc="stdcall" #foreign #link="GetModuleFileNameW";
 
 WideCharToMultiByte :: fn(
 	CodePage: UINT,
@@ -1470,7 +1541,7 @@ WideCharToMultiByte :: fn(
 	cbMultiByte: i32,
 	lpDefaultChar: LPCCH,
 	lpUsedDefaultChar: LPBOOL
-) -> i32 #cc="cdecl" #foreign #link="WideCharToMultiByte";
+) -> i32 #cc="stdcall" #foreign #link="WideCharToMultiByte";
 
 MultiByteToWideChar :: fn(
 	CodePage: UINT,
@@ -1479,19 +1550,19 @@ MultiByteToWideChar :: fn(
 	cbMultiByte: i32,
 	lpWideCharStr: LPCWCH,
 	cchWideChar: i32
-) -> i32 #cc="cdecl" #foreign #link="MultiByteToWideChar";
+) -> i32 #cc="stdcall" #foreign #link="MultiByteToWideChar";
 
 
 /*
 _InterlockedIncrement64 :: fn(
 	Addend: ?*volatile LONG64
-) -> LONG64 #cc="cdecl" #foreign #link="_InterlockedIncrement64";
+) -> LONG64 #cc="stdcall" #foreign #link="_InterlockedIncrement64";
 
 _InterlockedCompareExchange64 :: fn(
 	Destination: ?*volatile LONG64,
 	ExChange: LONG64,
 	Comperand: LONG64
-) -> LONG64 #cc="cdecl" #foreign #link="_InterlockedCompareExchange64";
+) -> LONG64 #cc="stdcall" #foreign #link="_InterlockedCompareExchange64";
 */
 
 _ReadBarrier :: fn() #cc="cdecl" #foreign #link="_ReadBarrier";
@@ -1780,6 +1851,12 @@ CP_UTF8 :: 65001;
 WC_ERR_INVALID_CHARS :: 0x00000080;
 MB_ERR_INVALID_CHARS :: 0x00000008;
 AF_INET :: 2;
+AF_INET6 :: 23;
+SOCK_STREAM :: 1;
+IPPROTO_TCP :: 6;
+IPPROTO_IPV6 :: 41;
+IPV6_V6ONLY :: 27;
+SOMAXCONN :: 0x7fffffff;
 SOCK_DGRAM :: 2;
 IPPROTO_UDP :: 17;
 ERROR_INSUFFICIENT_BUFFER :: 122;

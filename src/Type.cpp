@@ -1,4 +1,5 @@
 #include "Type.h"
+#include "CommandLine.h"
 #include "Semantics.h"
 #include "Memory.h"
 #include "VString.h"
@@ -1193,6 +1194,10 @@ b32 IsCastRedundant(const type *From, const type *To)
 	{
 		switch(From->Kind)
 		{
+			case TypeKind_Array:
+			{
+				return From->Array.MemberCount == To->Array.MemberCount && IsCastRedundant(GetType(From->Array.Type), GetType(To->Array.Type));
+			} break;
 			case TypeKind_Basic:
 			{
 				return From->Basic.Kind == To->Basic.Kind;
@@ -1668,6 +1673,7 @@ b32 IsRetTypePassInPointer(u32 Type)
 	switch(Size)
 	{
 		case 8:
+		return g_TargetArch == Arch_x86 || PTarget == platform_target::Wasm;
 		case 4:
 		case 2:
 		case 1:

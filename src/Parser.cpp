@@ -1933,15 +1933,15 @@ node *ParseOperand(parser *Parser)
 		case T_OPENPAREN:
 		{
 			b32 SaveILists = Parser->NoItemLists;
-			b32 SaveSLists = Parser->NoStructLists;
-			Parser->NoStructLists = true;
+			//b32 SaveSLists = Parser->NoStructLists;
+			//Parser->NoStructLists = true;
 			Parser->NoItemLists = false;
 
 			GetToken(Parser);
 			Result = ParseExpression(Parser);
 			EatToken(Parser, T_CLOSEPAREN);
 
-			Parser->NoStructLists = SaveSLists;
+			//Parser->NoStructLists = SaveSLists;
 			Parser->NoItemLists = SaveILists;
 		} break;
 		case T_RUN:

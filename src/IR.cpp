@@ -3172,7 +3172,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  const type *RT = GetType(Type);
 		  	  if(Node->Return.Expression)
 		  		  Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
-		  	  if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
+			  if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
 		  	  {
 		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
 		  		  {

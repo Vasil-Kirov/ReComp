@@ -28,10 +28,21 @@ void FillUntypedStack(checker *Checker, u32 Type)
 
 	if(TypePtr->Kind == TypeKind_Pointer)
 		Type = Basic_int;
-	while(!Checker->UntypedStack.IsEmpty())
+	if(IsUntyped(Type))
 	{
-		u32 *ToGiveType = Checker->UntypedStack.Pop();
-		*ToGiveType = Type;
+		for(int i = Checker->UntypedStack.Data.Count-1; i >= 0; --i)
+		{
+			u32 *ToGiveType = Checker->UntypedStack.Data[i];
+			*ToGiveType = Type;
+		}
+	}
+	else
+	{
+		while(!Checker->UntypedStack.IsEmpty())
+		{
+			u32 *ToGiveType = Checker->UntypedStack.Pop();
+			*ToGiveType = Type;
+		}
 	}
 }
 

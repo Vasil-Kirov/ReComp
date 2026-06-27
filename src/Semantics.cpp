@@ -1910,7 +1910,15 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					{
 						Checker->AutoEnum.Push(CallType->Function.Args[Idx]);
 					}
-					u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+					u32 ExprTypeIdx = Basic_error;
+					if(CallType->Function.ArgCount > Idx && CallType->Function.Flags & SymbolFlag_Generic && Expr->Call.Args[Idx]->Type == AST_LAMBDA)
+					{
+						ExprTypeIdx = CallType->Function.Args[Idx];
+					}
+					else
+					{
+						ExprTypeIdx = AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+					}
 					const type *ExprType = GetType(ExprTypeIdx);
 
 					if(CallType->Function.ArgCount > Idx)
@@ -1999,6 +2007,18 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				Expr->Call.Fn = MakeID(Expr->ErrorInfo, FnName);
 				Expr->Call.Type = s->Type;
 				CallType = GetType(Expr->Call.Type);
+				Assert(CallType->Kind == TypeKind_Function);
+				ForArray(Idx, Expr->Call.Args)
+				{
+					if(CallType->Function.ArgCount <= Idx)
+						break;
+					if(Expr->Call.Args[Idx]->Type == AST_LAMBDA)
+					{
+						Checker->AutoEnum.Push(CallType->Function.Args[Idx]);
+						AnalyzeExpression(Checker, Expr->Call.Args[Idx]);
+						Checker->AutoEnum.Pop();
+					}
+				}
 			}
 
 			Result = GetReturnType(CallType);

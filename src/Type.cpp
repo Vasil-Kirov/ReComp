@@ -1739,41 +1739,52 @@ u32 ToNonGeneric(u32 TypeID, u32 Resolve)
 		case TypeKind_Function:
 		{
 			uint ArgCount = Type->Function.ArgCount;
-			u32 *NArgs = (u32 *)AllocatePermanent(sizeof(u32) * ArgCount);
-			b32 NeedsNew = false;
+			array<u32> NArgs = {ArgCount};
+			array<u32> Returns = {Type->Function.Returns.Count};
+			bool NeedsNew = false;
+			bool IsStillGeneric = false;
 			for(int i = 0; i < ArgCount; ++i)
 			{
-				NArgs[i] = ToNonGeneric(Type->Function.Args[i], Resolve);
+				NArgs[i] = Type->Function.Args[i];
+				if(IsGeneric(NArgs[i]))
+					NArgs[i] = ToNonGeneric(NArgs[i], Resolve);
+
 				if(NArgs[i] != Type->Function.Args[i])
 					NeedsNew = true;
+				if(IsGeneric(NArgs[i]))
+					IsStillGeneric = true;
 			}
 
 			ForArray(Idx, Type->Function.Returns)
 			{
-				u32 RetTypeIdx = ToNonGeneric(Type->Function.Returns[Idx], Resolve);
-				if(RetTypeIdx != Type->Function.Returns[Idx])
+				Returns[Idx] = Type->Function.Returns[Idx];
+				if(!IsGeneric(Returns[Idx]))
+					continue;
+
+				Returns[Idx] = ToNonGeneric(Returns[Idx], Resolve);
+				if(Returns[Idx] != Type->Function.Returns[Idx])
 				{
 					NeedsNew = true;
-					break;
 				}
+				if(IsGeneric(Returns[Idx]))
+					IsStillGeneric = true;
 			}
 
 			if(NeedsNew)
 			{
-				array<u32> Returns = Type->Function.Returns.Count;
-				u32 At = 0;
-				For(Type->Function.Returns)
-				{
-					Returns[At] = ToNonGeneric(*it, Resolve);
-					At++;
-				}
-
 				type *NT = AllocType(TypeKind_Function);
 				*NT = *Type;
-				NT->Function.Args = NArgs;
+				NT->Function.Args = NArgs.Data;
 				NT->Function.Returns = SliceFromArray(Returns);
-				NT->Function.Flags = Type->Function.Flags & ~SymbolFlag_Generic;
+				NT->Function.Flags = Type->Function.Flags;
+				if(!IsStillGeneric)
+					NT->Function.Flags &= ~SymbolFlag_Generic;
 				Result = AddType(NT);
+			}
+			else
+			{
+				NArgs.Free();
+				Returns.Free();
 			}
 		} break;
 		case TypeKind_Generic:

@@ -102,6 +102,26 @@ free_queue :: fn(q: *Queue<$t>) {
 	capacity = 0;
 }
 
+map :: fn(l: []$T, f: fn(x: T) -> T, alloc: *mem.Allocator) -> []T {
+	arr, ok := mem.make_slice(T, l.count, alloc);
+	if !ok
+		return .{};
 
+	for i, it in l {
+		arr[i] = f(it);
+	}
+	return arr;
+}
 
+filter :: fn(l: []$T, f: fn(x: T) -> bool, alloc: *mem.Allocator) -> []T {
+	arr, ok := mem.make_slice(T, l.count, alloc);
+	if !ok
+		return .{};
+
+	at := 0;
+	for it in l {
+		if f(it) arr[at++] = it;
+	}
+	return arr[:at];
+}
 

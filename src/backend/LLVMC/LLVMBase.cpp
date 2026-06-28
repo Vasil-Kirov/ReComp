@@ -28,6 +28,20 @@
 
 std::mutex LLVMNoThreadSafetyMutex;
 
+LLVMValueRef RCAllocALLVMT(generator *gen, LLVMTypeRef LLVMT, int Alignment, const char *Name="")
+{
+	LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMT, Name);
+	LLVMSetAlignment(Val, Alignment);
+	return Val;
+}
+
+LLVMValueRef RCAllocA(generator *gen, u32 T, const char *Name="")
+{
+	LLVMTypeRef LLVMType = ConvertToLLVMType(gen, T);
+	int Alignment = GetTypeAlignment(T);
+	return RCAllocALLVMT(gen, LLVMType, Alignment, Name);
+}
+
 // @Note: LLVM's LLVMBuildPtrDiff2 pre version 23(?) is bugged.
 LLVMValueRef RCPtrDiff(generator *gen, LLVMValueRef LHS, LLVMValueRef RHS, u32 PointedT)
 {
@@ -1105,8 +1119,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					Assert(Loc.Count == 1);
 					Assert(GetType(I.Type)->Kind == TypeKind_Struct);
 					LLVMValueRef Arg = LLVMGetParam(gen->fn, Loc.Start);
-					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					LLVMValueRef AsArg = RCAllocA(gen, I.Type, "arg");
 					LLVMBuildStore(gen->bld, Arg, AsArg);
 					gen->map.Add(I.Result, AsArg);
 				} break;
@@ -1117,7 +1130,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					LLVMValueRef Int1 = LLVMGetParam(gen->fn, Loc.Start);
 					LLVMValueRef Int2 = LLVMGetParam(gen->fn, Loc.Start+1);
 					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					LLVMValueRef AsArg = RCAllocA(gen, I.Type, "arg");
 					LLVMBuildStore(gen->bld, Int1, AsArg);
 					int Idx = GetPointerPassIdx(I.Type, 8);
 					LLVMValueRef Ptr = LLVMBuildStructGEP2(gen->bld, LLVMType, AsArg, Idx, "");
@@ -1130,7 +1143,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 					const type *T = GetType(I.Type);
 					Assert(T->Kind == TypeKind_Struct);
 					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-					LLVMValueRef AsArg = LLVMBuildAlloca(gen->bld, LLVMType, "arg");
+					LLVMValueRef AsArg = RCAllocA(gen, I.Type, "arg");
 					int At = Loc.Start;
 
 					int i = 0;
@@ -1407,17 +1420,14 @@ void RCGenerateFunction(generator *gen, function fn)
 			{
 				case OP_ALLOC:
 				{
-					LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-					LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
-
+					LLVMValueRef Val = RCAllocA(gen, I.Type);
 					gen->map.Add(I.Result, Val);
 				} break;
 				case OP_LOAD:
 				{
 					if(!IsLoadableType(I.Type))
 					{
-						LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
-						LLVMValueRef Val = LLVMBuildAlloca(gen->bld, LLVMType, "");
+						LLVMValueRef Val = RCAllocA(gen, I.Type);
 						gen->map.Add(I.Result, Val);
 					}
 				} break;
@@ -1432,7 +1442,7 @@ void RCGenerateFunction(generator *gen, function fn)
 						};
 
 						LLVMTypeRef ResTy = LLVMStructType(Types, 2, false);
-						LLVMValueRef Alloc = LLVMBuildAlloca(gen->bld, ResTy, "");
+						LLVMValueRef Alloc = RCAllocALLVMT(gen, ResTy, GetRegisterTypeSize()/8);
 						gen->map.Add(I.Result, Alloc);
 					}
 				} break;

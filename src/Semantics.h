@@ -104,6 +104,8 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes);
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *ThisModule);
 u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error=false);
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL);
+const symbol *FindSymbol(checker *Checker, const string *ID);
+u32 GetVariable(checker *Checker, const string *ID, bool *Found);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

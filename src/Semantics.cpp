@@ -14,6 +14,7 @@
 #include "Memory.h"
 #include "VString.h"
 #include "Polymorph.h"
+#include <optional>
 #include <tuple>
 extern u32 TypeCount;
 
@@ -185,6 +186,79 @@ u32 FindStructTypeNoModuleRenaming(const string *NamePtr)
 		}
 	}
 	return Basic_error;
+}
+
+std::optional<u32> TryGetArraySize(checker *Checker, node *Node)
+{
+	if(!Node)
+		return std::nullopt;
+	switch(Node->Type)
+	{
+		case AST_CONSTANT:
+		{
+			if(Node->Constant.Value.Type != const_type::Integer)
+				break;
+			if(Node->Constant.Value.Int.IsSigned)
+			{
+				if(Node->Constant.Value.Int.Signed <= 0)
+					break;
+				if(Node->Constant.Value.Int.Signed >= UINT32_MAX)
+					break;
+				return Node->Constant.Value.Int.Signed;
+			}
+			if(Node->Constant.Value.Int.Unsigned > UINT32_MAX)
+				break;
+
+			return Node->Constant.Value.Int.Unsigned;
+		} break;
+		case AST_ID:
+		{
+			auto s = FindSymbol(Checker, Node->ID.Name);
+			if(s)
+			{
+				if((s->Flags & SymbolFlag_Const) == 0)
+					break;
+				if(!s->Node || s->Node->Type != AST_DECL)
+					break;
+				return TryGetArraySize(Checker, s->Node->Decl.Expression);
+			}
+			s = Checker->Module->Globals[*Node->ID.Name];
+			if(s)
+			{
+				if((s->Flags & SymbolFlag_Const) == 0)
+					break;
+				if(!s->Node || s->Node->Type != AST_DECL)
+					break;
+				return TryGetArraySize(Checker, s->Node->Decl.Expression);
+			}
+		} break;
+		case AST_BINARY:
+		{
+			auto lo = TryGetArraySize(Checker, Node->Binary.Left);
+			auto ro = TryGetArraySize(Checker, Node->Binary.Right);
+			if(!lo.has_value() || !ro.has_value())
+				break;
+			auto l = lo.value();
+			auto r = ro.value();
+			switch(Node->Binary.Op)
+			{
+				case '+':
+				return l + r;
+				case '-':
+				return l - r;
+				case '*':
+				return l * r;
+				case '/':
+				if(r == 0)
+					break;
+				return l / r;
+				default: break;
+			}
+		} break;
+		default:
+		break;
+	}
+	return std::nullopt;
 }
 
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional)
@@ -471,7 +545,7 @@ u32 FindTypeNoNamespaceImport(checker *Checker, const string *Name)
 	return Basic_error;
 }
 
-static bool ErrorOnFoundGeneric = false;
+static thread_local bool ErrorOnFoundGeneric = false;
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAutoDef)
 {
 	if(TypeNode == NULL)
@@ -560,34 +634,31 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 		} break;
 		case AST_ARRAYTYPE:
 		{
-			uint Size = 0;
 			u32 MemberType = GetTypeFromTypeNode(Checker, TypeNode->ArrayType.Type, Error, OutAutoDef);
 			if(MemberType == Basic_error)
 				return Basic_error;
 			if(TypeNode->ArrayType.Expression)
 			{
 				node *Expr = TypeNode->ArrayType.Expression;
-				bool Failed = false;
-				if(Expr->Type != AST_CONSTANT || Expr->Constant.Value.Type != const_type::Integer)
-				{
-					RaiseError(false, *Expr->ErrorInfo, "Expected constant integer for array type size");
-					Failed = true;
-				}
-				if(Expr->Constant.Value.Int.IsSigned && Expr->Constant.Value.Int.Signed <= 0)
-				{
-					RaiseError(false, *Expr->ErrorInfo, "Expected positive integer for array type size");
-					Failed = true;
-				}
-				if(Expr->Constant.Value.Int.IsSigned && Expr->Constant.Value.Int.Unsigned >= MB(1))
-				{
-					RaiseError(false, *Expr->ErrorInfo, "Value given for array type size is too big, cannot reliably allocate it on the stack");
-					Failed = true;
-				}
+				u32 ExprT = AnalyzeExpression(Checker, Expr);
+				if(ExprT == Basic_error)
+					return Basic_error;
 
-				if(!Failed)
-					Size = Expr->Constant.Value.Int.Unsigned;
+				auto sz = TryGetArraySize(Checker, Expr);
+				if(!sz.has_value())
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Expression does not produce a valid constant array size.");
+				}
+				else if(sz.value() <= 0)
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Expected positive integer for array type size, got %llu", sz.value());
+				}
+				//else if(sz.value() * GetTypeSize(MemberType) >= MB(1))
+				//{
+				//	RaiseError(false, *Expr->ErrorInfo, "Value given for array type size is too large, it cannot reliably be allocated on the stack. The size is %llu bytes.", sz.value() * GetTypeSize(MemberType));
+				//}
 
-				return GetArrayType(MemberType, Size);
+				return GetArrayType(MemberType, sz.value_or(0));
 			}
 			else
 			{
@@ -4642,7 +4713,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
-			if(Node->Decl.Type)
+			if(Node->Decl.Type && Node->Decl.Type->Type == AST_ID)
 			{
 				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type, false);
 				if(T != Basic_type)

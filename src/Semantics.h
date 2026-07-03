@@ -21,6 +21,7 @@ enum SymbolFlag
 	SymbolFlag_Inline      = BIT(9),
 	SymbolFlag_LocalStatic = BIT(10),
 	SymbolFlag_NoReturn    = BIT(11),
+	SymbolFlag_AlreadyAnalyzed = BIT(12),
 };
 
 struct generic_generated
@@ -107,6 +108,7 @@ u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptio
 const symbol *FindSymbol(checker *Checker, const string *ID);
 u32 GetVariable(checker *Checker, const string *ID, bool *Found);
 void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes);
+void AnalyzeSimpleGlobalVariables(checker *Checker, slice<node *> Nodes);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

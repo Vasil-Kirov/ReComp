@@ -4555,6 +4555,8 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
+			if(Node->Decl.Flags & SymbolFlag_AlreadyAnalyzed)
+				continue;
 			u32 Type = AnalyzeDeclerations(Checker, Node, true);
 			if(Node->Decl.Expression)
 			{
@@ -4628,6 +4630,72 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 			}
 		}
 	}
+}
+
+bool IsSimpleGlobalExpression(node *Node, dynamic<const string*> &KnownNames)
+{
+	if(!Node)
+		return true;
+
+	switch(Node->Type)
+	{
+		case AST_ID:
+		{
+			for(const string *Known : KnownNames)
+				if(*Node->ID.Name == *Known)
+					return true;
+			return false;
+		} break;
+		case AST_CHARLIT:
+		return true;
+		case AST_CONSTANT:
+		return true;
+		case AST_BINARY:
+		return IsSimpleGlobalExpression(Node->Binary.Left, KnownNames) && IsSimpleGlobalExpression(Node->Binary.Right, KnownNames);
+		case AST_UNARY:
+		return IsSimpleGlobalExpression(Node->Unary.Operand, KnownNames);
+		default:
+		break;
+	}
+	return false;
+}
+
+void AnalyzeSimpleGlobalVariables(checker *Checker, slice<node *> Nodes)
+{
+	dynamic<const string *> KnownNames = {};
+	for(auto *Node : Nodes)
+	{
+		if(Node->Type == AST_DECL)
+		{
+			if((Node->Decl.Flags & SymbolFlag_Const) == 0)
+				continue;
+			if(Node->Decl.LHS->Type != AST_ID)
+				continue;
+			if(Node->Decl.Type)
+			{
+				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type, false);
+				if(T == Basic_error)
+					continue;
+			}
+			if(!IsSimpleGlobalExpression(Node, KnownNames))
+				continue;
+
+			u32 Type = AnalyzeDeclerations(Checker, Node, true);
+			const string *Name = Node->Decl.LHS->ID.Name;
+			string PassName = *Name;
+			const string *LinkName = NULL;
+			if(Node->Decl.LinkName)
+				LinkName = Node->Decl.LinkName;
+			else
+				LinkName = StructToModuleNamePtr(PassName, Checker->Module->Name);
+
+			Node->Decl.Flags |= SymbolFlag_AlreadyAnalyzed;
+			u32 Flags = Node->Decl.Flags & ~SymbolFlag_Function;
+			AddGlobalVariable(Checker, Name, LinkName, Flags, Node, Type);
+			KnownNames.Push(Name);
+		}
+	}
+	KnownNames.Free();
 }
 
 void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes)

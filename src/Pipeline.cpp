@@ -549,6 +549,12 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	{
 		file *File = Files[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
+		AnalyzeSimpleGlobalVariables(File->Checker, NodeSlice);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
+		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		AnalyzeForModuleStructs(NodeSlice, File->Module);
 	}
 	ForArray(Idx, Files)

@@ -543,23 +543,24 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	{
 		file *File = Files[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		AnalyzeForModuleStructs(NodeSlice, File->Module);
+		FindAndReplaceGlobalLambdasWithFunctions(NodeSlice);
 	}
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
-		AnalyzeEnumDefinitions(NodeSlice, File->Module);
-	}
-	ForArray(Idx, Files)
-	{
-		file *File = Files[Idx];
-		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
+		AnalyzeForModuleStructs(NodeSlice, File->Module);
 	}
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
 		AnalyzeForUserDefinedTypes(File->Checker, SliceFromArray(File->Nodes));
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
+		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
+		AnalyzeEnumDefinitions(File->Checker, NodeSlice, File->Module);
 	}
 	ForArray(Idx, Files)
 	{
@@ -578,6 +579,11 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	{
 		file *File = Files[Idx];
 		AnalyzeFunctionDecls(File->Checker, &File->Nodes, File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
+		AnalyzeEnums(File->Checker, SliceFromArray(File->Nodes));
 	}
 	ForArray(Idx, Files)
 	{

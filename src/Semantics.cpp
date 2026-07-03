@@ -1697,7 +1697,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			{
 				if(FnT->Function.Returns.Count > 0)
 				{
-					Expr->Lambda.SingleExpr = MakeReturn(Expr->ErrorInfo, Expr->Lambda.SingleExpr);
+					Expr->Lambda.SingleExpr = MakeReturn(Expr->Lambda.SingleExpr->ErrorInfo, Expr->Lambda.SingleExpr);
 				}
 				dynamic<node *> Body = {};
 				Body.Push(MakeScope(Expr->ErrorInfo, true));
@@ -4630,6 +4630,56 @@ void AnalyzeGlobalVariables(checker *Checker, slice<node *> Nodes, module *Modul
 	}
 }
 
+void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes)
+{
+	ForArray(Idx, Nodes)
+	{
+		node *Node = Nodes[Idx];
+		if(Node->Type == AST_DECL)
+		{
+			if(!Node->Decl.Expression || Node->Decl.Expression->Type != AST_LAMBDA)
+				continue;
+
+			if(!Node->Decl.Type)
+			{
+				RaiseError(false, *Node->ErrorInfo, "Global lambda declaration must be given a type.");
+				continue;
+			}
+			if(Node->Decl.Type->Type != AST_FN)
+			{
+				RaiseError(false, *Node->ErrorInfo, "Invalid type declared for global lambda, not a function type.");
+				continue;
+			}
+			if(Node->Decl.LHS->Type != AST_ID)
+			{
+				RaiseError(false, *Node->ErrorInfo, "Invalid left-hand side for lambda declaration, expected a single name.");
+				continue;
+			}
+			if((Node->Decl.Flags & SymbolFlag_Const) == 0)
+				continue;
+
+			node *T = Node->Decl.Type;
+			node *Lambda = Node->Decl.Expression;
+			T->Fn.Body = {};
+			if(Lambda->Lambda.SingleExpr)
+			{
+				T->Fn.Body.Push(MakeScope(Lambda->Lambda.SingleExpr->ErrorInfo, true));
+				T->Fn.Body.Push(MakeReturn(Lambda->Lambda.SingleExpr->ErrorInfo, Lambda->Lambda.SingleExpr));
+				T->Fn.Body.Push(MakeScope(Lambda->Lambda.SingleExpr->ErrorInfo, false));
+			}
+			else
+			{
+				dynamic<node *> Body = {};
+				for(node *n : Lambda->Lambda.Body)
+					Body.Push(n);
+				T->Fn.Body = Body;
+			}
+			T->Fn.Name = Node->Decl.LHS->ID.Name;
+			Nodes.Data[Idx] = T;
+		}
+	}
+}
+
 void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *Module)
 {
 	Checker->Nodes = NodesPtr;
@@ -4663,7 +4713,7 @@ void AnalyzeFunctionDecls(checker *Checker, dynamic<node *> *NodesPtr, module *M
 	}
 }
 
-void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
+void AnalyzeEnumDefinitions(checker *Checker, slice<node *> Nodes, module *)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -4672,10 +4722,30 @@ void AnalyzeEnumDefinitions(slice<node *> Nodes, module *)
 			string Name = *Nodes[I]->Enum.Name;
 			type *New = AllocType(TypeKind_Enum);
 			New->Enum.Name = Name;
+			u32 Type = Basic_error;
+			if(Nodes[I]->Enum.Type)
+			{
+				Type = GetTypeFromTypeNode(Checker, Nodes[I]->Enum.Type);
+				if(Type == Basic_error)
+					continue;
+
+				const type *T = GetType(Type);
+				if(!HasBasicFlag(T, BasicFlag_Integer))
+				{
+					RaiseError(false, *Nodes[I]->ErrorInfo, "Enum type must be integral, cannot use %s",
+							GetTypeName(T));
+				}
+
+			}
+			else
+			{
+				Type = Basic_int;
+			}
+			New->Enum.Type = Type;
 
 			// @TODO: Cleanup
 			uint Count = GetTypeCount();
-			string SymbolName = Name;//StructToModuleName(Name, Module->Name);
+			string SymbolName = Name;
 			bool Error = false;
 			for(int i = 0; i < Count; ++i)
 			{

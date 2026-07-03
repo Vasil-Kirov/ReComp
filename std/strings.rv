@@ -165,7 +165,7 @@ strip :: fn(s: string, prefix: string) -> string {
 	return s;
 }
 
-split :: fn(s: string, delim: u8, alloc := mem.get_temp()) -> []string {
+split :: fn(s: string, delim: u8, alloc: *mem.Allocator) -> []string {
 	res := array.create(string, alloc);
 	s := s;
 	at := 0;

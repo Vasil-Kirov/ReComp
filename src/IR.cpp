@@ -1631,7 +1631,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					if(Node->TypeList.Items.Count == 1)
 					{
-						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[0]->Item.Expression, IsLHS);
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[0]->Item.Expression);
 						for(int Idx = 0; Idx < Type->Vector.ElementCount; Idx++)
 						{
 							ir_insert *Ins = NewType(ir_insert);
@@ -1646,7 +1646,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					{
 						ForArray(Idx, Node->TypeList.Items)
 						{
-							u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+							u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression);
 
 							ir_insert *Ins = NewType(ir_insert);
 							Ins->Idx = Idx;
@@ -1665,7 +1665,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
 					ForArray(Idx, Node->TypeList.Items)
 					{
-						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression);
 						Registers[Idx] = Register;
 					}
 					Info->Alloc = Alloc;
@@ -1682,7 +1682,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					u32 *Registers = (u32 *)VAlloc(Node->TypeList.Items.Count * sizeof(u32));
 					ForArray(Idx, Node->TypeList.Items)
 					{
-						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression, IsLHS);
+						u32 Register = BuildIRFromExpression(Builder, Node->TypeList.Items[Idx]->Item.Expression);
 						Registers[Idx] = Register;
 					}
 					u32 ArrayType = GetArrayType(Type->Slice.Type, Node->TypeList.Items.Count);

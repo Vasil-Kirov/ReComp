@@ -94,7 +94,7 @@ void FillUntypedStack(checker *Checker, u32 Type);
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode = NULL);
 symbol *CreateFunctionSymbol(checker *Checker, node *Node);
 void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module);
-void AnalyzeEnumDefinitions(slice<node *> Nodes, module *Module);
+void AnalyzeEnumDefinitions(checker *Checker, slice<node *> Nodes, module *Module);
 void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 void AnalyzeDefineStructs(checker *Checker, slice<node *> Nodes);
 void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes);
@@ -106,6 +106,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error=false);
 u32 FindType(checker *Checker, const string *Name, const string *ModuleNameOptional=NULL);
 const symbol *FindSymbol(checker *Checker, const string *ID);
 u32 GetVariable(checker *Checker, const string *ID, bool *Found);
+void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

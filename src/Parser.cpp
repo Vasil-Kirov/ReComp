@@ -2672,6 +2672,7 @@ node *ParseTopLevel(parser *Parser)
 					EatToken(Parser, ';');
 				Result = Fn;
 			}
+			/*
 			else if(Decl->Decl.Type && Decl->Decl.Type->Type == AST_FN)
 			{
 				const string *LHSName = NULL;
@@ -2693,6 +2694,7 @@ node *ParseTopLevel(parser *Parser)
 					EatToken(Parser, ';');
 				Result = Fn;
 			}
+			*/
 			else
 			{
 				if(Parser->CurrentlyPublic)

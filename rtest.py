@@ -1,12 +1,12 @@
 import os
-import sys
-from os.path import isdir
+import subprocess
 from sys import platform
 import subprocess
 from time import time
 
 from colorama import Fore
 from colorama import Style
+from colorama import just_fix_windows_console
 
 def right_pad(str, len_s):
     while len(str) < len_s:
@@ -23,14 +23,14 @@ def remove_newlines(string):
     return string
 
 def get_tests():
-    paths = ['arrays', 'basic', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda', 'pass_complex', 'iterators', 'slices', 'var_args', 'loop_and_if', 'generics', 'generics_struct', 'defer', 'if_else', 'dynamic_array', 'embed', 'short_circuit_eval', 'immutable_args', 'compile_time_run', 'subtypes']
+    paths = ['arrays', 'basic', 'enums', 'fn_call', 'fn_ptr', 'pointers', 'struct', 'pass_struct', 'struct_in_struct', 'lambda', 'pass_complex', 'iterators', 'slices', 'var_args', 'loop_and_if', 'generics', 'generics_struct', 'defer', 'if_else', 'dynamic_array', 'embed', 'short_circuit_eval', 'immutable_args', 'compile_time_run', 'subtypes']
     paths.sort()
     return paths
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 tests = get_tests()
 os.chdir('tests')
-os.system('')
+just_fix_windows_console()
 for test in tests:
     os.chdir(test)
 
@@ -59,6 +59,7 @@ for test in tests:
 
     full_path = dir_path + '/tests/' + test + '/' + exe_name
     pdb_path = dir_path + '/tests/' + test + '/a.pdb'
+    clang_path = dir_path + '/tests/' + test + '/clang_rt.asan_dynamic-x86_64.dll'
     if not os.path.isfile(full_path):
         print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Time: {c_end_time - c_start_time:.2f}s')
         print(f'Output: {stderr.decode()}\n{stdout.decode()}')
@@ -77,6 +78,7 @@ for test in tests:
             print(f'{Fore.RED}[✗]FAIL {Style.RESET_ALL}{test} Got: {process.returncode}')
     remove_file(full_path)
     remove_file(pdb_path)
+    remove_file(clang_path)
 
     os.chdir('..')
 

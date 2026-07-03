@@ -4677,7 +4677,7 @@ void AnalyzeSimpleGlobalVariables(checker *Checker, slice<node *> Nodes)
 				if(T == Basic_error)
 					continue;
 			}
-			if(!IsSimpleGlobalExpression(Node, KnownNames))
+			if(!IsSimpleGlobalExpression(Node->Decl.Expression, KnownNames))
 				continue;
 
 			u32 Type = AnalyzeDeclerations(Checker, Node, true);

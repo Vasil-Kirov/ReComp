@@ -70,7 +70,7 @@ lerp :: fn(a: f32, b: f32, t: f32) -> f32 {
 }
 
 align_to :: fn(x: $T, align: T) -> T {
-    return ((x + (align - 1)) & ~(x - 1));
+    return ((x + (align - 1)) & ~(align - 1));
 }
 
 panic :: fn(err: string) #no_return {

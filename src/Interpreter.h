@@ -59,6 +59,8 @@ struct compile_info
 	interp_string *Directories;
 	size_t FileCount;
 	interp_string *FileNames;
+	size_t DefineCount;
+	interp_string *Defines;
 	i64 Optimization;
 	u32 Flags;
 	interp_string TargetTriple;

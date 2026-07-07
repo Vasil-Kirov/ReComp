@@ -561,6 +561,7 @@ main(int ArgCount, char *Args[])
 
 		bool WasDumpingInfo = DumpingInfo;
 		DumpingInfo = false;
+
 		{
 			dynamic<string> FileNames = {};
 			FileNames.Push(CommandLine.BuildFile);
@@ -571,7 +572,7 @@ main(int ArgCount, char *Args[])
 			BuildTimers = r.Timers;
 
 			// Clear run-time defines
-			ConfigIDs = {};
+			ConfigIDs.Count = 0;
 		}
 		DumpingInfo = WasDumpingInfo;
 
@@ -599,7 +600,6 @@ main(int ArgCount, char *Args[])
 		{
 			LFATAL("compile function needs to return compile.CompileInfo");
 		}
-		ConfigIDs.Count = 0;
 
 #if 0
 		for(int i = 0; i < GetTypeCount(); ++i)
@@ -644,6 +644,10 @@ main(int ArgCount, char *Args[])
 
 			g_TargetArch = (arch)Info->Arch;
 
+			for(size_t i = 0; i < Info->DefineCount; ++i)
+			{
+				ConfigIDs.Push(StringFromInterp(Info->Defines[i]));
+			}
 			if((Info->Flags & CF_NoLibC) == 0)
 			{
 				ConfigIDs.Push(STR_LIT("LIBC"));

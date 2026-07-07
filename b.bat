@@ -21,6 +21,7 @@ if "%1" == "rel" (
 
 echo %FLAGS%
 
+ctags --recurse .\src
 pushd bin
 :: cl.exe /nologo /LD ../testdll.c
 clang++ %FLAGS% -orvc.exe ..\src\Main.cpp -I..\include -I..\src %LIBS% -D_CRT_SECURE_NO_WARNINGS -mavx -Wall %ASAN% -Xlinker /NODEFAULTLIB:MSVCRT

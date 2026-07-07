@@ -11,6 +11,7 @@
 #include "VString.h"
 
 string ErrorID = STR_LIT("Error");
+string DiscardID = STR_LIT("_");
 
 node *ParseOperand(parser *Parser);
 
@@ -1030,10 +1031,15 @@ node *ParsePwdIf(parser *Parser)
 node *ParseFunctionArgument(parser *Parser)
 {
 	ERROR_INFO;
-	token ID = EatToken(Parser, T_ID);
-	if(ID.Type != T_ID)
-		return NULL;
-	EatToken(Parser, ':');
+	const string *ID = &DiscardID;
+	if(PeekToken(Parser, 1).Type == ':')
+	{
+		token IDT = EatToken(Parser, T_ID);
+		if(IDT.Type != T_ID)
+			return NULL;
+		ID = IDT.ID;
+		EatToken(Parser, ':');
+	}
 	node *Type = NULL;
 	node *Default = NULL;
 	if(Parser->Current->Type == T_VARARG)
@@ -1056,7 +1062,7 @@ node *ParseFunctionArgument(parser *Parser)
 			Parser->NoItemLists = SaveILists;
 		}
 	}
-	return MakeVar(ErrorInfo, ID.ID, Type, Default);
+	return MakeVar(ErrorInfo, ID, Type, Default);
 }
 
 u32 ParseFunctionFlags(parser *Parser, const string **CallConv, const string **LinkName, const string **Tag, const string **WasmModule, const string **WasmName)
@@ -1933,15 +1939,15 @@ node *ParseOperand(parser *Parser)
 		case T_OPENPAREN:
 		{
 			b32 SaveILists = Parser->NoItemLists;
-			//b32 SaveSLists = Parser->NoStructLists;
-			//Parser->NoStructLists = true;
+			b32 SaveSLists = Parser->NoStructLists;
+			Parser->NoStructLists = false;
 			Parser->NoItemLists = false;
 
 			GetToken(Parser);
 			Result = ParseExpression(Parser);
 			EatToken(Parser, T_CLOSEPAREN);
 
-			//Parser->NoStructLists = SaveSLists;
+			Parser->NoStructLists = SaveSLists;
 			Parser->NoItemLists = SaveILists;
 		} break;
 		case T_RUN:

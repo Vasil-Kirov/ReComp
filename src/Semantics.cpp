@@ -16,7 +16,7 @@
 #include "Polymorph.h"
 #include <optional>
 #include <tuple>
-extern u32 TypeCount;
+extern uint TypeCount;
 
 void FillUntypedStack(checker *Checker, u32 Type)
 {
@@ -377,7 +377,7 @@ void PopScope(checker *Checker, const error_info *End)
 			.To = End,
 			.Symbols = SliceFromArray(Symbols),
 		};
-		AddScopeToDump(S);
+		AddScopeToDump(S, Scope);
 	}
 }
 
@@ -1176,7 +1176,8 @@ void FunctionAddArugmentsToScope(checker *Checker, const type *FnT, slice<node *
 			flags |= SymbolFlag_Function;
 		if(!IsLoadableType(ArgT))
 			flags |= SymbolFlag_Const;
-		AddVariable(Checker, Arg->ErrorInfo, FnT->Function.Args[I], Arg->Var.Name, Arg, flags);
+		if(*Arg->Var.Name != "_")
+			AddVariable(Checker, Arg->ErrorInfo, FnT->Function.Args[I], Arg->Var.Name, Arg, flags);
 	}
 }
 
@@ -1202,7 +1203,8 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		u32 flags = SymbolFlag_Const;
 		u32 ArgType = FindStruct(STR_LIT("base.Arg"));
 		u32 Type = GetSliceType(ArgType);
-		AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Var.Name, NULL, flags);
+		if(*Arg->Var.Name != "_")
+			AddVariable(Checker, Arg->ErrorInfo, Type, Arg->Var.Name, Arg, flags);
 
 	}
 
@@ -1373,6 +1375,40 @@ RetErr:
 			FillUntypedStack(Checker, Promote.To);
 		}
 	}
+}
+
+std::optional<slice<node *>> CheckAndGetLambdaArgs(node *Expr, int ExpectedArgCount)
+{
+	dynamic<node*> Args = {};
+	if(Expr->Lambda.Args->Type == AST_ID)
+	{
+		Args.Push(Expr->Lambda.Args);
+	}
+	else if(Expr->Lambda.Args->Type == AST_LIST)
+	{
+		for(node *Node : Expr->Lambda.Args->List.Nodes)
+		{
+			if(Node->Type != AST_ID)
+			{
+				RaiseError(false, *Node->ErrorInfo, "Unexpected expression in lambda list of arguments, expected only names for arguments.");
+				return std::nullopt;
+			}
+			Args.Push(Node);
+		}
+	}
+	else
+	{
+		RaiseError(false, *Expr->Lambda.Args->ErrorInfo, "Expected arguments for lambda here, either a name or list of names.");
+		return std::nullopt;
+	}
+	if(Args.Count != ExpectedArgCount)
+	{
+		RaiseError(false, *Expr->ErrorInfo, "Deduced type for lambda requires %d %s, but %d %s provided.",
+				ExpectedArgCount, ExpectedArgCount == 1 ? "argument" : "arguments",
+				Args.Count, Args.Count == 1 ? "was" : "were");
+		return std::nullopt;
+	}
+	return SliceFromArray(Args);
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -1614,35 +1650,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				goto AnalyzeAtomEnd;
 			}
 			Assert(FnTi != Basic_error);
-			dynamic<node*> Args = {};
-			if(Expr->Lambda.Args->Type == AST_ID)
-			{
-				Args.Push(Expr->Lambda.Args);
-			}
-			else if(Expr->Lambda.Args->Type == AST_LIST)
-			{
-				for(node *Node : Expr->Lambda.Args->List.Nodes)
-				{
-					if(Node->Type != AST_ID)
-					{
-						RaiseError(false, *Node->ErrorInfo, "Unexpected expression in lambda list of arguments, expected only names for arguments.");
-						goto AnalyzeAtomEnd;
-					}
-					Args.Push(Node);
-				}
-			}
-			else
-			{
-				RaiseError(false, *Expr->Lambda.Args->ErrorInfo, "Expected arguments for lambda here, either a name or list of names.");
+			auto ArgsRes = CheckAndGetLambdaArgs(Expr, FnT->Function.ArgCount);
+			if(ArgsRes == std::nullopt)
 				goto AnalyzeAtomEnd;
-			}
-			if(Args.Count != FnT->Function.ArgCount)
-			{
-				RaiseError(false, *Expr->ErrorInfo, "Deduced type for lambda requires %d %s, but %d %s provided.",
-						FnT->Function.ArgCount, FnT->Function.ArgCount == 1 ? "argument" : "arguments",
-						Args.Count, Args.Count == 1 ? "was" : "were");
-				goto AnalyzeAtomEnd;
-			}
+			slice<node*> Args = ArgsRes.value();
 			array<node*> ArgVars = {Args.Count};
 			int At = 0;
 			for(node *Arg : Args)
@@ -4728,6 +4739,16 @@ void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes)
 
 			node *T = Node->Decl.Type;
 			node *Lambda = Node->Decl.Expression;
+			auto ArgsRes = CheckAndGetLambdaArgs(Lambda, T->Fn.Args.Count);
+			if(ArgsRes == std::nullopt)
+				continue;
+
+			slice<node*> Args = ArgsRes.value();
+			for(int i = 0; i < Args.Count; ++i)
+			{
+				T->Fn.Args[i]->Var.Name = Args[i]->ID.Name;
+			}
+
 			T->Fn.Body = {};
 			if(Lambda->Lambda.SingleExpr)
 			{
@@ -4851,15 +4872,20 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 		if(Nodes[I]->Type == AST_DECL)
 		{
 			node *Node = Nodes[I];
+			bool ErrorOnInvalidType = false;
 			if(Node->Decl.Type && Node->Decl.Type->Type == AST_ID)
 			{
 				u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Type, false);
 				if(T != Basic_type)
 					continue;
+
+				ErrorOnInvalidType = true;
 			}
+
 			if(Node->Decl.LHS->Type != AST_ID)
 				continue;
-			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, Node->Decl.Type != nullptr);
+
+			u32 T = GetTypeFromTypeNode(Checker, Node->Decl.Expression, ErrorOnInvalidType);
 			if(T == Basic_error)
 				continue;
 

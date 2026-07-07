@@ -3612,6 +3612,9 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 
 		ForArray(Idx, Args)
 		{
+			if(*Args[Idx]->Var.Name == "_")
+				continue;
+
 			u32 Type = INVALID_TYPE;
 			if(Idx >= OgType->Function.ArgCount)
 			{
@@ -3633,7 +3636,6 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 			PushIRLocal(&Builder, Args[Idx]->Var.Name, Register,
 					Type);
 			IRPushDebugVariableInfo(&Builder, Node->ErrorInfo, *Args[Idx]->Var.Name, Type, Alloc);
-			//IRPushDebugArgInfo(&Builder, Node->ErrorInfo, Idx, Register, *Args[Idx]->Var.Name, Type);
 		}
 
 		u32 StartTime = -1;

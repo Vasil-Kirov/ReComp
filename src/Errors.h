@@ -19,8 +19,6 @@ struct error_info
 	range Range;
 };
 
-extern bool DontExit;
-
 #if 0
 void
 raise_semantic_error(File_Contents *f, const char *error_msg, struct _Token_Iden token);

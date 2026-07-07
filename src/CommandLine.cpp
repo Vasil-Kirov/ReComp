@@ -6,7 +6,7 @@
 extern bool g_InterpreterTrace;
 extern bool NoThreads;
 slice<string> GlobalIRModules;
-slice<string> CommandLineArgs;
+slice<string> BuildScriptArgs;
 arch g_TargetArch = Arch_x86_64;
 
 const char *HELP = R"#(
@@ -29,27 +29,29 @@ OPTIONS:
 		Print the location of the interpreter, useful for debugging crashes
 	--file name
 		Compile single code file instead of build file
-	--ipc write_pipe read_pipe
-		For tools, pass ids for communication pipes, compiler will dump info to write_pipe
 	--no-thread
 		Disables multi threading
+	--write-ctags
+		Writes a tags file using the universal ctags format
 	--substitute-file original_name.rv
 		Substitue a file parsed from the build script, --ipc needs to be specified for this, compiler will write the file name to write_pipe and then read its contents.
+	--
+		Pass arguments after this to the build script
 )#";
 
-//	--dump-info
-//		Dumps info about the compilation in a binary format, useful for tools. Info file is called rcp.dump
+//  --ipc write_pipe read_pipe
+//  	For tools, pass ids for communication pipes, compiler will dump info to write_pipe
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
 {
 	dynamic<string> Args = {};
-	Assert(ArgCount < 64);
+	//Assert(ArgCount < 64);
 	for(int i = 1; i < ArgCount; ++i)
 	{
 		Args.Push(MakeString(CArgs[i]));
 	}
 	ArgCount--;
-	CommandLineArgs = SliceFromArray(Args);
+	dynamic<string> BuildScriptArgsDyn = {};
 	command_line Result = {};
 
 	const string CompileCommands[] = {
@@ -62,7 +64,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--log"),
 		STR_LIT("--interp-trace"),
 		STR_LIT("--file"),
-		STR_LIT("--ipc"),
+		STR_LIT("--write-ctags"),
 		STR_LIT("--no-thread"),
 		STR_LIT("--substitute-file"),
 	};
@@ -143,16 +145,6 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[9]))
 		{
-			if(i + 2 >= ArgCount)
-			{
-				LogCompilerError("Expected 2 pipe ids after --ipc");
-				RET_EMPTY(command_line);
-			}
-			i++;
-			Result.WritePipe = strtoull(Args[i].Data, NULL, 10);
-			i++;
-			Result.ReadPipe = strtoull(Args[i].Data, NULL, 10);
-			Result.IPC = true;
 			Result.Flags |= CommandFlag_dumpinfo;
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[10]))
@@ -169,6 +161,12 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			}
 			i++;
 			Substitutes.Push(Args[i]);
+		}
+		else if(Arg == "--")
+		{
+			i++;
+			for(; i < ArgCount; i++)
+				BuildScriptArgsDyn.Push(Args[i]);
 		}
 		else if(Arg.Size < 2 || Arg.Data[0] != '-')
 		{
@@ -192,6 +190,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	{
 		LFATAL("Build file %s passed despite --file flag", Result.BuildFile.Data);
 	}
+	BuildScriptArgs = SliceFromArray(BuildScriptArgsDyn);
 
 	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);

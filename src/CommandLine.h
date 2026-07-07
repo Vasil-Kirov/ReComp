@@ -50,11 +50,11 @@ struct command_line
 	uint Flags;
 	u64 WritePipe;
 	u64 ReadPipe;
-	bool IPC;
+	//bool IPC;
 };
 
 bool ShouldOutputIR(string MName);
 
-extern slice<string> CommandLineArgs;
+extern slice<string> BuildScriptArgs;
 extern arch g_TargetArch;
 

@@ -40,7 +40,6 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.h"
 #include "Pipeline.h"
 #include "FlowTyping.h"
-#include "IPC.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -83,7 +82,6 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.cpp"
 #include "Pipeline.cpp"
 #include "FlowTyping.cpp"
-#include "IPC.cpp"
 #include "PassAst.cpp"
 
 #if 0
@@ -494,23 +492,7 @@ main(int ArgCount, char *Args[])
 	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile.Data == NULL)
 		return 1;
 
-	if(CommandLine.IPC)
-	{
-		IPCWritePipe = CommandLine.WritePipe;
-		IPCReadPipe = CommandLine.ReadPipe;
-	}
-
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
-	if(CommandLine.Substitutes.Count > 0 && CommandLine.IPC) {
-		array<file_substitute> FileSubstitutes(CommandLine.Substitutes.Count);
-		size_t At = 0;
-		For(CommandLine.Substitutes)
-		{
-			FileSubstitutes[At++] = file_substitute {*it, IPCReadSubstituteFile(*it)};
-		}
-		Substitutes = SliceFromArray(FileSubstitutes);
-	}
-
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
 	StdLibDir.Size--;
 	StdLibDir = MakeString(StdLibDir.Data, StdLibDir.Size);
@@ -771,8 +753,6 @@ main(int ArgCount, char *Args[])
 			BuildTimeTypeTable = SaveTypeTableAndReset();
 			AddVectorTypes();
 			NeedToRestoreForAfterFunction = true;
-			if(DumpingInfo)
-				DontExit = true;
 			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint, CustomModules);
 			slice<file*> Files = r.Files;
 			ModuleArray = r.Modules;
@@ -850,6 +830,10 @@ main(int ArgCount, char *Args[])
 			ComptimeVM.StackAllocator.Free();
 
 			Timers.Push(FileTimer);
+			if(DumpingInfo)
+			{
+				WriteCTags(ModuleArray);
+			}
 		}
 	}
 	else
@@ -887,9 +871,6 @@ main(int ArgCount, char *Args[])
 		ModuleArray = r.Modules;
 		FileTimer = r.Timers;
 
-		if(DumpingInfo)
-			return 0;
-		
 		MakeInterpreter(BuildVM, ModuleArray, 100);
 		if(HasErroredOut())
 			exit(1);
@@ -902,6 +883,11 @@ main(int ArgCount, char *Args[])
 		}
 		BuildVM.StackAllocator.Free();
 		Timers.Push(FileTimer);
+		if(DumpingInfo)
+		{
+			WriteCTags(ModuleArray);
+		}
+		
 	}
 
 

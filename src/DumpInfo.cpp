@@ -1,4 +1,3 @@
-#include "IPC.h"
 #include "Module.h"
 #include "Platform.h"
 #include "Semantics.h"
@@ -208,7 +207,6 @@ void PipeInfoBlob(binary_blob *Blob)
 		}
 	}
 
-	IPCSendMessage(Blob->Buf.Data, Blob->Buf.Count);
 	AlreadyPipedInfo = true;
 	
 	//PlatformDeleteFile(DumpFileName.Data);
@@ -277,8 +275,162 @@ void AddErrorToDump(error_dump Error)
 	ErrorsToDump.Push(Error);
 }
 
-void AddScopeToDump(scope_dump Symbol)
+void AddScopeToDump(scope_dump Symbol, scope *Scope)
 {
+	scope *c = Scope;
+	while(c != nullptr)
+	{
+		if(c->ScopeNode && c->ScopeNode->Type == AST_FN)
+			break;
+		c = c->Parent;
+	}
+	if(c)
+		Symbol.WrittableScope = c->ScopeNode;
 	ScopesToDump.Push(Symbol);
+}
+
+char GetCTagKindForNode(node *N)
+{
+	if(!N)
+		return '?';
+
+	switch(N->Type)
+	{
+		case AST_FN:
+			return 'f';
+		case AST_ID:
+		case AST_UNARY:
+		case AST_VAR:
+		case AST_DECL:
+			return 'v';
+		case AST_ENUM:
+			return 'g';
+		case AST_STRUCTDECL:
+			return 's';
+		default: break;
+	}
+	return '?';
+}
+
+void DumpCTagSymbol(string_builder *b, symbol *s, string InFunction)
+{
+	Assert(s->Node);
+
+	auto line = s->Node->ErrorInfo->Range.StartLine;
+	auto col = s->Node->ErrorInfo->Range.StartChar;
+	char c = GetCTagKindForNode(s->Node);
+	if(c == 'v' && InFunction.Size > 0)
+		c = 'l';
+
+	//      tag_name fname line kind line column scope
+	b->printf("%.*s\t%s\t%d;\"\t%c\tline:%d\tcolumn:%d",
+			(int)s->Name->Size, s->Name->Data, s->Node->ErrorInfo->FileName, line,
+			c,
+			line, col);
+	bool IsModule = false;
+	if(InFunction.Size == 0 && s->Checker)
+	{
+		InFunction = s->Checker->Module->Name;
+		IsModule = true;
+	}
+	const type *T = GetType(s->Type);
+	string TName = GetTypeNameAsString(T);
+	if(s->Flags & SymbolFlag_Function && s->Node->Type == AST_FN)
+	{
+		Assert(T->Kind == TypeKind_Function);
+		string ReturnName = GetTypeNameAsString(ReturnsToType(T->Function.Returns));
+		TName = SliceString(TName, 2, TName.Size);
+		b->printf("\ttyperef:typename:%.*s", (int)ReturnName.Size, ReturnName.Data);
+		b->printf("\tsignature:%.*s", (int)TName.Size, TName.Data);
+	}
+	else
+	{
+		b->printf("\ttyperef:typename:%.*s", (int)TName.Size, TName.Data);
+	}
+	if(InFunction.Size > 0)
+	{
+		if(IsModule)
+			b->printf("\tscope:%.*s\tscopeKind:namespace", (int)InFunction.Size, InFunction.Data);
+		else
+			b->printf("\tscope:%.*s\tscopeKind:function", (int)InFunction.Size, InFunction.Data);
+	}
+	*b += "\n";
+	//b->printf("\tfile:\n");
+}
+
+void WriteCTags(slice<module*> Modules)
+{
+	auto b = MakeBuilder();
+    b.printf("!_TAG_FILE_FORMAT\t2\t/extended format/\n");
+    b.printf("!_TAG_FILE_SORTED\t0\t/0=unsorted, 1=sorted/\n");
+    b.printf("!_TAG_PROGRAM_NAME\tmycompiler\t//\n");
+	for(auto m : Modules)
+	{
+		b.printf("%.*s\t%.*s\t1;\"\tn\n",
+				(int)m->Name.Size, m->Name.Data,
+				(int)m->Files[0]->Name.Size, m->Files[0]->Name.Data);
+	}
+	for(auto scope : ScopesToDump)
+	{
+		string FunctionName = {};
+		if(scope.WrittableScope && scope.WrittableScope->Type == AST_FN)
+		{
+			FunctionName = *scope.WrittableScope->Fn.Name;
+		}
+		for(auto& s : scope.Symbols)
+		{
+			DumpCTagSymbol(&b, &s, FunctionName);
+		}
+	}
+	for(auto m : Modules)
+	{
+		for(auto [_, g] : m->Globals)
+		{
+			DumpCTagSymbol(&b, g, {});
+		}
+	}
+	for(uint i = 0; i < GetTypeCount(); ++i)
+	{
+		const type *T = GetType(i);
+		if(T->Kind == TypeKind_Struct)
+		{
+			int dot = -1;
+			for(int j = 0; j < T->Struct.Name.Size; ++j)
+			{
+				if(T->Struct.Name.Data[j] == '.')
+				{
+					dot = j;
+					break;
+				}
+			}
+			if(dot == -1)
+				continue;
+			string Module = SliceString(T->Struct.Name, 0, dot);
+			string Name = SliceString(T->Struct.Name, dot+1, T->Struct.Name.Size);
+			auto NodeTuple = TypeNodeRecord.find(i);
+			if(NodeTuple == TypeNodeRecord.end())
+				continue;
+			auto Node = NodeTuple->second;
+			Assert(Node->Type == AST_STRUCTDECL);
+			int line = Node->ErrorInfo->Range.StartLine;
+			int col = Node->ErrorInfo->Range.StartChar;
+			b.printf("%.*s\t%s\t%d;\"\ts\tline:%d\tcolumn:%d",
+					(int)Name.Size, Name.Data, Node->ErrorInfo->FileName, line, line, col);
+			b.printf("\tscope:%.*s\tscopeKind:namespace\n", (int)Module.Size, Module.Data);
+			int AtMem = 0;
+			for(auto mem : Node->StructDecl.Members)
+			{
+				string MemT = GetTypeNameAsString(T->Struct.Members[AtMem++].Type);
+				b.printf("%.*s\t%s\t%d;\"\tm\tstruct:%.*s\ttyperef:typename:%.*s\tline:%d\tcolumn:%d\n",
+						(int)mem->Var.Name->Size, mem->Var.Name->Data, mem->ErrorInfo->FileName, mem->ErrorInfo->Range.StartLine,
+						(int)Name.Size, Name.Data, (int)MemT.Size, MemT.Data,
+						mem->ErrorInfo->Range.StartLine, mem->ErrorInfo->Range.StartChar);
+			}
+		}
+	}
+
+	PlatformDeleteFile("./tags");
+	PlatformWriteFile("./tags", (u8 *)b.Data.Data, b.Size);
+	b.Data.Free();
 }
 

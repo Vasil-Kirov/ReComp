@@ -2055,7 +2055,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 					value *V = VM->Registers.GetValue(Info->CallInfo->Args[0]);
 					u32 Out;
 					auto Data = (void **)IndexVM(VM, V, 1, Type->Function.Returns[0], &Out);
-					*Data = (void *)ALLOC((GetRegisterTypeSize()/8) * CommandLineArgs.Count);
+					*Data = (void *)ALLOC((GetRegisterTypeSize()/8) * BuildScriptArgs.Count);
 				}
 			} break;
 			default: break;
@@ -2227,10 +2227,10 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						u32 o;
 						auto Count = (size_t *)IndexVM(VM, V, 0, Type->Function.Returns[0], &o);
 						auto Data = *(interp_string **)IndexVM(VM, V, 1, Type->Function.Returns[0], &o);
-						*Count = CommandLineArgs.Count;
-						for(size_t i = 0; i < CommandLineArgs.Count; ++i)
+						*Count = BuildScriptArgs.Count;
+						for(size_t i = 0; i < BuildScriptArgs.Count; ++i)
 						{
-							Data[i] = StringToInterp(&CommandLineArgs.Data[i]);
+							Data[i] = StringToInterp(&BuildScriptArgs.Data[i]);
 						}
 					} break;
 					case IN_DEBUG_BREAK:

@@ -22,6 +22,7 @@ struct scope_dump
 	const error_info *From;
 	const error_info *To;
 	slice<symbol> Symbols;
+	node *WrittableScope;
 };
 
 enum selector_type
@@ -57,7 +58,7 @@ void DumpString(binary_blob *Blob, string S);
 void DumpError(binary_blob *Blob, error_dump Error);
 void DumpScope(binary_blob *Blob, scope_dump Symbol);
 void AddErrorToDump(error_dump Error);
-void AddScopeToDump(scope_dump Symbol);
+void AddScopeToDump(scope_dump Symbol, struct scope *Scope);
 void PipeInfoBlob(binary_blob *Blob);
 void DumpFileTokens(binary_blob *Blob, file *File);
 void DumpLocationErrI(binary_blob *Blob, const error_info *ErrI);

@@ -1,7 +1,6 @@
 #include "Errors.h"
 #include "Basic.h"
 #include "DumpInfo.h"
-#include "IPC.h"
 #include "Log.h"
 #include "Platform.h"
 #include <atomic>
@@ -9,7 +8,6 @@
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
-bool DontExit = false;
 std::atomic<uint> Errors = {};
 
 void SetBonusMessage(string S)
@@ -136,8 +134,6 @@ bool HasErroredOut()
 void ExitIfErroredOut()
 {
 	if (HasErroredOut()) {
-		if(DumpingInfo)
-			IPCListenAndServe();
 		exit(1);
 	}
 }
@@ -194,10 +190,8 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	VFree(FinalFormat);
 
 	ErrorMutex.unlock();
-	if((Abort || Errors > 4) && !DontExit)
+	if((Abort || Errors > 4))
 	{
-		if(DumpingInfo)
-			IPCListenAndServe();
 		exit(1);
 	}
 }

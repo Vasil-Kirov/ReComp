@@ -137,7 +137,15 @@ void FreeAllArenas()
 	}
 }
 
-size_t AlignTo (int Address, int Alignment)
+size_t AlignToPow2 (size_t Address, size_t Alignment)
 {
     return ((Address + (Alignment - 1)) & ~(Alignment - 1));
+}
+
+size_t AlignTo (size_t Address, size_t Alignment)
+{
+	size_t Rem = Address % Alignment;
+	if(Rem == 0)
+		return Address;
+    return Address + (Alignment - Rem);
 }

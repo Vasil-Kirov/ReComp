@@ -1,5 +1,7 @@
 module reflect
 
+#import misc;
+
 get_struct_members :: fn(t: type) -> []StructMember {
 	ti := type_info t;
 	if ti.kind != .Struct
@@ -8,23 +10,24 @@ get_struct_members :: fn(t: type) -> []StructMember {
 }
 
 get_register_bit_count :: fn() -> int {
-	// @TODO: other platforms
-	return 64;
+	return size_of(*void) * 8;
 }
 
 get_struct_alignment :: fn(st: type) -> int {
 	ti := type_info(st);
+	#assert ti.kind == .Struct;
     t := ti.t.struct_;
     if t.members.count == 0
         return 1;
+
+	if t.flags & .Packed != 0
+		return 1;
     
-    biggest := 0;
     align := 1;
     for m in t.members {
-        size := get_type_size(m.t);
-        if size > biggest {
-            biggest = size;
-            align = get_type_alignment(m.t);
+        mem_align := get_type_alignment(m.t);
+        if mem_align > align {
+            align = mem_align;
         }
     }
 
@@ -33,20 +36,21 @@ get_struct_alignment :: fn(st: type) -> int {
 
 get_type_alignment :: fn(t: type) -> int {
     ti := type_info(t);
+	ptr_size := get_register_bit_count() / 8;
     result := switch ti.kind {
         case .Basic: {
             if t == string
-                yield 8;
+                yield ptr_size;
             yield get_basic_type_size(ti.t.basic);
         }
         case .Function: {
-            yield 8;
+            yield ptr_size;
         }
         case .Pointer: {
-            yield 8;
+            yield ptr_size;
         }
         case .Slice: {
-            yield 8;
+            yield ptr_size;
         }
         case .Array: {
             yield get_type_alignment(ti.t.array.t);
@@ -79,17 +83,22 @@ get_struct_size :: fn(st: type) -> int {
     biggest_member := 0;
     for m in t.members {
 		member_size := get_type_size(m.t);
-        alignment := get_type_alignment(m.t);
-		if alignment != 0
-			result += result % alignment;
+		if t.flags & .Packed == 0 {
+			alignment := get_type_alignment(m.t);
+			if alignment != 0
+				result = misc.align_to(result, alignment);
+		}
 		result += member_size;
 		if member_size > biggest_member
 			biggest_member = member_size;
 	}
 	if t.flags & .Union != 0
 		return biggest_member;
-    align := get_type_alignment(st);
-	result += (align - ( result % align )) % align;
+	if t.flags & .Packed == 0 {
+		align := get_type_alignment(st);
+		if align != 0
+			result = misc.align_to(result, align);
+	}
 	return result;
 }
 
@@ -124,10 +133,6 @@ get_type_size :: fn(t: type) -> int {
     return result;
 }
 
-align_to :: fn(address: int, alignment: int) -> int {
-    return ((address + (alignment - 1)) & ~(alignment - 1));
-}
-
 get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     if st.members.count == 0 || mem_idx == 0 {
         return 0;
@@ -140,9 +145,11 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
     result := 0;
     for i := 0; i <= mem_idx; i += 1 {
         size := get_type_size(st.members[i].t);
-        align := get_type_alignment(st.members[i].t);
-        if align != 0
-            result = align_to(result, align);
+		if st.flags & .Packed == 0 {
+			align := get_type_alignment(st.members[i].t);
+			if align != 0
+				result = misc.align_to(result, align);
+		}
         result += size;
     }
     result -= get_type_size(st.members[mem_idx].t);

@@ -1,8 +1,10 @@
 module base
 
+c_int :: i32;
+
 Arg :: struct {
     t: type,
-    val: *,
+    val: *void,
 }
 
 FileLocation :: struct {
@@ -185,14 +187,16 @@ val_or :: fn(opt: Optional<$t>, none: t) -> t {
 	return none;
 }
 
-memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> i32;
+memcmp :: fn #link="memcmp"(p1: *, p2: *, num: int) -> c_int;
+memcpy :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;
+memset :: fn #link="memset"(dst: *, c: c_int, size: int) -> *;
 
 main :: fn #link="main.main"() -> i32;
 
-entry :: fn #link="main"() -> i32 {
+entry :: fn #link="main"() -> c_int {
     res := main();
 
-    return res;
+    return res as c_int;
 }
 
 type_table: []TypeInfo;

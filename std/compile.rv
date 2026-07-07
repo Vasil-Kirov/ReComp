@@ -15,20 +15,24 @@ raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 no_compile_output :: fn() #intrinsic;
 get_build_args :: fn() -> []string #intrinsic;
 
+#private
+bit: fn(u32) -> u32 : n -> 1 << n;
+#public
+
 CompileFlag :: enum: u32 {
-    Debug       = 0b0000000000001,
-    SanAddress  = 0b0000000000010,
-    SanMemory   = 0b0000000000100,
-    SanThread   = 0b0000000001000,
-    SanUndefined= 0b0000000010000,
-	NoLibC	    = 0b0000000100000,
-    SharedLib   = 0b0000001000000,
-    CrossAndroid= 0b0000010000000,
-    NoLink      = 0b0000100000000,
-    Standalone  = 0b0001000000000,
-    DebugInfo   = 0b0010000000000,
-	DisableAssert=0b0100000000000,
-	DisableBoundsCheck=0b1000000000000,
+    Debug        = bit(0),
+    SanAddress   = bit(1),
+    SanMemory    = bit(2),
+    SanThread    = bit(3),
+    SanUndefined = bit(4),
+	NoLibC	     = bit(5),
+    SharedLib    = bit(6),
+    CrossAndroid = bit(7),
+    NoLink       = bit(8),
+    Standalone   = bit(9),
+    DebugInfo    = bit(10),
+	DisableAssert= bit(11),
+	DisableBoundsCheck=bit(12),
 }
 
 Arch :: enum: u32 {
@@ -44,6 +48,7 @@ CompileInfo :: struct {
 	custom_modules: []Module,
     source_dirs: []string,
     files: []string,
+	defines: []string,
     opt: int,
     flags: CompileFlag,
     target_triple: string,

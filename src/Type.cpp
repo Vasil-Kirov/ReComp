@@ -520,7 +520,8 @@ int GetStructSize(const type *Type)
 	if((Type->Struct.Flags & StructFlag_Packed) == 0)
 	{
 		auto sa = GetTypeAlignment(Type);
-		Result = AlignTo(Result, sa);
+		if(sa != 0)
+			Result = AlignTo(Result, sa);
 	}
 	return Result;
 }

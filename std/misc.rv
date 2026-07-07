@@ -69,8 +69,15 @@ lerp :: fn(a: f32, b: f32, t: f32) -> f32 {
 	return a + (b-a) * t;
 }
 
-align_to :: fn(x: $T, align: T) -> T {
+// WARNING: Only works when align==2^n
+align_up2 :: fn(x: $T, align: T) -> T {
     return ((x + (align - 1)) & ~(align - 1));
+}
+
+align_to :: fn(x: $T, align: T) -> T {
+	rem := x % align;
+	if rem == 0 return x;
+	return x + (align - rem);
 }
 
 panic :: fn(err: string) #no_return {

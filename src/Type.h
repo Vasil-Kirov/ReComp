@@ -245,14 +245,15 @@ string GetTypeNameAsString(u32 Type);
 
 u32 GetReturnType(const type *Type);
 
-int GetBasicTypeSize(const type *Type);
-int GetTypeSize(const type *Type);
+int GetBasicTypeSize(const type *Type, bool FromInterp=false);
+int GetTypeSize(const type *Type, bool FromInterp=false);
 int GetTypeSize(u32 Type);
-int GetTypeAlignment(const type *Type);
+int GetTypeAlignment(const type *Type, bool FromInterp=false);
 int GetTypeAlignment(u32 Type);
-int GetStructMemberOffset(const type *Type, uint Member);
+int GetStructMemberOffset(const type *Type, uint Member, bool FromInterp=false);
 int GetStructMemberOffset(u32 Type, uint Member);
 int GetRegisterTypeSize();
+int GetHostRegisterTypeSize();
 
 b32 CanTypePerformBinExpression(const type *T, token_type Op);
 b32 IsTypeCompatible(const type *Left, const type *Right, const type **PotentialPromotion, b32 IsAssignment);

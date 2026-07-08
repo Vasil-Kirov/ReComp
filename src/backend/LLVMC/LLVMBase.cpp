@@ -232,7 +232,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				case Basic_type:
 				case Basic_int:
 				{
-					int RegisterSize = GetRegisterTypeSize() / 8;
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: return LLVMConstInt(lt, *(i64 *)Ptr, true);
@@ -243,7 +243,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				} break;
 				case Basic_uint:
 				{
-					int RegisterSize = GetRegisterTypeSize() / 8;
+					int RegisterSize = GetHostRegisterTypeSize() / 8;
 					switch(RegisterSize)
 					{
 						case 8: return LLVMConstInt(lt, *(u64 *)Ptr, false);
@@ -254,7 +254,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				} break;
 				case Basic_string:
 				{
-					LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());
+					LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetHostRegisterTypeSize());
 					string Str;
 					Str.Size = *(size_t *)Ptr;
 					Str.Data = *((const char **)Ptr+1);
@@ -346,7 +346,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 			int Count = 0;
 			ForArray(Idx, T->Struct.Members)
 			{
-				u8 *At = Start + GetStructMemberOffset(T, Idx);
+				u8 *At = Start + GetStructMemberOffset(T, Idx, true);
 				Values[Count++] = FromPtr(gen, T->Struct.Members[Idx].Type, At);
 			}
 			return LLVMConstNamedStruct(lt, Values.Data, Count);
@@ -355,7 +355,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 		{
 			LLVMTypeRef DataType = ConvertToLLVMType(gen, T->Slice.Type);
 			LLVMTypeRef SizeType = ConvertToLLVMType(gen, Basic_int);
-			size_t TypeSize = GetTypeSize(T->Slice.Type);
+			size_t TypeSize = GetTypeSize(GetType(T->Slice.Type), true);
 			u8 *At = (u8 *)Ptr;
 			size_t Size = *(size_t *)At;
 			At += sizeof(size_t);
@@ -381,7 +381,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 		case TypeKind_Array:
 		{
 			u8 *At = (u8 *)Ptr;
-			int ElemSize = GetTypeSize(T->Array.Type);
+			int ElemSize = GetTypeSize(GetType(T->Array.Type), true);
 			auto Values = array<LLVMValueRef>(T->Array.MemberCount);
 			int Count = 0;
 			for(int i = 0; i < T->Array.MemberCount; ++i)

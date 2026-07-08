@@ -855,7 +855,7 @@ const symbol *FindSymbol(checker *Checker, const string *ID)
 		{
 			// @THREADING: NOT THREAD SAFE (maybe)
 			auto Sym = it->M->Globals[*ID];
-			if(Sym)
+			if(Sym && (Sym->Flags & SymbolFlag_Public) != 0)
 			{
 				return Sym;
 			}
@@ -1419,6 +1419,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_ID:
 		{
 			bool Found = false;
+			//const symbol *Symbol = FindSymbol(Checker, Expr->ID.Name);
 			Result = GetVariable(Checker, Expr->ID.Name, &Found);
 			if(!Found)
 			{
@@ -1440,6 +1441,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							auto Sym = it->M->Globals[*Expr->ID.Name];
 							if(Sym)
 							{
+								if((Sym->Flags & SymbolFlag_Public) == 0)
+								{
+									RaiseError(false, *Expr->ErrorInfo,
+											"Cannot access private member %s in module %s",
+											Expr->ID.Name->Data, it->M->Name.Data);
+								}
 								Result = Sym->Type;
 								break;
 							}
@@ -1482,9 +1489,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				if(Result == Basic_error)
 				{
-					for(auto sym : Checker->Module->Globals) {
-						LDEBUG("s: %s", sym.first.Data);
-					}
 					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
 					return Basic_error;
 				}
@@ -3078,7 +3082,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 				{
 					u32 TypeIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
 					const type *T = GetType(TypeIdx);
-					if(!HasBasicFlag(T, BasicFlag_Integer))
+					if(!HasBasicFlag(T, BasicFlag_Integer) && T->Kind != TypeKind_Enum)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Unary `~` can only be used on integers, attempt to use it on type %s is invalid", GetTypeName(T));
 					}
@@ -4764,6 +4768,8 @@ void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes)
 				T->Fn.Body = Body;
 			}
 			T->Fn.Name = Node->Decl.LHS->ID.Name;
+			if(Node->Decl.Flags & SymbolFlag_Public)
+				T->Fn.Flags |= SymbolFlag_Public;
 			Nodes.Data[Idx] = T;
 		}
 	}

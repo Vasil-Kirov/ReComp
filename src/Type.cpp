@@ -470,21 +470,29 @@ int GetRegisterTypeSize()
 	return RegisterBitSize;
 }
 
-// @TODO: Non basic type size calculation and arch dependant type sizes
-int GetBasicTypeSize(const type *Type)
+int GetHostRegisterTypeSize()
 {
+	return sizeof(void*) * 8;
+}
+
+int GetBasicTypeSize(const type *Type, bool FromInterp)
+{
+	int RegTypeSize = GetRegisterTypeSize();
+	if(FromInterp)
+			RegTypeSize = GetHostRegisterTypeSize();
+
 	if(Type->Basic.Size != -1)
 		return Type->Basic.Size;
 	else if(Type->Basic.Kind == Basic_int || Type->Basic.Kind == Basic_uint)
-		return GetRegisterTypeSize() / 8;
+		return RegTypeSize / 8;
 	else if(Type->Basic.Kind == Basic_string)
-		return GetRegisterTypeSize() / 4;
+		return RegTypeSize / 4;
 	else
-		return GetRegisterTypeSize() / 8;
+		return RegTypeSize / 8;
 	unreachable;
 }
 
-int GetStructSize(const type *Type)
+int GetStructSize(const type *Type, bool FromInterp)
 {
 	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
@@ -504,10 +512,10 @@ int GetStructSize(const type *Type)
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
-		int MemberSize = GetTypeSize(m);
+		int MemberSize = GetTypeSize(m, FromInterp);
 		if((Type->Struct.Flags & StructFlag_Packed) == 0)
 		{
-			int Alignment = GetTypeAlignment(m);
+			int Alignment = GetTypeAlignment(m, FromInterp);
 			if(Alignment != 0)
 				Result = AlignTo(Result, Alignment);
 		}
@@ -519,14 +527,14 @@ int GetStructSize(const type *Type)
 		return BiggestMember;
 	if((Type->Struct.Flags & StructFlag_Packed) == 0)
 	{
-		auto sa = GetTypeAlignment(Type);
+		auto sa = GetTypeAlignment(Type, FromInterp);
 		if(sa != 0)
 			Result = AlignTo(Result, sa);
 	}
 	return Result;
 }
 
-int GetStructMemberOffset(const type *Type, uint Member)
+int GetStructMemberOffset(const type *Type, uint Member, bool FromInterp)
 {
 	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
@@ -546,21 +554,21 @@ int GetStructMemberOffset(const type *Type, uint Member)
 	for(int Idx = 0; Idx <= Member; ++Idx)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
-		int MemberSize = GetTypeSize(m);
+		int MemberSize = GetTypeSize(m, FromInterp);
 		if((Type->Struct.Flags & StructFlag_Packed) == 0)
 		{
-			int Alignment = GetTypeAlignment(m);
+			int Alignment = GetTypeAlignment(m, FromInterp);
 			if(Alignment != 0)
 				Result = AlignTo(Result, Alignment);
 		}
 		Result += MemberSize;
 	}
 	const type *m = GetType(Type->Struct.Members[Member].Type);
-	Result -= GetTypeSize(m);
+	Result -= GetTypeSize(m, FromInterp);
 	return Result;
 }
 
-int GetStructAlignment(const type *Type)
+int GetStructAlignment(const type *Type, bool FromInterp)
 {
 	Assert(Type->Kind == TypeKind_Struct);
 	if(Type->Struct.Members.Count == 0)
@@ -582,7 +590,7 @@ int GetStructAlignment(const type *Type)
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
-		int MemberAlignment = GetTypeAlignment(m);
+		int MemberAlignment = GetTypeAlignment(m, FromInterp);
 		if(MemberAlignment > Alignment)
 		{
 			Alignment = MemberAlignment;
@@ -599,36 +607,40 @@ int GetStructMemberOffset(u32 TypeIdx, uint Member)
 }
 
 // In bytes
-int GetTypeSize(const type *Type)
+int GetTypeSize(const type *Type, bool FromInterp)
 {
-	if(Type->CachedSize != -1)
+	if(Type->CachedSize != -1 && !FromInterp)
 		return Type->CachedSize;
 
 	if(Type->Kind == TypeKind_Enum)
-		return GetTypeSize(Type->Enum.Type);
+		return GetTypeSize(GetType(Type->Enum.Type), FromInterp);
 
 	switch(Type->Kind)
 	{
 		case TypeKind_Basic:
-		return GetBasicTypeSize(Type);
+		return GetBasicTypeSize(Type, FromInterp);
 		case TypeKind_Function:
 		case TypeKind_Pointer:
+		if(FromInterp)
+			return GetHostRegisterTypeSize() / 8;
 		return GetRegisterTypeSize() / 8;
 		case TypeKind_Array:
 		{
-			return GetTypeSize(GetType(Type->Array.Type)) * Type->Array.MemberCount;
+			return GetTypeSize(GetType(Type->Array.Type), FromInterp) * Type->Array.MemberCount;
 		} break;
 		case TypeKind_Slice:
 		{
+			if(FromInterp)
+				return GetHostRegisterTypeSize() / 4;
 			return GetRegisterTypeSize() / 4;
 		} break;
 		case TypeKind_Struct:
 		{
-			return GetStructSize(Type);
+			return GetStructSize(Type, FromInterp);
 		} break;
 		case TypeKind_Enum:
 		{
-			return GetTypeSize(Type->Enum.Type);
+			return GetTypeSize(GetType(Type->Enum.Type), FromInterp);
 		} break;
 		case TypeKind_Vector:
 		{
@@ -640,34 +652,40 @@ int GetTypeSize(const type *Type)
 	unreachable;
 }
 
-int GetTypeAlignment(const type *Type)
+int GetTypeAlignment(const type *Type, bool FromInterp)
 {
 	if(Type->Kind == TypeKind_Enum)
-		return GetTypeAlignment(Type->Enum.Type);
-	if(Type->CachedAlignment != -1)
+		return GetTypeAlignment(GetType(Type->Enum.Type), FromInterp);
+	if(Type->CachedAlignment != -1 && !FromInterp)
 		return Type->CachedAlignment;
 
 	switch(Type->Kind)
 	{
 		case TypeKind_Basic:
 		if(IsString(Type))
-			return 8;
-		return GetBasicTypeSize(Type);
+		{
+			if(FromInterp)
+				return GetHostRegisterTypeSize() / 8;
+			return GetRegisterTypeSize() / 8;
+		}
+		return GetBasicTypeSize(Type, FromInterp);
 		case TypeKind_Slice:
 		case TypeKind_Function:
 		case TypeKind_Pointer:
+		if(FromInterp)
+			return GetHostRegisterTypeSize() / 8;
 		return GetRegisterTypeSize() / 8;
 		case TypeKind_Array:
 		{
-			return GetTypeAlignment(Type->Array.Type);
+			return GetTypeAlignment(GetType(Type->Array.Type), FromInterp);
 		} break;
 		case TypeKind_Struct:
 		{
-			return GetStructAlignment(Type);
+			return GetStructAlignment(Type, FromInterp);
 		} break;
 		case TypeKind_Enum:
 		{
-			return GetTypeAlignment(Type->Enum.Type);
+			return GetTypeAlignment(GetType(Type->Enum.Type), FromInterp);
 		} break;
 		case TypeKind_Vector:
 		{

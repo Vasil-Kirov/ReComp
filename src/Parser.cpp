@@ -484,6 +484,23 @@ token EatToken(parser *Parser, token_type Type)
 
 			RaiseError(false, LastToken.ErrorInfo,
 					"Expected %s after %.*s", GetTokenName(Type), Name.Size, Name.Data);
+
+			token_type SaveTokens[] = {(token_type)';', (token_type)')', (token_type)'}',
+				T_IF, T_FOR, T_SWITCH, T_DEFER, T_RETURN, T_YIELD,
+				T_BREAK, T_CONTINUE, T_ASSERT,
+				T_PUBLIC, T_PRIVATE, T_IMPORT, T_LOAD_DL, T_LOAD_SYSTEM_DL};
+			while(Parser->TokenIndex > 0)
+			{
+				bool IsSave = false;
+				for(int i = 0; i < ARR_LEN(SaveTokens); ++i)
+				{
+					if(SaveTokens[i] == Parser->Current->Type)
+						IsSave = true;
+				}
+				if(IsSave)
+					break;
+				GetToken(Parser);
+			}
 		}
 		else
 		{
@@ -1566,6 +1583,22 @@ node *ParseSelectors(parser *Parser, node *Operand)
 	}
 }
 
+node *ParseLambda(parser *Parser, node *Operand, const error_info *ErrorInfo)
+{
+	if(PeekToken(Parser).Type == T_STARTSCOPE)
+	{
+		dynamic<node *> Body = {};
+		ParseBody(Parser, Body);
+		Operand = MakeShortLambda(ErrorInfo, Operand, nullptr, SliceFromArray(Body));
+	}
+	else
+	{
+		node *Expr = ParseExpression(Parser);
+		Operand = MakeShortLambda(ErrorInfo, Operand, Expr, {});
+	}
+	return Operand;
+}
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -1637,17 +1670,7 @@ node *ParseAtom(parser *Parser, node *Operand)
 			{
 				ERROR_INFO;
 				GetToken(Parser);
-				if(PeekToken(Parser).Type == T_STARTSCOPE)
-				{
-					dynamic<node *> Body = {};
-					ParseBody(Parser, Body);
-					Operand = MakeShortLambda(ErrorInfo, Operand, nullptr, SliceFromArray(Body));
-				}
-				else
-				{
-					node *Expr = ParseExpression(Parser);
-					Operand = MakeShortLambda(ErrorInfo, Operand, Expr, {});
-				}
+				Operand = ParseLambda(Parser, Operand, ErrorInfo);
 				Loop = false;
 			} break;
 			default:
@@ -1944,8 +1967,18 @@ node *ParseOperand(parser *Parser)
 			Parser->NoItemLists = false;
 
 			GetToken(Parser);
-			Result = ParseExpression(Parser);
-			EatToken(Parser, T_CLOSEPAREN);
+			if(Parser->Current->Type == T_CLOSEPAREN)
+			{
+				GetToken(Parser);
+				ERROR_INFO;
+				EatToken(Parser, T_ARR);
+				Result = ParseLambda(Parser, MakeList(ErrorInfo, {}), ErrorInfo);
+			}
+			else
+			{
+				Result = ParseExpression(Parser);
+				EatToken(Parser, T_CLOSEPAREN);
+			}
 
 			Parser->NoStructLists = SaveSLists;
 			Parser->NoItemLists = SaveILists;
@@ -2752,9 +2785,13 @@ node *ParseTopLevel(parser *Parser)
 			ERROR_INFO;
 			GetToken(Parser);
 
-			if(Parser->ScopeLevel-- == 0)
+			if(Parser->ScopeLevel == 0)
 			{
 				RaiseError(false, *ErrorInfo, "Unexpected `}`");
+			}
+			else
+			{
+				Parser->ScopeLevel--;
 			}
 			Result = (node *)0x1;
 		} break;

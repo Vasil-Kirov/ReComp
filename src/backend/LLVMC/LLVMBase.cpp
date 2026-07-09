@@ -254,7 +254,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 				} break;
 				case Basic_string:
 				{
-					LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetHostRegisterTypeSize());
+					LLVMTypeRef IntTy = LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize());
 					string Str;
 					Str.Size = *(size_t *)Ptr;
 					Str.Data = *((const char **)Ptr+1);

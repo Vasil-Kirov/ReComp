@@ -22,6 +22,7 @@ enum SymbolFlag
 	SymbolFlag_LocalStatic = BIT(10),
 	SymbolFlag_NoReturn    = BIT(11),
 	SymbolFlag_AlreadyAnalyzed = BIT(12),
+	SymbolFlag_NoCheck     = BIT(13),
 };
 
 struct generic_generated

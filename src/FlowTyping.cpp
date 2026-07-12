@@ -601,6 +601,9 @@ void FlowTypeFunction(function *Fn)
 	if(Fn->FakeFunction)
 		return;
 
+	if(Fn->NoFlowTyping)
+		return;
+
 	scratch_arena Arena = {};
 	flow_state *flow = (flow_state *)Arena.Allocate(sizeof(flow_state));
 	memset(flow, 0, sizeof(flow_state));

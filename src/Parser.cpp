@@ -485,19 +485,19 @@ token EatToken(parser *Parser, token_type Type)
 			RaiseError(false, LastToken.ErrorInfo,
 					"Expected %s after %.*s", GetTokenName(Type), Name.Size, Name.Data);
 
-			token_type SaveTokens[] = {(token_type)';', (token_type)')', (token_type)'}',
+			const token_type SafeTokens[] = {(token_type)';', (token_type)')', (token_type)'}',
 				T_IF, T_FOR, T_SWITCH, T_DEFER, T_RETURN, T_YIELD,
 				T_BREAK, T_CONTINUE, T_ASSERT,
 				T_PUBLIC, T_PRIVATE, T_IMPORT, T_LOAD_DL, T_LOAD_SYSTEM_DL};
 			while(Parser->TokenIndex > 0)
 			{
-				bool IsSave = false;
-				for(int i = 0; i < ARR_LEN(SaveTokens); ++i)
+				bool IsSafe = false;
+				for(int i = 0; i < ARR_LEN(SafeTokens); ++i)
 				{
-					if(SaveTokens[i] == Parser->Current->Type)
-						IsSave = true;
+					if(SafeTokens[i] == Parser->Current->Type)
+						IsSafe = true;
 				}
-				if(IsSave)
+				if(IsSafe)
 					break;
 				GetToken(Parser);
 			}
@@ -1087,7 +1087,7 @@ u32 ParseFunctionFlags(parser *Parser, const string **CallConv, const string **L
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
+	} FlagTokens[] = { {T_NOCHECK, SymbolFlag_NoCheck}, {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
 		{T_TAG, SymbolFlag_None}, {T_WASM_IMPORT, SymbolFlag_None}, {T_CALLC, SymbolFlag_None}};
 
 	u32 Result = 0;

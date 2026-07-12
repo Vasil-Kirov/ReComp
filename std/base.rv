@@ -167,12 +167,14 @@ Optional :: struct<T> {
 	ok: bool,
 };
 
-ok :: fn(value: $t) -> Optional<t> {
+wrap :: fn(value: $t) -> Optional<t> {
 	return .{value, true};
 }
 
 none :: fn(t: type) -> Optional<t> {
-	return .{};
+	v: Optional<t>;
+	v.ok = false;
+	return v;
 }
 
 unwrap :: fn(opt: Optional<$t>) -> t {

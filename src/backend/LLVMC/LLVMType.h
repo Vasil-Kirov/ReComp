@@ -21,6 +21,7 @@ uint ToLLVMCallConv(function_call_conv cc);
 LLVMTypeRef ConvertToLLVMType(generator *g, u32 TypeID);
 
 void LLVMCreateOpaqueStructType(generator *g, u32 TypeID);
+void LLVMVerifyStructSize_(generator *g, u32 TypeID);
 LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID);
 LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID);
 void LLMVDebugOpaqueStruct(generator *gen, u32 TypeID);

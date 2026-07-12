@@ -3601,6 +3601,7 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 	else
 		Function.LinkName = StructToModuleNamePtr(NameNoPtr, Function.ModuleName);
 	Function.ReturnPassedInPtr = RetInPtr;
+	Function.NoFlowTyping = (Node->Fn.Flags & SymbolFlag_NoCheck) != 0;
 
 	if(Body.IsValid())
 	{

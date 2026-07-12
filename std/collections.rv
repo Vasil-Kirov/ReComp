@@ -38,7 +38,7 @@ pop :: fn(s: *Stack<$t>) -> Optional<t> {
 
 	if top > 0 {
 		top -= 1;
-		return ok(data[top]);
+		return wrap(data[top]);
 	}
 	return none(t);
 }
@@ -47,7 +47,7 @@ peek :: fn(s: *Stack<$t>) -> Optional<t> {
 	using s;
 
 	if top > 0
-		return ok(data[top-1]);
+		return wrap(data[top-1]);
 	return none(t);
 }
 

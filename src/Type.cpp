@@ -523,8 +523,12 @@ int GetStructSize(const type *Type, bool FromInterp)
 		if(MemberSize > BiggestMember)
 			BiggestMember = MemberSize;
 	}
-	if(Type->Struct.Flags & StructFlag_Union)
-		return BiggestMember;
+	if(Type->Struct.Flags & StructFlag_Union) {
+		int Alignment = GetTypeAlignment(Type, FromInterp);
+		return Alignment != 0
+			? AlignTo(BiggestMember, Alignment)
+			: BiggestMember;
+	}
 	if((Type->Struct.Flags & StructFlag_Packed) == 0)
 	{
 		auto sa = GetTypeAlignment(Type, FromInterp);

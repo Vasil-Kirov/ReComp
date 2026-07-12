@@ -1032,6 +1032,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			{
 				LLVMTypeRef LLVMType = ConvertToLLVMType(gen, I.Type);
 				u64 Size = GetTypeSize(I.Type);//LLVMABISizeOfType(gen->data, LLVMType);
+				Assert(Size == LLVMABISizeOfType(gen->data, LLVMType));
 				LLVMValueRef ValueSize = LLVMConstInt(LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()), Size, false);
 				uint Align = LLVMABIAlignmentOfType(gen->data, LLVMType);
 				
@@ -1566,7 +1567,18 @@ void RCGenerateComplexTypes(generator *gen)
 		}
 		NeedToResolve = ResolveFailed.Count;
 	}
-	)
+	);
+
+#if DEBUG
+	for(uint Index = 0; Index < TypeCount; ++Index)
+	{
+		const type *T = GetType(Index);
+		if(T->Kind == TypeKind_Struct && (T->Struct.Flags & StructFlag_Generic) == 0)
+		{
+			LLVMVerifyStructSize_(gen, Index);
+		}
+	}
+#endif
 }
 
 void RCGenerateCompilerTypes(generator *gen)

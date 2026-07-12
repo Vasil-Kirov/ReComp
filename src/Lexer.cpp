@@ -645,6 +645,7 @@ void InitializeLexer()
 	AddKeyword("#static", T_STATIC);
 	AddKeyword("#foreign",  T_FOREIGN);
 	AddKeyword("#link", T_LINK);
+	AddKeyword("#nocheck", T_NOCHECK);
 	AddKeyword("#cc", T_CALLC);
 	AddKeyword("#intrinsic",  T_INTR);
 	AddKeyword("#no_return",  T_NORETURN);

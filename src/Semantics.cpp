@@ -1186,6 +1186,9 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	if(FnNode->Fn.AlreadyAnalyzed)
 		return;
 
+	auto WasScope = Checker->Scope;
+	Checker->Scope = {};
+
 	slice<u32> Save = Checker->CurrentFnReturnTypeIdx;
 	if(!ScopeNode)
 		Checker->Scope.Push(AllocScope(FnNode, Checker->Scope.TryPeek()));
@@ -1234,6 +1237,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		End = Body[Body.Count-1]->ErrorInfo;
 	PopScope(Checker, End);
 	Checker->CurrentFnReturnTypeIdx = Save;
+	Checker->Scope = WasScope;
 }
 
 int FindVectorAccessor(string Name, const type *T, const error_info *ErrorInfo)

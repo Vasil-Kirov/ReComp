@@ -515,23 +515,42 @@ LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID)
 
 	LLVMTypeRef Opaque = LLVMFindMapType(g, TypeID);
 	Assert(Opaque);
+	const size_t MemberCount = Type->Struct.Members.Count;
+	const bool IsPacked = (Type->Struct.Flags & StructFlag_Packed) != 0;
+
 
 	if(Type->Struct.Flags & StructFlag_Union)
 	{
+		Assert(MemberCount > 0);
 		u32 BiggestMemberTypeID = Type->Struct.Members[0].Type;
-		u32 BiggetMember = GetTypeSize(BiggestMemberTypeID);
-		auto MemberCount = Type->Struct.Members.Count;
+		u32 BiggestAlign = GetTypeAlignment(BiggestMemberTypeID);
+		u32 BiggestSize  = GetTypeSize(BiggestMemberTypeID);
 		for (size_t Idx = 1; Idx < MemberCount; ++Idx) {
 			u32 MemberType = Type->Struct.Members[Idx].Type;
+			u32 Align = GetTypeAlignment(MemberType);
 			u32 Size = GetTypeSize(MemberType);
-			if(Size > BiggetMember)
+			if(Align > BiggestAlign)
 			{
-				BiggetMember = Size;
+				BiggestAlign = Align;
 				BiggestMemberTypeID = MemberType;
 			}
+			if(Size > BiggestSize)
+				BiggestSize = Size;
 		}
+
+		if(IsPacked)
+			BiggestAlign = 1;
+		
 		LLVMTypeRef BiggestType = ConvertToLLVMType(g, BiggestMemberTypeID);
-		LLVMStructSetBody(Opaque, &BiggestType, 1, Type->Struct.Flags & StructFlag_Packed);
+		LLVMTypeRef Elems[2] = {BiggestType};
+		int ElemCount = 1;
+		u32 ChosenSize = GetTypeSize(BiggestMemberTypeID);
+		u32 AlignedSize = AlignTo(BiggestSize, BiggestAlign);
+		if(ChosenSize < AlignedSize)
+		{
+			Elems[ElemCount++] = LLVMArrayType2(LLVMIntTypeInContext(g->ctx, 8), AlignedSize-ChosenSize);
+		}
+		LLVMStructSetBody(Opaque, Elems, ElemCount, IsPacked);
 	}
 	else
 	{
@@ -541,10 +560,19 @@ LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID)
 			u32 MemberType = Type->Struct.Members[Idx].Type;
 			MemberTypes[Idx] = ConvertToLLVMType(g, MemberType);
 		}
-		LLVMStructSetBody(Opaque, MemberTypes, MemberCount, Type->Struct.Flags & StructFlag_Packed);
+		LLVMStructSetBody(Opaque, MemberTypes, MemberCount, IsPacked);
 		VFree(MemberTypes);
 	}
 	return Opaque;
+}
+
+void LLVMVerifyStructSize_(generator *g, u32 TypeID)
+{
+	const type *Type = GetType(TypeID);
+	LLVMTypeRef LLVMT = LLVMFindMapType(g, TypeID);
+	size_t LLVMSize = LLVMABISizeOfType(g->data, LLVMT);
+	size_t MySize = GetTypeSize(Type);
+	Assert(LLVMSize == MySize);
 }
 
 void LLVMFixFunctionComplexParameter(generator *g, u32 ArgTypeIdx, const type *ArgType, LLVMTypeRef *Result, int *IdxOut)

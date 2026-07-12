@@ -288,6 +288,7 @@ struct function
 	b32 NoDebugInfo;
 	b32 FakeFunction;
 	b32 ReturnPassedInPtr;
+	b32 NoFlowTyping;
 };
 
 struct defer_scope

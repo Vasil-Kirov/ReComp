@@ -579,7 +579,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				if(!Error)
 					return Basic_error;
 
-				RaiseError(false, *TypeNode->ErrorInfo, "Couldn't parse type for generic arguments");
+				RaiseError(false, *TypeNode->ErrorInfo, "Generic type is not defined.");
 				return Basic_error;
 			}
 			const type *StructT = GetType(StructTIdx);
@@ -3127,7 +3127,20 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 				} break;
 				case T_PTR:
 				{
+					// @Note: here to prevent an expression of the type of
+					// 2.0 * *fptr from corrupting the untyped stack
+					// Vasko - 07/13/2026
+					auto SaveStack = Checker->UntypedStack;
+					Checker->UntypedStack = {};
+
 					u32 PointerIdx = AnalyzeExpression(Checker, Expr->Unary.Operand);
+
+					for(auto t : Checker->UntypedStack.Data)
+					{
+						SaveStack.Push(t);
+					}
+					Checker->UntypedStack = SaveStack;
+
 					const type *Pointer = GetType(PointerIdx);
 					if(PointerIdx == Basic_type)
 					{

@@ -78,6 +78,9 @@ string MakeStringSlice(const char *Ptr, size_t Size)
 
 string MakeString(const char *CString, size_t Size)
 {
+	if(Size == 0)
+		return string{"", 0};
+
 	Assert(CString);
 
 	string Result;
@@ -92,6 +95,9 @@ string MakeString(const char *CString, size_t Size)
 
 string MakeString(void *Memory, const char *CString, size_t Size)
 {
+	if(Size == 0)
+		return STR_LIT("");
+
 	string Result;
 
 	memcpy(Memory, CString, Size);

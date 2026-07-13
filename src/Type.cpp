@@ -828,6 +828,8 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 
 b32 IsCastValid(const type *From, const type *To)
 {
+	// @TODO: Make this less permisive, currently allows for invalid casts, it needs to check each type_kind with individual rules
+	// Vasko - 07/13/2026
 	if(EitherIsReservedType(From, To))
 		return false;
 
@@ -1118,7 +1120,7 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 			for(int Idx = 0; Idx < Left->Function.ArgCount; ++Idx)
 			{
 				const type *LeftArg  = GetType(Left->Function.Args[Idx]);
-				const type *RightArg = GetType(Left->Function.Args[Idx]);
+				const type *RightArg = GetType(Right->Function.Args[Idx]);
 				if(!TypesMustMatch(LeftArg, RightArg))
 					return false;
 			}
@@ -1151,6 +1153,23 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 				// Allowed string ops:
 				// ==, !=, =
 				if(Op != T_EQEQ && Op != T_NEQ && Op != T_EQ)
+					return false;
+			}
+			if(T->Basic.Kind == Basic_type)
+			{
+				// Allowed type ops:
+				// ==, !=, =
+				if(Op != T_EQEQ && Op != T_NEQ && Op != T_EQ)
+					return false;
+			}
+			if(T->Basic.Kind == Basic_bool)
+			{
+				if(Op != T_EQEQ && Op != T_NEQ && Op != T_EQ && Op != T_LOR && Op != T_LAND)
+					return false;
+			}
+			if(HasBasicFlag(T, BasicFlag_Float))
+			{
+				if(Op == T_SLEFT || Op == T_SRIGHT || Op == T_SLEQ || Op == T_SREQ || Op == '&' || Op == '|' || Op == '^')
 					return false;
 			}
 			return true;
@@ -1876,7 +1895,7 @@ u32 GetGenericPart(u32 Resolved, u32 GenericID)
 					break;
 				}
 			}
-			if(Result == INVALID_TYPE)
+			if(Result == Basic_error)
 			{
 				ForArray(Idx, T->Function.Returns)
 				{
@@ -2065,35 +2084,86 @@ b32 IsStructAllFloats(const type *T)
 	return AllFloats;
 }
 
-b32 VerifyStructMemberNoRecursion(u32 OgType, const type *T, int *FailedIdx)
+enum dfs_visit_state : u8
 {
-	Assert(T->Kind == TypeKind_Struct);
-	ForArray(Idx, T->Struct.Members)
-	{
-		auto it = T->Struct.Members[Idx];
-		if(it.Type == OgType)
-		{
-			*FailedIdx = Idx;
-			return false;
-		}
+	Visit_Unseen,
+	Visit_Active,
+	Visit_Done,
+};
 
-		const type *MemT = GetType(it.Type);
-		if(MemT->Kind == TypeKind_Struct)
-			if (!VerifyStructMemberNoRecursion(OgType, MemT, FailedIdx))
-			{
-				*FailedIdx = Idx;
-				return false;
-			}
-	}
-	return true;
+bool VerifyContainedTypeNoRecursion(map_int<dfs_visit_state> &State, u32 TypeIdx)
+{
+    if(TypeIdx == INVALID_TYPE || TypeIdx == Basic_error)
+        return true;
+
+    const type *T = GetType(TypeIdx);
+
+    switch(T->Kind)
+    {
+        case TypeKind_Array:
+        {
+            if(State[TypeIdx] == Visit_Active)
+                return false;
+
+            if(State[TypeIdx] == Visit_Done)
+                return true;
+
+            State.AddOrReplace(TypeIdx, Visit_Active);
+
+            if(!VerifyContainedTypeNoRecursion(State, T->Array.Type))
+                return false;
+
+            State.AddOrReplace(TypeIdx, Visit_Done);
+            return true;
+        } break;
+
+        case TypeKind_Struct:
+        {
+            if(State[TypeIdx] == Visit_Active)
+                return false;
+
+            if(State[TypeIdx] == Visit_Done)
+                return true;
+
+            State.AddOrReplace(TypeIdx, Visit_Active);
+
+            ForArray(Idx, T->Struct.Members)
+            {
+                u32 MemberType = T->Struct.Members[Idx].Type;
+
+                if(!VerifyContainedTypeNoRecursion(State, MemberType))
+                    return false;
+            }
+
+            State.AddOrReplace(TypeIdx, Visit_Done);
+            return true;
+        } break;
+
+        default:
+            return true;
+    }
 }
 
-b32 VerifyNoStructRecursion(u32 TIdx, int *FailedIdx)
+bool VerifyNoStructRecursion(u32 TIdx, int *FailedIdx)
 {
 	const type *T = GetType(TIdx);
 	Assert(T->Kind == TypeKind_Struct);
 
-	return VerifyStructMemberNoRecursion(TIdx, T, FailedIdx);
+	map_int<dfs_visit_state> Visited = {};
+	Visited.SetDefault(Visit_Unseen);
+	Visited.Add(TIdx, Visit_Active);
+
+	ForArray(Idx, T->Struct.Members)
+	{
+		u32 MemT = T->Struct.Members[Idx].Type;
+		if(!VerifyContainedTypeNoRecursion(Visited, MemT))
+		{
+			*FailedIdx = Idx;
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Original, slice<import> Imports, module *Module)

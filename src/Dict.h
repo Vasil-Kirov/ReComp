@@ -162,6 +162,16 @@ struct dict {
 		u32 Hash = murmur3_32((const u8 *)Key.Data, Key.Size, SEED);
 		return Add_(Key, Hash, Item);
 	}
+	void AddOrReplace(string Key, T Item)
+	{
+		bool Success = Add(Key, Item);
+		if(!Success)
+		{
+			auto p = GetUnstablePtr(Key);
+			if(p)
+				*p = Item;
+		}
+	}
 	bool Contains(const string &Key, u32 Hash)
 	{
 		size_t Mask = Data_.Capacity-1;
@@ -230,7 +240,7 @@ template <typename T>
 struct map_int {
 	dict<T> Dict = {};
 	dynamic<char *> Keys_ = {};
-	T Default = T{};
+	//T Default = T{};
 	int Bottom = 0;
 
 	private:
@@ -245,9 +255,18 @@ struct map_int {
 
 #define MapIntConvert(Key) string {(const char *)(&Key), 4}
 
+	void SetDefault(T NewDefault)
+	{
+		Dict.Default = NewDefault;
+	}
+
 	bool Add(u32 Key, T Item)
 	{
 		return Dict.Add(ConvertKey(Key), Item);
+	}
+	void AddOrReplace(u32 Key, T Item)
+	{
+		Dict.AddOrReplace(ConvertKey(Key), Item);
 	}
 	bool Contains(u32 Key)
 	{

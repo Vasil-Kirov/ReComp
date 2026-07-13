@@ -609,15 +609,17 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 					RaiseError(false, *(*it)->ErrorInfo, "Unknown type in generic argument list");
 					return Basic_error;
 				}
-				GenArgs.Push(struct_generic_argument{StructT->Struct.GenericArguments[ArgCount++].Name, T, (bool)IsAutoDefine});
-			}
-
-			if(StructT->Struct.GenericArguments.Count != ArgCount)
-			{
-				if(!Error)
+				if(ArgCount < StructT->Struct.GenericArguments.Count)
+				{
+					GenArgs.Push(struct_generic_argument{StructT->Struct.GenericArguments[ArgCount++].Name, T, (bool)IsAutoDefine});
+				}
+				else
+				{
+					if(!Error)
+						return Basic_error;
+					RaiseError(false, *TypeNode->ErrorInfo, "Expeceted %d generic arguments, got %d instead", StructT->Struct.GenericArguments.Count, ArgCount);
 					return Basic_error;
-				RaiseError(false, *TypeNode->ErrorInfo, "Expeceted %d generic arguments, got %d instead", StructT->Struct.GenericArguments.Count, ArgCount);
-				return Basic_error;
+				}
 			}
 
 			slice<struct_generic_argument> ArgsS = SliceFromArray(GenArgs);
@@ -628,7 +630,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 			if(TypeNode->PointerType.Pointed == NULL)
 				return GetPointerTo(INVALID_TYPE, TypeNode->PointerType.Flags);
 			u32 Pointed = GetTypeFromTypeNode(Checker, TypeNode->PointerType.Pointed, Error, OutAutoDef);
-			if(TypeNode->PointerType.Pointed != NULL && Pointed == Basic_error && !Error)
+			if(TypeNode->PointerType.Pointed != NULL && Pointed == Basic_error)
 				return Basic_error;
 			return GetPointerTo(Pointed, TypeNode->PointerType.Flags);
 		} break;
@@ -986,10 +988,31 @@ b32 ScopesMatch(scope *A, scope *B)
 	return A->ScopeNode == B->ScopeNode;
 }
 
+class scope_guard {
+public:
+    scope_guard(checker *Checker, scope *S)
+        : Checker(Checker), Active(true)
+    {
+        Checker->Scope.Push(S);
+    }
+
+    ~scope_guard()
+    {
+        if (Active)
+            Checker->Scope.Pop();
+    }
+
+    void Release() { Active = false; }
+
+private:
+    checker *Checker;
+    bool Active;
+};
+
 u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 {
 	scope *FnScope = AllocScope(FnNode, Checker->Scope.TryPeek());
-	Checker->Scope.Push(FnScope);
+	scope_guard Scope{Checker, FnScope};
 
 	FnNode->Fn.FnModule = Checker->Module;
 
@@ -1160,7 +1183,6 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 	Function.DefaultValues = GetDefaultValues(Checker, FnNode->Fn.Args, Function.Args);
 	
 	NewType->Function = Function;
-	Checker->Scope.Pop();
 	FnNode->Fn.Flags |= Function.Flags;
 	return AddType(NewType);
 }
@@ -1272,14 +1294,16 @@ b32 IsConstant(checker *Checker, node *Expr)
 {
 	if(Expr->Type == AST_ID)
 	{
-		if(Checker->Module->Globals[*Expr->ID.Name]) return true;
+		auto s = Checker->Module->Globals[*Expr->ID.Name];
+		if(s) return (s->Flags & SymbolFlag_Const) != 0;
 
 		string NoNamespace = STR_LIT("*");
 		For(Checker->Imported)
 		{
 			if(it->As == NoNamespace)
 			{
-				if(it->M->Globals[*Expr->ID.Name]) return true;
+				auto s = it->M->Globals[*Expr->ID.Name];
+				if(s) return (s->Flags & SymbolFlag_Const) != 0;
 			}
 		}
 		return false;
@@ -3154,6 +3178,7 @@ u32 AnalyzeUnary(checker *Checker, node *Expr)
 					{
 						RaiseError(false, *Expr->ErrorInfo, "Cannot derefrence operand. It's not a pointer");
 						Result = PointerIdx;
+						break;
 					}
 					if(Pointer->Pointer.Pointed == INVALID_TYPE)
 					{
@@ -3763,7 +3788,8 @@ void AnalyzeIf(checker *Checker, node *Node)
 
 void AnalyzeFor(checker *Checker, node *Node)
 {
-	Checker->Scope.Push(AllocScope(Node, Checker->Scope.TryPeek()));
+	scope *ForScope = AllocScope(Node, Checker->Scope.TryPeek());
+	scope_guard ForScopeGuard{Checker, ForScope};
 	using ft = for_type;
 	switch(Node->For.Kind)
 	{
@@ -3918,6 +3944,7 @@ void AnalyzeFor(checker *Checker, node *Node)
 		AnalyzeInnerBody(Checker, ForBody);
 		End = ForBody.Last()->ErrorInfo;
 	}
+	ForScopeGuard.Release();
 	PopScope(Checker, End);
 }
 
@@ -3980,6 +4007,7 @@ u32 AnalyzeEnum(checker *Checker, node *Node)
 		{
 			RaiseError(false, *Node->ErrorInfo, "Enum type must be integral, cannot use %s",
 					GetTypeName(T));
+			return Basic_error;
 		}
 		
 	}
@@ -4051,7 +4079,7 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 	Assert(OpaqueType != Basic_error);
 	scope *StructScope = AllocScope(Node, Checker->Scope.TryPeek());
-	Checker->Scope.Push(StructScope);
+	scope_guard StructScopeGuard{Checker, StructScope};
 
 	u32 SubTypes = INVALID_TYPE;
 
@@ -4154,7 +4182,6 @@ u32 AnalyzeStructDeclaration(checker *Checker, node *Node)
 	}
 
 	FillOpaqueStruct(OpaqueType, New);
-	Checker->Scope.Pop();
 	return OpaqueType;
 }
 

@@ -1336,8 +1336,8 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			const type *Type = GetType(Node->Size.Type);
 			const_value *Size = NewType(const_value);
 			Size->Type = const_type::Integer;
-			Size->Int.IsSigned = false;
-			Size->Int.Unsigned = GetTypeSize(Type);
+			Size->Int.IsSigned = true;
+			Size->Int.Signed = GetTypeSize(Type);
 			Result = PushInstruction(Builder, 
 					Instruction(OP_CONST, (u64)Size, Basic_int, Builder));
 		} break;

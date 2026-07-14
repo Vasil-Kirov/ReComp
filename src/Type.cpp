@@ -388,6 +388,15 @@ u32 GetReturnType(const type *Type)
 	return ReturnsToType(Type->Function.Returns);
 }
 
+inline void AssertValidSize(const type *Type)
+{
+#if DEBUG
+	if(Type->Kind != TypeKind_Struct && !(Type->Kind == TypeKind_Array && Type->Array.MemberCount == 0))
+		Assert(Type->CachedSize != 0);
+#endif
+}
+
+thread_local bool AddingOpaqueStructs = false;
 u32 AddTypeWithName(type *Type, string Name, bool ComputeCache)
 {
 	TypeMutex.lock();
@@ -406,10 +415,11 @@ u32 AddTypeWithName(type *Type, string Name, bool ComputeCache)
 	Type->CachedSize = -1;
 	Type->CachedAlignment = -1;
 	Type->CachedAsPointer = INVALID_TYPE;
-	if(!IsGeneric(Type) && ComputeCache)
+	if(!IsGeneric(Type) && ComputeCache && !AddingOpaqueStructs)
 	{
 		Type->CachedSize = GetTypeSize(Type);
 		Type->CachedAlignment = GetTypeAlignment(Type);
+		AssertValidSize(Type);
 	}
 	//if(Type->Kind == TypeKind_Struct)
 	//{
@@ -613,8 +623,10 @@ int GetStructMemberOffset(u32 TypeIdx, uint Member)
 // In bytes
 int GetTypeSize(const type *Type, bool FromInterp)
 {
-	if(Type->CachedSize != -1 && !FromInterp)
+	if(Type->CachedSize != -1 && !FromInterp) {
+		AssertValidSize(Type);
 		return Type->CachedSize;
+	}
 
 	if(Type->Kind == TypeKind_Enum)
 		return GetTypeSize(GetType(Type->Enum.Type), FromInterp);

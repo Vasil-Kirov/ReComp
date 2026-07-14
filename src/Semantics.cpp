@@ -4520,7 +4520,7 @@ void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module)
 			}
 
 			if(!Error)
-				AddType(New);
+				AddTypeWithName(New, Name, false);
 		}
 	}
 }
@@ -4965,6 +4965,7 @@ void AnalyzeEnums(checker *Checker, slice<node *>Nodes)
 
 void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 {
+	AddingOpaqueStructs = true;
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
@@ -4977,6 +4978,7 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 			}
 		}
 	}
+	AddingOpaqueStructs = false;
 }
 
 void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
@@ -4989,7 +4991,7 @@ void AnalyzeFillStructCaches(checker *Checker, slice<node *> Nodes)
 			node *Node = Nodes[I];
 			if(Node->StructDecl.IsError)
 				continue;
-
+			
 			u32 TypeIdx = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
 			if((GetType(TypeIdx)->Struct.Flags & StructFlag_Generic) == 0)
 			{

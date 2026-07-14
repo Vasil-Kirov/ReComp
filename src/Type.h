@@ -326,6 +326,8 @@ void AddVectorTypes();
 u32 GetVecElemType(u32 TIdx);
 u32 GetVecElemType(const type *T);
 
+extern thread_local bool AddingOpaqueStructs;
+
 struct generic_replacement
 {
 	string Generic;

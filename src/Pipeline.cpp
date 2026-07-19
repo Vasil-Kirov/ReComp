@@ -30,6 +30,8 @@ struct lookup_paths {
 
 lookup_paths Lookups = {};
 
+void LexString(string FilePath, string FileData);
+
 string GetLookupPathsPrintable(string FileName, string RelativePath)
 {
 	Lookups.Mutex.lock();
@@ -201,7 +203,7 @@ void BuildIRJob(void *Arg)
 	*((file *)Arg)->IR = BuildIR((file *)Arg);
 }
 
-pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_module> CustomModules)
+pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_file> CustomFiles)
 {
 	ResetPipelineState();
 	binary_blob Blob = StartOutput();
@@ -221,6 +223,22 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		}
 	}
 
+	dict<const string *> CustomModuleFileContents = {};
+	For(CustomFiles)
+	{
+		string Path = StringFromInterp(it->Path);
+		string FileData = ReadEntireFile(Path);
+		if(FileData.Data == NULL)
+		{
+			LogCompilerError("Error: Couldn't find file: %.*s\n", Path.Size, Path.Data);
+			CountError();
+			continue;
+		}
+		
+		CustomModuleFileContents.Add(Path, DupeType(FileData, string));
+		LexString(Path, StringFromInterp(it->Content));
+	}
+
 	MainThreadWorkUntilDone(CurrentPipeline.Queue);
 
 	ExitIfErroredOut();
@@ -229,69 +247,26 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 
 	For(CurrentPipeline.ParseResults.Results)
 	{
+		ForN(CustomFiles, cf)
+		{
+			if(StringFromInterp(cf->Path) == it->File->Name)
+			{
+				for(int I = 0; I < cf->NodeCount; ++I)
+				{
+					node *N = InterpToNode(cf->Nodes[I], CustomModuleFileContents);
+					if(N)
+						it->Nodes.Push(N);
+				}
+			}
+		}
+	}
+
+	For(CurrentPipeline.ParseResults.Results)
+	{
 		if(it->ModuleName != "")
 			AddModule(Modules, it->File, it->ModuleName);
 	}
-	dict<const string *> CustomModuleFileContents = {};
-	size_t CustomFileCount = 0;
-	For(CustomModules)
-	{
-		if(it->FileCount <= 0)
-			continue;
-		string ModuleName = StringFromInterp(it->Name);
-		for(int j = 0; j < it->FileCount; ++j)
-		{
-			string Name = StringFromInterp(it->Files[j]);
-			string Found = FindFile(Name);
-			if(Found == "")
-			{
-				LogCompilerError("Error: could not find file %.*s, given in custom module %.*s\n", Name.Size, Name.Data, ModuleName.Size, ModuleName.Data);
-				CountError();
-				continue;
-			}
-			string Data = ReadEntireFile(Found);
-			if(Data == "")
-			{
-				LogCompilerError("Error: could not read file %.*s, given in custom module %.*s\n", Found.Size, Found.Data, ModuleName.Size, ModuleName.Data);
-				CountError();
-				continue;
-			}
-			CustomModuleFileContents.Add(Found, DupeType(Data, string));
-			it->Files[j].Data = Found.Data;
-			it->Files[j].Count = Found.Size;
-			CustomFileCount++;
-		}
-	}
-	array<file*> FileArray{CurrentPipeline.ParseResults.Results.Count + CustomFileCount};
-	size_t AtFileArray = 0;
-	For(CustomModules)
-	{
-		if(it->FileCount <= 0)
-			continue;
-		string ModuleName = StringFromInterp(it->Name);
-		for(int j = 0; j < it->FileCount; ++j)
-		{
-			file *File = NewType(file);
-			*File = {};
-
-			string Name = StringFromInterp(it->Files[j]);
-			File->Name = Name;
-			AddModule(Modules, File, ModuleName);
-			File->Checker = NewType(checker);
-			File->Checker->Module = File->Module;
-			File->Checker->File   = File->Name;
-
-			File->IR = NewType(ir);
-			*File->IR = {};
-			for(int NodeI = 0; NodeI < it->NodeCount; ++NodeI)
-			{
-				node *N = InterpToNode(it->Nodes[NodeI], CustomModuleFileContents);
-				if(N)
-					File->Nodes.Push(N);
-			}
-			FileArray[AtFileArray++] = File;
-		}
-	}
+	array<file*> FileArray{CurrentPipeline.ParseResults.Results.Count};
 
 	ForArray(Idx, CurrentPipeline.ParseResults.Results)
 	{
@@ -308,7 +283,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		{
 			g_DLs.Push(*it);
 		}
-		FileArray[Idx+CustomFileCount] = CurrentPipeline.ParseResults.Results[Idx].File;
+		FileArray[Idx] = CurrentPipeline.ParseResults.Results[Idx].File;
 	}
 
 	VLibStopTimer(&Timers.Parse);
@@ -323,7 +298,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		if(pr.ModuleName == "")
 			continue;
 
-		file *File = FileArray[Idx+CustomFileCount];
+		file *File = FileArray[Idx];
 		File->Imported = ResolveImports(pr.Imports, Modules, SliceFromArray(FileArray));
 		File->Checker->Imported	= File->Imported;
 	}
@@ -426,6 +401,28 @@ void ParseFile(void *File_)
 	CurrentPipeline.ParseResults.Mutex.unlock();
 }
 
+void LexString(string FilePath, string FileData)
+{;
+	error_info ErrorInfo = {};
+	ErrorInfo.Data = DupeType(FileData, string);
+	ErrorInfo.FileName = FilePath.Data;
+	ErrorInfo.Range.StartLine = 1;
+	ErrorInfo.Range.EndLine = 1;
+	ErrorInfo.Range.EndLine = 1;
+	ErrorInfo.Range.EndChar = 1;
+	file *f = StringToTokens(FileData, ErrorInfo);
+	f->Name = FilePath;
+
+	if(!HasErroredOut())
+	{
+		job Job = {};
+		Job.Data = f;
+		Job.Task = ParseFile;
+		PostJob(CurrentPipeline.Queue, Job);
+	}
+
+}
+
 void LexFile(void *FilePath_)
 {
 	string FilePath = *(string *)FilePath_;
@@ -448,24 +445,7 @@ void LexFile(void *FilePath_)
 			return;
 		}
 	}
-
-	error_info ErrorInfo = {};
-	ErrorInfo.Data = DupeType(FileData, string);
-	ErrorInfo.FileName = FilePath.Data;
-	ErrorInfo.Range.StartLine = 1;
-	ErrorInfo.Range.EndLine = 1;
-	ErrorInfo.Range.EndLine = 1;
-	ErrorInfo.Range.EndChar = 1;
-	file *f = StringToTokens(FileData, ErrorInfo);
-	f->Name = FilePath;
-
-	if(!HasErroredOut())
-	{
-		job Job = {};
-		Job.Data = f;
-		Job.Task = ParseFile;
-		PostJob(CurrentPipeline.Queue, Job);
-	}
+	LexString(FilePath, FileData);
 }
 
 bool PipelineDoFile(string GivenPath, string RelativePath)

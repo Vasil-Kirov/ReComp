@@ -45,7 +45,7 @@ Arch :: enum: u32 {
 }
 
 CompileInfo :: struct {
-	custom_modules: []Module,
+	custom_files: []CustomFile,
     source_dirs: []string,
     files: []string,
 	defines: []string,
@@ -58,18 +58,26 @@ CompileInfo :: struct {
 	entry_point: string,
 }
 
-Module :: struct {
-	name: string,
+CustomFile :: struct {
+	path: string,
+	module_name: string,
+	content: string,
 	nodes: []*ast.Node,
-	files: []string,
 	alloc: *mem.Allocator,
 }
 
-module_make :: fn(name: string, files: []string, alloc: *mem.Allocator) -> Module {
+custom_file_make :: fn(path: string, module_name: string, alloc: *mem.Allocator) -> CustomFile {
+	b := str.create_builder(alloc);
+	str.builder_append(&b, "module ");
+	str.builder_append(&b, module_name);
+	str.builder_append(&b, ";\n");
+
+	s := str.from_builder(&b, alloc);
 	return .{
-		name = name,
-		files = files,
+		path = path,
+		module_name = module_name,
 		alloc = alloc,
+		content = s,
 		nodes = array.create(*ast.Node, alloc),
 	};
 }
@@ -79,10 +87,27 @@ FnArg :: struct {
 	t: string,
 };
 
-module_add_function :: fn(m: *Module, location: FileLocation, fname: string, args: []FnArg, ret_types: []string, link := "") -> ?*ast.Node{
+file_append_string :: fn(f: *CustomFile, s: string) {
+	b := str.create_builder(f.alloc);
+	str.builder_append(&b, f.content);
+	str.builder_append(&b, s);
+	f.content = str.from_builder(&b, f.alloc);
+}
+
+file_make_location :: fn(f: *CustomFile, line: int, char: int) -> FileLocation {
+	return .{
+		f.path,
+		line,
+		char,
+	};
+}
+
+file_add_function :: fn(m: *CustomFile, line: int, char: int, fname: string, args: []FnArg, ret_types: []string, link := "") -> ?*ast.Node{
 	link := link;
 	if link == ""
 		link = fname;
+
+	location := file_make_location(m, line, char);
 
 	arg_nodes := []*ast.Node{};
 	ret_nodes := []*ast.Node{};
@@ -95,7 +120,7 @@ module_add_function :: fn(m: *Module, location: FileLocation, fname: string, arg
 		ret_nodes, ok2 = mem.make_slice(*ast.Node, ret_types.count, m.alloc);
 	}
 	if !ok1 || !ok2 {
-		raise_error(location, "Failed to allocate memory for function signature while generating module, needed % args and % return typers.", args.count, ret_types.count);
+		raise_error(location, "Failed to allocate memory for function signature while generating file, needed % args and % return typers.", args.count, ret_types.count);
 		return null;
 	}
 
@@ -130,9 +155,11 @@ module_add_function :: fn(m: *Module, location: FileLocation, fname: string, arg
 	return f;
 }
 
-module_make_const_data :: fn(m: *Module, location: FileLocation, data_in: []u8) -> *ast.Node {
+file_make_const_data :: fn(m: *CustomFile, line: int, char: int, data_in: []u8) -> *ast.Node {
 	data, ok := mem.dupe(data_in, m.alloc);
 	#assert ok;
+
+	location := file_make_location(m, line, char);
 
 	ns := mem.make_type(ast.NodeString, m.alloc);
 	#assert ns;
@@ -148,12 +175,16 @@ module_make_const_data :: fn(m: *Module, location: FileLocation, data_in: []u8) 
 	return n;
 }
 
-module_make_id :: fn(m: *Module, id: string, fl := #file_location) -> *ast.Node {
+file_make_id :: fn(m: *CustomFile, id: string, line: int, char: int) -> *ast.Node {
+	fl := file_make_location(m, line, char);
+
 	idn := ast.make_id(id, fl, m.alloc); #assert idn;
 	return idn;
 }
 
-module_add_constant :: fn(m: *Module, location: FileLocation, name: string, t: *ast.Node, v: *ast.Node) -> *ast.Node {
+file_add_constant :: fn(m: *CustomFile, name: string, t: *ast.Node, v: *ast.Node, line: int, char: int) -> *ast.Node {
+	location := file_make_location(m, line, char);
+
 	id := ast.make_id(name, location, m.alloc);
 	#assert id;
 	decl := ast.make_decl(name, id, v, t, .Const | .Public, location, m.alloc);
@@ -162,8 +193,10 @@ module_add_constant :: fn(m: *Module, location: FileLocation, name: string, t: *
 	return decl;
 }
 
-module_make_const_int :: fn(m: *Module, n: i64, fl: FileLocation) -> *ast.Node {
-	intt := module_make_t(m, int);
+file_make_const_int :: fn(m: *CustomFile, n: i64, line: int, char: int) -> *ast.Node {
+	fl := file_make_location(m, line, char);
+
+	intt := file_make_t(m, int, line, char);
 	cv: ast.ConstValue = .{};
 	cv.t = .Integer;
 	cv.u.int_.is_signed = true;
@@ -172,7 +205,9 @@ module_make_const_int :: fn(m: *Module, n: i64, fl: FileLocation) -> *ast.Node {
 	return n;
 }
 
-module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
+file_make_t :: fn(m: *CustomFile, t: type, line: int, char: int) -> *ast.Node {
+	fl := file_make_location(m, line, char);
+
 	ti := type_info(t);
 	switch ti.kind {
 		case .Basic:
@@ -190,15 +225,15 @@ module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
 		case .Array:
 		{
 			using ti.t.array;
-			tn := module_make_t(m, t, fl);
-			sz := module_make_const_int(m, member_count as i64, fl);
+			tn := file_make_t(m, t, line, char);
+			sz := file_make_const_int(m, member_count as i64, line, char);
 			st := ast.make_arraytype(fl, tn, sz, m.alloc); #assert st;
 			return st;
 		}
 		case .Slice:
 		{
 			using ti.t.slice;
-			tn := module_make_t(m, t, fl);
+			tn := file_make_t(m, t, line, char);
 			st := ast.make_arraytype(fl, tn, null, m.alloc); #assert st;
 			return st;
 		}
@@ -207,12 +242,12 @@ module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
 			using ti.t.struct_;
 			mems, ok := mem.make_slice(*ast.Node, members.count, m.alloc);
 			for i, mem in members {
-				memt := module_make_t(m, mem.t, fl);
+				memt := file_make_t(m, mem.t, line, char);
 				n := ast.make_var(mem.name, memt, null, fl, m.alloc); #assert n;
 				mems[i] = n;
 			}
 			b := str.create_builder(m.alloc);
-			str.builder_append(&b, m.name);
+			str.builder_append(&b, m.module_name);
 			str.builder_append(&b, ".");
 			dot := -1;
 			for i, c in name {
@@ -232,7 +267,7 @@ module_make_t :: fn(m: *Module, t: type, fl := #file_location) -> *ast.Node {
 		{
 		}
 	};
-	raise_error(fl, "Unsupported type % passed to module_make_t()", t);
+	raise_error(fl, "Unsupported type % passed to file_make_t()", t);
 	n := ast.make_id("int", fl, m.alloc); #assert n;
 	return n;
 }

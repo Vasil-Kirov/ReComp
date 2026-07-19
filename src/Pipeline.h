@@ -47,6 +47,6 @@ extern slice<file_substitute> Substitutes;
 
 string FindFile(string FileName, string RelativePath = STR_LIT(""));
 bool PipelineDoFile(string GivenPath, string RelativePath = STR_LIT(""));
-pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_module> CustomModules = {});
+pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, string EntryPoint, slice<interp_file> CustomFiles = {});
 string GetLookupPathsPrintable(string FileName, string RelativePath);
 

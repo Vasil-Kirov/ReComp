@@ -1727,10 +1727,9 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		string Name;
 	};
 
-	dynamic<gen_fn_info> Functions = {};
+	dict<LLVMValueRef> Functions = {};
 
 	// Generate internal functions
-	dict<LLVMValueRef> AddedFns = {};
 	dict<module*> ModuleDict = {};
 	ModuleDict.Add(M->Name, M);
 	ForArray(FIdx, M->Files)
@@ -1773,12 +1772,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 			if(Linkage == LLVMPrivateLinkage && s->Checker->Module->Name != M->Name)
 				continue;
 
-			LLVMValueRef AlreadyIn = AddedFns[*s->LinkName];
-			if(AlreadyIn)
-			{
-				Gen.global.Add(s->Register, AlreadyIn);
-			}
-
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
 			{
 				string LinkName = *s->LinkName;
@@ -1788,6 +1781,18 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				const type *T = GetType(s->Type);
 				Assert(T->Kind == TypeKind_Function);
 				uint CC = ToLLVMCallConv(T->Function.Conv);
+				if(Functions.Contains(LinkName))
+				{
+					if(M->Name == m->Name)
+					{
+						LLVMDeleteFunction(Functions[LinkName]);
+					}
+					else
+					{
+						Gen.global.Add(s->Register, Functions[LinkName]);
+						continue;
+					}
+				}
 
 				LLVMValueRef Fn = LLVMAddFunction(Gen.mod, LinkName.Data, 
 						ConvertToLLVMType(&Gen, s->Type));
@@ -1799,9 +1804,24 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 					LLVMAddTargetDependentFunctionAttr(Fn, "wasm-import-module", s->Node->Fn.WasmModule->Data);
 					LLVMAddTargetDependentFunctionAttr(Fn, "wasm-import-name", s->Node->Fn.WasmName->Data);
 				}
-				Functions.Push({.LLVM = Fn, .Name = LinkName});
+				if(Functions.Contains(LinkName))
+				{
+					if(M->Name == m->Name)
+					{
+						auto OldFn = Functions[LinkName];
+						for(auto [k, v] : Gen.global.Data.Dict)
+						{
+							if(v == OldFn)
+								Gen.global.Data.Dict.AddOrReplace(k, Fn);
+						}
+						*Functions.GetUnstablePtr(LinkName) = Fn;
+					}
+				}
+				else
+				{
+					Functions.Add(LinkName, Fn);
+				}
 				Gen.global.Add(s->Register, Fn);
-				AddedFns.Add(LinkName, Fn);
 			}
 		}
 	}
@@ -1882,14 +1902,8 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				string Name = *IR->Functions[Idx].LinkName;
 				if(Name == TypeTableInitName)
 					continue;
-				ForArray(LLVMFnIdx, Functions)
-				{
-					if(Functions[LLVMFnIdx].Name == Name)
-					{
-						Gen.fn = Functions[LLVMFnIdx].LLVM;
-						break;
-					}
-				}
+
+				Gen.fn = Functions[Name];
 				Assert(Gen.fn);
 
 				RCGenerateFunction(&Gen, IR->Functions[Idx]);

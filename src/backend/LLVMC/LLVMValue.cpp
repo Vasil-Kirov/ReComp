@@ -3,35 +3,24 @@
 #include "llvm-c/Types.h"
 #include "Log.h"
 
-
 void value_map::Add(u32 Register, LLVMValueRef Value)
 {
-	value_entry Entry;
-	Entry.Value = Value;
-	Entry.Register = Register;
-	Data.Push(Entry);
+	Data.Add(Register, Value);
 }
 
 LLVMValueRef value_map::Get(u32 Register)
 {
-	ForArray(Idx, Data)
+	auto r = Data[Register];
+	if(!r)
 	{
-		if(Data[Idx].Register == Register)
-		{
-			return Data[Idx].Value;
-		}
+		LERROR("%d", Register);
+		Assert(false);
 	}
-	LERROR("%d", Register);
-	Assert(false);
-	return NULL;
-}
-
-void value_map::LockBottom()
-{
-	Bottom = Data.Count;
+	return r;
 }
 
 void value_map::Clear()
 {
-	Data.Count = Bottom;
+	Data.Free();
+	Data = {};
 }

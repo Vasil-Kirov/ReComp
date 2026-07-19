@@ -51,10 +51,20 @@ struct interp_module
 	void *Reserved; // Allocator, cannot be used in C
 };
 
+struct interp_file
+{
+	interp_string Path;
+	interp_string ModuleName;
+	interp_string Content;
+	size_t NodeCount;
+	struct InterpNode **Nodes;
+	void *Reserved; // Allocator, cannot be used in C
+};
+
 struct compile_info
 {
-	size_t CustomModuleCount;
-	interp_module *CustomModules;
+	size_t CustomFilesCount;
+	interp_file *CustomFiles;
 	size_t DirectoryCount;
 	interp_string *Directories;
 	size_t FileCount;

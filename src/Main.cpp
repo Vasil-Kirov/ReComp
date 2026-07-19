@@ -750,9 +750,9 @@ main(int ArgCount, char *Args[])
 				EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
 			}
 
-			slice<interp_module> CustomModules;
-			CustomModules.Data = Info->CustomModules;
-			CustomModules.Count = Info->CustomModuleCount;
+			slice<interp_file> CustomModules;
+			CustomModules.Data = Info->CustomFiles;
+			CustomModules.Count = Info->CustomFilesCount;
 
 			BuildTimeTypeTable = SaveTypeTableAndReset();
 			AddVectorTypes();

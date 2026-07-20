@@ -2226,7 +2226,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 						Assert(T->Function.ArgCount == 1);
 						value V = {};
 						V.Type = T->Function.Returns[0];
-						const type *ArgT = GetType(s->Type);
+						u32 ArgTi = s->Type;
+						const type *ArgT = GetType(ArgTi);
+						if(ArgT->Kind == TypeKind_Pointer)
+						{
+							ArgTi = ArgT->Pointer.Pointed;
+							ArgT = GetType(ArgTi);
+						}
 						switch(ArgT->Kind)
 						{
 							case TypeKind_Array:
@@ -2236,7 +2242,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 							case TypeKind_Slice:
 							{
 								u32 _;
-								WriteInt(&V, *(size_t *)IndexVM(VM, s, 0, s->Type, &_));
+								WriteInt(&V, *(size_t *)IndexVM(VM, s, 0, ArgTi, &_));
+							} break;
+							case TypeKind_Basic:
+							{
+								Assert(IsString(ArgT));
+								u32 _;
+								WriteInt(&V, *(size_t *)IndexVM(VM, s, 0, ArgTi, &_));
 							} break;
 							default: unreachable;
 						}

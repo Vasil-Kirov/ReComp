@@ -651,6 +651,13 @@ void RCGenerateInstruction(generator *gen, instruction I)
 							LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ConvertToLLVMType(gen, TArgI), s, 0, "");
 							V = LLVMBuildLoad2(gen->bld, IntTy, ValPtr, "");
 						} break;
+						case TypeKind_Basic:
+						{
+							Assert(IsString(ArgT));
+							LLVMValueRef s = gen->map.Get(Info->CallInfo->Args[0]);
+							LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ConvertToLLVMType(gen, TArgI), s, 0, "");
+							V = LLVMBuildLoad2(gen->bld, IntTy, ValPtr, "");
+						} break;
 						default: unreachable;
 					}
 

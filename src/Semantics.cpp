@@ -4569,9 +4569,9 @@ void IntrinsicCheckFunctionType(node *Call)
 			return;
 		}
 		const type *ArgT = GetType(Call->Call.ArgTypes[0]);
-		if(ArgT->Kind != TypeKind_Array && ArgT->Kind != TypeKind_Slice)
+		if(ArgT->Kind != TypeKind_Array && ArgT->Kind != TypeKind_Slice && Call->Call.ArgTypes[0] != Basic_string)
 		{
-			RaiseError(false, *Call->ErrorInfo, "len() argument needs to be either slice or array, got %s.", GetTypeName(ArgT));
+			RaiseError(false, *Call->ErrorInfo, "len() argument needs to be either slice, array, or string. Got %s.", GetTypeName(ArgT));
 			return;
 		}
 		if(T->Function.Returns[0] != Basic_int)

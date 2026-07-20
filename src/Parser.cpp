@@ -489,7 +489,7 @@ token EatToken(parser *Parser, token_type Type)
 				T_IF, T_FOR, T_SWITCH, T_DEFER, T_RETURN, T_YIELD,
 				T_BREAK, T_CONTINUE, T_ASSERT,
 				T_PUBLIC, T_PRIVATE, T_IMPORT, T_LOAD_DL, T_LOAD_SYSTEM_DL};
-			while(Parser->TokenIndex > 0)
+			while(Parser->Current && Parser->Current->Type != T_EOF)
 			{
 				bool IsSafe = false;
 				for(int i = 0; i < ARR_LEN(SafeTokens); ++i)

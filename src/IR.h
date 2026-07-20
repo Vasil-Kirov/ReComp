@@ -15,6 +15,7 @@ enum compiler_intrinsic
 	IN_RAISE_ERROR,
 	IN_NO_COMPILE_OUTPUT,
 	IN_GET_BUILD_ARGS,
+	IN_LEN,
 };
 
 enum op
@@ -220,6 +221,7 @@ struct intrin_info
 {
 	compiler_intrinsic Intrin;
 	call_info *CallInfo;
+	slice <u32> ArgTs;
 };
 
 struct array_list_info

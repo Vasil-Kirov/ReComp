@@ -1389,6 +1389,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				if(Found) break;
 			}
 #endif
+			bool UseExpressionTypesForArguments = false;
 			compiler_intrinsic Intrin = IN_NOT_INTRIN;
 			if(Node->Call.SymName.Data != NULL)
 			{
@@ -1423,6 +1424,11 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				else if(Node->Call.SymName == "get_build_args")
 				{
 					Intrin = IN_GET_BUILD_ARGS;
+				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("len")))
+				{
+					Intrin = IN_LEN;
+					UseExpressionTypesForArguments = true;
 				}
 				else
 				{
@@ -1541,9 +1547,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				else
 				{
 					const type *ArgType = GetType(Type->Function.Args[Idx]);
+					if(UseExpressionTypesForArguments)
+						ArgType = GetType(Node->Call.ArgTypes[Idx]);
+
 					if(!IsLoadableType(ArgType))
 					{
-						FixCallWithComplexParameter(Builder, Args, Type->Function.Args[Idx], Node->Call.Args[Idx], Type->Function.Flags & SymbolFlag_Foreign);
+						u32 T = Type->Function.Args[Idx];
+						if(UseExpressionTypesForArguments)
+							T = Node->Call.ArgTypes[Idx];
+						FixCallWithComplexParameter(Builder, Args, T, Node->Call.Args[Idx], Type->Function.Flags & SymbolFlag_Foreign);
 					}
 					else
 					{
@@ -1587,6 +1599,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				intrin_info *IInfo = NewType(intrin_info);
 				IInfo->CallInfo = CallInfo;
 				IInfo->Intrin = Intrin;
+				IInfo->ArgTs = Node->Call.ArgTypes;
 
 				Result = PushInstruction(Builder, Instruction(OP_INTRIN, IInfo, CallType, Builder, 0));
 			}
@@ -4182,6 +4195,11 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 			{
 				case IN_NOT_INTRIN:
 				{} break;
+				case IN_LEN:
+				{
+					call_info *ci = Info->CallInfo;
+					Builder->printf("%%%d = len(%%%d)", Instr.Result, ci->Args[0]);
+				} break;
 				case IN_GET_BUILD_ARGS:
 				{
 					call_info *ci = Info->CallInfo;
@@ -4649,6 +4667,10 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 			{
 				case IN_NOT_INTRIN:
 				{
+				} break;
+				case IN_LEN:
+				{
+					// TODO:
 				} break;
 				case IN_GET_BUILD_ARGS:
 				{

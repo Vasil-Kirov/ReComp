@@ -2007,7 +2007,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				return Basic_error;
 			}
 			if(CallType->Kind == TypeKind_Pointer)
+			{
+				CallTypeIdx = CallType->Pointer.Pointed;
 				CallType = GetType(CallType->Pointer.Pointed);
+			}
 			Assert(CallType->Kind == TypeKind_Function);
 
 			if(CallType->Function.Flags & SymbolFlag_Intrinsic)
@@ -2133,7 +2136,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Expr->Call.Type = CallTypeIdx;
 
-			if(CallType->Function.Flags & SymbolFlag_Generic)
+			if(CallType->Function.Flags & SymbolFlag_Generic && (CallType->Function.Flags & SymbolFlag_Intrinsic) == 0)
 			{
 				symbol *s = GenerateFunctionFromPolymorphicCall(Checker, Expr);
 				if(!s)
@@ -2166,6 +2169,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 			}
 
+			if(Expr->Call.SymName != "")
+				IntrinsicCheckFunctionType(Expr);
 			Result = GetReturnType(CallType);
 		} break;
 		case AST_EMBED:
@@ -4546,6 +4551,51 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 	return Sym;
 }
 
+void IntrinsicCheckFunctionType(node *Call)
+{
+	Assert(Call->Type == AST_CALL);
+	if(CompareFunctionName(Call->Call.SymName, STR_LIT("len")))
+	{
+		if(Call->Call.Args.Count != 1)
+		{
+			RaiseError(false, *Call->ErrorInfo, "len() expected 1 argument, got %d.", Call->Call);
+			return;
+		}
+		const type *T = GetType(Call->Call.Type);
+		Assert(T->Kind == TypeKind_Function);
+		if(T->Function.Returns.Count != 1)
+		{
+			RaiseError(false, *Call->ErrorInfo, "len() should return exactly 1 argument, but is defined to return %d.", T->Function.Returns.Count);
+			return;
+		}
+		const type *ArgT = GetType(Call->Call.ArgTypes[0]);
+		if(ArgT->Kind != TypeKind_Array && ArgT->Kind != TypeKind_Slice)
+		{
+			RaiseError(false, *Call->ErrorInfo, "len() argument needs to be either slice or array, got %s.", GetTypeName(ArgT));
+			return;
+		}
+		if(T->Function.Returns[0] != Basic_int)
+		{
+			RaiseError(false, *Call->ErrorInfo, "len() should return int, but is defined to return %s", GetTypeName(T->Function.Returns[0]));
+			return;
+		}
+	}
+}
+
+bool CompareFunctionName(string Name, string CompareTo)
+{
+	string ActualName = Name;
+	for(int i = 0; i <  Name.Size; ++i)
+	{
+		if (Name.Data[i] == '<')
+		{
+			ActualName = SliceString(Name, 0, i);
+			break;
+		}
+	}
+	return ActualName == CompareTo;
+}
+
 bool CheckIntrinsic(string Name)
 {
 	string Intrinsics[] = {
@@ -4557,11 +4607,12 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("no_compile_output"),
 		STR_LIT("raise_error_"),
 		STR_LIT("get_build_args"),
+		STR_LIT("len"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)
 	{
-		if(Intrinsics[i] == Name)
+		if(CompareFunctionName(Name, Intrinsics[i]))
 		{
 			return true;
 		}

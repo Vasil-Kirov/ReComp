@@ -110,6 +110,8 @@ const symbol *FindSymbol(checker *Checker, const string *ID);
 u32 GetVariable(checker *Checker, const string *ID, bool *Found);
 void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes);
 void AnalyzeSimpleGlobalVariables(checker *Checker, slice<node *> Nodes);
+bool CompareFunctionName(string Name, string CompareTo);
+void IntrinsicCheckFunctionType(node *Call);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

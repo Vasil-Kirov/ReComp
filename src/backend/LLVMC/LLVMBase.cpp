@@ -629,6 +629,33 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				{} break;
 				case IN_RAISE_ERROR:
 				{} break;
+				case IN_LEN:
+				{
+					const type *T = GetType(I.Type);
+					Assert(T->Kind == TypeKind_Function);
+					Assert(T->Function.Returns.Count == 1);
+					Assert(T->Function.ArgCount == 1);
+					u32 TArgI = Info->ArgTs[0];
+					const type *ArgT = GetType(TArgI);
+					LLVMValueRef V = nullptr;
+					auto IntTy = ConvertToLLVMType(gen, T->Function.Returns[0]);
+					switch(ArgT->Kind)
+					{
+						case TypeKind_Array:
+						{
+							V = LLVMConstInt(IntTy, ArgT->Array.MemberCount, true);
+						} break;
+						case TypeKind_Slice:
+						{
+							LLVMValueRef s = gen->map.Get(Info->CallInfo->Args[0]);
+							LLVMValueRef ValPtr = LLVMBuildStructGEP2(gen->bld, ConvertToLLVMType(gen, TArgI), s, 0, "");
+							V = LLVMBuildLoad2(gen->bld, IntTy, ValPtr, "");
+						} break;
+						default: unreachable;
+					}
+
+					gen->map.Add(I.Result, V);
+				} break;
 				case IN_DEBUG_BREAK:
 				{
 					llvm_intrin Intrin = gen->Intrinsics[STR_LIT("llvm.debugtrap")];

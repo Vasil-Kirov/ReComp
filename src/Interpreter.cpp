@@ -2171,6 +2171,18 @@ void DoCompileTimeRaiseError(interpreter *VM, value *Fmt, value *Location)
 	RaiseError(false, ErrI, "%.*s", Count, Data);
 }
 
+void WriteInt(value *V, size_t value)
+{
+	int RegisterSize = GetRegisterTypeSize() / 8;
+	switch(RegisterSize)
+	{
+		case 8: V->i64 = value; break;
+		case 4: V->i32 = value; break;
+		case 2: V->i16 = value; break;
+		default: unreachable;
+	}
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	int LastCStringLocation = -1;
@@ -2203,6 +2215,33 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				{
 					case IN_NOT_INTRIN:
 					{
+					} break;
+					case IN_LEN:
+					{
+						value *s = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+
+						const type *T = GetType(I.Type);
+						Assert(T->Kind == TypeKind_Function);
+						Assert(T->Function.Returns.Count == 1);
+						Assert(T->Function.ArgCount == 1);
+						value V = {};
+						V.Type = T->Function.Returns[0];
+						const type *ArgT = GetType(s->Type);
+						switch(ArgT->Kind)
+						{
+							case TypeKind_Array:
+							{
+								WriteInt(&V, ArgT->Array.MemberCount);
+							} break;
+							case TypeKind_Slice:
+							{
+								u32 _;
+								WriteInt(&V, *(size_t *)IndexVM(VM, s, 0, s->Type, &_));
+							} break;
+							default: unreachable;
+						}
+
+						VM->Registers.AddValue(I.Result, V);
 					} break;
 					case IN_NO_COMPILE_OUTPUT:
 					{

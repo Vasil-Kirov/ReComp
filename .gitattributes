@@ -1,0 +1,2 @@
+libs/*.lib filter=lfs diff=lfs merge=lfs -text
+bin/LLVM-C.dll filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,36 @@
+module main
+
+get_int: fn(n: int) -> int : n -> n;
+
+// 4 * int + 4 * u32 = 4 * 8 + 4 * 4 = 32 + 16 = 48
+f :: fn(n: [4]Foo, m: [4]Bar) -> int {
+	return size_of n + size_of m;
+}
+
+Foo :: enum {
+	A = get_int(1),
+	B = get_int(2),
+	C = get_int(3),
+}
+
+SomeVals :: struct {
+	arr0: [4]Foo,
+	arr1: [4]Bar,
+}
+
+Bar :: enum: u32 { 
+	A = get_int(1+cast(int, Foo.A)) as u32,
+	B = get_int(2+cast(int, Foo.B)) as u32,
+	C = get_int(3+cast(int, Foo.C)) as u32,
+}
+
+
+
+main :: fn() -> i32 {
+	s: SomeVals = .{};
+	n :: #run f(.{}, .{});
+	m := f(s.arr0, s.arr1);
+
+	//    48 + 48 + 2 + 3 + 2 + 6 = 109
+    return (n + m + cast(int, Foo.B) + cast(int, Foo.C) + cast(int, Bar.A) + cast(int, Bar.C)) as i32 - 109;
+}

@@ -112,7 +112,7 @@ void RCGenerateIntrins(generator *gen)
 	};
 
 	LLVMTypeRef MemCmpType = LLVMFunctionType(
-			LLVMIntTypeInContext(gen->ctx, GetRegisterTypeSize()/2),
+			LLVMInt32TypeInContext(gen->ctx),
 				MemCmpArgs, 3, false);
 	LLVMValueRef MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
 	gen->Intrinsics.Add(MemCmp, llvm_intrin { MemCmpLLVM, MemCmpType } );

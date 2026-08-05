@@ -45,6 +45,20 @@ win_str_to_wide :: fn(s: string, alloc: *mem.Allocator) -> []u16 {
 	return res;
 }
 
+delete_dir :: fn(path_: string) -> bool {
+	path := win_str_to_wide(path_, &mem.temp_alloc);
+	if path.count == 0
+		return false;
+	return RemoveDirectoryW((&path[0]) as LPCWSTR) != 0;
+}
+
+delete_file :: fn(path_: string) -> bool {
+	path := win_str_to_wide(path_, &mem.temp_alloc);
+	if path.count == 0
+		return false;
+	return DeleteFileW((&path[0]) as LPCWSTR) != 0;
+}
+
 copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
 	from := win_str_to_wide(from_, &mem.temp_alloc);
 	if from.count == 0
@@ -61,6 +75,7 @@ mkdir :: fn(dir_: string) -> bool {
 		return false;
 	return CreateDirectoryW(dir.data as LPCWSTR, null) != 0;
 }
+
 
 list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
 		entry: WIN32_FIND_DATAW = .{};

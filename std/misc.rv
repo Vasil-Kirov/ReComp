@@ -38,6 +38,44 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> ([]u8, ReadError)
 	return buf, ReadError.Ok;
 }
 
+#private
+RecurseStruct :: struct {
+	cb: *fn(data: *os.ListFileData, arg: ?*) -> bool,
+	arg: ?*void,
+}
+walk_file_tree_ :: fn(data: *os.ListFileData, arg: ?*void) -> bool {
+	if data.file == "." || data.file == ".."
+		return true;
+
+	if !arg
+		return false;
+
+	if data.is_directory {
+		b := str.create_builder(&mem.temp_alloc);
+		str.builder_append(&b, data.dir);
+		str.builder_append(&b, "/");
+		str.builder_append(&b, data.file);
+		full_path := str.from_builder(&b, &mem.temp_alloc);
+		if !os.list_files(full_path, walk_file_tree_, arg)
+			return false;
+	}
+
+	rs := cast(*RecurseStruct, arg);
+	if !rs.cb(data, rs.arg)
+		return false;
+
+	return true;
+}
+#public
+
+walk_file_tree :: fn(dir: string, callback: fn(data: *os.ListFileData, arg: ?*) -> bool, arg: ?*void) {
+	rs: RecurseStruct = .{
+		cb = callback,
+		arg = arg,
+	};
+	os.list_files(dir, walk_file_tree_, &rs);
+}
+
 copy_dir :: fn(from: string, to: string) {
 	to := to;
 	os.mkdir(to);

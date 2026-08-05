@@ -1457,6 +1457,14 @@ CreateDirectoryW :: fn(
 	lpSecurityAttributes: LPSECURITY_ATTRIBUTES
 ) -> BOOL #cc="stdcall" #foreign #link="CreateDirectoryW";
 
+RemoveDirectoryW :: fn(
+	lpPathName: LPCWSTR
+) -> BOOL #foreign #link="RemoveDirectoryW";
+
+DeleteFileW :: fn(
+	lpFileName: LPCWSTR
+) -> BOOL #foreign #link="DeleteFileW";
+
 CopyFileW :: fn(
 	lpExistingFileName: LPCWSTR,
 	lpNewFileName: LPCWSTR,

@@ -149,6 +149,11 @@ struct link_command
 	};
 };
 
+bool is_winsdk_result_valid(Find_Result *r)
+{
+	return r && r->windows_sdk_version != 0 && r->vs_exe_path && r->windows_sdk_um_library_path && r->windows_sdk_ucrt_library_path && r->vs_library_path;
+}
+
 link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
 {
 	link_command LinkCommand = {};
@@ -164,8 +169,9 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 
 	{
 		Find_Result WinSdk = find_visual_studio_and_windows_sdk();
+		bool valid_sdk = is_winsdk_result_valid(&WinSdk);
 
-		if(WinSdk.windows_sdk_version != 0)
+		if(valid_sdk)
 		{
 			LinkCommand.Type = LCT_List;
 			Builder.printf("\"%ls/LINK.EXE\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" ",
@@ -175,23 +181,29 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_um_library_path));
 			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_ucrt_library_path));
 			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.vs_library_path));
-
+			if(CompileFlags & CF_SanAdress)
+			{
+				auto b = MakeBuilder();
+				b.printf("%ls\\clang_rt.asan_dynamic-x86_64.dll", WinSdk.vs_exe_path);
+				auto s = MakeString(b);
+				PlatformCopyFile(s.Data, "clang_rt.asan_dynamic-x86_64.dll");
+			}
+			free_resources(&WinSdk);
 		}
 		else
 		{
+			LogCompilerError("Warning: Could not find windows sdk or visual studio paths, using fallback link command.\n");
+
+			if(CompileFlags & CF_SanAdress)
+			{
+				LogCompilerError("Warning: Cannot resolve path for address sanitizer dll, please disable it.\n");
+				CompileFlags &= ~CF_SanAdress;
+			}
 			LinkCommand.Type = LCT_System;
 			Builder += "LINK.EXE ";
 		}
 
 
-		if(CompileFlags & CF_SanAdress)
-		{
-			auto b = MakeBuilder();
-			b.printf("%ls\\clang_rt.asan_dynamic-x86_64.dll", WinSdk.vs_exe_path);
-			auto s = MakeString(b);
-			PlatformCopyFile(s.Data, "clang_rt.asan_dynamic-x86_64.dll");
-		}
-		free_resources(&WinSdk);
 	}
 
 	if(LinkCommand.Type == LCT_List)

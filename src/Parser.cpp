@@ -1807,14 +1807,34 @@ node *ParseOperand(parser *Parser)
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Expr = ParseUnary(Parser);
+			node *Expr = NULL;
+			if (Parser->Current->Type == T_OPENPAREN)
+			{
+				GetToken(Parser);
+				Expr = ParseExpression(Parser);
+				EatToken(Parser, T_CLOSEPAREN);
+			}
+			else
+			{
+				Expr = ParseUnary(Parser);
+			}
 			Result = MakeTypeOf(ErrorInfo, Expr);
 		} break;
 		case T_SIZEOF:
 		{
 			ERROR_INFO;
 			GetToken(Parser);
-			node *Expr = ParseUnary(Parser);
+			node *Expr = NULL;
+			if (Parser->Current->Type == T_OPENPAREN)
+			{
+				GetToken(Parser);
+				Expr = ParseExpression(Parser);
+				EatToken(Parser, T_CLOSEPAREN);
+			}
+			else
+			{
+				Expr = ParseUnary(Parser);
+			}
 			Result = MakeSize(ErrorInfo, Expr);
 		} break;
 		case T_FN:

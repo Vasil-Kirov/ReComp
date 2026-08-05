@@ -2833,12 +2833,16 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					}
 					else if(I.Type != INVALID_TYPE)
 					{
+#if 0
 						const type *T = GetType(I.Type);
+						@NOTE: Some people use ~0 to denote an error pointer, so this is not a valid check
+
 						if(IsFnOrPtr(T) && IsPointerTagged(Result.ptr))
 						{
 							RaiseError(false, *VM->ErrorInfo.Peek(), "The returned function pointer has its upper bits set, making it appear tagged to the interpreter. This is invalid.");
 							return { INTERPRET_RUNTIME_ERROR };
 						}
+#endif
 						VM->Registers.AddValue(I.Result, Result);
 					}
 				}

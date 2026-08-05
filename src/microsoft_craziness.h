@@ -614,7 +614,7 @@ void find_visual_studio_by_fighting_through_microsoft_craziness(Find_Result *res
 
 
 Find_Result find_visual_studio_and_windows_sdk() {
-    Find_Result result;
+    Find_Result result = {};
 
     find_windows_kit_root(&result);
 

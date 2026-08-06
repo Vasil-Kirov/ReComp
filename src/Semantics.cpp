@@ -2968,6 +2968,11 @@ ANALYZE_SLICE_SELECTOR:
 
 			u32 ExprTypeIdx = AnalyzeExpression(Checker, Expr->Index.Expression);
 			const type *ExprType = GetType(ExprTypeIdx);
+			if (ExprType->Kind == TypeKind_Enum)
+			{
+				ExprTypeIdx = ExprType->Enum.Type;
+				ExprType = GetType(ExprTypeIdx);
+			}
 			if(ExprType->Kind != TypeKind_Basic || (ExprType->Basic.Flags & BasicFlag_Integer) == 0)
 			{
 				RaiseError(false, *Expr->ErrorInfo, "Indexing expression needs to be of an integer type.");

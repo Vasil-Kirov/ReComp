@@ -1747,7 +1747,7 @@ void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutT
 			else
 			{
 				value *Index = VM->Registers.GetValue(Right);
-				const type *IT = GetType(Index->Type);
+				const type *IT = IfEnumGetUnderlying(GetType(Index->Type));
 				Assert(HasBasicFlag(IT, BasicFlag_Integer));
 				if(HasBasicFlag(IT, BasicFlag_Unsigned))
 				{
@@ -1777,7 +1777,8 @@ void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutT
 			else
 			{
 				value *Index = VM->Registers.GetValue(Right);
-				const type *IdxT = GetType(Index->Type);
+				const type *IdxT = IfEnumGetUnderlying(GetType(Index->Type));
+				Assert(HasBasicFlag(IdxT, BasicFlag_Integer));
 				if(HasBasicFlag(IdxT, BasicFlag_Unsigned))
 					Result = ((u8 *)Operand->ptr) + (TypeSize * Index->u64);
 				else

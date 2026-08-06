@@ -6,6 +6,10 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
+HANDLE g_SymProcess;
+CRITICAL_SECTION g_SymLock;
+LONG g_SymInitState = 0;
+
 struct windows_signal_handler
 {
 	sig_proc UserProc;

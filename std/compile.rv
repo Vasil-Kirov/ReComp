@@ -7,6 +7,15 @@ module compile
 #import array;
 #import ast;
 
+static_assert :: fn(location: FileLocation, cond: bool, fmt: string, args: ...) {
+	if cond
+		return;
+
+	s := io.vsprint(fmt, args);
+	s = io.sprint("Static assertion failed. %", s);
+	raise_error_(&s, location);
+}
+
 raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 	s := io.vsprint(fmt, args);
 	raise_error_(&s, location);

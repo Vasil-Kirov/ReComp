@@ -313,6 +313,7 @@ u32 LookupNameOnTypeMap(const string *Name);
 b32 IsErrorT(const type *T);
 string GetGenericResolvedStructName(string Name, slice<struct_generic_argument> GenericArguments);
 void ErrorOutType(u32 TypeIdx);
+const type *IfEnumGetUnderlying(const type *T);
 
 const type *OneIsXAndTheOtherY(const type *L, const type *R, type_kind X, type_kind Y);
 

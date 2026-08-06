@@ -1,8 +1,11 @@
 #pragma once
 
 #if _WIN32
+#define STRSAFE_NO_DEPRECATE
+
 #include <windows.h>
 #include <dbghelp.h>
+#include "strsafe.h"
 #else
 #include <signal.h>
 #include <execinfo.h>
@@ -77,51 +80,81 @@ struct ir;
 #include <vlib.h>
 
 #if _WIN32
+
+extern HANDLE g_SymProcess;
+extern CRITICAL_SECTION g_SymLock;
+extern LONG g_SymInitState; // 0 = not initialized, 1 = done
+
+static void EnsureSymbolsInitialized()
+{
+    if (InterlockedCompareExchange(&g_SymInitState, 1, 0) == 0)
+    {
+        g_SymProcess = GetCurrentProcess();
+        SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_LOAD_LINES);
+        SymInitialize(g_SymProcess, NULL, TRUE);
+        InitializeCriticalSection(&g_SymLock);
+    }
+}
+
 static void PrintStacktrace()
 {
-	printf("\nStack Trace:\n");
+	EnsureSymbolsInitialized();
+
+	HANDLE out = GetStdHandle(STD_ERROR_HANDLE);
+	const char header[] = {"\nStack Trace:\n"};
+
+	DWORD written;
+	WriteFile(out, header, sizeof(header)-1, &written, NULL);
 
 	void *stack[128];
-	HANDLE process = GetCurrentProcess();
-	SymInitialize(process, NULL, TRUE);
 
 	int frames = CaptureStackBackTrace(1, 128, stack, NULL);
 
-	SYMBOL_INFO *symbol = (SYMBOL_INFO *)VAlloc(sizeof(SYMBOL_INFO) + 256);
+	unsigned char symbol_buf[sizeof(SYMBOL_INFO) + 256];
+	SYMBOL_INFO *symbol = (SYMBOL_INFO *)&symbol_buf[0];
 	symbol->MaxNameLen = 255;
 	symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
-	for(int i = 0; i < frames; ++i)
+	char line[512];
+	char *bufend = &line[0];
+	if (TryEnterCriticalSection(&g_SymLock))
 	{
-		SymFromAddr(process, (DWORD64)stack[i], 0, symbol);
-		printf("\t%s\n", symbol->Name);
+		for(int i = 0; i < frames; ++i)
+		{
+			if (SymFromAddr(g_SymProcess, (DWORD64)stack[i], 0, symbol))
+			{
+				StringCbPrintfExA(line, 512, &bufend, NULL, 0, "\t%.*s\n", symbol->NameLen, &symbol->Name[0]);
+				WriteFile(out, line, bufend-line, &written, NULL);
+			}
+			else
+			{
+				StringCbPrintfExA(line, 512, &bufend, NULL, 0, "\t0x%p\n", stack[i]);
+				WriteFile(out, line, bufend-line, &written, NULL);
+			}
+		}
+		LeaveCriticalSection(&g_SymLock);
 	}
-
-	VFree(symbol);
+	else
+	{
+		for(int i = 0; i < frames; ++i)
+		{
+			StringCbPrintfExA(line, 512, &bufend, NULL, 0, "\t0x%p\n", stack[i]);
+			WriteFile(out, line, bufend-line, &written, NULL);
+		}
+	}
 }
 #else
 static void PrintStacktrace()
 {
     void *stack[128];
     size_t size;
-    char **strings;
     size_t i;
 
     // Get the stack trace
     size = backtrace(stack, 128);
-    strings = backtrace_symbols(stack, size);
-
-    if (strings == NULL) {
-        perror("backtrace_symbols");
-        exit(EXIT_FAILURE);
-    }
 
     // Print the stack trace
-    printf("\nStack Trace:\n");
-    for (i = 0; i < size; i++) {
-        printf("\t%s\n", strings[i]);
-    }
-
-
-    free(strings);
+    static const char header[] = "\nStack Trace:\n";
+    write(STDERR_FILENO, header, sizeof(header) - 1);
+	backtrace_symbols_fd(stack, size, STDERR_FILENO);
 }
 #endif

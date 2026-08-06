@@ -1191,7 +1191,7 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 			// Allowed pointer ops:
 			// ?, +, -, !=, ==, >=, <=, >, <, +, -, =
 			slice<token_type> Allowed = SliceFromConst({
-				T_QMARK, T_PLUS, T_MIN, T_PEQ, T_MEQ, T_NEQ, T_EQEQ, T_LESS, T_GREAT, T_LEQ, T_GEQ, T_EQ
+				T_QMARK, T_PLUS, T_MINUS, T_PEQ, T_MEQ, T_NEQ, T_EQEQ, T_LESS, T_GREAT, T_LEQ, T_GEQ, T_EQ
 			});
 
 			For(Allowed)
@@ -1204,7 +1204,7 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		case TypeKind_Vector:
 		{
 			slice<token_type> Allowed = SliceFromConst({
-				T_PLUS, T_MIN, T_PTR /* times */, T_DIV, T_EQ,
+				T_PLUS, T_MINUS, T_PTR /* times */, T_DIV, T_EQ,
 			});
 
 			For(Allowed)
@@ -2194,6 +2194,13 @@ void FillOpaqueEnum(string Name, slice<enum_member> Members, u32 Type, u32 Origi
 
 	*TypeTable[Original] = T;
 	TypeMutex.unlock();
+}
+
+const type *IfEnumGetUnderlying(const type *T)
+{
+	if(T->Kind != TypeKind_Enum)
+		return T;
+	return GetType(T->Enum.Type);
 }
 
 b32 IsTypeMatchable(const type *T)

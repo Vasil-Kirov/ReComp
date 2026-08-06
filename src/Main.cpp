@@ -474,10 +474,18 @@ void AddStdFiles(dynamic<string> &Files, u32 Flags, interp_string Internals)
 	}
 }
 
+void DefaultSignalHandler(void *)
+{
+	PlatformOutputString(STR_LIT("--- INTERNAL COMPILER ERROR ---\nException triggered!\n"), LOG_ERROR);
+	PrintStacktrace();
+	exit(1);
+}
 
 int
 main(int ArgCount, char *Args[])
 {
+	PlatformSetSignalHandler(DefaultSignalHandler, NULL);
+
 	InitVLib();
 
 	InitializeLogger();
@@ -632,7 +640,7 @@ main(int ArgCount, char *Args[])
 			if(g_InterpreterTrace)
 				LINFO("Interpreting compile function");
 			interpret_result Result = InterpretFunction(&BuildVM, *CompileFunction, {&InfoValue, 1});
-			PlatformClearSignalHandler();
+			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 
 			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 			{
@@ -801,7 +809,7 @@ main(int ArgCount, char *Args[])
 					}
 
 
-					PlatformClearSignalHandler();
+					PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 				}
 				RestoreTypeTable(CompileTypeTable);
 			}
@@ -813,7 +821,7 @@ main(int ArgCount, char *Args[])
 			TypeTableInvalidateSizeCaches();
 			interpreter ComptimeVM = {};
 			MakeInterpreter(ComptimeVM, ModuleArray, 0);
-			PlatformClearSignalHandler();
+			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 			if(HasErroredOut())
 				exit(1);
 
@@ -1003,7 +1011,7 @@ main(int ArgCount, char *Args[])
 
 		InterpretFunction(&BuildVM, *AfterFunction, {&ObjsValue, 1});
 
-		PlatformClearSignalHandler();
+		PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 	}
 
 	/* Clean up */
@@ -1056,76 +1064,109 @@ main(int ArgCount, char *Args[])
 
 const char* GetTokenName(token_type Token) {
     switch (Token) {
-		case T_PLUS:		return "+";
-		case T_MIN:			return "-";
-		case T_PTR:         return "*";
-        case T_ADDROF:      return "&";
-		case T_DECL:        return ":";
-        case T_STARTSCOPE:  return "{";
-        case T_ENDSCOPE:    return "}";
-        case T_OPENPAREN:   return "(";
-        case T_CLOSEPAREN:  return ")";
-        case T_OPENBRACKET: return "[";
-        case T_CLOSEBRACKET:return "]";
-        //case T_CAST:        return "cast";
-        case T_EQ:          return "=";
-        case T_LESS:        return "<";
-        case T_GREAT:       return ">";
-        case T_COMMA:       return ",";
-        case T_DOT:         return ".";
-        case T_QMARK:       return "?";
-        case T_BANG:        return "!";
-        case T_SEMICOL:     return ";";
-        case T_EOF:         return "End of File";
-        case T_ID:          return "Identifier";
-        case T_IF:          return "if";
-        case T_ELSE:        return "else";
-        case T_FOR:         return "for";
-        case T_VAL:         return "Number";
-        case T_STR:         return "String";
-        case T_NEQ:         return "!=";
-		case T_GEQ:         return ">=";
-        case T_LEQ:         return "<=";
-        case T_EQEQ:        return "==";
-        case T_ARR:         return "->";
-        case T_PPLUS:       return "++";
-        case T_MMIN:        return "--";
-        case T_LOR:         return "||";
-        case T_LAND:        return "&&";
-        case T_SLEFT:       return "<<";
-        case T_SRIGHT:      return ">>";
-        case T_PEQ:         return "+=";
-        case T_MEQ:         return "-=";
-        case T_TEQ:         return "*=";
-        case T_DEQ:         return "/=";
-        case T_MODEQ:       return "%=";
-        case T_SLEQ:        return "<<=";
-        case T_SREQ:        return ">>=";
-        case T_ANDEQ:       return "&=";
-        case T_XOREQ:       return "^=";
-        case T_OREQ:        return "|=";
-        case T_FN:          return "fn";
-		case T_CONST:       return "::";
-        case T_SHADOW:      return "#shadow";
-        case T_RETURN:      return "return";
-        case T_AUTOCAST:    return "xx";
-        case T_FOREIGN:     return "#foreign";
-        case T_CSTR:        return "C String";
-        case T_STRUCT:      return "struct";
-        case T_IMPORT:      return "#import";
-        case T_AS:          return "as";
-        case T_PUBLIC:      return "#public";
-        case T_PRIVATE:     return "#private";
-        case T_SIZEOF:      return "size_of";
-        case T_IN:          return "in";
-        case T_BREAK:       return "break";
-        case T_TYPEOF:      return "type_of";
-        case T_VARARG:      return "...";
-        case T_PWDIF:       return "#if";
-        case T_CHAR:        return "Character";
-		case T_ENUM:        return "Enum";
-		case T_DEFER:       return "defer";
-		case T_PROFILE:		return "@profile";
+        case T_PLUS:         return "+";
+        case T_MINUS:        return "-";
+        case T_PTR:          return "*";
+        case T_ADDROF:       return "&"; // & T_AND
+        case T_DECL:         return ":";
+        case T_STARTSCOPE:   return "{";
+        case T_ENDSCOPE:     return "}";
+        case T_OPENPAREN:    return "(";
+        case T_CLOSEPAREN:   return ")";
+        case T_OPENBRACKET:  return "[";
+        case T_CLOSEBRACKET: return "]";
+        case T_EQ:           return "=";
+        case T_LESS:         return "<";
+        case T_GREAT:        return ">";
+        case T_COMMA:        return ",";
+        case T_DOT:          return ".";
+        case T_QMARK:        return "?";
+        case T_BANG:         return "!";
+        case T_SEMICOL:      return ";";
+        case T_DOLLAR:       return "$";
+        case T_DIV:          return "/";
+        case T_BITNOT:       return "~";
+        case T_EOF:          return "end of file";
+        case T_ID:           return "identifier";
+        case T_IF:           return "if";
+        case T_ELSE:         return "else";
+        case T_FOR:          return "for";
+        case T_VAL:          return "number";
+        case T_STR:          return "string";
+        case T_NEQ:          return "!=";
+        case T_GEQ:          return ">=";
+        case T_LEQ:          return "<=";
+        case T_EQEQ:         return "==";
+        case T_ARR:          return "->";
+        case T_PPLUS:        return "++";
+        case T_MMIN:         return "--";
+        case T_LOR:          return "||";
+        case T_LAND:         return "&&";
+        case T_SLEFT:        return "<<";
+        case T_SRIGHT:       return ">>";
+        case T_PEQ:          return "+=";
+        case T_MEQ:          return "-=";
+        case T_TEQ:          return "*=";
+        case T_DEQ:          return "/=";
+        case T_MODEQ:        return "%=";
+        case T_SLEQ:         return "<<=";
+        case T_SREQ:         return ">>=";
+        case T_ANDEQ:        return "&=";
+        case T_XOREQ:        return "^=";
+        case T_OREQ:         return "|=";
+        case T_FN:           return "fn";
+        case T_CONST:        return "::";
+        case T_SHADOW:       return "#shadow";
+        case T_RETURN:       return "return";
+        case T_FOREIGN:      return "#foreign";
+        case T_CSTR:         return "c string";
+        case T_STRUCT:       return "struct";
+        case T_IMPORT:       return "#import";
+        case T_AS:           return "as";
+        case T_PUBLIC:       return "#public";
+        case T_PRIVATE:      return "#private";
+        case T_SIZEOF:       return "size_of";
+        case T_IN:           return "in";
+        case T_BREAK:        return "break";
+        case T_TYPEOF:       return "type_of";
+        case T_VARARG:       return "...";
+        case T_PWDIF:        return "#if";
+        case T_CHAR:         return "character";
+        case T_ENUM:         return "enum";
+        case T_SWITCH:       return "switch";
+        case T_INTR:         return "#intrinsic";
+        case T_DEFER:        return "defer";
+        case T_LINK:         return "#link";
+        case T_UNION:        return "union";
+        case T_INFO:         return "type_info";
+        case T_EMBED_BIN:    return "#embed_bin";
+        case T_EMBED_STR:    return "#embed_str";
+        case T_VOID:         return "void";
+        case T_CONTINUE:     return "continue";
+        case T_PWDELIF:      return "#elif";
+        case T_PROFILE:      return "@profile";
+        case T_ASSERT:       return "#assert";
+        case T_USING:        return "using";
+        case T_YIELD:        return "yield";
+        case T_RUN:          return "#run";
+        case T_LOAD_DL:       return "#load_dl";
+        case T_LOAD_SYSTEM_DL:return "#load_system_dl";
+        case T_PWDELSE:       return "#else";
+        case T_THEN:          return "then";
+        case T_INLINE:        return "#inline";
+        case T_NEWCAST:       return "cast";
+        case T_BITCAST:       return "bit_cast";
+        case T_RAWSTRING:     return "```";
+        case T_MODULE:        return "module";
+        case T_FILE_LOCATION: return "#file_location";
+        case T_STATIC:        return "#static";
+        case T_NORETURN:      return "#no_return";
+        case T_CASE:          return "case";
+        case T_WASM_IMPORT:   return "#wasm_import";
+        case T_TAG:           return "#tag";
+        case T_CALLC:         return "#cc";
+        case T_PACK:          return "#pack";
+        case T_NOCHECK:       return "#nocheck";
         default: {
             char *C = AllocateString(2);
             C[0] = (char)Token;

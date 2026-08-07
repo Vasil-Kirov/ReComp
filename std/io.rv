@@ -1,5 +1,7 @@
 module io
 
+_ :: #import misc;
+
 #import os;
 #import array;
 #import mem;
@@ -377,10 +379,12 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
         }
         case TypeKind.Struct: {
             st := t.t.struct_;
+
             builder_append(b, st.name);
             builder_append(b, " { ");
             for n in st.members.count {
                 m := st.members[n];
+
                 builder_append(b, m.name);
                 builder_append(b, " = ");
                 ptr := arg.val as *u8;

@@ -591,6 +591,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		case OP_ALLOC: // Handled before
 		{
 		} break;
+
+		// @TODO: Give some kind of an error? This shouldn't reach here
+		case OP_QUOTE:
+		{
+		} break;
 		case OP_GLOBAL:
 		{
 			const symbol *s = (const symbol *)I.Ptr;

@@ -40,6 +40,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.h"
 #include "Pipeline.h"
 #include "FlowTyping.h"
+#include "macros/Quote.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -83,6 +84,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Pipeline.cpp"
 #include "FlowTyping.cpp"
 #include "PassAst.cpp"
+#include "macros/Quote.cpp"
 
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -1167,6 +1169,8 @@ const char* GetTokenName(token_type Token) {
         case T_CALLC:         return "#cc";
         case T_PACK:          return "#pack";
         case T_NOCHECK:       return "#nocheck";
+		case T_MACRO:         return "#macro";
+		case T_QUOTE:         return "quote";
         default: {
             char *C = AllocateString(2);
             C[0] = (char)Token;

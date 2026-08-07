@@ -77,6 +77,7 @@ enum node_type
 	AST_YIELD,
 	AST_RUN,
 	AST_FILE_LOCATION,
+	AST_QUOTE,
 };
 
 struct node
@@ -315,6 +316,10 @@ struct node
 			node *Expression;
 			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
 		} Return;
+		struct {
+			slice<token> Tokens;
+			slice<string> Unquoted;
+		} Quote;
 	};
 	const error_info *ErrorInfo;
 };
@@ -373,6 +378,9 @@ bool IsOpAssignment(token_type Op);
 string MakeLambdaName(const error_info *Info);
 parse_result ParseTokens(file *F, slice<string> ConfigIDs);
 
+token PeekToken(parser *Parser);
+token GetToken(parser *Parser);
+token EatToken(parser *Parser, token_type Type);
 
 typedef bool (*walker_fn)(node *Node, void *Arg);
 void WalkAST(slice<node*> Nodes, walker_fn Walker, void *Arg);

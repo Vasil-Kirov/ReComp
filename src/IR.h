@@ -132,8 +132,16 @@ enum op
 	// Right = Target Register
 	OP_PTRCAST,
 
+	OP_QUOTE,
+
 
 	OP_COUNT,
+};
+
+struct ir_quote
+{
+	slice<token> Tokens;
+	slice<uint> Resolved;
 };
 
 struct ir_insert
@@ -353,6 +361,7 @@ void BuildEnumIR();
 u32 BuildStringCompare(block_builder *Builder, u32 Left, u32 Right, node *Node, b32 IsNeq=false);
 instruction Instruction(op Op, u64 Val, u32 Type, block_builder *Builder);
 instruction Instruction(op Op, u32 Left, u32 Right, u32 Type, block_builder *Builder);
+instruction Instruction(op Op, void *Ptr, u32 Type, block_builder *Builder, int Reserved);
 inline instruction Instruction(op Op, u32 Left, u32 Right, u32 ResultRegister, u32 Type);
 u32 PushInstruction(block_builder *Builder, instruction I);
 void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module);
@@ -365,6 +374,8 @@ void PushStepLocation(block_builder *Builder, node *Node);
 u32 BuildIRStoreVariable(block_builder *Builder, u32 Expression, u32 TypeIdx);
 void BuildIRFunctionLevel(block_builder *Builder, node *Node);
 int GetPointerPassIdx(u32 TypeIdx, uint Size);
+instruction InstructionStore(u32 Left, u32 Right, u32 Type);
+const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error = true, b32 *OutIsGlobal=NULL);
 
 void GetUsedRegisters(instruction I, u32 *out, size_t *count);
 u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInPtr);

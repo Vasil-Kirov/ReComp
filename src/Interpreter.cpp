@@ -8,6 +8,7 @@
 #include "Pipeline.h"
 #include "Platform.h"
 #include "VString.h"
+#include "macros/Quote.h"
 #include "vlib.h"
 #include "Semantics.h"
 #include <Interpreter.h>
@@ -1730,7 +1731,7 @@ void Store(interpreter *VM, value *Ptr, value *Value, u32 TypeIdx)
 
 }
 
-void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant = false)
+void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant)
 {
 	void *Result = NULL;
 	const type *Type = GetType(TypeIdx);
@@ -2302,6 +2303,15 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					{
 					} break;
 				}
+			} break;
+			case OP_QUOTE:
+			{
+				ir_quote *Quote = (ir_quote *)I.Ptr;
+				interp_slice *s = ExecuteQuote(VM, Quote);
+				value V = {};
+				V.Type = I.Type;
+				V.ptr = s;
+				VM->Registers.AddValue(I.Result, V);
 			} break;
 			case OP_INSERT:
 			{

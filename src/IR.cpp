@@ -11,6 +11,7 @@
 #include "Parser.h"
 #include "Type.h"
 #include "VString.h"
+#include "macros/Quote.h"
 #include "vlib.h"
 #include "Log.h"
 #include <cmath>
@@ -112,7 +113,7 @@ inline instruction InstructionMemset(u32 Ptr, u32 Type)
 	return Result;
 }
 
-inline instruction InstructionStore(u32 Left, u32 Right, u32 Type)
+instruction InstructionStore(u32 Left, u32 Right, u32 Type)
 {
 	instruction Result;
 	Result.Left = Left;
@@ -227,7 +228,7 @@ function GenerateFakeFunctionForGlobalExpression(node *Expression, module *Modul
 	return FakeFn;
 }
 
-const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error = true, b32 *OutIsGlobal=NULL)
+const symbol *GetIRLocal(block_builder *Builder, const string *NamePtr, b32 Error, b32 *OutIsGlobal)
 {
 	string Name = *NamePtr;
 	for(int i = Builder->Scope.Data.Count-1; i >= 0; i--)
@@ -1012,6 +1013,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
+		} break;
+		case AST_QUOTE:
+		{
+			Result = BuildIRFromQuote(Builder, Node);
 		} break;
 		case AST_SLICE:
 		{

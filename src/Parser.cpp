@@ -9,6 +9,7 @@
 #include "Semantics.h"
 #include "Type.h"
 #include "VString.h"
+#include "macros/Quote.h"
 
 string ErrorID = STR_LIT("Error");
 string DiscardID = STR_LIT("_");
@@ -506,7 +507,8 @@ token EatToken(parser *Parser, token_type Type)
 		{
 			RaiseError(false, Token.ErrorInfo, "Unexpected token!\nExpected: %s\nGot: %s", GetTokenName(Type), GetTokenName(Token.Type));
 		}
-		return token {T_EOF};
+		static const string ErrorString = STR_LIT("Error");
+		return token {T_EOF, DupeType(ErrorString, string)};
 	}
 	GetToken(Parser);
 	return Token;
@@ -1087,8 +1089,18 @@ u32 ParseFunctionFlags(parser *Parser, const string **CallConv, const string **L
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_NOCHECK, SymbolFlag_NoCheck}, {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
-		{T_TAG, SymbolFlag_None}, {T_WASM_IMPORT, SymbolFlag_None}, {T_CALLC, SymbolFlag_None}};
+	} FlagTokens[] = {
+		{T_MACRO, SymbolFlag_Macro},
+		{T_NOCHECK, SymbolFlag_NoCheck},
+		{T_FOREIGN, SymbolFlag_Foreign},
+		{T_INTR, SymbolFlag_Intrinsic},
+		{T_LINK, SymbolFlag_None},
+		{T_INLINE, SymbolFlag_Inline},
+		{T_NORETURN, SymbolFlag_NoReturn},
+
+		{T_TAG, SymbolFlag_None},
+		{T_WASM_IMPORT, SymbolFlag_None},
+		{T_CALLC, SymbolFlag_None}};
 
 	u32 Result = 0;
 	size_t Len = ARR_LEN(FlagTokens);
@@ -1707,6 +1719,10 @@ node *ParseOperand(parser *Parser)
 	node *Result = NULL;
 	switch((int)Token.Type)
 	{
+		case T_QUOTE:
+		{
+			Result = ParseQuote(Parser);
+		} break;
 		case T_FILE_LOCATION:
 		{
 			ERROR_INFO;

@@ -253,7 +253,8 @@ size_t DoGlobals(interpreter *VM, ir *IR);
 void DoDebugPrompt(interpreter *VM, slice<instruction> Instructions, slice<basic_block> Blocks, int InstrIdx);
 string StringFromInterp(interp_string S);
 error_info *CreateErrorInfoFromInterpLocation(interp_file_location Location, string FullName, const string *FileData);
-interp_string StringToInterp(const string *S);;
+interp_string StringToInterp(const string *S);
+void *IndexVM(interpreter *VM, value *Operand, u32 Right, u32 TypeIdx, u32 *OutType, b32 UseConstant = false);
 
 extern dynamic<DLIB> g_DLs;
 

@@ -13,6 +13,11 @@ FileLocation :: struct {
 	chr: int,
 }
 
+RVToken :: struct {
+	type: i16,
+	id: string,
+}
+
 INVALID_TYPE :: (-1) as type;
 
 TypeKind :: enum {

@@ -651,6 +651,7 @@ void InitializeLexer()
 	AddKeyword("#no_return",  T_NORETURN);
 	AddKeyword("#wasm_import",  T_WASM_IMPORT);
 	AddKeyword("#tag",  T_TAG);
+	AddKeyword("#macro",  T_MACRO);
 	AddKeyword("#pack",  T_PACK);
 	AddKeyword("#public",  T_PUBLIC);
 	AddKeyword("#private", T_PRIVATE);
@@ -680,5 +681,6 @@ void InitializeLexer()
 	AddKeyword("using",  T_USING);
 	AddKeyword("yield",  T_YIELD);
 	AddKeyword("module",  T_MODULE);
+	AddKeyword("quote",  T_QUOTE);
 }
 

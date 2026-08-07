@@ -1525,6 +1525,39 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
 		} break;
+		case AST_QUOTE:
+		{
+			u32 TokenT = FindStruct(STR_LIT("base.RVToken"));
+			u32 SliceT = GetSliceType(TokenT);
+			size_t AtName = 0;
+			ForArray(Idx, Expr->Quote.Tokens)
+			{
+				if (Expr->Quote.Tokens[Idx].Type == '`')
+				{
+					if(Expr->Quote.Unquoted.Count == AtName)
+					{
+						RaiseError(false, Expr->Quote.Tokens[Idx].ErrorInfo, "Expected identifer after unquote mark '`'.");
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+					string Name = Expr->Quote.Unquoted[AtName++];
+					const symbol *S = FindSymbol(Checker, &Name);
+					if(!S)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Couldn't find variable %.*s.", Name.Size, Name.Data);
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+					if(S->Type != TokenT && S->Type != SliceT)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Unquoted variable in token should be either RVToken or []RVToken. Got %s which is invalid.", GetTypeName(S->Type));
+						Result = Basic_error;
+						goto AnalyzeAtomEnd;
+					}
+				}
+			}
+			Result = SliceT;
+		} break;
 		case AST_SLICE:
 		{
 			u32 Ti = AnalyzeExpression(Checker, Expr->Slice.Operand);

@@ -174,8 +174,19 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 		AddErrorToDump(Error);
 	}
 
+	size_t FirstNoSpace = 0;
+	for(size_t i = 0; i < FirstPart.Size; ++i)
+	{
+		if (!isspace(FirstPart.Data[i]))
+		{
+			FirstNoSpace = i;
+			break;
+		}
+	}
+
+	FirstPart = SliceString(FirstPart, FirstNoSpace, 0);
 	
-	LogCompilerError("\nError: %s (%d, %d):\n%s\n\n%s",
+	LogCompilerError("\nError: %s (%d, %d):\n%s\n\n\t%s",
 			ErrorInfo.FileName, ErrorInfo.Range.StartLine, ErrorInfo.Range.StartChar, FinalFormat, FirstPart.Data);
 	PlatformOutputString(Highlight, LOG_ERROR);
 	LogCompilerError("%s\n", AfterPart.Data);

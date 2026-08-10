@@ -29,7 +29,7 @@ bit: fn(u32) -> u32 : n -> 1 << n;
 #public
 
 CompileFlag :: enum: u32 {
-    Debug        = bit(0),
+    Reserved     = bit(0),
     SanAddress   = bit(1),
     SanMemory    = bit(2),
     SanThread    = bit(3),

@@ -900,7 +900,7 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 		} break;
 		case AST_UNARY:
 		{
-			if(LHS->Unary.Op != T_PTR && LHS->Unary.Op != T_QMARK)
+			if(LHS->Unary.Op != T_PTR && LHS->Unary.Op != T_QMARK && LHS->Unary.Op != T_ADDROF)
 				return false;
 			return IsLHSAssignable(Checker, LHS->Unary.Operand);
 		} break;

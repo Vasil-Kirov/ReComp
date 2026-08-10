@@ -2,12 +2,6 @@ module win32;
 
 memset :: fn (dst: *, c: i32, size: int) -> * #foreign #link="memset";
 
-va_list: type: ?*u8;
-
-__va_start :: fn(
-	a: ?*va_list
-) #cc="cdecl" #foreign #link="__va_start";
-
 MAKEWORD :: fn(a: BYTE, b: BYTE) -> WORD #inline {
 	return cast(WORD, a) | (cast(WORD, b) << 8);
 }

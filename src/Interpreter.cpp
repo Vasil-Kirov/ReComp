@@ -2217,6 +2217,11 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					case IN_NOT_INTRIN:
 					{
 					} break;
+					case IN_VA_START:
+					case IN_VA_END:
+					{
+						LogCompilerError("Interpreter encountered va_(start/end), the intrinsic cannot be executed!");
+					} break;
 					case IN_LEN:
 					{
 						value *s = VM->Registers.GetValue(Info->CallInfo->Args[0]);

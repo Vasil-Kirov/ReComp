@@ -16,6 +16,8 @@ enum compiler_intrinsic
 	IN_NO_COMPILE_OUTPUT,
 	IN_GET_BUILD_ARGS,
 	IN_LEN,
+	IN_VA_START,
+	IN_VA_END,
 };
 
 enum op

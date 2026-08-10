@@ -4617,6 +4617,8 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("raise_error_"),
 		STR_LIT("get_build_args"),
 		STR_LIT("len"),
+		STR_LIT("va_start"),
+		STR_LIT("va_end"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)
@@ -5023,6 +5025,56 @@ void AnalyzeEnums(checker *Checker, slice<node *>Nodes)
 	}
 }
 
+u32 MakeCVAList(node *Node)
+{
+	u32 OpaqueType = FindStructTypeNoModuleRenaming(Node->StructDecl.Name);
+
+	// Stolen from Odin
+	dynamic<struct_member> Fields = {};
+	u32 VoidP = GetPointerTo(INVALID_TYPE);
+	switch (g_TargetArch) {
+		case Arch_x86_64:
+		switch (PTarget)
+		{
+			case platform_target::UnixBased:
+			Fields.Push({STR_LIT("gp_offset"), Basic_u32});
+			Fields.Push({STR_LIT("fp_offset"), Basic_u32});
+			Fields.Push({STR_LIT("overflow_arg_area"), VoidP});
+			Fields.Push({STR_LIT("reg_save_area"), VoidP});
+			default:
+			break;
+		}
+		break;
+
+		case Arch_arm64:
+		switch (PTarget)
+		{
+			case platform_target::UnixBased:
+			Fields.Push({STR_LIT("__stack"), VoidP});
+			Fields.Push({STR_LIT("__gr_top"), VoidP});
+			Fields.Push({STR_LIT("__vr_top"), VoidP});
+			Fields.Push({STR_LIT("__gr_offs"), Basic_i32});
+			Fields.Push({STR_LIT("__vr_offs"), Basic_i32});
+			default:
+			break;
+		}
+		break;
+		default: break;
+	}
+	if (Fields.Count == 0)
+	{
+		Fields.Push({STR_LIT("p"), VoidP});
+	}
+	type T = {};
+	T.Kind = TypeKind_Struct;
+	T.Struct.Name = *Node->StructDecl.Name;
+	T.Struct.Flags = Node->StructDecl.Flags;
+	T.Struct.Members = SliceFromArray(Fields);
+
+	FillOpaqueStruct(OpaqueType, T);
+	return OpaqueType;
+}
+
 void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 {
 	AddingOpaqueStructs = true;
@@ -5030,7 +5082,15 @@ void AnalyzeDefineStructs(checker *Checker, slice<node *>Nodes)
 	{
 		if(Nodes[I]->Type == AST_STRUCTDECL)
 		{
-			u32 T = AnalyzeStructDeclaration(Checker, Nodes[I]);
+			u32 T = 0;
+			if(Nodes[I]->StructDecl.Name && *Nodes[I]->StructDecl.Name == STR_LIT("base.va_list"))
+			{
+				T = MakeCVAList(Nodes[I]);
+			}
+			else
+			{
+				T = AnalyzeStructDeclaration(Checker, Nodes[I]);
+			}
 			Nodes[I]->StructDecl.IsError = T == Basic_error;
 			if(T != Basic_error && DumpingInfo)
 			{

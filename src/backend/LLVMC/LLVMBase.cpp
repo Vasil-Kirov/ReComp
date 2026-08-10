@@ -97,12 +97,29 @@ void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef Ou
 
 void RCGenerateIntrins(generator *gen)
 {
+	u32 VAList = FindStruct(STR_LIT("base.va_list"));
+
 	string RDTSC = STR_LIT("llvm.readcyclecounter");
 	LLVMTypeRef RDTSCType = LLVMFunctionType(LLVMIntTypeInContext(gen->ctx,
 				GetRegisterTypeSize()),
 				NULL, 0, false);
 	LLVMValueRef RDTSCLLVM = LLVMAddFunction(gen->mod, RDTSC.Data, RDTSCType);
 	gen->Intrinsics.Add(RDTSC, llvm_intrin { RDTSCLLVM, RDTSCType } );
+
+	string VAStart = STR_LIT("llvm.va_start.p0");
+	LLVMTypeRef VAArgs[] = {
+		LLVMPointerType(ConvertToLLVMType(gen, VAList), 0),
+	};
+	LLVMTypeRef VAStartType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx),
+				VAArgs, 1, false);
+	LLVMValueRef VAStartLLVM = LLVMAddFunction(gen->mod, VAStart.Data, VAStartType);
+	gen->Intrinsics.Add(VAStart, llvm_intrin { VAStartLLVM, VAStartType } );
+
+	string VAEnd = STR_LIT("llvm.va_end.p0");
+	LLVMTypeRef VAEndType = LLVMFunctionType(LLVMVoidTypeInContext(gen->ctx),
+				VAArgs, 1, false);
+	LLVMValueRef VAEndLLVM = LLVMAddFunction(gen->mod, VAEnd.Data, VAEndType);
+	gen->Intrinsics.Add(VAEnd, llvm_intrin { VAEndLLVM, VAEndType } );
 
 	string MemCmp = STR_LIT("memcmp");
 	LLVMTypeRef MemCmpArgs[] = {
@@ -629,6 +646,22 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				{} break;
 				case IN_RAISE_ERROR:
 				{} break;
+				case IN_VA_START:
+				{
+					call_info *ci = Info->CallInfo;
+					LLVMValueRef Args[1] = {};
+					Args[0] = gen->map.Get(ci->Args[0]);
+					llvm_intrin va = gen->Intrinsics[STR_LIT("llvm.va_start.p0")];
+					LLVMBuildCall2(gen->bld, va.Type, va.Fn, Args, 1, "");
+				} break;
+				case IN_VA_END:
+				{
+					call_info *ci = Info->CallInfo;
+					LLVMValueRef Args[1] = {};
+					Args[0] = gen->map.Get(ci->Args[0]);
+					llvm_intrin va = gen->Intrinsics[STR_LIT("llvm.va_end.p0")];
+					LLVMBuildCall2(gen->bld, va.Type, va.Fn, Args, 1, "");
+				} break;
 				case IN_LEN:
 				{
 					const type *T = GetType(I.Type);
@@ -1722,8 +1755,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	string CompilerName = STR_LIT("RCP Compiler");
 
-	RCGenerateIntrins(&Gen);
-
 	DEBUG_RUN (
 		LLVMDIBuilderCreateCompileUnit(
 				Gen.dbg,
@@ -1755,6 +1786,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	RCGenerateCompilerTypes(&Gen);
 	RCGenerateComplexTypes(&Gen);
+	RCGenerateIntrins(&Gen);
 
 	struct gen_fn_info {
 		LLVMValueRef LLVM;

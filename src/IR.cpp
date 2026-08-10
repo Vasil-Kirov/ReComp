@@ -1430,6 +1430,14 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					Intrin = IN_LEN;
 					UseExpressionTypesForArguments = true;
 				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("va_start")))
+				{
+					Intrin = IN_VA_START;
+				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("va_end")))
+				{
+					Intrin = IN_VA_END;
+				}
 				else
 				{
 					unreachable;
@@ -3632,6 +3640,8 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 			u32 Type = INVALID_TYPE;
 			if(Idx >= OgType->Function.ArgCount)
 			{
+				if (IsForeign(OgType))
+					break;
 				u32 ArgType = FindStruct(STR_LIT("base.Arg"));
 				Type = GetSliceType(ArgType);
 			}
@@ -4195,6 +4205,16 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 			{
 				case IN_NOT_INTRIN:
 				{} break;
+				case IN_VA_START:
+				{
+					call_info *ci = Info->CallInfo;
+					Builder->printf("va_start(%%%d)", ci->Args[0]);
+				} break;
+				case IN_VA_END:
+				{
+					call_info *ci = Info->CallInfo;
+					Builder->printf("va_end(%%%d)", ci->Args[0]);
+				} break;
 				case IN_LEN:
 				{
 					call_info *ci = Info->CallInfo;
@@ -4683,6 +4703,14 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 				} break;
 				case IN_DEBUG_BREAK:
 				{
+				} break;
+				case IN_VA_START:
+				{
+				} break;
+				case IN_VA_END:
+				{
+					call_info *ci = Info->CallInfo;
+					out[(*count)++] = ci->Args[0];
 				} break;
 				case IN_ATOMIC_ADD:
 				{

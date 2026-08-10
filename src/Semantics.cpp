@@ -881,6 +881,10 @@ b32 IsLHSAssignable(checker *Checker, node *LHS)
 			}
 			return (Sym->Flags & SymbolFlag_Const) == 0;
 		} break;
+		case AST_CAST:
+		{
+			return IsLHSAssignable(Checker, LHS->Cast.Expression);
+		} break;
 		case AST_LIST:
 		{
 			for(node *Item : LHS->List.Nodes)
@@ -1678,7 +1682,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			if(FnT == nullptr)
 			{
-				RaiseError(false, *Expr->ErrorInfo, "Invalid context for a lambda, couldn't deduce a funciton type.");
+				RaiseError(false, *Expr->ErrorInfo, "Invalid context for a lambda, couldn't deduce a function type.");
 				goto AnalyzeAtomEnd;
 			}
 			Assert(FnTi != Basic_error);

@@ -421,7 +421,7 @@ TokenType :: enum: i16 {
 	OpenParen       = cast(i16, '('),
 	CloseParen      = cast(i16, ')'),
 	OpenBracket     = cast(i16, '['),
-	CoseBracket     = cast(i16, ']'),
+	CloseBracket    = cast(i16, ']'),
 	Cast            = cast(i16, '@'),
 	Equal           = cast(i16, '='),
 	Lesser          = cast(i16, '<'),

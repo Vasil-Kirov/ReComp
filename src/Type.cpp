@@ -511,14 +511,6 @@ int GetStructSize(const type *Type, bool FromInterp)
 	int Result = 0;
 	int BiggestMember = 0;
 
-#if 0
-	if(Type->Struct.SubType != INVALID_TYPE)
-	{
-		Result = GetTypeSize(Type->Struct.SubType);
-		BiggestMember = Result;
-	}
-#endif
-
 	ForArray(Idx, Type->Struct.Members)
 	{
 		const type *m = GetType(Type->Struct.Members[Idx].Type);
@@ -558,12 +550,6 @@ int GetStructMemberOffset(const type *Type, uint Member, bool FromInterp)
 		return 0;
 
 	int Result = 0;
-#if 0
-	if(Type->Struct.SubType != INVALID_TYPE)
-	{
-		Result = GetTypeSize(Type->Struct.SubType);
-	}
-#endif
 
 	for(int Idx = 0; Idx <= Member; ++Idx)
 	{
@@ -592,14 +578,6 @@ int GetStructAlignment(const type *Type, bool FromInterp)
 		return 1;
 
 	int Alignment = 1;
-
-#if 0
-	if(Type->Struct.SubType != INVALID_TYPE)
-	{
-		BiggestMember = GetTypeSize(Type->Struct.SubType);
-		CurrentAlignment = GetTypeAlignment(Type->Struct.SubType);
-	}
-#endif
 
 	ForArray(Idx, Type->Struct.Members)
 	{
@@ -1224,9 +1202,9 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 		case TypeKind_Enum:
 		{
 			// Allowed enum ops:
-			// |, &, ==, !=, =
+			// |, &, ==, !=, =, <, >, <=, >=
 			slice<token_type> Allowed = SliceFromConst({
-				T_OR, T_AND, T_OREQ, T_ANDEQ, T_EQEQ, T_NEQ, T_EQ
+				T_OR, T_AND, T_OREQ, T_ANDEQ, T_EQEQ, T_NEQ, T_EQ, T_LESS, T_GREAT, T_LEQ, T_GEQ
 			});
 
 			For(Allowed)

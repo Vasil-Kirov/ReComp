@@ -69,12 +69,18 @@ void SignalHandler(int Sig)
 void PlatformSetSignalHandler(sig_proc Proc, void *Data)
 {
 	SignalHandlerGlobal = windows_signal_handler { .UserProc = Proc, .UserData = Data };
-	signal(SIGSEGV, SignalHandler);
+	signal(SIGSEGV, SignalHandler);  // invalid memory access
+	signal(SIGABRT, SignalHandler);  // abort(), failed assertions
+	signal(SIGFPE,  SignalHandler);  // arithmetic errors
+	signal(SIGILL,  SignalHandler);  // illegal instruction
 }
 
 void PlatformClearSignalHandler()
 {
 	signal(SIGSEGV, SIG_DFL);
+	signal(SIGABRT, SIG_DFL);
+	signal(SIGFPE,  SIG_DFL);
+	signal(SIGILL,  SIG_DFL);
 }
 
 b32 PlatformDeleteFile(const char *Path)

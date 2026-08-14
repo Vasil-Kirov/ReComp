@@ -247,7 +247,8 @@ struct node
 			node *From;
 			node *To;
 			u32 OperandType;  // Set by semantic analyzer, must be a slice
-			u32 ExprT;  // Set by semantic analyzer, must be integral
+			u32 ExprFromT;  // Set by semantic analyzer, must be integral
+			u32 ExprToT;  // Set by semantic analyzer, must be integral
 		} Slice;
 		struct {
 			node *Expression;

@@ -1025,11 +1025,19 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(Node->Slice.From != nullptr)
 			{
 				From = BuildIRFromExpression(Builder, Node->Slice.From);
+				if(Node->Slice.ExprFromT != Basic_int)
+				{
+					From = PushInstruction(Builder, Instruction(OP_CAST, From, Node->Slice.ExprFromT, Basic_int, Builder));
+				}
 			}
 			u32 To = -1;
 			if(Node->Slice.To != nullptr)
 			{
 				To = BuildIRFromExpression(Builder, Node->Slice.To);
+				if(Node->Slice.ExprToT != Basic_int)
+				{
+					To = PushInstruction(Builder, Instruction(OP_CAST, To, Node->Slice.ExprToT, Basic_int, Builder));
+				}
 			}
 			switch(T->Kind)
 			{
@@ -1046,24 +1054,24 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, ElemP, Builder));
-						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Basic_int, Builder));
 					}
 					Result = BuildSlice(Builder, Data, To, Node->Slice.OperandType);
 				} break;
 				case TypeKind_Array:
 				{
 					if(To == -1)
-						To = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
+						To = PushInt(T->Array.MemberCount, Builder, Basic_int);
 					u32 Data = Operand;
 					if(ShouldDoBoundsChecking())
 					{
-						u32 Count = PushInt(T->Array.MemberCount, Builder, Node->Slice.ExprT);
+						u32 Count = PushInt(T->Array.MemberCount, Builder, Basic_int);
 						BuildSliceAssert(Builder, Node, From, To, Count);
 					}
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
-						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Basic_int, Builder));
 					}
 					Result = BuildSlice(Builder, Data, To, GetSliceType(T->Array.Type));
 				} break;
@@ -1074,7 +1082,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
-						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Basic_int, Builder));
 					}
 					Result = BuildSlice(Builder, Data, To, GetSliceType(T->Pointer.Pointed));
 				} break;
@@ -1092,7 +1100,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, ElemP, Builder));
-						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Node->Slice.ExprT, Builder));
+						To = PushInstruction(Builder, Instruction(OP_SUB, To, From, Basic_int, Builder));
 					}
 					Result = BuildString(Builder, Data, To);
 				} break;

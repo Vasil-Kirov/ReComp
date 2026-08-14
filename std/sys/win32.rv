@@ -1,6 +1,41 @@
 module win32;
 
-memset :: fn (dst: *, c: i32, size: int) -> * #foreign #link="memset";
+FD_SET :: fn(fd: SOCKET, set: *fd_set) #inline {
+	__i: DWORD;
+    for __i = 0; __i < set.fd_count; __i++ {
+        if set.fd_array[__i] == fd {
+            break;
+        }
+    }
+	if __i == set.fd_count {
+        if set.fd_count < FD_SETSIZE {
+            set.fd_array[__i] = (fd);
+            set.fd_count++;
+        }
+	}
+}
+
+FD_ZERO :: fn(set: *fd_set) #inline {
+	set.fd_count=0;
+}
+
+__WSAFDIsSet :: fn(
+	unnamedParam1: SOCKET,
+	unnamedParam2: *fd_set
+) -> c_int #foreign #link="__WSAFDIsSet";
+
+FD_CLR :: fn(fd: SOCKET, set: *fd_set) #inline {
+    for __i: DWORD = 0; __i < set.fd_count; __i++ {
+        if set.fd_array[__i] == fd {
+            for __i < set.fd_count-1 {
+                set.fd_array[__i] = set.fd_array[__i+1];
+                __i++;
+            }
+            set.fd_count--;
+            break;
+        }
+    }
+}
 
 MAKEWORD :: fn(a: BYTE, b: BYTE) -> WORD #inline {
 	return cast(WORD, a) | (cast(WORD, b) << 8);
@@ -96,9 +131,9 @@ PROC: type: ?*void;
 
 FARPROC: type: ?*void;
 
-LPCCH: type: ?*void;
+LPCCH: type: ?*u8;
 
-LPCWCH: type: ?*void;
+LPCWCH: type: ?*WCHAR;
 
 HGLRC: type: ?*void;
 
@@ -281,11 +316,6 @@ RAWHID :: struct  {
 
 RAWINPUT :: struct  {
 	header: RAWINPUTHEADER,
-	a: union {
-		mouse: RAWMOUSE,
-		keyboard: RAWKEYBOARD,
-		hid: RAWHID,
-	},
 	data: union {
 		mouse: RAWMOUSE,
 		keyboard: RAWKEYBOARD,
@@ -339,20 +369,12 @@ HIDP_BUTTON_CAPS :: struct  {
 	IsStringRange: BOOLEAN,
 	IsDesignatorRange: BOOLEAN,
 	IsAbsolute: BOOLEAN,
+
 	ReportCount: USHORT,
 	Reserved2: USHORT,
 	Reserved: [9]ULONG,
+
 	a: union {
-		b: struct {
-			UsageMin: USAGE,
-			UsageMax: USAGE,
-			StringMin: USHORT,
-			StringMax: USHORT,
-			DesignatorMin: USHORT,
-			DesignatorMax: USHORT,
-			DataIndexMin: USHORT,
-			DataIndexMax: USHORT,
-		},
 		Range: struct {
 			UsageMin: USAGE,
 			UsageMax: USAGE,
@@ -362,16 +384,6 @@ HIDP_BUTTON_CAPS :: struct  {
 			DesignatorMax: USHORT,
 			DataIndexMin: USHORT,
 			DataIndexMax: USHORT,
-		},
-		c: struct {
-			Usage: USAGE,
-			Reserved1: USAGE,
-			StringIndex: USHORT,
-			Reserved2: USHORT,
-			DesignatorIndex: USHORT,
-			Reserved3: USHORT,
-			DataIndex: USHORT,
-			Reserved4: USHORT,
 		},
 		NotRange: struct {
 			Usage: USAGE,
@@ -418,16 +430,6 @@ HIDP_VALUE_CAPS :: struct  {
 	PhysicalMin: LONG,
 	PhysicalMax: LONG,
 	a: union {
-		b: struct {
-			UsageMin: USAGE,
-			UsageMax: USAGE,
-			StringMin: USHORT,
-			StringMax: USHORT,
-			DesignatorMin: USHORT,
-			DesignatorMax: USHORT,
-			DataIndexMin: USHORT,
-			DataIndexMax: USHORT,
-		},
 		Range: struct {
 			UsageMin: USAGE,
 			UsageMax: USAGE,
@@ -437,16 +439,6 @@ HIDP_VALUE_CAPS :: struct  {
 			DesignatorMax: USHORT,
 			DataIndexMin: USHORT,
 			DataIndexMax: USHORT,
-		},
-		c: struct {
-			Usage: USAGE,
-			Reserved1: USAGE,
-			StringIndex: USHORT,
-			Reserved2: USHORT,
-			DesignatorIndex: USHORT,
-			Reserved3: USHORT,
-			DataIndex: USHORT,
-			Reserved4: USHORT,
 		},
 		NotRange: struct {
 			Usage: USAGE,
@@ -643,45 +635,12 @@ sockaddr :: struct  {
 }
 
 in_addr :: struct  {
-	a: union {
-		b: struct {
-			s_b1: BYTE,
-			s_b2: BYTE,
-			s_b3: BYTE,
-			s_b4: BYTE,
-		},
-		S_un_b: struct {
-			s_b1: BYTE,
-			s_b2: BYTE,
-			s_b3: BYTE,
-			s_b4: BYTE,
-		},
-		c: struct {
-			s_w1: WORD,
-			s_w2: WORD,
-		},
-		S_un_w: struct {
-			s_w1: WORD,
-			s_w2: WORD,
-		},
-		S_addr: DWORD,
-	},
 	S_un: union {
-		d: struct {
-			s_b1: BYTE,
-			s_b2: BYTE,
-			s_b3: BYTE,
-			s_b4: BYTE,
-		},
 		S_un_b: struct {
 			s_b1: BYTE,
 			s_b2: BYTE,
 			s_b3: BYTE,
 			s_b4: BYTE,
-		},
-		e: struct {
-			s_w1: WORD,
-			s_w2: WORD,
 		},
 		S_un_w: struct {
 			s_w1: WORD,
@@ -730,9 +689,10 @@ in6_addr :: struct {
 
 IN6_ADDR: type: in6_addr;
 
+FD_SETSIZE :DWORD: 64;
 fd_set :: struct  {
 	fd_count: DWORD,
-	fd_array: [1]SOCKET,
+	fd_array: [64]SOCKET,
 }
 
 timeval :: struct  {
@@ -1548,9 +1508,9 @@ WideCharToMultiByte :: fn(
 MultiByteToWideChar :: fn(
 	CodePage: UINT,
 	dwFlags: DWORD,
-	lpMultiByteStr: LPSTR,
+	lpMultiByteStr: LPCCH,
 	cbMultiByte: i32,
-	lpWideCharStr: LPCWCH,
+	lpWideCharStr: LPWSTR,
 	cchWideChar: i32
 ) -> i32 #cc="stdcall" #foreign #link="MultiByteToWideChar";
 

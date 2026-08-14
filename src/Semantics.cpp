@@ -1602,25 +1602,28 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 					RaiseError(false, *Expr->Slice.From->ErrorInfo, "Slice expression needs to be of an integral type, this one is of type %s.", GetTypeName(ToT));
 				}
 			}
-			Expr->Slice.ExprT = ToT;
 			if(!IsUntyped(FromT) && FromT != INVALID_TYPE && IsUntyped(ToT))
 			{
 				FillUntypedStack(Checker, FromT);
-				Expr->Slice.ExprT = FromT;
+				Expr->Slice.ExprFromT = FromT;
+				Expr->Slice.ExprToT = FromT;
 			}
 			else if(IsUntyped(FromT) && !IsUntyped(ToT) && ToT != INVALID_TYPE)
 			{
-				FillUntypedStack(Checker, FromT);
-				Expr->Slice.ExprT = ToT;
+				FillUntypedStack(Checker, ToT);
+				Expr->Slice.ExprFromT = ToT;
+				Expr->Slice.ExprToT = ToT;
 			}
 			else if(IsUntyped(FromT) || IsUntyped(ToT))
 			{
 				FillUntypedStack(Checker, Basic_int);
-				Expr->Slice.ExprT = Basic_int;
+				Expr->Slice.ExprFromT = Basic_int;
+				Expr->Slice.ExprToT = Basic_int;
 			}
 			else
 			{
-				Expr->Slice.ExprT = Basic_int;
+				Expr->Slice.ExprFromT = FromT;
+				Expr->Slice.ExprToT = ToT;
 			}
 
 			Expr->Slice.OperandType = Ti;

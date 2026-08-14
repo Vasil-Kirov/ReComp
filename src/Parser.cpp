@@ -2925,7 +2925,8 @@ node *CopyASTNode(node *N)
 			R->Slice.Operand = CopyASTNode(N->Slice.Operand);
 			R->Slice.From = CopyASTNode(N->Slice.From);
 			R->Slice.To = CopyASTNode(N->Slice.To);
-			R->Slice.ExprT = N->Slice.ExprT;
+			R->Slice.ExprFromT = N->Slice.ExprFromT;
+			R->Slice.ExprToT = N->Slice.ExprToT;
 		} break;
 
 		case AST_RUN:

@@ -1,5 +1,6 @@
 #pragma once
 
+
 #if _WIN32
 #define STRSAFE_NO_DEPRECATE
 
@@ -13,6 +14,8 @@
 
 #include <xmmintrin.h>
 #include <stdint.h>
+
+void PlatformClearSignalHandler();
 
 #define UNUSED(param) (void)(param)
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -54,7 +57,7 @@ typedef SSIZE_T ssize_t;
 
 #if defined(DEBUG)
 #define Assert(expression) do { if(!(expression)) { LERROR("--- INTERNAL COMPILER ERROR ---\nAssertion Failed: %s\nFile: %s\nFunction %s\nLine: %d", #expression,\
-		__FILE__, __FUNCTION__, __LINE__); PrintStacktrace(); BREAK; __builtin_trap(); } }while(0)
+		__FILE__, __FUNCTION__, __LINE__); PrintStacktrace(); PlatformClearSignalHandler(); BREAK; __builtin_trap(); } }while(0)
 #define unreachable { Assert(false); __builtin_unreachable(); }
 #else 
 #define Assert(expression) ((void)0)

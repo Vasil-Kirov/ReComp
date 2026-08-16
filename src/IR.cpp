@@ -2808,6 +2808,10 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			IType = Node->For.ArrayType;
 			Zero = PushInt(0, Builder, IType);
 		}
+		else if(IsTypeMultiReturn(T))
+		{
+			IType = T->Struct.Members[0].Type;
+		}
 		else
 			Assert(false);
 
@@ -2815,8 +2819,11 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 
 		IAlloc = PushInstruction(Builder,
 				Instruction(OP_ALLOC, -1, IType, Builder));
-		PushInstruction(Builder,
-				InstructionStore(IAlloc, Zero, IType));
+		if(!IsTypeMultiReturn(T))
+		{
+			PushInstruction(Builder,
+					InstructionStore(IAlloc, Zero, IType));
+		}
 
 
 		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
@@ -2836,6 +2843,23 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 					Instruction(OP_PTRDIFF, At, StartString, u8P, Builder));
 			u32 Condition = PushInstruction(Builder,
 					Instruction(OP_LESS, Passed, Size, Basic_bool, Builder));
+			PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
+		}
+		else if(IsTypeMultiReturn(T))
+		{
+			u32 Res = BuildIRFromExpression(Builder, Node->For.Expr2);
+			u32 Val = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Res, 0, Node->For.ArrayType, Builder));
+			u32 Condition = PushInstruction(Builder, 
+					Instruction(OP_INDEX, Res, 1, Node->For.ArrayType, Builder));
+			if(IsLoadableType(T->Struct.Members[0].Type))
+					Val = PushInstruction(Builder,
+						Instruction(OP_LOAD, 0, Val, T->Struct.Members[0].Type, Builder));
+
+			Condition = PushInstruction(Builder,
+					Instruction(OP_LOAD, 0, Condition, Basic_bool, Builder));
+			
+			PushInstruction(Builder, InstructionStore(IAlloc, Val, T->Struct.Members[0].Type));
 			PushInstruction(Builder, Instruction(OP_IF, Then.ID, End.ID, Condition, Basic_bool));
 		}
 		else
@@ -2927,6 +2951,10 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 			{
 				ItAlloc = IAlloc;
 			}
+			else if(IsTypeMultiReturn(T))
+			{
+				ItAlloc = IAlloc;
+			}
 			else
 			{
 				unreachable;
@@ -2972,6 +3000,11 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 	}
 
 	// Increment
+	if(IsTypeMultiReturn(T))
+	{
+		PushInstruction(Builder, Instruction(OP_JMP, Cond.ID, Basic_type, Builder));
+	}
+	else
 	{
 		PushStepLocation(Builder, Node);
 

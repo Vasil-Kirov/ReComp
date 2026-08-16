@@ -3847,7 +3847,13 @@ void AnalyzeFor(checker *Checker, node *Node)
 				ItType = Basic_u32;
 			}
 			else if(HasBasicFlag(T, BasicFlag_Integer))
+			{
 				ItType = TypeIdx;
+			}
+			else if(IsTypeMultiReturn(T))
+			{
+				ItType = T->Struct.Members[0].Type;
+			}
 			else
 				Assert(false);
 
@@ -3859,7 +3865,12 @@ void AnalyzeFor(checker *Checker, node *Node)
 			else if(Node->For.Expr1->Type == AST_UNARY)
 			{
 				auto it = Node->For.Expr1;
-				if(it->Unary.Op == '&' && it->Unary.Operand->Type == AST_ID)
+				if(IsTypeMultiReturn(T))
+				{
+					RaiseError(false, *it->ErrorInfo, "Invalid unary operation on function call iterator.");
+					return;
+				}
+				else if(it->Unary.Op == '&' && it->Unary.Operand->Type == AST_ID)
 				{
 					Node->For.ItByRef = true;
 					if(IsString(T))
@@ -3880,6 +3891,11 @@ void AnalyzeFor(checker *Checker, node *Node)
 			{
 				Assert(Node->For.Expr1->Type == AST_LIST);
 				auto List = Node->For.Expr1->List;
+				if(IsTypeMultiReturn(T))
+				{
+					RaiseError(false, *Node->For.Expr1->ErrorInfo, "Function call iterator should have only 1 name.");
+					return;
+				}
 				if(List.Nodes.Count != 2)
 				{
 					RaiseError(false, *Node->For.Expr1->ErrorInfo, "Expected exactly 2 names in list in for in iteration. First is the name of the index, second is the name of the iterator");

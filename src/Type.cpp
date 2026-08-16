@@ -2198,6 +2198,8 @@ b32 IsTypeMultiReturn(const type *T)
 
 b32 IsTypeIterable(const type *T)
 {
+	if(IsTypeMultiReturn(T) && T->Struct.Members.Count == 2 && T->Struct.Members[1].Type == Basic_bool)
+		return true;
 	return T->Kind == TypeKind_Array || T->Kind == TypeKind_Slice ||
 		HasBasicFlag(T, BasicFlag_Integer) || 
 		HasBasicFlag(T, BasicFlag_String);

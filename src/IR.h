@@ -322,6 +322,7 @@ struct block_builder
 	module *Module;
 	profiling *Profile;
 	stack<dict<symbol>> Scope;
+	stack<const error_info *> ScopeLocations;
 	stack<yield_info> YieldReturn;
 	dynamic<run_location> RunIndexes;
 	const error_info *LastErrorInfo;

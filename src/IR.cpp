@@ -172,10 +172,11 @@ basic_block AllocateBlock(block_builder *Builder)
 	return Block;
 }
 
-block_builder MakeBlockBuilder(function *Fn, module *Module, slice<import> Imported)
+block_builder MakeBlockBuilder(function *Fn, module *Module, slice<import> Imported, const error_info *Erri)
 {
 	block_builder Builder = {};
 	Builder.Scope.Push({});
+	Builder.ScopeLocations.Push(Erri);
 	Builder.Function = Fn;
 	Builder.CurrentBlock = AllocateBlock(&Builder);
 	Builder.Imported = Imported;
@@ -216,7 +217,7 @@ function GenerateFakeFunctionForGlobalExpression(node *Expression, module *Modul
 		FakeFn.LinkName = FakeFn.Name;
 		FakeFn.NoDebugInfo = true;
 		FakeFn.FakeFunction = true;
-		block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
+		block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported, ErrInfoNode->ErrorInfo);
 		PushErrorInfo(&Builder, ErrInfoNode);
 		PushStepLocation(&Builder, ErrInfoNode);
 		BuildIRFromExpression(&Builder, Expression);
@@ -3148,11 +3149,31 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  }
 		  	  s.Expressions.Free();
 		  	  Builder->Scope.Pop().Free();
+
+			  if(!Builder->ScopeLocations.IsEmpty())
+			  {
+				  if(!Builder->CurrentBlock.HasTerminator)
+				  {
+					  ir_debug_info *Info = NewType(ir_debug_info);
+					  Info->type = IR_DBG_SCOPE;
+					  Info->scope.LineNo = Builder->ScopeLocations.Peek()->Range.StartLine;
+					  instruction DbgErrI = InstructionDebugInfo(Info);
+					  PushInstruction(Builder, DbgErrI);
+				  }
+				  Builder->ScopeLocations.Pop();
+			  }
 		    }
 		    else
 		    {
-		  	  Builder->Scope.Push({});
-		  	  Builder->Defered.Push({});
+				ir_debug_info *Info = NewType(ir_debug_info);
+				Info->type = IR_DBG_SCOPE;
+				Info->scope.LineNo = Node->ErrorInfo->Range.StartLine;
+				instruction DbgErrI = InstructionDebugInfo(Info);
+				PushInstruction(Builder, DbgErrI);
+
+				Builder->Scope.Push({});
+				Builder->ScopeLocations.Push(Node->ErrorInfo);
+				Builder->Defered.Push({});
 		    }
 		} break;
 		case AST_USING:
@@ -3295,6 +3316,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 			PushStepLocation(Builder, Node);
 
 		    Builder->Scope.Push({});
+		    Builder->ScopeLocations.Push(Node->ErrorInfo);
+
 		    u32 IfExpression = BuildIRFromExpression(Builder, Node->If.Expression);
 		    basic_block ThenBlock = AllocateBlock(Builder);
 		    basic_block ElseBlock = AllocateBlock(Builder);
@@ -3315,6 +3338,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  	  Terminate(Builder, EndBlock);
 			  PushStepLocation(Builder, Node);
 		    }
+			Builder->ScopeLocations.Pop();
 		    Builder->Scope.Pop();
 		} break;
 		case AST_BREAK:
@@ -3340,6 +3364,8 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 			PushStepLocation(Builder, Node);
 
 		    Builder->Scope.Push({});
+		    Builder->ScopeLocations.Push(Node->ErrorInfo);
+
 		    using ft = for_type;
 		    switch(Node->For.Kind)
 		    {
@@ -3360,6 +3386,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  		  BuildIRForIt(Builder, Node);
 		  	  } break;
 		    }
+		    Builder->ScopeLocations.Pop();
 		    Builder->Scope.Pop();
 		} break;
 		default:
@@ -3667,7 +3694,7 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 
 	if(Body.IsValid())
 	{
-		block_builder Builder = MakeBlockBuilder(&Function, Module, Imported);
+		block_builder Builder = MakeBlockBuilder(&Function, Module, Imported, Node->ErrorInfo);
 		Builder.Module = Module;
 
 		PushErrorInfo(&Builder, Node);
@@ -4073,7 +4100,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 			FakeFn.LinkName = FakeFn.Name;
 			FakeFn.NoDebugInfo = true;
 			FakeFn.FakeFunction = true;
-			block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported);
+			block_builder Builder = MakeBlockBuilder(&FakeFn, Module, Imported, Node->ErrorInfo);
 			BuildRun(&Builder, Node);
 			Terminate(&Builder, {});
 			FakeFn.LastRegister = Builder.LastRegister;
@@ -4102,7 +4129,7 @@ void GlobalLevelIR(ir *IR, node *Node, slice<import> Imported, module *Module)
 	}
 }
 
-void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT)
+void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT, const error_info *ei)
 {
 	if(File->Module->Name != STR_LIT("base"))
 		return;
@@ -4116,7 +4143,7 @@ void BuildTypeTableFn(ir *IR, file *File, u32 VoidFnT)
 	TypeTableFn.NoDebugInfo = true;
 	TypeTableFn.FakeFunction = true;
 
-	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module, {});
+	block_builder Builder = MakeBlockBuilder(&TypeTableFn, File->Module, {}, ei);
 
 	string TypeTableName = STR_LIT("type_table");
 	uint TypeCount = GetTypeCount();
@@ -4148,8 +4175,18 @@ ir BuildIR(file *File)
 	ir IR = {};
 	u32 NodeCount = File->Nodes.Count;
 	static u32 VoidFnT = GenerateVoidFnT();
+	const error_info *ErrI = NULL;
+	if(NodeCount > 0)
+	{
+		ErrI = File->Nodes[0]->ErrorInfo;
+	}
+	else
+	{
+		static const error_info ErrINone = {};
+		ErrI = &ErrINone;
+	}
 
-	BuildTypeTableFn(&IR, File, VoidFnT);
+	BuildTypeTableFn(&IR, File, VoidFnT, ErrI);
 
 	for(int I = 0; I < NodeCount; ++I)
 	{
@@ -4193,7 +4230,8 @@ void BuildEnumIR()
 			Fn.LinkName = Fn.Name;
 			Fn.NoDebugInfo = true;
 
-			block_builder Builder = MakeBlockBuilder(&Fn, M, Imports);
+			static const error_info ErrINone = {};
+			block_builder Builder = MakeBlockBuilder(&Fn, M, Imports, &ErrINone);
 			For(T->Enum.Members)
 			{
 				Builder.CurrentBlock = AllocateBlock(&Builder);

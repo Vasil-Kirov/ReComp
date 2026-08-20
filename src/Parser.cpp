@@ -1087,7 +1087,7 @@ u32 ParseFunctionFlags(parser *Parser, const string **CallConv, const string **L
 	struct {
 		token_type T;
 		SymbolFlag F;
-	} FlagTokens[] = { {T_NOCHECK, SymbolFlag_NoCheck}, {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
+	} FlagTokens[] = { {T_SELF, SymbolFlag_Self}, {T_NOCHECK, SymbolFlag_NoCheck}, {T_FOREIGN, SymbolFlag_Foreign}, {T_INTR, SymbolFlag_Intrinsic}, {T_LINK, SymbolFlag_None}, {T_INLINE, SymbolFlag_Inline}, {T_NORETURN, SymbolFlag_NoReturn},
 		{T_TAG, SymbolFlag_None}, {T_WASM_IMPORT, SymbolFlag_None}, {T_CALLC, SymbolFlag_None}};
 
 	u32 Result = 0;

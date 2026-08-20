@@ -114,6 +114,7 @@ enum token_type
 	T_CALLC = -90,
 	T_PACK  = -91,
 	T_NOCHECK = -92,
+	T_SELF = -93,
 };
 
 struct token

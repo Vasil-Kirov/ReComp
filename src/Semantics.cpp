@@ -4,7 +4,6 @@
 #include "DumpInfo.h"
 #include "Dynamic.h"
 #include "Errors.h"
-#include "Globals.h"
 #include "Lexer.h"
 #include "Log.h"
 #include "Module.h"
@@ -14,6 +13,7 @@
 #include "Memory.h"
 #include "VString.h"
 #include "Polymorph.h"
+#include "GlobalGuard.h"
 #include <optional>
 #include <tuple>
 extern uint TypeCount;
@@ -1013,6 +1013,8 @@ private:
     bool Active;
 };
 
+static GlobalGuard<map_int<dict<node*>>> g_SelfFunctions {};
+
 u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 {
 	scope *FnScope = AllocScope(FnNode, Checker->Scope.TryPeek());
@@ -1174,6 +1176,15 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		}
 	}
 
+	if(Function.Flags & SymbolFlag_Self)
+	{
+		if(Function.ArgCount < 1 || GetType(Function.Args[0])->Kind != TypeKind_Pointer)
+		{
+			RaiseError(false, *FnNode->ErrorInfo, "Function marked with #self needs to have an argument of type pointer as its first argument.");
+			return Basic_error;
+		}
+	}
+
 	if(NeedToAddGeneric && AddedGenerics > 1)
 	{
 		// @TODO: fix this, need to change GetGenericPart to return a slice,
@@ -1188,7 +1199,40 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 	
 	NewType->Function = Function;
 	FnNode->Fn.Flags |= Function.Flags;
-	return AddType(NewType);
+	u32 Result = AddType(NewType);
+	if(Function.Flags & SymbolFlag_Self)
+	{
+		const type *T = GetType(Result);
+		u32 Added = g_SelfFunctions.with_lock([FnNode, T, Result] (map_int<dict<node*>> v) -> u32 {
+				Assert(T->Kind == TypeKind_Function);
+				Assert(T->Function.ArgCount > 0);
+
+				if (v.Contains(T->Function.Args[0]))
+				{
+					auto Dict = v[T->Function.Args[0]];
+					if(Dict.Contains(*FnNode->Fn.Name))
+					{
+						RaiseError(false, *FnNode->ErrorInfo, "Type %s already has a #self function with the name %.*s, this is a redefinition",
+								GetTypeName(T->Function.Args[0]), (int)FnNode->Fn.Name->Size, FnNode->Fn.Name->Data);
+						return Basic_error;
+					}
+					else
+					{
+						Dict.Add(*FnNode->Fn.Name, FnNode);
+					}
+				}
+				else
+				{
+					dict<node*> NewDict{};
+					NewDict.Add(*FnNode->Fn.Name, FnNode);
+					v.Add(T->Function.Args[0], NewDict);
+				}
+				return Result;
+		});
+		if (Added == Basic_error)
+			return Basic_error;
+	}
+	return Result;
 }
 
 void FunctionAddArugmentsToScope(checker *Checker, const type *FnT, slice<node *> Args)
@@ -1441,6 +1485,20 @@ std::optional<slice<node *>> CheckAndGetLambdaArgs(node *Expr, int ExpectedArgCo
 		return std::nullopt;
 	}
 	return SliceFromArray(Args);
+}
+
+node *TryResolveSelfFunction(u32 OperandT, string Selected)
+{
+	auto pt = GetPointerTo(OperandT);
+	return g_SelfFunctions.with_lock([pt, Selected](map_int<dict<node*>> map) -> node*{
+			auto dp = map.GetUnstablePtr(pt);
+			if(!dp)
+				return nullptr;
+			auto n = dp->GetUnstablePtr(Selected);
+			if(!n)
+				return nullptr;
+			return *n;
+	});
 }
 
 u32 AnalyzeAtom(checker *Checker, node *Expr)
@@ -2034,6 +2092,17 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				{
 					Expr->Call.SymName = *Expr->Call.Fn->ID.Name;
 				}
+			}
+			if(CallType->Function.Flags & SymbolFlag_Self && Expr->Call.Fn->Type == AST_SELECTOR)
+			{
+				array<node *> Args{Expr->Call.Args.Count+1};
+				size_t At = 0;
+				Args[At++] = MakeUnary(Expr->Call.Fn->ErrorInfo, Expr->Call.Fn->Selector.Operand, T_ADDROF);
+				for(node *Arg : Expr->Call.Args)
+				{
+					Args[At++] = Arg;
+				}
+				Expr->Call.Args = SliceFromArray(Args);
 			}
 
 			if(Expr->Call.Args.Count != CallType->Function.ArgCount)
@@ -2893,6 +2962,17 @@ ANALYZE_SLICE_SELECTOR:
 										Result = Sub->Struct.Members[Idx].Type;
 										break;
 									}
+								}
+							}
+
+							if(Result == Basic_error)
+							{
+								node *Fn = TryResolveSelfFunction(TypeIdx, *Expr->Selector.Member);
+								if (Fn)
+								{
+									Assert(Fn->Type == AST_FN);
+									Result = Fn->Fn.TypeIdx;
+									Expr->Selector.Index = -2;
 								}
 							}
 

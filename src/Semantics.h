@@ -23,6 +23,7 @@ enum SymbolFlag
 	SymbolFlag_NoReturn    = BIT(11),
 	SymbolFlag_AlreadyAnalyzed = BIT(12),
 	SymbolFlag_NoCheck     = BIT(13),
+	SymbolFlag_Self        = BIT(14),
 };
 
 struct generic_generated
@@ -112,6 +113,7 @@ void FindAndReplaceGlobalLambdasWithFunctions(slice<node *> Nodes);
 void AnalyzeSimpleGlobalVariables(checker *Checker, slice<node *> Nodes);
 bool CompareFunctionName(string Name, string CompareTo);
 void IntrinsicCheckFunctionType(node *Call);
+node *TryResolveSelfFunction(u32 OperandT, string Selected);
 
 void Analyze(checker *Checker, dynamic<node *> &Nodes);
 

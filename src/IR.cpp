@@ -1959,6 +1959,11 @@ SEARCH_TYPE_DONE:
 					}
 				}
 			}
+			else if(Node->Selector.Index == -2)
+			{
+				node *Fn = TryResolveSelfFunction(Node->Selector.Type, *Node->Selector.Member);
+				Result = BuildIRFromExpression(Builder, Fn);
+			}
 			else
 			{
 				const type *Type = GetType(Node->Selector.Type);

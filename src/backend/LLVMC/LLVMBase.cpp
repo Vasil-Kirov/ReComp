@@ -2151,7 +2151,6 @@ void RCCreateThreadMachine(compile_info *Info)
 		Opt = LLVMCodeGenLevelAggressive;
 		break;
 	}
-	LINFO("Features: %s", TargetFeatures);
 	ThreadMachine = LLVMCreateTargetMachine(Target, Info->TargetTriple.Data, "generic", TargetFeatures,
 			Opt, reloc, LLVMCodeModelDefault);
 	LLVMNoThreadSafetyMutex.unlock();

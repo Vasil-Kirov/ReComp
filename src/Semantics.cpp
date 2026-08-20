@@ -3414,7 +3414,10 @@ u32 AnalyzeExpression(checker *Checker, node *Expr)
 			case T_LOR:
 			case T_LAND:
 			{
-				Result = (u32)Basic_bool;
+				if(LeftType->Kind == TypeKind_Array)
+					Result = GetArrayType(Basic_bool, LeftType->Array.MemberCount);
+				else
+					Result = Basic_bool;
 			} break;
 			default:
 			{

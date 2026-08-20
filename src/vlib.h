@@ -138,13 +138,23 @@ inline void FreeVirtualMemory(void *Memory)
 inline void *AllocateMemory(size_t Size)
 {
 	void *Result = malloc(Size);
+	if (!Result)
+	{
+		fprintf(stderr, "Out of memory, got NULL when trying to allocate %zd bytes!", Size);
+		exit(1);
+	}
 	memset(Result, 0, Size);
 	return Result;
 }
 
-inline void *ReallocateMemory(void *Original, int CurrentSize, int NewSize)
+inline void *ReallocateMemory(void *Original, size_t CurrentSize, size_t NewSize)
 {
 	void *Result = realloc(Original, NewSize);
+	if (!Result)
+	{
+		fprintf(stderr, "Out of memory, got NULL when trying to allocate %zd bytes!", NewSize);
+		exit(1);
+	}
 	memset((char *)Result + CurrentSize, 0, NewSize-CurrentSize);
 	return Result;
 }

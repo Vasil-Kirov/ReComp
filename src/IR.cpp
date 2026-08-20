@@ -2480,6 +2480,164 @@ u32 BuildListStore(block_builder *Builder, u32 LHS, u32 RHS, u32 T)
 	return RHS;
 }
 
+u32 DoArrayBinOp(block_builder *Builder, node *Node, u32 LeftArray, u32 RightArray, const type *T, u32 ArrayType)
+{
+	Assert(Node->Type == AST_BINARY);
+	Assert(T->Kind == TypeKind_Array);
+	token_type Op = Node->Binary.Op;
+	if(Op == '=')
+	{
+		instruction I = InstructionStore(LeftArray, RightArray, ArrayType);
+		return PushInstruction(Builder, I);
+	}
+
+
+	u32 Type = T->Array.Type;
+	const type *MemT = GetType(Type);
+	if(MemT->Kind == TypeKind_Enum)
+	{
+		Type = MemT->Enum.Type;
+		ArrayType = GetArrayType(Type, T->Array.MemberCount);
+		T = GetType(ArrayType);
+	}
+
+	u32 ResultT;
+	switch(Op)
+	{
+			case T_LESS:
+			case T_GREAT:
+			case T_NEQ:
+			case T_GEQ:
+			case T_LEQ:
+			case T_EQEQ:
+			case T_LOR:
+			case T_LAND:
+			{
+				ResultT = GetArrayType(Basic_bool, T->Array.MemberCount);
+			} break;
+			default:
+			ResultT = ArrayType;
+	}
+	u32 Result = PushInstruction(Builder,
+					Instruction(OP_ALLOC, -1, ResultT, Builder));
+	const type *ResT = GetType(ResultT);
+	array<u32> Values {T->Array.MemberCount};
+	for(u32 i = 0; i < T->Array.MemberCount; ++i)
+	{
+		u32 iri = PushInt(i, Builder);
+		u32 LeftPtr = PushInstruction(Builder, Instruction(OP_INDEX, LeftArray, iri, ArrayType, Builder));
+		u32 Left = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, LeftPtr, Type, Builder));
+		u32 RightPtr = PushInstruction(Builder, Instruction(OP_INDEX, RightArray, iri, ArrayType, Builder));
+		u32 Right = PushInstruction(Builder,
+				Instruction(OP_LOAD, 0, RightPtr, Type, Builder));
+		instruction I;
+		switch((int)Op)
+		{
+			case '+':
+			{
+				I = Instruction(OP_ADD, Left, Right, Type, Builder);
+			} break;
+			case '-':
+			{
+				I = Instruction(OP_SUB, Left, Right, Type, Builder);
+			} break;
+			case '*':
+			{
+				I = Instruction(OP_MUL, Left, Right, Type, Builder);
+			} break;
+			case '/':
+			{
+				I = Instruction(OP_DIV, Left, Right, Type, Builder);
+			} break;
+			case '%':
+			{
+				I = Instruction(OP_MOD, Left, Right, Type, Builder);
+			} break;
+			case '&':
+			{
+				I = Instruction(OP_AND, Left, Right, Type, Builder);
+			} break;
+			case '|':
+			{
+				I = Instruction(OP_OR, Left, Right,  Type, Builder);
+			} break;
+			case '^':
+			{
+				I = Instruction(OP_XOR, Left, Right, Type, Builder);
+			} break;
+			case T_SLEFT:
+			{
+				I = Instruction(OP_SL, Left, Right, Type, Builder);
+			} break;
+			case T_SRIGHT:
+			{
+				I = Instruction(OP_SR, Left, Right, Type, Builder);
+			} break;
+			case T_GREAT:
+			{
+				I = Instruction(OP_GREAT, Left, Right, Type, Builder);
+			} break;
+			case T_LESS:
+			{
+				I = Instruction(OP_LESS, Left, Right,  Type, Builder);
+			} break;
+			case T_GEQ:
+			{
+				I = Instruction(OP_GEQ, Left, Right, Type, Builder);
+			} break;
+			case T_LEQ:
+			{
+				I = Instruction(OP_LEQ, Left, Right, Type, Builder);
+			} break;
+			case T_EQEQ:
+			{
+				if(IsString(T))
+				{
+					Values[i] = BuildStringCompare(Builder, Left, Right, Node);
+					continue;
+				}
+				else
+				{
+					I = Instruction(OP_EQEQ, Left, Right, Type, Builder);
+				}
+			} break;
+			case T_NEQ:
+			{
+				if(IsString(T))
+				{
+					Values[i] = BuildStringCompare(Builder, Left, Right, Node, true);
+					continue;
+				}
+				else
+				{
+					I = Instruction(OP_NEQ, Left, Right, Type, Builder);
+				}
+			} break;
+			default:
+			{
+				LDEBUG("%d", (int)Node->Binary.Op);
+				Assert(false);
+			} break;
+		}
+		Values[i] = PushInstruction(Builder, I);
+	}
+	array<u32> ResultPtrs{T->Array.MemberCount};
+	for(u32 i = 0; i < T->Array.MemberCount; ++i)
+	{
+		u32 iri = PushInt(i, Builder);
+		ResultPtrs[i] = PushInstruction(Builder, Instruction(OP_INDEX, Result, iri, ResultT, Builder));
+	}
+	size_t at = 0;
+	for(u32 Val : Values)
+	{
+		PushInstruction(Builder, InstructionStore(ResultPtrs[at++], Val, ResT->Array.Type));
+	}
+	ResultPtrs.Free();
+	Values.Free();
+	return Result;
+}
+
 u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 NeedResult)
 {
 	if(Node->Type == AST_BINARY)
@@ -2499,15 +2657,26 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 		{
 			return BuildLogicalOr(Builder, Node->Binary.Left, Node->Binary.Right);
 		}
+		const type *T = GetType(Node->Binary.ExpressionType);
+		if(T->Kind == TypeKind_Array)
+		{
+			IsLeftLHS = true;
+			IsRightLHS = true;
+		}
 
 		u32 Left = BuildIRFromExpression(Builder, Node->Binary.Left, IsLeftLHS);
 		u32 Right = BuildIRFromExpression(Builder, Node->Binary.Right, IsRightLHS);
 		u32 Type = Node->Binary.ExpressionType;
-		const type *T = GetType(Node->Binary.ExpressionType);
 		if(T->Kind == TypeKind_Enum)
 		{
 			Type = T->Enum.Type;
 			T = GetType(Type);
+		}
+		PushErrorInfo(Builder, Node);
+
+		if(T->Kind == TypeKind_Array)
+		{
+			return DoArrayBinOp(Builder, Node, Left, Right, T, Type);
 		}
 
 		u32 ListRes = -1;
@@ -2615,7 +2784,6 @@ u32 BuildIRFromExpression(block_builder *Builder, node *Node, b32 IsLHS, b32 Nee
 			} break;
 		};
 
-		PushErrorInfo(Builder, Node);
 		if(ListRes != -1)
 			return ListRes;
 

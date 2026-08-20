@@ -177,6 +177,14 @@ struct array {
 		Assert(Index < Count);
 		return Data[Index];
 	}
+	T *begin()
+	{
+		return Data;
+	}
+	T *end()
+	{
+		return Data+Count;
+	}
 	void Sort(sort_fn Fn, void *Ctx)
 	{
 #ifdef CM_LINUX

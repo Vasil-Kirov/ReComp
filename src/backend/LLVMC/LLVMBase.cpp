@@ -1697,11 +1697,10 @@ LLVMMetadataRef IntToMeta(generator *gen, int i)
 	return LLVMValueAsMetadata(Value);
 }
 
+thread_local LLVMTargetMachineRef ThreadMachine = NULL;
 void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unordered_map<void *, uint> &StoredGlobals)
 {
 	LDEBUG("Generating module: %s", M->Name.Data);
-
-	llvm_init_info Machine = RCInitLLVM(Info);
 
 	generator Gen = {.StoredGlobals = StoredGlobals, .Intrinsics = {}};
 	//file *File = M->Files[0];
@@ -1732,7 +1731,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	if(GetRegisterTypeSize() == 64)
 	{
-		Gen.data = LLVMCreateTargetDataLayout(Machine.Target);
+		Gen.data = LLVMCreateTargetDataLayout(ThreadMachine);
 		LLVMSetModuleDataLayout(Gen.mod, Gen.data);
 	}
 	else if(GetRegisterTypeSize() == 32)
@@ -1972,6 +1971,13 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				Gen.fn = Functions[Name];
 				Assert(Gen.fn);
 
+#if 0
+				const char *cpu = LLVMGetTargetMachineCPU(ThreadMachine);
+				const char *features = LLVMGetTargetMachineFeatureString(ThreadMachine);
+				LLVMAddTargetDependentFunctionAttr(Gen.fn, "target-cpu", cpu);
+				LLVMAddTargetDependentFunctionAttr(Gen.fn, "target-features", features);
+#endif
+
 				RCGenerateFunction(&Gen, IR->Functions[Idx]);
 				Assert(GetType(IR->Functions[Idx].Type)->Kind == TypeKind_Function);
 				const type *T = GetType(IR->Functions[Idx].Type);
@@ -2001,8 +2007,8 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	DEBUG_RUN(LLVMDIBuilderFinalize(Gen.dbg);)
 
-	RunOptimizationPasses(&Gen, Machine.Target, Info->Optimization, Info->Flags);
-	RCEmitModule(Machine.Target, Gen.mod, M->Name, OutputBC);
+	RunOptimizationPasses(&Gen, ThreadMachine, Info->Optimization, Info->Flags);
+	RCEmitModule(ThreadMachine, Gen.mod, M->Name, OutputBC);
 
 
 	DEBUG_RUN(LLVMDisposeDIBuilder(Gen.dbg);)
@@ -2071,10 +2077,11 @@ void RCSetBlock(generator *gen, int Index)
 	LLVMPositionBuilderAtEnd(gen->bld, gen->blocks[Index].Block);
 }
 
-llvm_init_info RCInitLLVM(compile_info *Info)
+static const char *TargetFeatures = "";
+
+void RCInitLLVM(compile_info *Info)
 {
-	LLVMNoThreadSafetyMutex.lock();
-	const char *features = LLVMGetHostCPUFeatures();
+	TargetFeatures = LLVMGetHostCPUFeatures();
 	if(Info->TargetTriple.Data == NULL)
 	{
 		Info->TargetTriple.Data = LLVMGetDefaultTargetTriple();
@@ -2082,7 +2089,7 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	}
 	else
 	{
-		features = "";
+		TargetFeatures = "";
 	}
 #if 0
 	LLVMInitializeX86TargetInfo();
@@ -2114,9 +2121,13 @@ llvm_init_info RCInitLLVM(compile_info *Info)
     LLVMInitializeAllAsmPrinters();
 	LLVMInitializeAllDisassemblers();
 #endif
+}
+
+void RCCreateThreadMachine(compile_info *Info)
+{
+	LLVMNoThreadSafetyMutex.lock();
 
 	LLVMTargetRef Target;
-	LLVMTargetMachineRef Machine;
 	char *ErrorMessage = NULL;
 	if(LLVMGetTargetFromTriple(Info->TargetTriple.Data, &Target, &ErrorMessage)) {
 		LFATAL("Failed to find info for target triple %s\nLLVMError: %s", Info->TargetTriple.Data, ErrorMessage);
@@ -2125,14 +2136,25 @@ llvm_init_info RCInitLLVM(compile_info *Info)
 	LLVMRelocMode reloc = LLVMRelocDefault;
 	if(Info->Flags & CF_CrossAndroid)
 		reloc = LLVMRelocPIC;
-
-	Machine = LLVMCreateTargetMachine(Target, Info->TargetTriple.Data, "generic", features,
-			LLVMCodeGenLevelNone, reloc, LLVMCodeModelDefault);
-
-	llvm_init_info Result = {};
-	Result.Target = Machine;
+	LLVMCodeGenOptLevel Opt = LLVMCodeGenLevelNone;
+	switch(Info->Optimization)
+	{
+		case 0:
+		break;
+		case 1:
+		Opt = LLVMCodeGenLevelLess;
+		break;
+		case 2:
+		Opt = LLVMCodeGenLevelDefault;
+		break;
+		default:
+		Opt = LLVMCodeGenLevelAggressive;
+		break;
+	}
+	LINFO("Features: %s", TargetFeatures);
+	ThreadMachine = LLVMCreateTargetMachine(Target, Info->TargetTriple.Data, "generic", TargetFeatures,
+			Opt, reloc, LLVMCodeModelDefault);
 	LLVMNoThreadSafetyMutex.unlock();
-	return Result;
 }
 
 struct file_generate_info
@@ -2148,6 +2170,12 @@ struct file_generate_info
 void GenWorkerFn(void *Data)
 {
 	file_generate_info *Info = (file_generate_info *)Data;
+	if(ThreadMachine == NULL)
+	{
+		RCCreateThreadMachine(Info->Info);
+		Assert(ThreadMachine);
+	}
+
 	RCGenerateFile(Info->M, Info->OutputBC, Info->Info, *Info->StoredGlobals);
 	LDEBUG("Done with module: %s", Info->M->Name.Data);
 }
@@ -2158,6 +2186,7 @@ void RCGenerateCode(work_queue *Queue, slice<module*> Modules, slice<file*> File
 	{
 		Assert(LLVMIsMultithreaded());
 	}
+	RCInitLLVM(Info);
 
 	ForArray(Idx, Modules)
 	{

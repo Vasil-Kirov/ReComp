@@ -1042,9 +1042,6 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 		} break;
 		case TypeKind_Array:
 		{
-			if(!IsAssignment)
-				return false;
-
 			const type *LeftT = GetType(Left->Array.Type);
 			const type *RightT = GetType(Right->Array.Type);
 			if(IsUntyped(RightT))
@@ -1132,6 +1129,7 @@ b32 IsTypeCompatible(const type *Left, const type *Right, const type **Potential
 
 b32 CanTypePerformBinExpression(const type *T, token_type Op)
 {
+	// @TODO: Fix memory leaks from SliceFromConst()
 	switch(T->Kind)
 	{
 		case TypeKind_Basic:
@@ -1179,6 +1177,34 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 			}
 			return false;
 		} break;
+		case TypeKind_Array:
+		{
+			slice<token_type> Allowed = {};
+			const type *Mem = GetType(T->Array.Type);
+			if(HasBasicFlag(Mem, BasicFlag_Integer) || HasBasicFlag(Mem, BasicFlag_Float))
+			{
+				// Allowed pointer ops:
+				// +, -, *, /, %, +=, -=, *=, /=, %=, !=, ==, >=, <=, >, <, =
+				Allowed = SliceFromConst({
+						T_PLUS, T_MINUS, T_PTR, T_DIV, T_MOD, T_PEQ, T_MEQ, T_TEQ, T_DEQ, T_MODEQ, T_NEQ, T_EQEQ, T_LESS, T_GREAT, T_LEQ, T_GEQ, T_EQ
+						});
+			}
+			else if(HasBasicFlag(Mem, BasicFlag_Boolean))
+			{
+				Allowed = SliceFromConst({T_EQEQ, T_NEQ, T_EQ, T_LOR, T_LAND});
+			}
+			else
+			{
+				Allowed = SliceFromConst({T_EQ});
+			}
+
+			For(Allowed)
+			{
+				if(*it == Op)
+					return true;
+			}
+			return false;
+		} break;
 		case TypeKind_Vector:
 		{
 			slice<token_type> Allowed = SliceFromConst({
@@ -1193,7 +1219,6 @@ b32 CanTypePerformBinExpression(const type *T, token_type Op)
 			return false;
 		} break;
 		case TypeKind_Struct:
-		case TypeKind_Array:
 		case TypeKind_Slice:
 		return Op == T_EQ;
 

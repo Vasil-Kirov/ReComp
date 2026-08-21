@@ -1,5 +1,43 @@
 module win32;
 
+_RTL_SRWLOCK :: struct {
+	Ptr: PVOID,
+}
+
+RTL_SRWLOCK : type : _RTL_SRWLOCK;
+
+SRWLOCK : type : RTL_SRWLOCK;
+
+PSRWLOCK : type : ?*RTL_SRWLOCK;
+
+InitializeSRWLock :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="InitializeSRWLock";
+
+ReleaseSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="ReleaseSRWLockExclusive";
+
+ReleaseSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="ReleaseSRWLockShared";
+
+AcquireSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="AcquireSRWLockExclusive";
+
+AcquireSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="AcquireSRWLockShared";
+
+TryAcquireSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockExclusive";
+
+TryAcquireSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockShared";
+
 FD_SET :: fn(fd: SOCKET, set: *fd_set) #inline {
 	__i: DWORD;
     for __i = 0; __i < set.fd_count; __i++ {

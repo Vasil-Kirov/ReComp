@@ -1167,6 +1167,7 @@ const char* GetTokenName(token_type Token) {
         case T_CALLC:         return "#cc";
         case T_PACK:          return "#pack";
         case T_NOCHECK:       return "#nocheck";
+		case T_SELF:          return "#self";
         default: {
             char *C = AllocateString(2);
             C[0] = (char)Token;

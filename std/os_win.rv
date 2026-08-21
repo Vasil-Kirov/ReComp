@@ -5,7 +5,6 @@ _ :: #import "sys/win32.rv";
 #import mem;
 #import str;
 
-
 win_wide_to_str :: fn(s: []u16, alloc: *mem.Allocator) -> string {
 	slen := s.count as i32;
 	len := WideCharToMultiByte(CP_UTF8 as UINT, WC_ERR_INVALID_CHARS as DWORD, s.data, slen, null, 0, null, null);
@@ -44,6 +43,19 @@ win_str_to_wide :: fn(s: string, alloc: *mem.Allocator) -> []u16 {
 	res.count -= 1;
 	return res;
 }
+
+
+Mutex : type : _RTL_SRWLOCK;
+MUTEX_INIT :: SRWLOCK {};
+
+lock_mutex :: fn(m: *Mutex) {
+	AcquireSRWLockExclusive(m);
+}
+
+unlock_mutex :: fn(m: *Mutex) {
+	ReleaseSRWLockExclusive(m);
+}
+
 
 delete_dir :: fn(path_: string) -> bool {
 	path := win_str_to_wide(path_, &mem.temp_alloc);

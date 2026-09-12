@@ -200,12 +200,17 @@ va_list :: struct { /* Platform specific :))) */ }
 va_start :: fn(*va_list) #intrinsic;
 va_end :: fn(*va_list) #intrinsic;
 
+#if Standalone
+{}
+#else
+{
 main :: fn #link="main.main"() -> i32;
 
 entry :: fn #link="main"() -> c_int {
     res := main();
 
     return res as c_int;
+}
 }
 
 type_table: []TypeInfo;

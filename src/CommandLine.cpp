@@ -33,8 +33,8 @@ OPTIONS:
 		Disables multi threading
 	--write-ctags
 		Writes a tags file using the universal ctags format
-	--substitute-file original_name.rv
-		Substitue a file parsed from the build script, --ipc needs to be specified for this, compiler will write the file name to write_pipe and then read its contents.
+	--parse pipe text
+		Parses the passed text and writes information about it to the pipe
 	--
 		Pass arguments after this to the build script
 )#";
@@ -66,11 +66,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--file"),
 		STR_LIT("--write-ctags"),
 		STR_LIT("--no-thread"),
-		STR_LIT("--substitute-file"),
+		STR_LIT("--parse"),
 	};
 	bool HasPrintedHelp = false;
 
-	dynamic<string> Substitutes = {};
+	dynamic<parse_params> ToParse = {};
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
 	dynamic<string> IRModules = {};
@@ -154,13 +154,16 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[11]))
 		{
-			if(i + 1 >= ArgCount)
+			if(i + 2 >= ArgCount)
 			{
-				LogCompilerError("Expected a file name after --substitute-file");
+				LogCompilerError("Expected a pipe and string --parse");
 				RET_EMPTY(command_line);
 			}
 			i++;
-			Substitutes.Push(Args[i]);
+			long long Pipe = strtoll(Args[i].Data, NULL, 0);
+			i++;
+			string Text = Args[i];
+			ToParse.Push({Pipe, Text});
 		}
 		else if(Arg == "--")
 		{
@@ -195,7 +198,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
 	Result.IRModules = SliceFromArray(IRModules);
-	Result.Substitutes = SliceFromArray(Substitutes);
+	Result.ToParse = SliceFromArray(ToParse);
 
 	GlobalIRModules = Result.IRModules;
 	return Result;

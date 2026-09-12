@@ -553,6 +553,11 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 
 	switch(TypeNode->Type)
 	{
+		case AST_ERROR:
+		{
+			return Basic_error;
+		} break;
+
 		case AST_ID:
 		{
 			const string *Name = TypeNode->ID.Name;
@@ -1586,6 +1591,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			const type *Type = GetType(Result);
 			if(Type->Kind == TypeKind_Function)
 				Result = GetPointerTo(Result);
+		} break;
+		case AST_ERROR:
+		{
+			Result = Basic_error;
 		} break;
 		case AST_SLICE:
 		{

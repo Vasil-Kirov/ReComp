@@ -1,252 +1,390 @@
 module win32;
 
-_RTL_SRWLOCK :: struct {
-	Ptr: PVOID,
-}
-
-RTL_SRWLOCK : type : _RTL_SRWLOCK;
-
-SRWLOCK : type : RTL_SRWLOCK;
-
-PSRWLOCK : type : ?*RTL_SRWLOCK;
-
-InitializeSRWLock :: fn(
-	SRWLock: PSRWLOCK
-) #cc="stdcall" #foreign #link="InitializeSRWLock";
-
-ReleaseSRWLockExclusive :: fn(
-	SRWLock: PSRWLOCK
-) #cc="stdcall" #foreign #link="ReleaseSRWLockExclusive";
-
-ReleaseSRWLockShared :: fn(
-	SRWLock: PSRWLOCK
-) #cc="stdcall" #foreign #link="ReleaseSRWLockShared";
-
-AcquireSRWLockExclusive :: fn(
-	SRWLock: PSRWLOCK
-) #cc="stdcall" #foreign #link="AcquireSRWLockExclusive";
-
-AcquireSRWLockShared :: fn(
-	SRWLock: PSRWLOCK
-) #cc="stdcall" #foreign #link="AcquireSRWLockShared";
-
-TryAcquireSRWLockExclusive :: fn(
-	SRWLock: PSRWLOCK
-) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockExclusive";
-
-TryAcquireSRWLockShared :: fn(
-	SRWLock: PSRWLOCK
-) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockShared";
-
-FD_SET :: fn(fd: SOCKET, set: *fd_set) #inline {
-	__i: DWORD;
-    for __i = 0; __i < set.fd_count; __i++ {
-        if set.fd_array[__i] == fd {
-            break;
-        }
-    }
-	if __i == set.fd_count {
-        if set.fd_count < FD_SETSIZE {
-            set.fd_array[__i] = (fd);
-            set.fd_count++;
-        }
-	}
-}
-
-FD_ZERO :: fn(set: *fd_set) #inline {
-	set.fd_count=0;
-}
-
-__WSAFDIsSet :: fn(
-	unnamedParam1: SOCKET,
-	unnamedParam2: *fd_set
-) -> c_int #foreign #link="__WSAFDIsSet";
-
-FD_CLR :: fn(fd: SOCKET, set: *fd_set) #inline {
-    for __i: DWORD = 0; __i < set.fd_count; __i++ {
-        if set.fd_array[__i] == fd {
-            for __i < set.fd_count-1 {
-                set.fd_array[__i] = set.fd_array[__i+1];
-                __i++;
-            }
-            set.fd_count--;
-            break;
-        }
-    }
-}
-
-MAKEWORD :: fn(a: BYTE, b: BYTE) -> WORD #inline {
-	return cast(WORD, a) | (cast(WORD, b) << 8);
-}
-
-ZeroMemory :: fn(dst: *void, len: int) #inline {
-	memset(dst,0,len);
-}
-
-LPWIN32_FIND_DATAW : type : ?*_WIN32_FIND_DATAW;
-
-LONG: type: i32;
-
-LONG64: type: i64;
-
-ULONG64: type: u64;
-
-LONGLONG: type: i64;
-
-WORD: type: u16;
-
-DWORD: type: u32;
-
-QWORD: type: u64;
-
-UINT: type: u32;
-
-MMRESULT: type: u32;
-
-BOOL: type: i32;
-
-SIZE_T: type: uint;
-
-BYTE: type: u8;
-
-CHAR: type: i8;
-
-UCHAR: type: u8;
-
-WCHAR: type: u16;
-
-ATOM: type: u16;
-
-HRESULT: type: i32;
-
-COLORREF: type: u32;
-
-LPBYTE: type: ?*BYTE;
-
-LPLONG: type: ?*LONG;
-
-LPDWORD: type: ?*DWORD;
-
-LPSTR: type: ?*u8;
-
-LPWSTR: type: ?*u16;
-
-LPCSTR: type: ?*u8;
-
-LPCWSTR: type: ?*u16;
-
-LPCVOID: type: ?*void;
-
-LPBOOL: type: ?*BOOL;
-
-LPVOID: type: ?*void;
-
-PVOID: type: ?*void;
-
-HANDLE: type: ?*void;
-
-HWND: type: ?*void;
-
-HICON: type: ?*void;
-
-HINSTANCE: type: ?*void;
-
-HBRUSH: type: ?*void;
-
-HCURSOR: type: ?*void;
-
-HMENU: type: ?*void;
-
-HMODULE: type: ?*void;
-
-HMONITOR: type: ?*void;
-
-HIMC: type: ?*void;
-
-HDC: type: ?*void;
-
-PROC: type: ?*void;
-
-FARPROC: type: ?*void;
-
-LPCCH: type: ?*u8;
-
-LPCWCH: type: ?*WCHAR;
-
-HGLRC: type: ?*void;
-
-ULONG: type: u32;
-
-USHORT: type: u16;
-
-PCHAR: type: ?*CHAR;
-
-PUSHORT: type: ?*USHORT;
-
-PUINT: type: ?*UINT;
-
-PBOOL: type: ?*BOOL;
-
-PBYTE: type: ?*BYTE;
-
-PULONG: type: ?*ULONG;
-
-LPSECURITY_ATTRIBUTES: type: ?*void;
-
-BOOLEAN: type: BYTE;
+/* ==========================================================================
+   BASE TYPES
+   ========================================================================== */
 
 s8: type: i8;
-
 s16: type: i16;
-
 s32: type: i32;
-
 s64: type: i64;
 
+BYTE: type: u8;
+CHAR: type: i8;
+UCHAR: type: u8;
+WCHAR: type: u16;
+SHORT: type: i16;
+USHORT: type: u16;
+WORD: type: u16;
+DWORD: type: u32;
+QWORD: type: u64;
+LONG: type: i32;
+ULONG: type: u32;
+LONGLONG: type: i64;
+ULONGLONG: type: u64;
+LONG64: type: i64;
+ULONG64: type: u64;
+UINT: type: u32;
+
 INT8: type: s8;
-
 UINT8: type: u8;
-
 INT16: type: s16;
-
 UINT16: type: u16;
-
 INT32: type: s32;
-
 UINT32: type: u32;
-
 INT64: type: s64;
-
 UINT64: type: u64;
 
+BOOL: type: i32;
+BOOLEAN: type: BYTE;
+ATOM: type: u16;
+HRESULT: type: i32;
+COLORREF: type: u32;
+MMRESULT: type: u32;
+NTSTATUS: type: LONG;
+
+SIZE_T: type: uint;
 DWORD_PTR: type: uint;
-
-LONG_PTR: type: int;
-
 ULONG_PTR: type: uint;
-
 UINT_PTR: type: uint;
-
+LONG_PTR: type: int;
 LRESULT: type: int;
-
 LPARAM: type: int;
-
 WPARAM: type: uint;
 
-SOCKET: type: UINT_PTR;
+PVOID: type: ?*void;
+LPVOID: type: ?*void;
+LPCVOID: type: ?*void;
+PBYTE: type: ?*BYTE;
+LPBYTE: type: ?*BYTE;
+PCHAR: type: ?*CHAR;
+PBOOL: type: ?*BOOL;
+LPBOOL: type: ?*BOOL;
+PUINT: type: ?*UINT;
+PULONG: type: ?*ULONG;
+PUSHORT: type: ?*USHORT;
+PDWORD: type: ?*DWORD;
+LPDWORD: type: ?*DWORD;
+LPLONG: type: ?*LONG;
+LPSTR: type: ?*u8;
+LPCSTR: type: ?*u8;
+LPWSTR: type: ?*u16;
+LPCWSTR: type: ?*u16;
+LPCCH: type: ?*u8;
+LPCWCH: type: ?*WCHAR;
 
-LPTHREAD_START_ROUTINE: type: ?*fn(a: LPVOID) -> DWORD #foreign;
+HANDLE: type: ?*void;
+PHANDLE: type: ?*HANDLE;
+HWND: type: ?*void;
+HDC: type: ?*void;
+HICON: type: ?*void;
+HCURSOR: type: ?*void;
+HBRUSH: type: ?*void;
+HMENU: type: ?*void;
+HMODULE: type: ?*void;
+HINSTANCE: type: ?*void;
+HMONITOR: type: ?*void;
+HGLRC: type: ?*void;
+PROC: type: ?*void;
+FARPROC: type: ?*void;
 
-PHANDLER_ROUTINE: type: ?*fn(a: DWORD) -> BOOL #foreign;
+_SECURITY_ATTRIBUTES :: struct {
+	nLength: DWORD,
+	lpSecurityDescriptor: LPVOID,
+	bInheritHandle: BOOL,
+}
 
-WNDPROC: type: ?*fn(a: HWND, b: UINT, c: WPARAM, d: LPARAM) -> LRESULT #foreign;
+SECURITY_ATTRIBUTES: type: _SECURITY_ATTRIBUTES;
+
+LPSECURITY_ATTRIBUTES: type: ?*SECURITY_ATTRIBUTES;
+
+LARGE_INTEGER :: union {
+	a: struct {
+		LowPart: DWORD,
+		HighPart: LONG,
+	},
+	QuadPart: LONGLONG,
+}
+
+PLARGE_INTEGER: type: ?*LARGE_INTEGER;
+
+POINT :: struct {
+	x: LONG,
+	y: LONG,
+}
+
+LPPOINT: type: ?*POINT;
+
+RECT :: struct {
+	left: LONG,
+	top: LONG,
+	right: LONG,
+	bottom: LONG,
+}
+
+LPRECT: type: ?*RECT;
 
 _FILETIME :: struct {
 	dwLowDateTime: DWORD,
 	dwHighDateTime: DWORD,
 }
 
-FILETIME : type : _FILETIME;
+FILETIME: type: _FILETIME;
+
+FALSE :: 0;
+TRUE :: 1;
+MAX_PATH :: 260;
+NEWLINE :: "\r\n";
+INVALID_HANDLE_VALUE :: ( (- 1 )as HANDLE );
+
+/* ==========================================================================
+   MACRO HELPERS
+   ========================================================================== */
+
+MAKEWORD :: fn(a: BYTE, b: BYTE) -> WORD #inline {
+	return cast(WORD, a) | (cast(WORD, b) << 8);
+}
+
+MAKELONG :: fn(a: WORD, b: WORD) -> DWORD #inline {
+	return cast(DWORD, a) | (cast(DWORD, b) << 16);
+}
+
+LOWORD :: fn(l: DWORD_PTR) -> WORD #inline {
+	return cast(WORD, l & 0xFFFF);
+}
+
+HIWORD :: fn(l: DWORD_PTR) -> WORD #inline {
+	return cast(WORD, (l >> 16) & 0xFFFF);
+}
+
+GET_X_LPARAM :: fn(lp: LPARAM) -> i32 #inline {
+	return cast(i32, cast(i16, cast(WORD, lp & 0xFFFF)));
+}
+
+GET_Y_LPARAM :: fn(lp: LPARAM) -> i32 #inline {
+	return cast(i32, cast(i16, cast(WORD, (lp >> 16) & 0xFFFF)));
+}
+
+GET_WHEEL_DELTA_WPARAM :: fn(wp: WPARAM) -> i32 #inline {
+	return cast(i32, cast(i16, cast(WORD, (wp >> 16) & 0xFFFF)));
+}
+
+/* ==========================================================================
+   ERRORS & DIAGNOSTICS
+   ========================================================================== */
+
+ERROR_SUCCESS :: 0;
+ERROR_FILE_NOT_FOUND :: 2;
+ERROR_PATH_NOT_FOUND :: 3;
+ERROR_ACCESS_DENIED :: 5;
+ERROR_INVALID_HANDLE :: 6;
+ERROR_NOT_ENOUGH_MEMORY :: 8;
+ERROR_NO_MORE_FILES :: 18;
+ERROR_SHARING_VIOLATION :: 32;
+ERROR_HANDLE_EOF :: 38;
+ERROR_FILE_EXISTS :: 80;
+ERROR_INSUFFICIENT_BUFFER :: 122;
+ERROR_ALREADY_EXISTS :: 183;
+ERROR_MORE_DATA :: 234;
+ERROR_IO_PENDING :: 997;
+
+FORMAT_MESSAGE_ALLOCATE_BUFFER :: 0x00000100;
+FORMAT_MESSAGE_IGNORE_INSERTS :: 0x00000200;
+FORMAT_MESSAGE_FROM_STRING :: 0x00000400;
+FORMAT_MESSAGE_FROM_HMODULE :: 0x00000800;
+FORMAT_MESSAGE_FROM_SYSTEM :: 0x00001000;
+FORMAT_MESSAGE_MAX_WIDTH_MASK :: 0x000000FF;
+
+GetLastError :: fn() -> DWORD #cc="stdcall" #foreign #link="GetLastError";
+
+SetLastError :: fn(
+	dwErrCode: DWORD
+) #cc="stdcall" #foreign #link="SetLastError";
+
+FormatMessageW :: fn(
+	dwFlags: DWORD,
+	lpSource: LPCVOID,
+	dwMessageId: DWORD,
+	dwLanguageId: DWORD,
+	lpBuffer: LPWSTR,
+	nSize: DWORD,
+	Arguments: ?*va_list
+) -> DWORD #cc="stdcall" #foreign #link="FormatMessageW";
+
+OutputDebugStringW :: fn(
+	lpOutputString: LPCWSTR
+) #cc="stdcall" #foreign #link="OutputDebugStringW";
+
+IsDebuggerPresent :: fn() -> BOOL #cc="stdcall" #foreign #link="IsDebuggerPresent";
+
+DebugBreak :: fn() #cc="stdcall" #foreign #link="DebugBreak";
+
+/* ==========================================================================
+   MEMORY
+   ========================================================================== */
+
+PAGE_NOACCESS :: 0x01;
+PAGE_READONLY :: 0x02;
+PAGE_READWRITE :: 0x04;
+PAGE_WRITECOPY :: 0x08;
+PAGE_EXECUTE :: 0x10;
+PAGE_EXECUTE_READ :: 0x20;
+PAGE_EXECUTE_READWRITE :: 0x40;
+PAGE_EXECUTE_WRITECOPY :: 0x80;
+PAGE_GUARD :: 0x100;
+PAGE_NOCACHE :: 0x200;
+PAGE_WRITECOMBINE :: 0x400;
+
+MEM_COMMIT :: 0x00001000;
+MEM_RESERVE :: 0x00002000;
+MEM_RESET :: 0x00080000;
+MEM_RESET_UNDO :: 0x01000000;
+MEM_TOP_DOWN :: 0x00100000;
+MEM_WRITE_WATCH :: 0x00200000;
+MEM_PHYSICAL :: 0x00400000;
+MEM_LARGE_PAGES :: 0x20000000;
+MEM_DECOMMIT :: 0x00004000;
+MEM_RELEASE :: 0x00008000;
+MEM_FREE :: 0x00010000;
+
+HEAP_NO_SERIALIZE :: 0x00000001;
+HEAP_GENERATE_EXCEPTIONS :: 0x00000004;
+HEAP_ZERO_MEMORY :: 0x00000008;
+
+VirtualAlloc :: fn(
+	lpAddress: LPVOID,
+	dwSize: SIZE_T,
+	flAllocationType: DWORD,
+	flProtect: DWORD
+) -> LPVOID #cc="stdcall" #foreign #link="VirtualAlloc";
+
+VirtualFree :: fn(
+	lpAddress: LPVOID,
+	dwSize: SIZE_T,
+	dwFreeType: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="VirtualFree";
+
+VirtualProtect :: fn(
+	lpAddress: LPVOID,
+	dwSize: SIZE_T,
+	flNewProtect: DWORD,
+	lpflOldProtect: PDWORD
+) -> BOOL #cc="stdcall" #foreign #link="VirtualProtect";
+
+GetProcessHeap :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetProcessHeap";
+
+HeapAlloc :: fn(
+	hHeap: HANDLE,
+	dwFlags: DWORD,
+	dwBytes: SIZE_T
+) -> LPVOID #cc="stdcall" #foreign #link="HeapAlloc";
+
+HeapReAlloc :: fn(
+	hHeap: HANDLE,
+	dwFlags: DWORD,
+	lpMem: LPVOID,
+	dwBytes: SIZE_T
+) -> LPVOID #cc="stdcall" #foreign #link="HeapReAlloc";
+
+HeapFree :: fn(
+	hHeap: HANDLE,
+	dwFlags: DWORD,
+	lpMem: LPVOID
+) -> BOOL #cc="stdcall" #foreign #link="HeapFree";
+
+/* ==========================================================================
+   MODULES & DYNAMIC LOADING
+   ========================================================================== */
+
+LoadLibraryW :: fn(
+	lpLibFileName: LPCWSTR
+) -> HMODULE #cc="stdcall" #foreign #link="LoadLibraryW";
+
+FreeLibrary :: fn(
+	hLibModule: HMODULE
+) -> BOOL #cc="stdcall" #foreign #link="FreeLibrary";
+
+GetProcAddress :: fn(
+	hModule: HMODULE,
+	lpProcName: LPCSTR
+) -> FARPROC #cc="stdcall" #foreign #link="GetProcAddress";
+
+GetModuleHandleW :: fn(
+	lpModuleName: LPCWSTR
+) -> HMODULE #cc="stdcall" #foreign #link="GetModuleHandleW";
+
+GetModuleFileNameW :: fn(
+	hModule: HMODULE,
+	lpFilename: LPWSTR,
+	nSize: DWORD
+) -> DWORD #cc="stdcall" #foreign #link="GetModuleFileNameW";
+
+/* ==========================================================================
+   FILES & DIRECTORIES
+   ========================================================================== */
+
+GENERIC_READ :: 0x80000000;
+GENERIC_WRITE :: 0x40000000;
+GENERIC_EXECUTE :: 0x20000000;
+GENERIC_ALL :: 0x10000000;
+DELETE :: 0x00010000;
+SYNCHRONIZE :: 0x00100000;
+
+FILE_SHARE_READ :: 0x00000001;
+FILE_SHARE_WRITE :: 0x00000002;
+FILE_SHARE_DELETE :: 0x00000004;
+
+CREATE_NEW :: 1;
+CREATE_ALWAYS :: 2;
+OPEN_EXISTING :: 3;
+OPEN_ALWAYS :: 4;
+TRUNCATE_EXISTING :: 5;
+
+FILE_ATTRIBUTE_READONLY :: 0x00000001;
+FILE_ATTRIBUTE_HIDDEN :: 0x00000002;
+FILE_ATTRIBUTE_SYSTEM :: 0x00000004;
+FILE_ATTRIBUTE_DIRECTORY :: 0x00000010;
+FILE_ATTRIBUTE_ARCHIVE :: 0x00000020;
+FILE_ATTRIBUTE_DEVICE :: 0x00000040;
+FILE_ATTRIBUTE_NORMAL :: 0x00000080;
+FILE_ATTRIBUTE_TEMPORARY :: 0x00000100;
+FILE_ATTRIBUTE_SPARSE_FILE :: 0x00000200;
+FILE_ATTRIBUTE_REPARSE_POINT :: 0x00000400;
+FILE_ATTRIBUTE_COMPRESSED :: 0x00000800;
+FILE_ATTRIBUTE_OFFLINE :: 0x00001000;
+FILE_ATTRIBUTE_ENCRYPTED :: 0x00004000;
+INVALID_FILE_ATTRIBUTES :: ( (- 1 )as DWORD );
+
+FILE_FLAG_WRITE_THROUGH :: 0x80000000;
+FILE_FLAG_OVERLAPPED :: 0x40000000;
+FILE_FLAG_NO_BUFFERING :: 0x20000000;
+FILE_FLAG_RANDOM_ACCESS :: 0x10000000;
+FILE_FLAG_SEQUENTIAL_SCAN :: 0x08000000;
+FILE_FLAG_DELETE_ON_CLOSE :: 0x04000000;
+FILE_FLAG_BACKUP_SEMANTICS :: 0x02000000;
+
+FILE_BEGIN :: 0;
+FILE_CURRENT :: 1;
+FILE_END :: 2;
+
+MOVEFILE_REPLACE_EXISTING :: 0x00000001;
+MOVEFILE_COPY_ALLOWED :: 0x00000002;
+MOVEFILE_WRITE_THROUGH :: 0x00000008;
+
+OVERLAPPED :: struct {
+	Internal: ULONG_PTR,
+	InternalHigh: ULONG_PTR,
+	a: union {
+		b: struct {
+			Offset: DWORD,
+			OffsetHigh: DWORD,
+		},
+		Pointer: PVOID,
+	},
+	hEvent: HANDLE,
+}
+
+LPOVERLAPPED: type: ?*OVERLAPPED;
 
 _WIN32_FIND_DATAW :: struct {
 	dwFileAttributes: DWORD,
@@ -263,264 +401,293 @@ _WIN32_FIND_DATAW :: struct {
 
 WIN32_FIND_DATAW: type: _WIN32_FIND_DATAW;
 
-RAWINPUTDEVICE :: struct  {
-	usUsagePage: USHORT,
-	usUsage: USHORT,
+LPWIN32_FIND_DATAW: type: ?*_WIN32_FIND_DATAW;
+
+WIN32_FILE_ATTRIBUTE_DATA :: struct {
+	dwFileAttributes: DWORD,
+	ftCreationTime: FILETIME,
+	ftLastAccessTime: FILETIME,
+	ftLastWriteTime: FILETIME,
+	nFileSizeHigh: DWORD,
+	nFileSizeLow: DWORD,
+}
+
+GET_FILEEX_INFO_LEVELS :: enum: u32 {
+	GetFileExInfoStandard = 0x0,
+}
+
+CreateFileW :: fn(
+	lpFileName: LPCWSTR,
+	dwDesiredAccess: DWORD,
+	dwShareMode: DWORD,
+	lpSecurityAttributes: LPSECURITY_ATTRIBUTES,
+	dwCreationDisposition: DWORD,
+	dwFlagsAndAttributes: DWORD,
+	hTemplateFile: HANDLE
+) -> HANDLE #cc="stdcall" #foreign #link="CreateFileW";
+
+ReadFile :: fn(
+	hFile: HANDLE,
+	lpBuffer: LPVOID,
+	nNumberOfBytesToRead: DWORD,
+	lpNumberOfBytesRead: LPDWORD,
+	lpOverlapped: LPOVERLAPPED
+) -> BOOL #cc="stdcall" #foreign #link="ReadFile";
+
+WriteFile :: fn(
+	hFile: HANDLE,
+	lpBuffer: LPCVOID,
+	nNumberOfBytesToWrite: DWORD,
+	lpNumberOfBytesWritten: LPDWORD,
+	lpOverlapped: LPOVERLAPPED
+) -> BOOL #cc="stdcall" #foreign #link="WriteFile";
+
+SetFilePointerEx :: fn(
+	hFile: HANDLE,
+	liDistanceToMove: LARGE_INTEGER,
+	lpNewFilePointer: PLARGE_INTEGER,
+	dwMoveMethod: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SetFilePointerEx";
+
+GetFileSizeEx :: fn(
+	hFile: HANDLE,
+	lpFileSize: PLARGE_INTEGER
+) -> BOOL #cc="stdcall" #foreign #link="GetFileSizeEx";
+
+SetEndOfFile :: fn(
+	hFile: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="SetEndOfFile";
+
+FlushFileBuffers :: fn(
+	hFile: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="FlushFileBuffers";
+
+GetFileTime :: fn(
+	hFile: HANDLE,
+	lpCreationTime: ?*FILETIME,
+	lpLastAccessTime: ?*FILETIME,
+	lpLastWriteTime: ?*FILETIME
+) -> BOOL #cc="stdcall" #foreign #link="GetFileTime";
+
+GetFileAttributesW :: fn(
+	lpFileName: LPCWSTR
+) -> DWORD #cc="stdcall" #foreign #link="GetFileAttributesW";
+
+GetFileAttributesExW :: fn(
+	lpFileName: LPCWSTR,
+	fInfoLevelId: GET_FILEEX_INFO_LEVELS,
+	lpFileInformation: LPVOID
+) -> BOOL #cc="stdcall" #foreign #link="GetFileAttributesExW";
+
+DeleteFileW :: fn(
+	lpFileName: LPCWSTR
+) -> BOOL #cc="stdcall" #foreign #link="DeleteFileW";
+
+MoveFileExW :: fn(
+	lpExistingFileName: LPCWSTR,
+	lpNewFileName: LPCWSTR,
+	dwFlags: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="MoveFileExW";
+
+CopyFileW :: fn(
+	lpExistingFileName: LPCWSTR,
+	lpNewFileName: LPCWSTR,
+	bFailIfExists: BOOL
+) -> BOOL #cc="stdcall" #foreign #link="CopyFileW";
+
+CreateDirectoryW :: fn(
+	lpPathName: LPCWSTR,
+	lpSecurityAttributes: LPSECURITY_ATTRIBUTES
+) -> BOOL #cc="stdcall" #foreign #link="CreateDirectoryW";
+
+RemoveDirectoryW :: fn(
+	lpPathName: LPCWSTR
+) -> BOOL #cc="stdcall" #foreign #link="RemoveDirectoryW";
+
+FindFirstFileW :: fn(
+	lpFileName: LPCWSTR,
+	lpFindFileData: LPWIN32_FIND_DATAW
+) -> HANDLE #cc="stdcall" #foreign #link="FindFirstFileW";
+
+FindNextFileW :: fn(
+	hFindFile: HANDLE,
+	lpFindFileData: LPWIN32_FIND_DATAW
+) -> BOOL #cc="stdcall" #foreign #link="FindNextFileW";
+
+FindClose :: fn(
+	hFindFile: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="FindClose";
+
+GetFullPathNameW :: fn(
+	lpFileName: LPCWSTR,
+	nBufferLength: DWORD,
+	lpBuffer: LPWSTR,
+	lpFilePart: ?*LPWSTR
+) -> DWORD #cc="stdcall" #foreign #link="GetFullPathNameW";
+
+GetCurrentDirectoryW :: fn(
+	nBufferLength: DWORD,
+	lpBuffer: LPWSTR
+) -> DWORD #cc="stdcall" #foreign #link="GetCurrentDirectoryW";
+
+SetCurrentDirectoryW :: fn(
+	lpPathName: LPCWSTR
+) -> BOOL #cc="stdcall" #foreign #link="SetCurrentDirectoryW";
+
+GetTempPathW :: fn(
+	nBufferLength: DWORD,
+	lpBuffer: LPWSTR
+) -> DWORD #cc="stdcall" #foreign #link="GetTempPathW";
+
+CloseHandle :: fn(
+	hObject: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="CloseHandle";
+
+SetHandleInformation :: fn(
+	hObject: HANDLE,
+	dwMask: DWORD,
+	dwFlags: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SetHandleInformation";
+
+HANDLE_FLAG_INHERIT :: 0x00000001;
+
+/* ==========================================================================
+   CONSOLE & STANDARD I/O
+   ========================================================================== */
+
+STD_INPUT_HANDLE :: ( (- 10 )as DWORD );
+STD_OUTPUT_HANDLE :: ( (- 11 )as DWORD );
+STD_ERROR_HANDLE :: ( (- 12 )as DWORD );
+
+ENABLE_PROCESSED_INPUT :: 0x0001;
+ENABLE_LINE_INPUT :: 0x0002;
+ENABLE_ECHO_INPUT :: 0x0004;
+ENABLE_WINDOW_INPUT :: 0x0008;
+ENABLE_MOUSE_INPUT :: 0x0010;
+ENABLE_VIRTUAL_TERMINAL_INPUT :: 0x0200;
+
+ENABLE_PROCESSED_OUTPUT :: 0x0001;
+ENABLE_WRAP_AT_EOL_OUTPUT :: 0x0002;
+ENABLE_VIRTUAL_TERMINAL_PROCESSING :: 0x0004;
+DISABLE_NEWLINE_AUTO_RETURN :: 0x0008;
+
+CTRL_C_EVENT :: 0;
+CTRL_BREAK_EVENT :: 1;
+CTRL_CLOSE_EVENT :: 2;
+CTRL_LOGOFF_EVENT :: 5;
+CTRL_SHUTDOWN_EVENT :: 6;
+
+PHANDLER_ROUTINE: type: ?*fn(a: DWORD) -> BOOL #foreign;
+
+GetStdHandle :: fn(
+	nStdHandle: DWORD
+) -> HANDLE #cc="stdcall" #foreign #link="GetStdHandle";
+
+SetStdHandle :: fn(
+	nStdHandle: DWORD,
+	hHandle: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="SetStdHandle";
+
+GetConsoleMode :: fn(
+	hConsoleHandle: HANDLE,
+	lpMode: LPDWORD
+) -> BOOL #cc="stdcall" #foreign #link="GetConsoleMode";
+
+SetConsoleMode :: fn(
+	hConsoleHandle: HANDLE,
+	dwMode: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SetConsoleMode";
+
+SetConsoleOutputCP :: fn(
+	wCodePageID: UINT
+) -> BOOL #cc="stdcall" #foreign #link="SetConsoleOutputCP";
+
+WriteConsoleW :: fn(
+	hConsoleOutput: HANDLE,
+	lpBuffer: LPCVOID,
+	nNumberOfCharsToWrite: DWORD,
+	lpNumberOfCharsWritten: LPDWORD,
+	lpReserved: LPVOID
+) -> BOOL #cc="stdcall" #foreign #link="WriteConsoleW";
+
+ReadConsoleW :: fn(
+	hConsoleInput: HANDLE,
+	lpBuffer: LPVOID,
+	nNumberOfCharsToRead: DWORD,
+	lpNumberOfCharsRead: LPDWORD,
+	pInputControl: LPVOID
+) -> BOOL #cc="stdcall" #foreign #link="ReadConsoleW";
+
+SetConsoleCtrlHandler :: fn(
+	HandlerRoutine: PHANDLER_ROUTINE,
+	Add: BOOL
+) -> BOOL #cc="stdcall" #foreign #link="SetConsoleCtrlHandler";
+
+AllocConsole :: fn() -> BOOL #cc="stdcall" #foreign #link="AllocConsole";
+
+FreeConsole :: fn() -> BOOL #cc="stdcall" #foreign #link="FreeConsole";
+
+/* ==========================================================================
+   PROCESSES & THREADS
+   ========================================================================== */
+
+CREATE_SUSPENDED :: 0x00000004;
+DETACHED_PROCESS :: 0x00000008;
+CREATE_NEW_CONSOLE :: 0x00000010;
+CREATE_UNICODE_ENVIRONMENT :: 0x00000400;
+CREATE_NO_WINDOW :: 0x08000000;
+
+STARTF_USESHOWWINDOW :: 0x00000001;
+STARTF_USESTDHANDLES :: 0x00000100;
+
+NORMAL_PRIORITY_CLASS :: 0x00000020;
+ABOVE_NORMAL_PRIORITY_CLASS :: 0x00008000;
+HIGH_PRIORITY_CLASS :: 0x00000080;
+
+THREAD_PRIORITY_LOWEST :: ( (- 2 )as i32 );
+THREAD_PRIORITY_BELOW_NORMAL :: ( (- 1 )as i32 );
+THREAD_PRIORITY_NORMAL :: 0;
+THREAD_PRIORITY_ABOVE_NORMAL :: 1;
+THREAD_PRIORITY_HIGHEST :: 2;
+THREAD_PRIORITY_TIME_CRITICAL :: 15;
+
+STILL_ACTIVE :: 259;
+
+LPTHREAD_START_ROUTINE: type: ?*fn(a: LPVOID) -> DWORD #foreign;
+
+STARTUPINFOW :: struct {
+	cb: DWORD,
+	lpReserved: LPWSTR,
+	lpDesktop: LPWSTR,
+	lpTitle: LPWSTR,
+	dwX: DWORD,
+	dwY: DWORD,
+	dwXSize: DWORD,
+	dwYSize: DWORD,
+	dwXCountChars: DWORD,
+	dwYCountChars: DWORD,
+	dwFillAttribute: DWORD,
 	dwFlags: DWORD,
-	hwndTarget: HWND,
+	wShowWindow: WORD,
+	cbReserved2: WORD,
+	lpReserved2: LPBYTE,
+	hStdInput: HANDLE,
+	hStdOutput: HANDLE,
+	hStdError: HANDLE,
 }
 
-PCRAWINPUTDEVICE: type: ?*RAWINPUTDEVICE;
+LPSTARTUPINFOW: type: ?*STARTUPINFOW;
 
-RID_DEVICE_INFO_MOUSE :: struct  {
-	dwId: DWORD,
-	dwNumberOfButtons: DWORD,
-	dwSampleRate: DWORD,
-	fHasHorizontalWheel: BOOL,
+PROCESS_INFORMATION :: struct {
+	hProcess: HANDLE,
+	hThread: HANDLE,
+	dwProcessId: DWORD,
+	dwThreadId: DWORD,
 }
 
-RID_DEVICE_INFO_KEYBOARD :: struct  {
-	dwType: DWORD,
-	dwSubType: DWORD,
-	dwKeyboardMode: DWORD,
-	dwNumberOfFunctionKeys: DWORD,
-	dwNumberOfIndicators: DWORD,
-	dwNumberOfKeysTotal: DWORD,
-}
+LPPROCESS_INFORMATION: type: ?*PROCESS_INFORMATION;
 
-RID_DEVICE_INFO_HID :: struct  {
-	dwVendorId: DWORD,
-	dwProductId: DWORD,
-	dwVersionNumber: DWORD,
-	usUsagePage: USHORT,
-	usUsage: USHORT,
-}
-
-RID_DEVICE_INFO :: struct  {
-	cbSize: DWORD,
-	dwType: DWORD,
-	a: union {
-		mouse: RID_DEVICE_INFO_MOUSE,
-		keyboard: RID_DEVICE_INFO_KEYBOARD,
-		hid: RID_DEVICE_INFO_HID,
-	},
-}
-
-PRID_DEVICE_INFO: type: ?*RID_DEVICE_INFO;
-
-RAWINPUTDEVICELIST :: struct  {
-	hDevice: HANDLE,
-	dwType: DWORD,
-}
-
-PRAWINPUTDEVICELIST: type: ?*RAWINPUTDEVICELIST;
-
-RAWINPUTHEADER :: struct  {
-	dwType: DWORD,
-	dwSize: DWORD,
-	hDevice: HANDLE,
-	wParam: WPARAM,
-}
-
-RAWMOUSE :: struct  {
-	usFlags: USHORT,
-	a: union {
-		ulButtons: ULONG,
-		b: struct {
-			usButtonFlags: USHORT,
-			usButtonData: USHORT,
-		},
-	},
-	ulRawButtons: ULONG,
-	lLastX: LONG,
-	lLastY: LONG,
-	ulExtraInformation: ULONG,
-}
-
-RAWKEYBOARD :: struct  {
-	MakeCode: USHORT,
-	Flags: USHORT,
-	Reserved: USHORT,
-	VKey: USHORT,
-	Message: UINT,
-	ExtraInformation: ULONG,
-}
-
-RAWHID :: struct  {
-	dwSizeHid: DWORD,
-	dwCount: DWORD,
-	bRawData: [1]BYTE,
-}
-
-RAWINPUT :: struct  {
-	header: RAWINPUTHEADER,
-	data: union {
-		mouse: RAWMOUSE,
-		keyboard: RAWKEYBOARD,
-		hid: RAWHID,
-	},
-}
-
-PRAWINPUT: type: ?*RAWINPUT;
-
-USAGE: type: USHORT;
-
-PUSAGE: type: ?*USAGE;
-
-NTSTATUS: type: LONG;
-
-_HIDP_PREPARSED_DATA :: struct  {
-}
-
-PHIDP_PREPARSED_DATA: type: ?*_HIDP_PREPARSED_DATA;
-
-HIDP_CAPS :: struct  {
-	Usage: USAGE,
-	UsagePage: USAGE,
-	InputReportByteLength: USHORT,
-	OutputReportByteLength: USHORT,
-	FeatureReportByteLength: USHORT,
-	Reserved: [17]USHORT,
-	NumberLinkCollectionNodes: USHORT,
-	NumberInputButtonCaps: USHORT,
-	NumberInputValueCaps: USHORT,
-	NumberInputDataIndices: USHORT,
-	NumberOutputButtonCaps: USHORT,
-	NumberOutputValueCaps: USHORT,
-	NumberOutputDataIndices: USHORT,
-	NumberFeatureButtonCaps: USHORT,
-	NumberFeatureValueCaps: USHORT,
-	NumberFeatureDataIndices: USHORT,
-}
-
-PHIDP_CAPS: type: ?*HIDP_CAPS;
-
-HIDP_BUTTON_CAPS :: struct  {
-	UsagePage: USAGE,
-	ReportID: UCHAR,
-	IsAlias: BOOLEAN,
-	BitField: USHORT,
-	LinkCollection: USHORT,
-	LinkUsage: USAGE,
-	LinkUsagePage: USAGE,
-	IsRange: BOOLEAN,
-	IsStringRange: BOOLEAN,
-	IsDesignatorRange: BOOLEAN,
-	IsAbsolute: BOOLEAN,
-
-	ReportCount: USHORT,
-	Reserved2: USHORT,
-	Reserved: [9]ULONG,
-
-	a: union {
-		Range: struct {
-			UsageMin: USAGE,
-			UsageMax: USAGE,
-			StringMin: USHORT,
-			StringMax: USHORT,
-			DesignatorMin: USHORT,
-			DesignatorMax: USHORT,
-			DataIndexMin: USHORT,
-			DataIndexMax: USHORT,
-		},
-		NotRange: struct {
-			Usage: USAGE,
-			Reserved1: USAGE,
-			StringIndex: USHORT,
-			Reserved2: USHORT,
-			DesignatorIndex: USHORT,
-			Reserved3: USHORT,
-			DataIndex: USHORT,
-			Reserved4: USHORT,
-		},
-	},
-}
-
-HIDP_REPORT_TYPE :: enum: u32 {
-	HidP_Input = 0x0,
-	HidP_Output = 0x1,
-	HidP_Feature = 0x2,
-}
-
-PHIDP_BUTTON_CAPS: type: ?*HIDP_BUTTON_CAPS;
-
-HIDP_VALUE_CAPS :: struct  {
-	UsagePage: USAGE,
-	ReportID: UCHAR,
-	IsAlias: BOOLEAN,
-	BitField: USHORT,
-	LinkCollection: USHORT,
-	LinkUsage: USAGE,
-	LinkUsagePage: USAGE,
-	IsRange: BOOLEAN,
-	IsStringRange: BOOLEAN,
-	IsDesignatorRange: BOOLEAN,
-	IsAbsolute: BOOLEAN,
-	HasNull: BOOLEAN,
-	Reserved: UCHAR,
-	BitSize: USHORT,
-	ReportCount: USHORT,
-	Reserved2: [5]USHORT,
-	UnitsExp: ULONG,
-	Units: ULONG,
-	LogicalMin: LONG,
-	LogicalMax: LONG,
-	PhysicalMin: LONG,
-	PhysicalMax: LONG,
-	a: union {
-		Range: struct {
-			UsageMin: USAGE,
-			UsageMax: USAGE,
-			StringMin: USHORT,
-			StringMax: USHORT,
-			DesignatorMin: USHORT,
-			DesignatorMax: USHORT,
-			DataIndexMin: USHORT,
-			DataIndexMax: USHORT,
-		},
-		NotRange: struct {
-			Usage: USAGE,
-			Reserved1: USAGE,
-			StringIndex: USHORT,
-			Reserved2: USHORT,
-			DesignatorIndex: USHORT,
-			Reserved3: USHORT,
-			DataIndex: USHORT,
-			Reserved4: USHORT,
-		},
-	},
-}
-
-PHIDP_VALUE_CAPS: type: ?*HIDP_VALUE_CAPS;
-
-LARGE_INTEGER :: union  {
-	a: struct {
-		LowPart: DWORD,
-		HighPart: LONG,
-	},
-	QuadPart: LONGLONG,
-}
-
-PLARGE_INTEGER: type: ?*LARGE_INTEGER;
-
-POINT :: struct  {
-	x: LONG,
-	y: LONG,
-}
-
-MSG :: struct  {
-	hwnd: HWND,
-	message: UINT,
-	wParam: WPARAM,
-	lParam: LPARAM,
-	time: DWORD,
-	pt: POINT,
-	lPrivate: DWORD,
-}
-
-LPMSG: type: ?*MSG;
-
-SYSTEM_INFO :: struct  {
+SYSTEM_INFO :: struct {
 	a: union {
 		dwOemId: DWORD,
 		b: struct {
@@ -541,7 +708,527 @@ SYSTEM_INFO :: struct  {
 
 LPSYSTEM_INFO: type: ?*SYSTEM_INFO;
 
-WNDCLASSEXW :: struct  {
+CreateProcessW :: fn(
+	lpApplicationName: LPCWSTR,
+	lpCommandLine: LPWSTR,
+	lpProcessAttributes: LPSECURITY_ATTRIBUTES,
+	lpThreadAttributes: LPSECURITY_ATTRIBUTES,
+	bInheritHandles: BOOL,
+	dwCreationFlags: DWORD,
+	lpEnvironment: LPVOID,
+	lpCurrentDirectory: LPCWSTR,
+	lpStartupInfo: LPSTARTUPINFOW,
+	lpProcessInformation: LPPROCESS_INFORMATION
+) -> BOOL #cc="stdcall" #foreign #link="CreateProcessW";
+
+GetExitCodeProcess :: fn(
+	hProcess: HANDLE,
+	lpExitCode: LPDWORD
+) -> BOOL #cc="stdcall" #foreign #link="GetExitCodeProcess";
+
+TerminateProcess :: fn(
+	hProcess: HANDLE,
+	uExitCode: UINT
+) -> BOOL #cc="stdcall" #foreign #link="TerminateProcess";
+
+ExitProcess :: fn(
+	uExitCode: UINT
+) #cc="stdcall" #foreign #link="ExitProcess";
+
+GetCurrentProcess :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentProcess";
+
+GetCurrentProcessId :: fn() -> DWORD #cc="stdcall" #foreign #link="GetCurrentProcessId";
+
+SetPriorityClass :: fn(
+	hProcess: HANDLE,
+	dwPriorityClass: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SetPriorityClass";
+
+GetCommandLineW :: fn() -> LPWSTR #cc="stdcall" #foreign #link="GetCommandLineW";
+
+GetEnvironmentVariableW :: fn(
+	lpName: LPCWSTR,
+	lpBuffer: LPWSTR,
+	nSize: DWORD
+) -> DWORD #cc="stdcall" #foreign #link="GetEnvironmentVariableW";
+
+SetEnvironmentVariableW :: fn(
+	lpName: LPCWSTR,
+	lpValue: LPCWSTR
+) -> BOOL #cc="stdcall" #foreign #link="SetEnvironmentVariableW";
+
+CreatePipe :: fn(
+	hReadPipe: PHANDLE,
+	hWritePipe: PHANDLE,
+	lpPipeAttributes: LPSECURITY_ATTRIBUTES,
+	nSize: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="CreatePipe";
+
+CreateThread :: fn(
+	lpThreadAttributes: LPSECURITY_ATTRIBUTES,
+	dwStackSize: SIZE_T,
+	lpStartAddress: LPTHREAD_START_ROUTINE,
+	lpParameter: LPVOID,
+	dwCreationFlags: DWORD,
+	lpThreadId: LPDWORD
+) -> HANDLE #cc="stdcall" #foreign #link="CreateThread";
+
+ExitThread :: fn(
+	dwExitCode: DWORD
+) #cc="stdcall" #foreign #link="ExitThread";
+
+ResumeThread :: fn(
+	hThread: HANDLE
+) -> DWORD #cc="stdcall" #foreign #link="ResumeThread";
+
+GetCurrentThread :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentThread";
+
+GetCurrentThreadId :: fn() -> DWORD #cc="stdcall" #foreign #link="GetCurrentThreadId";
+
+SetThreadPriority :: fn(
+	hThread: HANDLE,
+	nPriority: i32
+) -> BOOL #cc="stdcall" #foreign #link="SetThreadPriority";
+
+SwitchToThread :: fn() -> BOOL #cc="stdcall" #foreign #link="SwitchToThread";
+
+Sleep :: fn(
+	dwMilliseconds: DWORD
+) #cc="stdcall" #foreign #link="Sleep";
+
+SleepEx :: fn(
+	dwMilliseconds: DWORD,
+	bAlertable: BOOL
+) -> DWORD #cc="stdcall" #foreign #link="SleepEx";
+
+GetSystemInfo :: fn(
+	lpSystemInfo: LPSYSTEM_INFO
+) #cc="stdcall" #foreign #link="GetSystemInfo";
+
+/* ==========================================================================
+   SYNCHRONIZATION
+   ========================================================================== */
+
+INFINITE :: 0xFFFFFFFF;
+WAIT_OBJECT_0 :: 0;
+WAIT_ABANDONED_0 :: 0x00000080;
+WAIT_TIMEOUT :: 258;
+WAIT_IO_COMPLETION :: 0x000000C0;
+WAIT_FAILED :: 0xFFFFFFFF;
+MAXIMUM_WAIT_OBJECTS :: 64;
+
+CONDITION_VARIABLE_LOCKMODE_SHARED :: 0x1;
+
+_RTL_SRWLOCK :: struct {
+	Ptr: PVOID,
+}
+
+RTL_SRWLOCK: type: _RTL_SRWLOCK;
+
+SRWLOCK: type: RTL_SRWLOCK;
+
+PSRWLOCK: type: ?*RTL_SRWLOCK;
+
+_RTL_CONDITION_VARIABLE :: struct {
+	Ptr: PVOID,
+}
+
+CONDITION_VARIABLE: type: _RTL_CONDITION_VARIABLE;
+
+PCONDITION_VARIABLE: type: ?*_RTL_CONDITION_VARIABLE;
+
+_RTL_CRITICAL_SECTION :: struct {
+	DebugInfo: PVOID,
+	LockCount: LONG,
+	RecursionCount: LONG,
+	OwningThread: HANDLE,
+	LockSemaphore: HANDLE,
+	SpinCount: ULONG_PTR,
+}
+
+CRITICAL_SECTION: type: _RTL_CRITICAL_SECTION;
+
+LPCRITICAL_SECTION: type: ?*_RTL_CRITICAL_SECTION;
+
+InitializeSRWLock :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="InitializeSRWLock";
+
+AcquireSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="AcquireSRWLockExclusive";
+
+AcquireSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="AcquireSRWLockShared";
+
+ReleaseSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="ReleaseSRWLockExclusive";
+
+ReleaseSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) #cc="stdcall" #foreign #link="ReleaseSRWLockShared";
+
+TryAcquireSRWLockExclusive :: fn(
+	SRWLock: PSRWLOCK
+) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockExclusive";
+
+TryAcquireSRWLockShared :: fn(
+	SRWLock: PSRWLOCK
+) -> BOOLEAN #cc="stdcall" #foreign #link="TryAcquireSRWLockShared";
+
+InitializeConditionVariable :: fn(
+	ConditionVariable: PCONDITION_VARIABLE
+) #cc="stdcall" #foreign #link="InitializeConditionVariable";
+
+WakeConditionVariable :: fn(
+	ConditionVariable: PCONDITION_VARIABLE
+) #cc="stdcall" #foreign #link="WakeConditionVariable";
+
+WakeAllConditionVariable :: fn(
+	ConditionVariable: PCONDITION_VARIABLE
+) #cc="stdcall" #foreign #link="WakeAllConditionVariable";
+
+SleepConditionVariableSRW :: fn(
+	ConditionVariable: PCONDITION_VARIABLE,
+	SRWLock: PSRWLOCK,
+	dwMilliseconds: DWORD,
+	Flags: ULONG
+) -> BOOL #cc="stdcall" #foreign #link="SleepConditionVariableSRW";
+
+SleepConditionVariableCS :: fn(
+	ConditionVariable: PCONDITION_VARIABLE,
+	CriticalSection: LPCRITICAL_SECTION,
+	dwMilliseconds: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SleepConditionVariableCS";
+
+InitializeCriticalSection :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION
+) #cc="stdcall" #foreign #link="InitializeCriticalSection";
+
+InitializeCriticalSectionAndSpinCount :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION,
+	dwSpinCount: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="InitializeCriticalSectionAndSpinCount";
+
+DeleteCriticalSection :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION
+) #cc="stdcall" #foreign #link="DeleteCriticalSection";
+
+EnterCriticalSection :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION
+) #cc="stdcall" #foreign #link="EnterCriticalSection";
+
+TryEnterCriticalSection :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION
+) -> BOOL #cc="stdcall" #foreign #link="TryEnterCriticalSection";
+
+LeaveCriticalSection :: fn(
+	lpCriticalSection: LPCRITICAL_SECTION
+) #cc="stdcall" #foreign #link="LeaveCriticalSection";
+
+CreateEventW :: fn(
+	lpEventAttributes: LPSECURITY_ATTRIBUTES,
+	bManualReset: BOOL,
+	bInitialState: BOOL,
+	lpName: LPCWSTR
+) -> HANDLE #cc="stdcall" #foreign #link="CreateEventW";
+
+SetEvent :: fn(
+	hEvent: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="SetEvent";
+
+ResetEvent :: fn(
+	hEvent: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="ResetEvent";
+
+CreateSemaphoreW :: fn(
+	lpSemaphoreAttributes: LPSECURITY_ATTRIBUTES,
+	lInitialCount: LONG,
+	lMaximumCount: LONG,
+	lpName: LPCWSTR
+) -> HANDLE #cc="stdcall" #foreign #link="CreateSemaphoreW";
+
+ReleaseSemaphore :: fn(
+	hSemaphore: HANDLE,
+	lReleaseCount: LONG,
+	lpPreviousCount: LPLONG
+) -> BOOL #cc="stdcall" #foreign #link="ReleaseSemaphore";
+
+CreateMutexW :: fn(
+	lpMutexAttributes: LPSECURITY_ATTRIBUTES,
+	bInitialOwner: BOOL,
+	lpName: LPCWSTR
+) -> HANDLE #cc="stdcall" #foreign #link="CreateMutexW";
+
+ReleaseMutex :: fn(
+	hMutex: HANDLE
+) -> BOOL #cc="stdcall" #foreign #link="ReleaseMutex";
+
+WaitForSingleObject :: fn(
+	hHandle: HANDLE,
+	dwMilliseconds: DWORD
+) -> DWORD #cc="stdcall" #foreign #link="WaitForSingleObject";
+
+WaitForSingleObjectEx :: fn(
+	hHandle: HANDLE,
+	dwMilliseconds: DWORD,
+	bAlertable: BOOL
+) -> DWORD #cc="stdcall" #foreign #link="WaitForSingleObjectEx";
+
+WaitForMultipleObjects :: fn(
+	nCount: DWORD,
+	lpHandles: ?*HANDLE,
+	bWaitAll: BOOL,
+	dwMilliseconds: DWORD
+) -> DWORD #cc="stdcall" #foreign #link="WaitForMultipleObjects";
+
+MsgWaitForMultipleObjects :: fn(
+	nCount: DWORD,
+	pHandles: ?*HANDLE,
+	fWaitAll: BOOL,
+	dwMilliseconds: DWORD,
+	dwWakeMask: DWORD
+) -> DWORD #cc="stdcall" #foreign #link="MsgWaitForMultipleObjects";
+
+/* ==========================================================================
+   TIME
+   ========================================================================== */
+
+TIMERR_NOERROR :: 0;
+
+SYSTEMTIME :: struct {
+	wYear: WORD,
+	wMonth: WORD,
+	wDayOfWeek: WORD,
+	wDay: WORD,
+	wHour: WORD,
+	wMinute: WORD,
+	wSecond: WORD,
+	wMilliseconds: WORD,
+}
+
+LPSYSTEMTIME: type: ?*SYSTEMTIME;
+
+QueryPerformanceCounter :: fn(
+	lpPerformanceCount: ?*LARGE_INTEGER
+) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceCounter";
+
+QueryPerformanceFrequency :: fn(
+	lpFrequency: ?*LARGE_INTEGER
+) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceFrequency";
+
+GetTickCount64 :: fn() -> ULONGLONG #cc="stdcall" #foreign #link="GetTickCount64";
+
+GetSystemTimeAsFileTime :: fn(
+	lpSystemTimeAsFileTime: ?*FILETIME
+) #cc="stdcall" #foreign #link="GetSystemTimeAsFileTime";
+
+GetSystemTime :: fn(
+	lpSystemTime: LPSYSTEMTIME
+) #cc="stdcall" #foreign #link="GetSystemTime";
+
+GetLocalTime :: fn(
+	lpSystemTime: LPSYSTEMTIME
+) #cc="stdcall" #foreign #link="GetLocalTime";
+
+FileTimeToSystemTime :: fn(
+	lpFileTime: ?*FILETIME,
+	lpSystemTime: LPSYSTEMTIME
+) -> BOOL #cc="stdcall" #foreign #link="FileTimeToSystemTime";
+
+SystemTimeToFileTime :: fn(
+	lpSystemTime: ?*SYSTEMTIME,
+	lpFileTime: ?*FILETIME
+) -> BOOL #cc="stdcall" #foreign #link="SystemTimeToFileTime";
+
+FileTimeToLocalFileTime :: fn(
+	lpFileTime: ?*FILETIME,
+	lpLocalFileTime: ?*FILETIME
+) -> BOOL #cc="stdcall" #foreign #link="FileTimeToLocalFileTime";
+
+timeBeginPeriod :: fn(
+	uPeriod: UINT
+) -> MMRESULT #cc="stdcall" #foreign #link="timeBeginPeriod";
+
+timeEndPeriod :: fn(
+	uPeriod: UINT
+) -> MMRESULT #cc="stdcall" #foreign #link="timeEndPeriod";
+
+/* ==========================================================================
+   STRINGS & ENCODING
+   ========================================================================== */
+
+CP_ACP :: 0;
+CP_UTF8 :: 65001;
+MB_ERR_INVALID_CHARS :: 0x00000008;
+WC_ERR_INVALID_CHARS :: 0x00000080;
+
+MultiByteToWideChar :: fn(
+	CodePage: UINT,
+	dwFlags: DWORD,
+	lpMultiByteStr: LPCCH,
+	cbMultiByte: i32,
+	lpWideCharStr: LPWSTR,
+	cchWideChar: i32
+) -> i32 #cc="stdcall" #foreign #link="MultiByteToWideChar";
+
+WideCharToMultiByte :: fn(
+	CodePage: UINT,
+	dwFlags: DWORD,
+	lpWideCharStr: LPCWCH,
+	cchWideChar: i32,
+	lpMultiByteStr: LPSTR,
+	cbMultiByte: i32,
+	lpDefaultChar: LPCCH,
+	lpUsedDefaultChar: LPBOOL
+) -> i32 #cc="stdcall" #foreign #link="WideCharToMultiByte";
+
+/* ==========================================================================
+   WINDOWING
+   ========================================================================== */
+
+CS_VREDRAW :: 0x0001;
+CS_HREDRAW :: 0x0002;
+CS_DBLCLKS :: 0x0008;
+CS_OWNDC :: 0x0020;
+
+WS_OVERLAPPED :: 0x00000000;
+WS_POPUP :: 0x80000000;
+WS_CHILD :: 0x40000000;
+WS_MINIMIZE :: 0x20000000;
+WS_VISIBLE :: 0x10000000;
+WS_DISABLED :: 0x08000000;
+WS_MAXIMIZE :: 0x01000000;
+WS_CAPTION :: 0x00C00000;
+WS_BORDER :: 0x00800000;
+WS_DLGFRAME :: 0x00400000;
+WS_VSCROLL :: 0x00200000;
+WS_HSCROLL :: 0x00100000;
+WS_SYSMENU :: 0x00080000;
+WS_THICKFRAME :: 0x00040000;
+WS_MINIMIZEBOX :: 0x00020000;
+WS_MAXIMIZEBOX :: 0x00010000;
+WS_OVERLAPPEDWINDOW :: ( WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX );
+
+WS_EX_TOPMOST :: 0x00000008;
+WS_EX_ACCEPTFILES :: 0x00000010;
+WS_EX_TOOLWINDOW :: 0x00000080;
+WS_EX_APPWINDOW :: 0x00040000;
+WS_EX_LAYERED :: 0x00080000;
+WS_EX_NOREDIRECTIONBITMAP :: 0x00200000;
+
+CW_USEDEFAULT :: ( (0x80000000 )as i32 );
+HWND_MESSAGE :: ( (- 3 )as HWND );
+HWND_TOP :: ( (0 )as HWND );
+HWND_TOPMOST :: ( (- 1 )as HWND );
+HWND_NOTOPMOST :: ( (- 2 )as HWND );
+
+SW_HIDE :: 0;
+SW_SHOWNORMAL :: 1;
+SW_SHOWMINIMIZED :: 2;
+SW_SHOWMAXIMIZED :: 3;
+SW_SHOW :: 5;
+SW_MINIMIZE :: 6;
+SW_RESTORE :: 9;
+SW_SHOWDEFAULT :: 10;
+
+SWP_NOSIZE :: 0x0001;
+SWP_NOMOVE :: 0x0002;
+SWP_NOZORDER :: 0x0004;
+SWP_NOREDRAW :: 0x0008;
+SWP_NOACTIVATE :: 0x0010;
+SWP_FRAMECHANGED :: 0x0020;
+SWP_SHOWWINDOW :: 0x0040;
+SWP_HIDEWINDOW :: 0x0080;
+SWP_NOOWNERZORDER :: 0x0200;
+
+GWL_STYLE :: ( (- 16 )as i32 );
+GWL_EXSTYLE :: ( (- 20 )as i32 );
+GWLP_WNDPROC :: ( (- 4 )as i32 );
+GWLP_HINSTANCE :: ( (- 6 )as i32 );
+GWLP_USERDATA :: ( (- 21 )as i32 );
+
+PM_NOREMOVE :: 0x0000;
+PM_REMOVE :: 0x0001;
+QS_ALLINPUT :: 0x04FF;
+
+SM_CXSCREEN :: 0;
+SM_CYSCREEN :: 1;
+SM_CXFULLSCREEN :: 16;
+SM_CYFULLSCREEN :: 17;
+
+MB_OK :: 0x00000000;
+MB_OKCANCEL :: 0x00000001;
+MB_YESNO :: 0x00000004;
+MB_ICONERROR :: 0x00000010;
+MB_ICONWARNING :: 0x00000030;
+MB_ICONINFORMATION :: 0x00000040;
+MB_SYSTEMMODAL :: 0x00001000;
+IDOK :: 1;
+IDCANCEL :: 2;
+IDYES :: 6;
+IDNO :: 7;
+
+LWA_COLORKEY :: 0x00000001;
+LWA_ALPHA :: 0x00000002;
+
+MONITOR_DEFAULTTONULL :: 0x00000000;
+MONITOR_DEFAULTTOPRIMARY :: 0x00000001;
+MONITOR_DEFAULTTONEAREST :: 0x00000002;
+
+WM_NULL :: 0x0000;
+WM_CREATE :: 0x0001;
+WM_DESTROY :: 0x0002;
+WM_MOVE :: 0x0003;
+WM_SIZE :: 0x0005;
+WM_ACTIVATE :: 0x0006;
+WM_SETFOCUS :: 0x0007;
+WM_KILLFOCUS :: 0x0008;
+WM_ENABLE :: 0x000A;
+WM_PAINT :: 0x000F;
+WM_CLOSE :: 0x0010;
+WM_QUIT :: 0x0012;
+WM_ERASEBKGND :: 0x0014;
+WM_SHOWWINDOW :: 0x0018;
+WM_SETTINGCHANGE :: 0x001A;
+WM_SETCURSOR :: 0x0020;
+WM_GETMINMAXINFO :: 0x0024;
+WM_SETICON :: 0x0080;
+WM_NCCREATE :: 0x0081;
+WM_NCDESTROY :: 0x0082;
+WM_COMMAND :: 0x0111;
+WM_TIMER :: 0x0113;
+WM_SIZING :: 0x0214;
+WM_MOVING :: 0x0216;
+WM_ENTERSIZEMOVE :: 0x0231;
+WM_EXITSIZEMOVE :: 0x0232;
+WM_DROPFILES :: 0x0233;
+WM_DPICHANGED :: 0x02E0;
+WM_USER :: 0x0400;
+
+SIZE_RESTORED :: 0;
+SIZE_MINIMIZED :: 1;
+SIZE_MAXIMIZED :: 2;
+
+WA_INACTIVE :: 0;
+WA_ACTIVE :: 1;
+WA_CLICKACTIVE :: 2;
+
+ICON_SMALL :: 0;
+ICON_BIG :: 1;
+
+IMAGE_BITMAP :: 0;
+IMAGE_ICON :: 1;
+IMAGE_CURSOR :: 2;
+LR_LOADFROMFILE :: 0x00000010;
+LR_DEFAULTSIZE :: 0x00000040;
+LR_SHARED :: 0x00008000;
+
+WNDPROC: type: ?*fn(a: HWND, b: UINT, c: WPARAM, d: LPARAM) -> LRESULT #foreign;
+
+WNDCLASSEXW :: struct {
 	cbSize: UINT,
 	style: UINT,
 	lpfnWndProc: WNDPROC,
@@ -556,16 +1243,395 @@ WNDCLASSEXW :: struct  {
 	hIconSm: HICON,
 }
 
-RECT :: struct  {
-	left: LONG,
-	top: LONG,
-	right: LONG,
-	bottom: LONG,
+MSG :: struct {
+	hwnd: HWND,
+	message: UINT,
+	wParam: WPARAM,
+	lParam: LPARAM,
+	time: DWORD,
+	pt: POINT,
+	lPrivate: DWORD,
 }
 
-LPRECT: type: ?*RECT;
+LPMSG: type: ?*MSG;
 
-PIXELFORMATDESCRIPTOR :: struct  {
+MINMAXINFO :: struct {
+	ptReserved: POINT,
+	ptMaxSize: POINT,
+	ptMaxPosition: POINT,
+	ptMinTrackSize: POINT,
+	ptMaxTrackSize: POINT,
+}
+
+MONITORINFO :: struct {
+	cbSize: DWORD,
+	rcMonitor: RECT,
+	rcWork: RECT,
+	dwFlags: DWORD,
+}
+
+LPMONITORINFO: type: ?*MONITORINFO;
+
+RegisterClassExW :: fn(
+	unnamedParam1: ?*WNDCLASSEXW
+) -> ATOM #cc="stdcall" #foreign #link="RegisterClassExW";
+
+UnregisterClassW :: fn(
+	lpClassName: LPCWSTR,
+	hInstance: HINSTANCE
+) -> BOOL #cc="stdcall" #foreign #link="UnregisterClassW";
+
+CreateWindowExW :: fn(
+	dwExStyle: DWORD,
+	lpClassName: LPCWSTR,
+	lpWindowName: LPCWSTR,
+	dwStyle: DWORD,
+	X: i32,
+	Y: i32,
+	nWidth: i32,
+	nHeight: i32,
+	hWndParent: HWND,
+	hMenu: HMENU,
+	hInstance: HINSTANCE,
+	lpParam: LPVOID
+) -> HWND #cc="stdcall" #foreign #link="CreateWindowExW";
+
+DestroyWindow :: fn(
+	hWnd: HWND
+) -> BOOL #cc="stdcall" #foreign #link="DestroyWindow";
+
+DefWindowProcW :: fn(
+	hWnd: HWND,
+	Msg: UINT,
+	wParam: WPARAM,
+	lParam: LPARAM
+) -> LRESULT #cc="stdcall" #foreign #link="DefWindowProcW";
+
+GetMessageW :: fn(
+	lpMsg: LPMSG,
+	hWnd: HWND,
+	wMsgFilterMin: UINT,
+	wMsgFilterMax: UINT
+) -> BOOL #cc="stdcall" #foreign #link="GetMessageW";
+
+PeekMessageW :: fn(
+	lpMsg: LPMSG,
+	hWnd: HWND,
+	wMsgFilterMin: UINT,
+	wMsgFilterMax: UINT,
+	wRemoveMsg: UINT
+) -> BOOL #cc="stdcall" #foreign #link="PeekMessageW";
+
+TranslateMessage :: fn(
+	lpMsg: ?*MSG
+) -> BOOL #cc="stdcall" #foreign #link="TranslateMessage";
+
+DispatchMessageW :: fn(
+	lpMsg: ?*MSG
+) -> LRESULT #cc="stdcall" #foreign #link="DispatchMessageW";
+
+PostQuitMessage :: fn(
+	nExitCode: i32
+) #cc="stdcall" #foreign #link="PostQuitMessage";
+
+PostMessageW :: fn(
+	hWnd: HWND,
+	Msg: UINT,
+	wParam: WPARAM,
+	lParam: LPARAM
+) -> BOOL #cc="stdcall" #foreign #link="PostMessageW";
+
+SendMessageW :: fn(
+	hWnd: HWND,
+	Msg: UINT,
+	wParam: WPARAM,
+	lParam: LPARAM
+) -> LRESULT #cc="stdcall" #foreign #link="SendMessageW";
+
+GetWindowLongPtrW :: fn(
+	hWnd: HWND,
+	nIndex: i32
+) -> LONG_PTR #cc="stdcall" #foreign #link="GetWindowLongPtrW";
+
+SetWindowLongPtrW :: fn(
+	hWnd: HWND,
+	nIndex: i32,
+	dwNewLong: LONG_PTR
+) -> LONG_PTR #cc="stdcall" #foreign #link="SetWindowLongPtrW";
+
+ShowWindow :: fn(
+	hWnd: HWND,
+	nCmdShow: i32
+) -> BOOL #cc="stdcall" #foreign #link="ShowWindow";
+
+UpdateWindow :: fn(
+	hWnd: HWND
+) -> BOOL #cc="stdcall" #foreign #link="UpdateWindow";
+
+SetWindowPos :: fn(
+	hWnd: HWND,
+	hWndInsertAfter: HWND,
+	X: i32,
+	Y: i32,
+	cx: i32,
+	cy: i32,
+	uFlags: UINT
+) -> BOOL #cc="stdcall" #foreign #link="SetWindowPos";
+
+SetWindowTextW :: fn(
+	hWnd: HWND,
+	lpString: LPCWSTR
+) -> BOOL #cc="stdcall" #foreign #link="SetWindowTextW";
+
+GetClientRect :: fn(
+	hWnd: HWND,
+	lpRect: LPRECT
+) -> BOOL #cc="stdcall" #foreign #link="GetClientRect";
+
+GetWindowRect :: fn(
+	hWnd: HWND,
+	lpRect: LPRECT
+) -> BOOL #cc="stdcall" #foreign #link="GetWindowRect";
+
+AdjustWindowRectEx :: fn(
+	lpRect: LPRECT,
+	dwStyle: DWORD,
+	bMenu: BOOL,
+	dwExStyle: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="AdjustWindowRectEx";
+
+InvalidateRect :: fn(
+	hWnd: HWND,
+	lpRect: ?*RECT,
+	bErase: BOOL
+) -> BOOL #cc="stdcall" #foreign #link="InvalidateRect";
+
+SetLayeredWindowAttributes :: fn(
+	hwnd: HWND,
+	crKey: COLORREF,
+	bAlpha: BYTE,
+	dwFlags: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="SetLayeredWindowAttributes";
+
+LoadImageW :: fn(
+	hInst: HINSTANCE,
+	name: LPCWSTR,
+	type: UINT,
+	cx: i32,
+	cy: i32,
+	fuLoad: UINT
+) -> HANDLE #cc="stdcall" #foreign #link="LoadImageW";
+
+MessageBoxW :: fn(
+	hWnd: HWND,
+	lpText: LPCWSTR,
+	lpCaption: LPCWSTR,
+	uType: UINT
+) -> i32 #cc="stdcall" #foreign #link="MessageBoxW";
+
+GetSystemMetrics :: fn(
+	nIndex: i32
+) -> i32 #cc="stdcall" #foreign #link="GetSystemMetrics";
+
+MonitorFromWindow :: fn(
+	hwnd: HWND,
+	dwFlags: DWORD
+) -> HMONITOR #cc="stdcall" #foreign #link="MonitorFromWindow";
+
+GetMonitorInfoW :: fn(
+	hMonitor: HMONITOR,
+	lpmi: LPMONITORINFO
+) -> BOOL #cc="stdcall" #foreign #link="GetMonitorInfoW";
+
+GetDpiForWindow :: fn(
+	hwnd: HWND
+) -> UINT #cc="stdcall" #foreign #link="GetDpiForWindow";
+
+SetProcessDPIAware :: fn() -> BOOL #cc="stdcall" #foreign #link="SetProcessDPIAware";
+
+/* ==========================================================================
+   INPUT
+   ========================================================================== */
+
+WM_KEYDOWN :: 0x0100;
+WM_KEYUP :: 0x0101;
+WM_CHAR :: 0x0102;
+WM_DEADCHAR :: 0x0103;
+WM_SYSKEYDOWN :: 0x0104;
+WM_SYSKEYUP :: 0x0105;
+WM_SYSCHAR :: 0x0106;
+WM_UNICHAR :: 0x0109;
+WM_MOUSEMOVE :: 0x0200;
+WM_LBUTTONDOWN :: 0x0201;
+WM_LBUTTONUP :: 0x0202;
+WM_LBUTTONDBLCLK :: 0x0203;
+WM_RBUTTONDOWN :: 0x0204;
+WM_RBUTTONUP :: 0x0205;
+WM_RBUTTONDBLCLK :: 0x0206;
+WM_MBUTTONDOWN :: 0x0207;
+WM_MBUTTONUP :: 0x0208;
+WM_MBUTTONDBLCLK :: 0x0209;
+WM_MOUSEWHEEL :: 0x020A;
+WM_XBUTTONDOWN :: 0x020B;
+WM_XBUTTONUP :: 0x020C;
+WM_MOUSEHWHEEL :: 0x020E;
+
+WHEEL_DELTA :: 120;
+UNICODE_NOCHAR :: 0xFFFF;
+
+MK_LBUTTON :: 0x0001;
+MK_RBUTTON :: 0x0002;
+MK_SHIFT :: 0x0004;
+MK_CONTROL :: 0x0008;
+MK_MBUTTON :: 0x0010;
+MK_XBUTTON1 :: 0x0020;
+MK_XBUTTON2 :: 0x0040;
+
+VK_BACK :: 0x08;
+VK_TAB :: 0x09;
+VK_RETURN :: 0x0D;
+VK_SHIFT :: 0x10;
+VK_CONTROL :: 0x11;
+VK_MENU :: 0x12;
+VK_PAUSE :: 0x13;
+VK_CAPITAL :: 0x14;
+VK_ESCAPE :: 0x1B;
+VK_SPACE :: 0x20;
+VK_PRIOR :: 0x21;
+VK_NEXT :: 0x22;
+VK_END :: 0x23;
+VK_HOME :: 0x24;
+VK_LEFT :: 0x25;
+VK_UP :: 0x26;
+VK_RIGHT :: 0x27;
+VK_DOWN :: 0x28;
+VK_SNAPSHOT :: 0x2C;
+VK_INSERT :: 0x2D;
+VK_DELETE :: 0x2E;
+VK_LWIN :: 0x5B;
+VK_RWIN :: 0x5C;
+VK_NUMPAD0 :: 0x60;
+VK_MULTIPLY :: 0x6A;
+VK_ADD :: 0x6B;
+VK_SUBTRACT :: 0x6D;
+VK_DECIMAL :: 0x6E;
+VK_DIVIDE :: 0x6F;
+VK_F1 :: 0x70;
+VK_F2 :: 0x71;
+VK_F3 :: 0x72;
+VK_F4 :: 0x73;
+VK_F5 :: 0x74;
+VK_F6 :: 0x75;
+VK_F7 :: 0x76;
+VK_F8 :: 0x77;
+VK_F9 :: 0x78;
+VK_F10 :: 0x79;
+VK_F11 :: 0x7A;
+VK_F12 :: 0x7B;
+VK_NUMLOCK :: 0x90;
+VK_SCROLL :: 0x91;
+VK_LSHIFT :: 0xA0;
+VK_RSHIFT :: 0xA1;
+VK_LCONTROL :: 0xA2;
+VK_RCONTROL :: 0xA3;
+VK_LMENU :: 0xA4;
+VK_RMENU :: 0xA5;
+
+IDC_ARROW :: ( (32512 )as LPCWSTR );
+IDC_IBEAM :: ( (32513 )as LPCWSTR );
+IDC_WAIT :: ( (32514 )as LPCWSTR );
+IDC_CROSS :: ( (32515 )as LPCWSTR );
+IDC_SIZENWSE :: ( (32642 )as LPCWSTR );
+IDC_SIZENESW :: ( (32643 )as LPCWSTR );
+IDC_SIZEWE :: ( (32644 )as LPCWSTR );
+IDC_SIZENS :: ( (32645 )as LPCWSTR );
+IDC_SIZEALL :: ( (32646 )as LPCWSTR );
+IDC_HAND :: ( (32649 )as LPCWSTR );
+IDI_APPLICATION :: ( (32512 )as LPCWSTR );
+
+LoadCursorW :: fn(
+	hInstance: HINSTANCE,
+	lpCursorName: LPCWSTR
+) -> HCURSOR #cc="stdcall" #foreign #link="LoadCursorW";
+
+LoadIconW :: fn(
+	hInstance: HINSTANCE,
+	lpIconName: LPCWSTR
+) -> HICON #cc="stdcall" #foreign #link="LoadIconW";
+
+SetCursor :: fn(
+	hCursor: HCURSOR
+) -> HCURSOR #cc="stdcall" #foreign #link="SetCursor";
+
+ShowCursor :: fn(
+	bShow: BOOL
+) -> i32 #cc="stdcall" #foreign #link="ShowCursor";
+
+GetCursorPos :: fn(
+	lpPoint: LPPOINT
+) -> BOOL #cc="stdcall" #foreign #link="GetCursorPos";
+
+SetCursorPos :: fn(
+	X: i32,
+	Y: i32
+) -> BOOL #cc="stdcall" #foreign #link="SetCursorPos";
+
+ClipCursor :: fn(
+	lpRect: ?*RECT
+) -> BOOL #cc="stdcall" #foreign #link="ClipCursor";
+
+ScreenToClient :: fn(
+	hWnd: HWND,
+	lpPoint: LPPOINT
+) -> BOOL #cc="stdcall" #foreign #link="ScreenToClient";
+
+ClientToScreen :: fn(
+	hWnd: HWND,
+	lpPoint: LPPOINT
+) -> BOOL #cc="stdcall" #foreign #link="ClientToScreen";
+
+SetCapture :: fn(
+	hWnd: HWND
+) -> HWND #cc="stdcall" #foreign #link="SetCapture";
+
+ReleaseCapture :: fn() -> BOOL #cc="stdcall" #foreign #link="ReleaseCapture";
+
+SetFocus :: fn(
+	hWnd: HWND
+) -> HWND #cc="stdcall" #foreign #link="SetFocus";
+
+GetFocus :: fn() -> HWND #cc="stdcall" #foreign #link="GetFocus";
+
+GetKeyState :: fn(
+	nVirtKey: i32
+) -> SHORT #cc="stdcall" #foreign #link="GetKeyState";
+
+GetAsyncKeyState :: fn(
+	vKey: i32
+) -> SHORT #cc="stdcall" #foreign #link="GetAsyncKeyState";
+
+MapVirtualKeyW :: fn(
+	uCode: UINT,
+	uMapType: UINT
+) -> UINT #cc="stdcall" #foreign #link="MapVirtualKeyW";
+
+/* ==========================================================================
+   GRAPHICS: DEVICE CONTEXT & OPENGL
+   ========================================================================== */
+
+PFD_TYPE_RGBA :: 0;
+PFD_MAIN_PLANE :: 0;
+PFD_DOUBLEBUFFER :: 0x00000001;
+PFD_STEREO :: 0x00000002;
+PFD_DRAW_TO_WINDOW :: 0x00000004;
+PFD_DRAW_TO_BITMAP :: 0x00000008;
+PFD_SUPPORT_GDI :: 0x00000010;
+PFD_SUPPORT_OPENGL :: 0x00000020;
+PFD_SWAP_EXCHANGE :: 0x00000200;
+PFD_SWAP_COPY :: 0x00000400;
+PFD_DEPTH_DONTCARE :: 0x20000000;
+
+PIXELFORMATDESCRIPTOR :: struct {
 	nSize: WORD,
 	nVersion: WORD,
 	dwFlags: DWORD,
@@ -596,630 +1662,18 @@ PIXELFORMATDESCRIPTOR :: struct  {
 
 LPPIXELFORMATDESCRIPTOR: type: ?*PIXELFORMATDESCRIPTOR;
 
-OVERLAPPED :: struct  {
-	Internal: ULONG_PTR,
-	InternalHigh: ULONG_PTR,
-	a: union {
-		b: struct {
-			Offset: DWORD,
-			OffsetHigh: DWORD,
-		},
-		Pointer: PVOID,
-	},
-	hEvent: HANDLE,
-}
-
-LPOVERLAPPED: type: ?*OVERLAPPED;
-
-STORAGE_ACCESS_ALIGNMENT_DESCRIPTOR :: struct  {
-	Version: DWORD,
-	Size: DWORD,
-	BytesPerCacheLine: DWORD,
-	BytesOffsetForCacheAlignment: DWORD,
-	BytesPerLogicalSector: DWORD,
-	BytesPerPhysicalSector: DWORD,
-	BytesOffsetForSectorAlignment: DWORD,
-}
-
-STORAGE_PROPERTY_ID :: enum: u32 {
-	StorageDeviceProperty = 0x0,
-	StorageAccessAlignmentProperty = 0x6,
-}
-
-STORAGE_QUERY_TYPE :: enum: u32 {
-	PropertyStandardQuery = 0x0,
-}
-
-STORAGE_PROPERTY_QUERY :: struct  {
-	PropertyId: STORAGE_PROPERTY_ID,
-	QueryType: STORAGE_QUERY_TYPE,
-	AdditionalParameters: [1]BYTE,
-	PADDING: [3]i8,
-}
-
-PROCESSOR_NUMBER :: struct  {
-	Group: WORD,
-	Number: BYTE,
-	Reserved: BYTE,
-}
-
-PPROCESSOR_NUMBER: type: ?*PROCESSOR_NUMBER;
-
-KAFFINITY: type: ULONG_PTR;
-
-GROUP_AFFINITY :: struct  {
-	Mask: KAFFINITY,
-	Group: WORD,
-	Reserved: [3]WORD,
-}
-
-PGROUP_AFFINITY: type: ?*GROUP_AFFINITY;
-
-WSADATA :: struct  {
-	wVersion: WORD,
-	wHighVersion: WORD,
-	iMaxSockets: WORD,
-	iMaxUdpDg: WORD,
-	lpVendorInfo: ?*u8,
-	szDescription: [257]i8,
-	szSystemStatus: [129]i8,
-}
-
-LPWSADATA: type: ?*WSADATA;
-
-sockaddr :: struct  {
-	sa_family: ADDRESS_FAMILY,
-	sa_data: [14]i8,
-}
-
-in_addr :: struct  {
-	S_un: union {
-		S_un_b: struct {
-			s_b1: BYTE,
-			s_b2: BYTE,
-			s_b3: BYTE,
-			s_b4: BYTE,
-		},
-		S_un_w: struct {
-			s_w1: WORD,
-			s_w2: WORD,
-		},
-		S_addr: DWORD,
-	},
-}
- 
-ADDRESS_FAMILY: type: USHORT;
-IN_ADDR: type: in_addr;
-sockaddr_in :: struct  {
-	sin_family: ADDRESS_FAMILY,
-	sin_port: USHORT,
-	sin_addr: IN_ADDR,
-	sin_zero: [8]CHAR,
-}
-
-
-sockaddr_in6 :: struct {
-	sin6_family: ADDRESS_FAMILY,
-	sin6_port: USHORT,
-	sin6_flowinfo: ULONG,
-  	sin6_addr: IN6_ADDR,
-  	u: union {
-		sin6_scope_id: ULONG,
-	  	sin6_scope_struct: SCOPE_ID,
-  	},
-}
-
-SCOPE_ID :: struct {
-	u: union {
-		s: struct {
-			zone_level_bitfield: ULONG,
-		},
-		value: ULONG,
-	},
-}
-
-in6_addr :: struct {
-	u: union {
-		Byte: [16]UCHAR,
-		Word: [8]USHORT,
-	},
-}
-
-IN6_ADDR: type: in6_addr;
-
-FD_SETSIZE :DWORD: 64;
-fd_set :: struct  {
-	fd_count: DWORD,
-	fd_array: [64]SOCKET,
-}
-
-timeval :: struct  {
-	tv_sec: i32,
-	tv_usec: i32,
-}
-
-hostent :: struct  {
-	h_name: ?*u8,
-	h_aliases: ?*?*u8,
-	h_addrtype: i16,
-	h_length: i16,
-	h_addr_list: ?*?*u8,
-}
-
-u_short: type: u16;
-
-CANDIDATELIST :: struct  {
-	dwSize: DWORD,
-	dwStyle: DWORD,
-	dwCount: DWORD,
-	dwSelection: DWORD,
-	dwPageStart: DWORD,
-	dwPageSize: DWORD,
-	dwOffset: [1]DWORD,
-}
-
-LPCANDIDATELIST: type: ?*CANDIDATELIST;
-
-LPPOINT: type: ?*POINT;
-
-RTL_OSVERSIONINFOW :: struct  {
-	dwOSVersionInfoSize: ULONG,
-	dwMajorVersion: ULONG,
-	dwMinorVersion: ULONG,
-	dwBuildNumber: ULONG,
-	dwPlatformId: ULONG,
-	szCSDVersion: [128]WCHAR,
-}
-
-PRTL_OSVERSIONINFOW: type: ?*RTL_OSVERSIONINFOW;
-
-type_RtlGetVersion: type: ?*fn(a: PRTL_OSVERSIONINFOW) -> NTSTATUS #foreign;
-
-HKEY: type: HANDLE;
-
-PHKEY: type: ?*HKEY;
-
-REGSAM :: enum: u32 {
-	KEY_QUERY_VALUE = 0x1,
-}
-
-type_GetUserDefaultLocaleName: type: ?*fn(a: LPWSTR, b: i32) -> i32 #foreign;
-
-MEM_EXTENDED_PARAMETER :: struct  {
-}
-
-type_VirtualAlloc2: type: ?*fn(a: HANDLE, b: PVOID, c: SIZE_T, d: ULONG, e: ULONG, f: ?*MEM_EXTENDED_PARAMETER, g: ULONG) -> PVOID #foreign;
-
-type_MapViewOfFile3: type: ?*fn(a: HANDLE, b: HANDLE, c: PVOID, d: ULONG64, e: SIZE_T, f: ULONG, g: ULONG, h: ?*MEM_EXTENDED_PARAMETER, i: ULONG) -> PVOID #foreign;
-
-__rdtsc :: fn() -> u64 #cc="cdecl" #foreign #link="__rdtsc";
-
-DwmSetWindowAttribute :: fn(
-	hwnd: HWND,
-	dwAttribute: DWORD,
-	pvAttribute: LPCVOID,
-	cbAttribute: DWORD
-) -> HRESULT #cc="stdcall" #foreign #link="DwmSetWindowAttribute";
-
-RegOpenKeyExW :: fn(
-	hKey: HKEY,
-	lpSubKey: LPCWSTR,
-	ulOptions: DWORD,
-	samDesired: REGSAM,
-	phkResult: PHKEY
-) -> LONG #cc="stdcall" #foreign #link="RegOpenKeyExW";
-
-RegQueryValueExW :: fn(
-	hKey: HKEY,
-	lpValueName: LPCWSTR,
-	lpReserved: LPDWORD,
-	lpType: LPDWORD,
-	lpData: LPBYTE,
-	lpcbData: LPDWORD
-) -> LONG #cc="stdcall" #foreign #link="RegQueryValueExW";
-
-RegCloseKey :: fn(
-	hKey: HKEY
-) -> LONG #cc="stdcall" #foreign #link="RegCloseKey";
-
-ImmGetContext :: fn(
-	unnamedParam1: HWND
-) -> HIMC #cc="stdcall" #foreign #link="ImmGetContext";
-
-ImmReleaseContext :: fn(
-	unnamedParam1: HWND,
-	unnamedParam2: HIMC
-) -> BOOL #cc="stdcall" #foreign #link="ImmReleaseContext";
-
-ImmAssociateContext :: fn(
-	unnamedParam1: HWND,
-	unnamedParam2: HIMC
-) -> HIMC #cc="stdcall" #foreign #link="ImmAssociateContext";
-
-ImmGetCandidateListCountW :: fn(
-	unnamedParam1: HIMC,
-	lpdwListCount: LPDWORD
-) -> DWORD #cc="stdcall" #foreign #link="ImmGetCandidateListCountW";
-
-ImmGetCandidateListW :: fn(
-	unnamedParam1: HIMC,
-	deIndex: DWORD,
-	lpCandList: LPCANDIDATELIST,
-	dwBufLen: DWORD
-) -> DWORD #cc="stdcall" #foreign #link="ImmGetCandidateListW";
-
-ImmGetCompositionStringW :: fn(
-	unnamedParam1: HIMC,
-	unnamedParam2: DWORD,
-	lpBuf: LPVOID,
-	dwBufLen: DWORD
-) -> LONG #cc="stdcall" #foreign #link="ImmGetCompositionStringW";
-
-ImmNotifyIME :: fn(
-	unnamedParam1: HIMC,
-	dwAction: DWORD,
-	dwIndex: DWORD,
-	dwValue: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="ImmNotifyIME";
-
-WSAStartup :: fn(
-	wVersionRequired: WORD,
-	lpWSAData: LPWSADATA
-) -> i32 #cc="stdcall" #foreign #link="WSAStartup";
-
-WSACleanup :: fn() -> i32 #cc="stdcall"  #foreign #link="WSACleanup";
-
-htons :: fn(
-	hostshort: u_short
-) -> u_short #cc="stdcall" #foreign #link="htons";
-
-setsockopt :: fn(
-	s: SOCKET,
-	level: i32,
-	optname: i32,
-	optval: ?*u8,
-	optlen: i32
-) -> i32 #cc="stdcall"  #foreign #link="setsockopt";
-
-socket :: fn(
-	af: i32,
-	type: i32,
-	protocol: i32
-) -> SOCKET #cc="stdcall" #foreign #link="socket";
-
-connect :: fn(
-	s: SOCKET,
-	name: ?*sockaddr,
-	namelen: i32
-) -> i32 #cc="stdcall" #foreign #link="connect";
-
-listen :: fn(
-	s: SOCKET,
-	backlog: i32
-) -> i32 #cc="stdcall"  #foreign #link="listen";
-
-accept :: fn(
-	s: SOCKET,
-	addr: ?*sockaddr,
-	addrlen: ?*i32
-) -> SOCKET #cc="stdcall"  #foreign #link="accept";
-
-bind :: fn(
-	s: SOCKET,
-	addr: ?*sockaddr,
-	namelen: i32
-) -> i32 #cc="stdcall" #foreign #link="bind";
-
-recv :: fn(
-	s: SOCKET,
-	buf: ?*u8,
-	len: i32,
-	flags: i32
-) -> i32 #cc="stdcall" #foreign #link="recv";
-
-recvfrom :: fn(
-	s: SOCKET,
-	buf: ?*u8,
-	len: i32,
-	flags: i32,
-	from: ?*sockaddr,
-	fromlen: ?*i32
-) -> i32 #cc="stdcall" #foreign #link="recvfrom";
-
-send :: fn(
-	s: SOCKET,
-	buf: ?*u8,
-	len: i32,
-	flags: i32
-) -> i32 #cc="stdcall" #foreign #link="send";
-
-sendto :: fn(
-	s: SOCKET,
-	buf: ?*u8,
-	len: i32,
-	flags: i32,
-	from: ?*sockaddr,
-	fromlen: i32
-) -> i32 #cc="stdcall" #foreign #link="sendto";
-
-select :: fn(
-	nfds: i32,
-	readfds: ?*fd_set,
-	writefds: ?*fd_set,
-	exceptfds: ?*fd_set,
-	timeout: ?*timeval
-) -> i32 #cc="stdcall" #foreign #link="select";
-
-closesocket :: fn(
-	s: SOCKET
-) -> i32 #cc="stdcall" #foreign #link="closesocket";
-
-shutdown :: fn(
-	s: SOCKET,
-	how: i32
-) -> i32 #cc="stdcall" #foreign #link="shutdown";
-
-WSAGetLastError :: fn() -> i32 #cc="stdcall" #foreign #link="WSAGetLastError";
-
-gethostbyname :: fn(
-	name: ?*u8
-) -> ?*hostent #cc="stdcall" #foreign #link="gethostbyname";
-
-getpeername :: fn(
-	s: SOCKET,
-	name: ?*sockaddr,
-	namelen: ?*i32
-) -> i32 #cc="stdcall" #foreign #link="getpeername";
-
-getsockname :: fn(
-	s: SOCKET,
-	name: ?*sockaddr,
-	namelen: ?*i32
-) -> i32 #cc="stdcall" #foreign #link="getsockname";
-
-wglGetProcAddress :: fn(
-	unnamedParam1: LPCSTR
-) -> PROC #cc="stdcall" #foreign #link="wglGetProcAddress";
-
-wglCreateContext :: fn(
-	unnamedParam1: HDC
-) -> HGLRC #cc="stdcall" #foreign #link="wglCreateContext";
-
-wglMakeCurrent :: fn(
-	unnamedParam1: HDC,
-	unnamedParam2: HGLRC
-) -> BOOL #cc="stdcall" #foreign #link="wglMakeCurrent";
-
-wglDeleteContext :: fn(
-	unnamedParam1: HGLRC
-) -> BOOL #cc="stdcall" #foreign #link="wglDeleteContext";
-
-MsgWaitForMultipleObjects :: fn(
-	nCount: DWORD,
-	pHandles: ?*HANDLE,
-	fWaitAll: BOOL,
-	dwMilliseconds: DWORD,
-	dwWakeMask: DWORD
-) -> DWORD #cc="stdcall" #foreign #link="MsgWaitForMultipleObjects";
-
-SetCursor :: fn(
-	hCursor: HCURSOR
-) -> HCURSOR #cc="stdcall" #foreign #link="SetCursor";
-
-GetCursorPos :: fn(
-	lpPoint: LPPOINT
-) -> BOOL #cc="stdcall" #foreign #link="GetCursorPos";
-
-ScreenToClient :: fn(
-	hWnd: HWND,
-	lpPoint: LPPOINT
-) -> BOOL #cc="stdcall" #foreign #link="ScreenToClient";
-
-MessageBoxA :: fn(
-	hWnd: HWND,
-	lpText: LPCSTR,
-	lpCaption: LPCSTR,
-	uType: UINT
-) -> i32 #cc="stdcall" #foreign #link="MessageBoxA";
-
-GetMessageW :: fn(
-	lpMsg: LPMSG,
-	hWnd: HWND,
-	wMsgFilterMin: UINT,
-	wMsgFilterMax: UINT
-) -> BOOL #cc="stdcall" #foreign #link="GetMessageW";
-
-TranslateMessage :: fn(
-	lpMsg: ?*MSG
-) -> BOOL #cc="stdcall" #foreign #link="TranslateMessage";
-
-DispatchMessageW :: fn(
-	lpMsg: ?*MSG
-) -> LRESULT #cc="stdcall" #foreign #link="DispatchMessageW";
-
-CreateWindowExW :: fn(
-	dwExStyle: DWORD,
-	lpClassName: LPCWSTR,
-	lpWindowName: LPCWSTR,
-	dwStyle: DWORD,
-	X: i32,
-	Y: i32,
-	nWidth: i32,
-	nHeight: i32,
-	hWndParent: HWND,
-	hMenu: HMENU,
-	hInstance: HINSTANCE,
-	lpParam: LPVOID
-) -> HWND #cc="stdcall" #foreign #link="CreateWindowExW";
-
-GetSystemMetrics :: fn(
-	nIndex: i32
-) -> i32 #cc="stdcall" #foreign #link="GetSystemMetrics";
-
-RegisterClassExW :: fn(
-	unnamedParam1: ?*WNDCLASSEXW
-) -> ATOM #cc="stdcall" #foreign #link="RegisterClassExW";
-
-DefWindowProcW :: fn(
-	hWnd: HWND,
-	Msg: UINT,
-	wParam: WPARAM,
-	lParam: LPARAM
-) -> LRESULT #cc="stdcall" #foreign #link="DefWindowProcW";
-
-SendMessageW :: fn(
-	hWnd: HWND,
-	Msg: UINT,
-	wParam: WPARAM,
-	lParam: LPARAM
-) -> LRESULT #cc="stdcall" #foreign #link="SendMessageW";
-
-LoadImageW :: fn(
-	hInst: HINSTANCE,
-	name: LPCWSTR,
-	type: UINT,
-	cx: i32,
-	cy: i32,
-	fuLoad: UINT
-) -> HANDLE #cc="stdcall" #foreign #link="LoadImageW";
-
-AdjustWindowRectEx :: fn(
-	lpRect: LPRECT,
-	dwStyle: DWORD,
-	bMenu: BOOL,
-	dwExStyle: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="AdjustWindowRectEx";
-
-GetClientRect :: fn(
-	hWnd: HWND,
-	lpRect: LPRECT
-) -> BOOL #cc="stdcall" #foreign #link="GetClientRect";
-
-SetWindowPos :: fn(
-	hWnd: HWND,
-	hWndInsertAfter: HWND,
-	X: i32,
-	Y: i32,
-	cx: i32,
-	cy: i32,
-	uFlags: UINT
-) -> BOOL #cc="stdcall" #foreign #link="SetWindowPos";
+GetDC :: fn(
+	hWnd: HWND
+) -> HDC #cc="stdcall" #foreign #link="GetDC";
 
 GetWindowDC :: fn(
 	hWnd: HWND
 ) -> HDC #cc="stdcall" #foreign #link="GetWindowDC";
 
-GetDC :: fn(
-	hWnd: HWND
-) -> HDC #cc="stdcall" #foreign #link="GetDC";
-
 ReleaseDC :: fn(
 	hWnd: HWND,
 	hDC: HDC
 ) -> i32 #cc="stdcall" #foreign #link="ReleaseDC";
-
-GetLayeredWindowAttributes :: fn(
-	hwnd: HWND,
-	pcrKey: ?*COLORREF,
-	pbAlpha: ?*BYTE,
-	pdwFlags: ?*DWORD
-) -> BOOL #cc="stdcall" #foreign #link="GetLayeredWindowAttributes";
-
-SetLayeredWindowAttributes :: fn(
-	hwnd: HWND,
-	crKey: COLORREF,
-	bAlpha: BYTE,
-	dwFlags: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="SetLayeredWindowAttributes";
-
-AnimateWindow :: fn(
-	hWnd: HWND,
-	dwTime: DWORD,
-	dwFlags: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="AnimateWindow";
-
-ShowWindow :: fn(
-	hWnd: HWND,
-	nCmdShow: i32
-) -> BOOL #cc="stdcall" #foreign #link="ShowWindow";
-
-GetRawInputBuffer :: fn(
-	pData: PRAWINPUT,
-	pcbSize: PUINT,
-	cbSizeHeader: UINT
-) -> UINT #cc="stdcall" #foreign #link="GetRawInputBuffer";
-
-RegisterRawInputDevices :: fn(
-	pRawInputDevices: PCRAWINPUTDEVICE,
-	uiNumDevices: UINT,
-	cbSize: UINT
-) -> BOOL #cc="stdcall" #foreign #link="RegisterRawInputDevices";
-
-GetRawInputDeviceList :: fn(
-	pRawInputDeviceList: PRAWINPUTDEVICELIST,
-	puiNumDevices: PUINT,
-	cbSize: UINT
-) -> UINT #cc="stdcall" #foreign #link="GetRawInputDeviceList";
-
-GetRawInputDeviceInfoW :: fn(
-	hDevice: HANDLE,
-	uiCommand: UINT,
-	pData: LPVOID,
-	pcbSize: PUINT
-) -> UINT #cc="stdcall" #foreign #link="GetRawInputDeviceInfoW";
-
-HidD_GetProductString :: fn(
-	HidDeviceObject: HANDLE,
-	Buffer: PVOID,
-	BufferLength: ULONG
-) -> BOOLEAN #cc="stdcall" #foreign #link="HidD_GetProductString";
-
-HidD_GetManufacturerString :: fn(
-	HidDeviceObject: HANDLE,
-	Buffer: PVOID,
-	BufferLength: ULONG
-) -> BOOLEAN #cc="stdcall" #foreign #link="HidD_GetManufacturerString";
-
-HidP_GetCaps :: fn(
-	PreparsedData: PHIDP_PREPARSED_DATA,
-	Capabilities: PHIDP_CAPS
-) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetCaps";
-
-HidP_GetButtonCaps :: fn(
-	ReportType: HIDP_REPORT_TYPE,
-	ButtonCaps: PHIDP_BUTTON_CAPS,
-	ButtonCapsLength: PUSHORT,
-	PreparsedData: PHIDP_PREPARSED_DATA
-) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetButtonCaps";
-
-HidP_GetValueCaps :: fn(
-	ReportType: HIDP_REPORT_TYPE,
-	ValueCaps: PHIDP_VALUE_CAPS,
-	ValueCapsLength: PUSHORT,
-	PreparsedData: PHIDP_PREPARSED_DATA
-) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetValueCaps";
-
-HidP_GetUsages :: fn(
-	ReportType: HIDP_REPORT_TYPE,
-	UsagePage: USAGE,
-	LinkCollection: USHORT,
-	UsageList: PUSAGE,
-	UsageLength: PULONG,
-	PreparsedData: PHIDP_PREPARSED_DATA,
-	Report: PCHAR,
-	ReportLength: ULONG
-) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetUsages";
-
-HidP_GetUsageValue :: fn(
-	ReportType: HIDP_REPORT_TYPE,
-	UsagePage: USAGE,
-	LinkCollection: USHORT,
-	Usage: USAGE,
-	UsageValue: PULONG,
-	PreparsedData: PHIDP_PREPARSED_DATA,
-	Report: PCHAR,
-	ReportLength: ULONG
-) -> NTSTATUS #cc="stdcall" #foreign #link="HidP_GetUsageValue";
 
 ChoosePixelFormat :: fn(
 	hdc: HDC,
@@ -1243,702 +1697,349 @@ SwapBuffers :: fn(
 	hdc: HDC
 ) -> BOOL #cc="stdcall" #foreign #link="SwapBuffers";
 
-timeBeginPeriod :: fn(
-	uPeriod: UINT
-) -> MMRESULT #cc="stdcall" #foreign #link="timeBeginPeriod";
+wglCreateContext :: fn(
+	unnamedParam1: HDC
+) -> HGLRC #cc="stdcall" #foreign #link="wglCreateContext";
 
-GetNumaHighestNodeNumber :: fn(
-	HighestNodeNumber: PULONG
-) -> BOOL #cc="stdcall" #foreign #link="GetNumaHighestNodeNumber";
+wglMakeCurrent :: fn(
+	unnamedParam1: HDC,
+	unnamedParam2: HGLRC
+) -> BOOL #cc="stdcall" #foreign #link="wglMakeCurrent";
 
-GetCurrentProcessorNumberEx :: fn(
-	ProcNumber: PPROCESSOR_NUMBER
-) #cc="stdcall" #foreign #link="GetCurrentProcessorNumberEx";
+wglDeleteContext :: fn(
+	unnamedParam1: HGLRC
+) -> BOOL #cc="stdcall" #foreign #link="wglDeleteContext";
 
-GetNumaProcessorNodeEx :: fn(
-	Processor: PPROCESSOR_NUMBER,
-	NodeNumber: PUSHORT
-) -> BOOL #cc="stdcall" #foreign #link="GetNumaProcessorNodeEx";
+wglGetProcAddress :: fn(
+	unnamedParam1: LPCSTR
+) -> PROC #cc="stdcall" #foreign #link="wglGetProcAddress";
 
-GetNumaNodeProcessorMaskEx :: fn(
-	Node: USHORT,
-	ProcessorMask: PGROUP_AFFINITY
-) -> BOOL #cc="stdcall" #foreign #link="GetNumaNodeProcessorMaskEx";
+/* ==========================================================================
+   SOCKETS (WINSOCK 2)
+   ========================================================================== */
 
-SetProcessAffinityMask :: fn(
-	hProcess: HANDLE,
-	dwProcessAffinityMask: DWORD_PTR
-) -> BOOL #cc="stdcall" #foreign #link="SetProcessAffinityMask";
+u_short: type: u16;
 
-CreateFileMappingW :: fn(
-	hFile: HANDLE,
-	lpFileMappingAttributes: LPSECURITY_ATTRIBUTES,
-	flProtect: DWORD,
-	dwMaximumSizeHigh: DWORD,
-	dwMaximumSizeLow: DWORD,
-	lpName: LPCWSTR
-) -> HANDLE #cc="stdcall" #foreign #link="CreateFileMappingW";
+u_long: type: u32;
 
-GetCurrentProcess :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentProcess";
+SOCKET: type: UINT_PTR;
 
-GetCurrentThread :: fn() -> HANDLE #cc="stdcall" #foreign #link="GetCurrentThread";
+ADDRESS_FAMILY: type: USHORT;
 
-SetPriorityClass :: fn(
-	hProcess: HANDLE,
-	dwPriorityClass: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="SetPriorityClass";
+INVALID_SOCKET :: ( ( ~ 0 )as SOCKET );
+SOCKET_ERROR :: ( - 1 );
 
-SetThreadPriority :: fn(
-	hThread: HANDLE,
-	nPriority: i32
-) -> BOOL #cc="stdcall" #foreign #link="SetThreadPriority";
-
-SetThreadIdealProcessorEx :: fn(
-	hThread: HANDLE,
-	lpIdealProcessor: PPROCESSOR_NUMBER,
-	lpPreviousIdealProcessor: PPROCESSOR_NUMBER
-) -> BOOL #cc="stdcall" #foreign #link="SetThreadIdealProcessorEx";
-
-IsWow64Process :: fn(
-	hProcess: HANDLE,
-	Wow64Process: PBOOL
-) -> BOOL #cc="stdcall" #foreign #link="IsWow64Process";
-
-GetCommandLineW :: fn() -> LPWSTR #cc="stdcall" #foreign #link="GetCommandLineW";
-
-CreateEventW :: fn(
-	lpEventAttributes: LPSECURITY_ATTRIBUTES,
-	bManualReset: BOOL,
-	bInitialState: BOOL,
-	lpName: LPCWSTR
-) -> HANDLE #cc="stdcall" #foreign #link="CreateEventW";
-
-SetEvent :: fn(
-	hEvent: HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="SetEvent";
-
-GetWindowsDirectoryW :: fn(
-	lpBuffer: LPWSTR,
-	uSize: UINT
-) -> UINT #cc="stdcall" #foreign #link="GetWindowsDirectoryW";
-
-QueryDosDeviceW :: fn(
-	lpDeviceName: LPCWSTR,
-	lpTargetPath: LPWSTR,
-	ucchMax: DWORD
-) -> DWORD #cc="stdcall" #foreign #link="QueryDosDeviceW";
-
-DeviceIoControl :: fn(
-	hDevice: HANDLE,
-	dwIoControlCode: DWORD,
-	lpInBuffer: LPVOID,
-	nInBufferSize: DWORD,
-	lpOutBuffer: LPVOID,
-	nOutBufferSize: DWORD,
-	lpBytesReturned: LPDWORD,
-	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="stdcall" #foreign #link="DeviceIoControl";
-
-QueryPerformanceFrequency :: fn(
-	lpFrequency: ?*LARGE_INTEGER
-) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceFrequency";
-
-QueryPerformanceCounter :: fn(
-	lpPerformanceCount: ?*LARGE_INTEGER
-) -> BOOL #cc="stdcall" #foreign #link="QueryPerformanceCounter";
-
-LoadLibraryW :: fn(
-	lpLibFileName: LPCWSTR
-) -> HMODULE #cc="stdcall" #foreign #link="LoadLibraryW";
-
-GetProcAddress :: fn(
-	hModule: HMODULE,
-	lpProcName: LPCSTR
-) -> FARPROC #cc="stdcall" #foreign #link="GetProcAddress";
-
-FormatMessageA :: fn(
-	dwFlags: DWORD,
-	lpSource: LPCVOID,
-	dwMessageId: DWORD,
-	dwLanguageId: DWORD,
-	lpBuffer: LPSTR,
-	nSize: DWORD,
-	Arguments: ?*va_list
-) -> DWORD #cc="stdcall" #foreign #link="FormatMessageA";
-
-GetModuleHandleW :: fn(
-	lpModuleName: LPCWSTR
-) -> HMODULE #cc="stdcall" #foreign #link="GetModuleHandleW";
-
-WaitForSingleObjectEx :: fn(
-	hHandle: HANDLE,
-	dwMilliseconds: DWORD,
-	bAlertable: BOOL
-) -> DWORD #cc="stdcall" #foreign #link="WaitForSingleObjectEx";
-
-GetQueueStatus :: fn(
-	flags: UINT
-) -> DWORD #cc="stdcall" #foreign #link="GetQueueStatus";
-
-CreateSemaphoreExW :: fn(
-	lpSemaphoreAttributes: LPSECURITY_ATTRIBUTES,
-	lInitialCount: LONG,
-	lMaximumCount: LONG,
-	lpName: LPCWSTR,
-	dwFlags: DWORD,
-	dwDesiredAccess: DWORD
-) -> HANDLE #cc="stdcall" #foreign #link="CreateSemaphoreExW";
-
-ReleaseSemaphore :: fn(
-	hSemaphore: HANDLE,
-	lReleaseCount: LONG,
-	lpPreviousCount: LPLONG
-) -> BOOL #cc="stdcall" #foreign #link="ReleaseSemaphore";
-
-GetSystemInfo :: fn(
-	lpSystemInfo: LPSYSTEM_INFO
-) #cc="stdcall" #foreign #link="GetSystemInfo";
-
-SleepEx :: fn(
-	dwMilliseconds: DWORD,
-	bAlertable: BOOL
-) -> DWORD #cc="stdcall" #foreign #link="SleepEx";
-
-GetLastError :: fn() -> DWORD #cc="stdcall" #foreign #link="GetLastError";
-
-SetLastError :: fn(
-	dwErrCode: DWORD
-) #foreign #link="SetLastError";
-
-ExitProcess :: fn(
-	uExitCode: UINT
-) #cc="stdcall" #foreign #link="ExitProcess";
-
-FlushFileBuffers :: fn(
-	hFile: HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="FlushFileBuffers";
-
-GetStdHandle :: fn(
-	nStdHandle: DWORD
-) -> HANDLE #cc="stdcall" #foreign #link="GetStdHandle";
-
-SetStdHandle :: fn(
-	nStdHandle: DWORD,
-	hHandle: HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="SetStdHandle";
-
-SetStdHandleEx :: fn(
-	nStdHandle: DWORD,
-	hHandle: HANDLE,
-	phPrevValue: ?*HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="SetStdHandleEx";
-
-
-CreateFileW :: fn(
-	lpFileName: LPCWSTR,
-	dwDesiredAccess: DWORD,
-	dwShareMode: DWORD,
-	lpSecurityAttributes: LPSECURITY_ATTRIBUTES,
-	dwCreationDisposition: DWORD,
-	dwFlagsAndAttributes: DWORD,
-	hTemplateFile: HANDLE
-) -> HANDLE #cc="stdcall" #foreign #link="CreateFileW";
-
-CreateDirectoryW :: fn(
-	lpPathName: LPCWSTR,
-	lpSecurityAttributes: LPSECURITY_ATTRIBUTES
-) -> BOOL #cc="stdcall" #foreign #link="CreateDirectoryW";
-
-RemoveDirectoryW :: fn(
-	lpPathName: LPCWSTR
-) -> BOOL #foreign #link="RemoveDirectoryW";
-
-DeleteFileW :: fn(
-	lpFileName: LPCWSTR
-) -> BOOL #foreign #link="DeleteFileW";
-
-CopyFileW :: fn(
-	lpExistingFileName: LPCWSTR,
-	lpNewFileName: LPCWSTR,
-	bFailIfExists: BOOL
-) -> BOOL #foreign #link="CopyFileW";
-
-FindFirstFileW :: fn(
-	lpFileName: LPCWSTR,
-	lpFindFileData: LPWIN32_FIND_DATAW
-) -> HANDLE #foreign #link="FindFirstFileW";
-
-FindNextFileW :: fn(
-	hFindFile: HANDLE,
-	lpFindFileData: LPWIN32_FIND_DATAW
-) -> BOOL #foreign #link="FindNextFileW";
-
-FindClose :: fn(
-	hFindFile: HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="FindClose";
-
-GetFileSizeEx :: fn(
-	hFile: HANDLE,
-	lpFileSize: PLARGE_INTEGER
-) -> BOOL #cc="stdcall" #foreign #link="GetFileSizeEx";
-
-WriteFile :: fn(
-	hFile: HANDLE,
-	lpBuffer: LPVOID,
-	nNumberOfBytesToWrite: DWORD,
-	lpNumberOfBytesWritten: LPDWORD,
-	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="stdcall" #foreign #link="WriteFile";
-
-ReadFile :: fn(
-	hFile: HANDLE,
-	lpBuffer: LPVOID,
-	nNumberOfBytesToRead: DWORD,
-	lpNumberOfBytesRead: LPDWORD,
-	lpOverlapped: LPOVERLAPPED
-) -> BOOL #cc="stdcall" #foreign #link="ReadFile";
-
-CreateThread :: fn(
-	lpThreadAttributes: LPSECURITY_ATTRIBUTES,
-	dwStackSize: SIZE_T,
-	lpStartAddress: LPTHREAD_START_ROUTINE,
-	lpParameter: LPVOID,
-	dwCreationFlags: DWORD,
-	lpThreadId: LPDWORD
-) -> HANDLE #cc="stdcall" #foreign #link="CreateThread";
-
-CloseHandle :: fn(
-	hObject: HANDLE
-) -> BOOL #cc="stdcall" #foreign #link="CloseHandle";
-
-GetVersion :: fn() -> DWORD #cc="stdcall" #foreign #link="GetVersion";
-
-VirtualAlloc :: fn(
-	lpAddress: LPVOID,
-	dwSize: SIZE_T,
-	flAllocationType: DWORD,
-	flProtect: DWORD
-) -> LPVOID #cc="stdcall" #foreign #link="VirtualAlloc";
-
-VirtualFree :: fn(
-	lpAddress: LPVOID,
-	dwSize: SIZE_T,
-	dwFreeType: DWORD
-) -> BOOL #cc="stdcall" #foreign #link="VirtualFree";
-
-GetModuleFileNameW :: fn(
-	hModule: HMODULE,
-	lpFilename: LPWSTR,
-	nSize: DWORD
-) -> DWORD #cc="stdcall" #foreign #link="GetModuleFileNameW";
-
-WideCharToMultiByte :: fn(
-	CodePage: UINT,
-	dwFlags: DWORD,
-	lpWideCharStr: LPCWCH,
-	cchWideChar: i32,
-	lpMultiByteStr: LPSTR,
-	cbMultiByte: i32,
-	lpDefaultChar: LPCCH,
-	lpUsedDefaultChar: LPBOOL
-) -> i32 #cc="stdcall" #foreign #link="WideCharToMultiByte";
-
-MultiByteToWideChar :: fn(
-	CodePage: UINT,
-	dwFlags: DWORD,
-	lpMultiByteStr: LPCCH,
-	cbMultiByte: i32,
-	lpWideCharStr: LPWSTR,
-	cchWideChar: i32
-) -> i32 #cc="stdcall" #foreign #link="MultiByteToWideChar";
-
-
-/*
-_InterlockedIncrement64 :: fn(
-	Addend: ?*volatile LONG64
-) -> LONG64 #cc="stdcall" #foreign #link="_InterlockedIncrement64";
-
-_InterlockedCompareExchange64 :: fn(
-	Destination: ?*volatile LONG64,
-	ExChange: LONG64,
-	Comperand: LONG64
-) -> LONG64 #cc="stdcall" #foreign #link="_InterlockedCompareExchange64";
-*/
-
-_ReadBarrier :: fn() #cc="cdecl" #foreign #link="_ReadBarrier";
-
-_WriteBarrier :: fn() #cc="cdecl" #foreign #link="_WriteBarrier";
-
-_ReadWriteBarrier :: fn() #cc="cdecl" #foreign #link="_ReadWriteBarrier";
-NEWLINE :: "\r\n";
-INVALID_HANDLE_VALUE :: (- 1)as HANDLE;
-GENERIC_READ :: 0x80000000;
-GENERIC_WRITE :: 0x40000000;
-FILE_SHARE_READ :: 0x00000001;
-FILE_SHARE_WRITE :: 0x00000002;
-FILE_FLAG_OVERLAPPED :: 0x40000000;
-FILE_FLAG_WRITE_THROUGH :: 0x80000000;
-FILE_FLAG_NO_BUFFERING :: 0x20000000;
-CREATE_NEW :: 1;
-CREATE_ALWAYS :: 2;
-OPEN_EXISTING :: 3;
-OPEN_ALWAYS :: 4;
-ERROR_ALREADY_EXISTS :: 183;
-HWND_MESSAGE :: ( (- 3 )as HWND );
-MAX_PATH :: 260;
-IOCTL_STORAGE_QUERY_PROPERTY :: 0x2D1400;
-INFINITE :: 0xFFFFFFFF;
-WAIT_FAILED :: 0xFFFFFFFF;
-WAIT_OBJECT_0 :: 0;
-SEMAPHORE_MODIFY_STATE :: 0x0002;
-SYNCHRONIZE :: 0x00100000;
-MB_OK :: 0x00000000;
-MB_SYSTEMMODAL :: 0x00001000;
-SM_CXSCREEN :: 0;
-SM_CYSCREEN :: 1;
-CS_VREDRAW :: 0x0001;
-CS_HREDRAW :: 0x0002;
-CS_OWNDC :: 0x0020;
-FORMAT_MESSAGE_FROM_SYSTEM :: 0x00001000;
-FORMAT_MESSAGE_IGNORE_INSERTS :: 0x00000200;
-WM_ACTIVATE :: 0x0006;
-WM_SETFOCUS :: 0x0007;
-WM_KILLFOCUS :: 0x0008;
-WM_PAINT :: 0x000F;
-WM_CLOSE :: 0x0010;
-WM_ERASEBKGND :: 0x0014;
-WM_SHOWWINDOW :: 0x0018;
-WM_SETTINGCHANGE :: 0x001A;
-WM_KEYDOWN :: 0x0100;
-WM_KEYUP :: 0x0101;
-WM_CHAR :: 0x0102;
-WM_DEADCHAR :: 0x0103;
-WM_SYSKEYDOWN :: 0x0104;
-WM_SYSKEYUP :: 0x0105;
-WM_SYSCHAR :: 0x0106;
-WM_SYSDEADCHAR :: 0x0107;
-WM_UNICHAR :: 0x0109;
-WM_MOUSEWHEEL :: 0x020A;
-WHEEL_DELTA :: 120;
-WHEEL_PAGESCROLL :: 0xFFFFFFFF;
-WM_APPCOMMAND :: 0x0319;
-WM_INPUT_DEVICE_CHANGE :: 0x00FE;
-GIDC_ARRIVAL :: 1;
-GIDC_REMOVAL :: 2;
-UNICODE_NOCHAR :: 0xFFFF;
-WA_INACTIVE :: 0;
-WM_SETICON :: 0x0080;
-ICON_BIG :: 1;
-ICON_SMALL :: 0;
-APPCOMMAND_BROWSER_BACKWARD :: 1;
-APPCOMMAND_BROWSER_FORWARD :: 2;
-APPCOMMAND_BROWSER_REFRESH :: 3;
-APPCOMMAND_BROWSER_STOP :: 4;
-APPCOMMAND_BROWSER_SEARCH :: 5;
-APPCOMMAND_BROWSER_FAVORITES :: 6;
-APPCOMMAND_BROWSER_HOME :: 7;
-APPCOMMAND_VOLUME_MUTE :: 8;
-APPCOMMAND_VOLUME_DOWN :: 9;
-APPCOMMAND_VOLUME_UP :: 10;
-APPCOMMAND_MEDIA_NEXTTRACK :: 11;
-APPCOMMAND_MEDIA_PREVIOUSTRACK :: 12;
-APPCOMMAND_MEDIA_STOP :: 13;
-APPCOMMAND_MEDIA_PLAY_PAUSE :: 14;
-APPCOMMAND_LAUNCH_MAIL :: 15;
-APPCOMMAND_LAUNCH_MEDIA_SELECT :: 16;
-APPCOMMAND_LAUNCH_APP1 :: 17;
-APPCOMMAND_LAUNCH_APP2 :: 18;
-APPCOMMAND_BASS_DOWN :: 19;
-APPCOMMAND_BASS_BOOST :: 20;
-APPCOMMAND_BASS_UP :: 21;
-APPCOMMAND_TREBLE_DOWN :: 22;
-APPCOMMAND_TREBLE_UP :: 23;
-APPCOMMAND_MICROPHONE_VOLUME_MUTE :: 24;
-APPCOMMAND_MICROPHONE_VOLUME_DOWN :: 25;
-APPCOMMAND_MICROPHONE_VOLUME_UP :: 26;
-APPCOMMAND_HELP :: 27;
-APPCOMMAND_FIND :: 28;
-APPCOMMAND_NEW :: 29;
-APPCOMMAND_OPEN :: 30;
-APPCOMMAND_CLOSE :: 31;
-APPCOMMAND_SAVE :: 32;
-APPCOMMAND_PRINT :: 33;
-APPCOMMAND_UNDO :: 34;
-APPCOMMAND_REDO :: 35;
-APPCOMMAND_COPY :: 36;
-APPCOMMAND_CUT :: 37;
-APPCOMMAND_PASTE :: 38;
-APPCOMMAND_REPLY_TO_MAIL :: 39;
-APPCOMMAND_FORWARD_MAIL :: 40;
-APPCOMMAND_SEND_MAIL :: 41;
-APPCOMMAND_SPELL_CHECK :: 42;
-APPCOMMAND_DICTATE_OR_COMMAND_CONTROL_TOGGLE :: 43;
-APPCOMMAND_MIC_ON_OFF_TOGGLE :: 44;
-APPCOMMAND_CORRECTION_LIST :: 45;
-APPCOMMAND_MEDIA_PLAY :: 46;
-APPCOMMAND_MEDIA_PAUSE :: 47;
-APPCOMMAND_MEDIA_RECORD :: 48;
-APPCOMMAND_MEDIA_FAST_FORWARD :: 49;
-APPCOMMAND_MEDIA_REWIND :: 50;
-APPCOMMAND_MEDIA_CHANNEL_UP :: 51;
-APPCOMMAND_MEDIA_CHANNEL_DOWN :: 52;
-APPCOMMAND_DELETE :: 53;
-APPCOMMAND_DWM_FLIP3D :: 54;
-FAPPCOMMAND_MOUSE :: 0x8000;
-FAPPCOMMAND_KEY :: 0;
-FAPPCOMMAND_OEM :: 0x1000;
-FAPPCOMMAND_MASK :: 0xF000;
-WM_IME_STARTCOMPOSITION :: 0x010D;
-WM_IME_ENDCOMPOSITION :: 0x010E;
-WM_IME_COMPOSITION :: 0x010F;
-WM_IME_SETCONTEXT :: 0x0281;
-WM_IME_NOTIFY :: 0x0282;
-WM_IME_CONTROL :: 0x0283;
-WM_IME_COMPOSITIONFULL :: 0x0284;
-WM_IME_SELECT :: 0x0285;
-WM_IME_CHAR :: 0x0286;
-WM_IME_REQUEST :: 0x0288;
-WM_IME_KEYDOWN :: 0x0290;
-WM_IME_KEYUP :: 0x0291;
-ISC_SHOWUICANDIDATEWINDOW :: 0x00000001;
-ISC_SHOWUICOMPOSITIONWINDOW :: 0x80000000;
-ISC_SHOWUIGUIDELINE :: 0x40000000;
-ISC_SHOWUIALLCANDIDATEWINDOW :: 0x0000000F;
-ISC_SHOWUIALL :: 0xC000000F;
-IMN_CLOSESTATUSWINDOW :: 0x0001;
-IMN_OPENSTATUSWINDOW :: 0x0002;
-IMN_CHANGECANDIDATE :: 0x0003;
-IMN_CLOSECANDIDATE :: 0x0004;
-IMN_OPENCANDIDATE :: 0x0005;
-IMN_SETCONVERSIONMODE :: 0x0006;
-IMN_SETSENTENCEMODE :: 0x0007;
-IMN_SETOPENSTATUS :: 0x0008;
-IMN_SETCANDIDATEPOS :: 0x0009;
-IMN_SETCOMPOSITIONFONT :: 0x000A;
-IMN_SETCOMPOSITIONWINDOW :: 0x000B;
-IMN_SETSTATUSWINDOWPOS :: 0x000C;
-IMN_GUIDELINE :: 0x000D;
-IMN_PRIVATE :: 0x000E;
-IME_CAND_UNKNOWN :: 0x0000;
-IME_CAND_READ :: 0x0001;
-IME_CAND_CODE :: 0x0002;
-IME_CAND_MEANING :: 0x0003;
-IME_CAND_RADICAL :: 0x0004;
-IME_CAND_STROKE :: 0x0005;
-GCS_COMPREADSTR :: 0x0001;
-GCS_COMPREADATTR :: 0x0002;
-GCS_COMPREADCLAUSE :: 0x0004;
-GCS_COMPSTR :: 0x0008;
-GCS_COMPATTR :: 0x0010;
-GCS_COMPCLAUSE :: 0x0020;
-GCS_CURSORPOS :: 0x0080;
-GCS_DELTASTART :: 0x0100;
-GCS_RESULTREADSTR :: 0x0200;
-GCS_RESULTREADCLAUSE :: 0x0400;
-GCS_RESULTSTR :: 0x0800;
-GCS_RESULTCLAUSE :: 0x1000;
-GCS_COMP :: ( GCS_COMPSTR | GCS_COMPATTR | GCS_COMPCLAUSE );
-GCS_COMPREAD :: ( GCS_COMPREADSTR | GCS_COMPREADATTR | GCS_COMPREADCLAUSE );
-GCS_RESULT :: ( GCS_RESULTSTR | GCS_RESULTCLAUSE );
-GCS_RESULTREAD :: ( GCS_RESULTREADSTR | GCS_RESULTREADCLAUSE );
-CS_INSERTCHAR :: 0x2000;
-CS_NOMOVECARET :: 0x4000;
-NI_COMPOSITIONSTR :: 0x0015;
-CPS_COMPLETE :: 0x0001;
-CPS_CONVERT :: 0x0002;
-CPS_REVERT :: 0x0003;
-CPS_CANCEL :: 0x0004;
-IMAGE_ICON :: 1;
-IMAGE_CURSOR :: 2;
-LR_SHARED :: 0x00008000;
-LR_LOADFROMFILE :: 0x00000010;
-WS_POPUP :: 0x80000000;
-WS_OVERLAPPED :: 0x00000000;
-WS_CAPTION :: 0x00C00000;
-WS_SYSMENU :: 0x00080000;
-WS_THICKFRAME :: 0x00040000;
-WS_MAXIMIZEBOX :: 0x00010000;
-WS_MINIMIZEBOX :: 0x00020000;
-WS_OVERLAPPEDWINDOW :: ( WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX );
-WS_VISIBLE :: 0x10000000;
-WS_EX_APPWINDOW :: 0x00040000;
-WS_EX_LAYERED :: 0x00080000;
-LWA_ALPHA :: 0x00000002;
-SW_SHOWNORMAL :: 1;
-SW_SHOWMINIMIZED :: 2;
-SW_SHOW :: 5;
-SW_SHOWDEFAULT :: 10;
-AW_ACTIVATE :: 0x00020000;
-AW_BLEND :: 0x00080000;
-VK_LEFT :: 0x25;
-VK_UP :: 0x26;
-VK_RIGHT :: 0x27;
-VK_DOWN :: 0x28;
-VK_ESCAPE :: 0x1B;
-VK_BACK :: 0x08;
-VK_SHIFT :: 0x10;
-VK_CONTROL :: 0x11;
-VK_CAPITAL :: 0x14;
-VK_F1 :: 0x70;
-VK_F2 :: 0x71;
-VK_F3 :: 0x72;
-VK_F4 :: 0x73;
-VK_F5 :: 0x74;
-VK_F6 :: 0x75;
-VK_F7 :: 0x76;
-VK_F8 :: 0x77;
-VK_F9 :: 0x78;
-CTRL_C_EVENT :: 0;
-CTRL_BREAK_EVENT :: 1;
-CTRL_CLOSE_EVENT :: 2;
-PFD_DOUBLEBUFFER :: 0x00000001;
-PFD_DRAW_TO_WINDOW :: 0x00000004;
-PFD_SUPPORT_OPENGL :: 0x00000020;
-PFD_SWAP_EXCHANGE :: 0x00000200;
-PFD_DEPTH_DONTCARE :: 0x20000000;
-PFD_TYPE_RGBA :: 0;
-PFD_MAIN_PLANE :: 0;
-TIMERR_NOERROR :: 0;
-PAGE_NOACCESS :: 0x01;
-PAGE_READONLY :: 0x02;
-PAGE_READWRITE :: 0x04;
-PAGE_WRITECOPY :: 0x08;
-PAGE_EXECUTE :: 0x10;
-PAGE_EXECUTE_READ :: 0x20;
-PAGE_EXECUTE_READWRITE :: 0x40;
-PAGE_EXECUTE_WRITECOPY :: 0x80;
-PAGE_GUARD :: 0x100;
-PAGE_NOCACHE :: 0x200;
-PAGE_WRITECOMBINE :: 0x400;
-PAGE_GRAPHICS_NOACCESS :: 0x0800;
-PAGE_GRAPHICS_READONLY :: 0x1000;
-PAGE_GRAPHICS_READWRITE :: 0x2000;
-PAGE_GRAPHICS_EXECUTE :: 0x4000;
-PAGE_GRAPHICS_EXECUTE_READ :: 0x8000;
-PAGE_GRAPHICS_EXECUTE_READWRITE :: 0x10000;
-PAGE_GRAPHICS_COHERENT :: 0x20000;
-PAGE_GRAPHICS_NOCACHE :: 0x40000;
-PAGE_ENCLAVE_THREAD_CONTROL :: 0x80000000;
-PAGE_REVERT_TO_FILE_MAP :: 0x80000000;
-PAGE_TARGETS_NO_UPDATE :: 0x40000000;
-PAGE_TARGETS_INVALID :: 0x40000000;
-PAGE_ENCLAVE_UNVALIDATED :: 0x20000000;
-PAGE_ENCLAVE_MASK :: 0x10000000;
-PAGE_ENCLAVE_DECOMMIT :: ( PAGE_ENCLAVE_MASK | 0 );
-PAGE_ENCLAVE_SS_FIRST :: ( PAGE_ENCLAVE_MASK | 1 );
-PAGE_ENCLAVE_SS_REST :: ( PAGE_ENCLAVE_MASK | 2 );
-MEM_COMMIT :: 0x00001000;
-MEM_RESERVE :: 0x00002000;
-MEM_REPLACE_PLACEHOLDER :: 0x00004000;
-MEM_RESERVE_PLACEHOLDER :: 0x00040000;
-MEM_RESET :: 0x00080000;
-MEM_TOP_DOWN :: 0x00100000;
-MEM_WRITE_WATCH :: 0x00200000;
-MEM_PHYSICAL :: 0x00400000;
-MEM_ROTATE :: 0x00800000;
-MEM_DIFFERENT_IMAGE_BASE_OK :: 0x00800000;
-MEM_RESET_UNDO :: 0x01000000;
-MEM_LARGE_PAGES :: 0x20000000;
-MEM_4MB_PAGES :: 0x80000000;
-MEM_64K_PAGES :: ( MEM_LARGE_PAGES | MEM_PHYSICAL );
-MEM_UNMAP_WITH_TRANSIENT_BOOST :: 0x00000001;
-MEM_COALESCE_PLACEHOLDERS :: 0x00000001;
-MEM_PRESERVE_PLACEHOLDER :: 0x00000002;
-MEM_DECOMMIT :: 0x00004000;
-MEM_RELEASE :: 0x00008000;
-MEM_FREE :: 0x00010000;
-CP_UTF8 :: 65001;
-WC_ERR_INVALID_CHARS :: 0x00000080;
-MB_ERR_INVALID_CHARS :: 0x00000008;
+AF_UNSPEC :: 0;
 AF_INET :: 2;
 AF_INET6 :: 23;
 SOCK_STREAM :: 1;
-IPPROTO_TCP :: 6;
-IPPROTO_IPV6 :: 41;
-IPV6_V6ONLY :: 27;
-SOMAXCONN :: 0x7fffffff;
 SOCK_DGRAM :: 2;
+IPPROTO_TCP :: 6;
 IPPROTO_UDP :: 17;
-ERROR_INSUFFICIENT_BUFFER :: 122;
-ERROR_SUCCESS :: 0;
-ERROR_SHARING_VIOLATION :: 32;
-FALSE :: 0;
-TRUE :: 1;
-RIDEV_REMOVE :: 0x00000001;
-RIDEV_EXCLUDE :: 0x00000010;
-RIDEV_PAGEONLY :: 0x00000020;
-RIDEV_NOLEGACY :: 0x00000030;
-RIDEV_INPUTSINK :: 0x00000100;
-RIDEV_CAPTUREMOUSE :: 0x00000200;
-RIDEV_NOHOTKEYS :: 0x00000200;
-RIDEV_APPKEYS :: 0x00000400;
-RIDEV_EXINPUTSINK :: 0x00001000;
-RIDEV_DEVNOTIFY :: 0x00002000;
-RIDI_PREPARSEDDATA :: 0x20000005;
-RIDI_DEVICENAME :: 0x20000007;
-RIDI_DEVICEINFO :: 0x2000000b;
-QS_RAWINPUT :: 0x0400;
-RIM_TYPEMOUSE :: 0;
-RIM_TYPEKEYBOARD :: 1;
-RIM_TYPEHID :: 2;
-RIM_TYPEMAX :: 2;
-RI_MOUSE_BUTTON_1_DOWN :: 0x0001;
-RI_MOUSE_BUTTON_1_UP :: 0x0002;
-RI_MOUSE_LEFT_BUTTON_DOWN :: 0x0001;
-RI_MOUSE_LEFT_BUTTON_UP :: 0x0002;
-RI_MOUSE_RIGHT_BUTTON_DOWN :: 0x0004;
-RI_MOUSE_RIGHT_BUTTON_UP :: 0x0008;
-RI_MOUSE_MIDDLE_BUTTON_DOWN :: 0x0010;
-RI_MOUSE_MIDDLE_BUTTON_UP :: 0x0020;
-RI_MOUSE_BUTTON_4_DOWN :: 0x0040;
-RI_MOUSE_BUTTON_4_UP :: 0x0080;
-RI_MOUSE_BUTTON_5_DOWN :: 0x0100;
-RI_MOUSE_BUTTON_5_UP :: 0x0200;
-RI_MOUSE_WHEEL :: 0x0400;
-RI_MOUSE_HWHEEL :: 0x0800;
-MOUSE_MOVE_RELATIVE :: 0;
-MOUSE_MOVE_ABSOLUTE :: 1;
-MOUSE_VIRTUAL_DESKTOP :: 0x02;
-MOUSE_ATTRIBUTES_CHANGED :: 0x04;
-MOUSE_MOVE_NOCOALESCE :: 0x08;
-KEYBOARD_OVERRUN_MAKE_CODE :: 0xFF;
-RI_KEY_MAKE :: 0;
-RI_KEY_BREAK :: 1;
-RI_KEY_E0 :: 2;
-RI_KEY_E1 :: 4;
-RI_KEY_TERMSRV_SET_LED :: 8;
-RI_KEY_TERMSRV_SHADOW :: 0x10;
-FACILITY_HID_ERROR_CODE :: 0x11;
-INVALID_SOCKET :: ( (( ~ 0 ) )as SOCKET );
-SOCKET_ERROR :: ( - 1 );
+IPPROTO_IPV6 :: 41;
+SOMAXCONN :: 0x7fffffff;
+
+SOL_SOCKET :: 0xffff;
+SO_REUSEADDR :: 0x0004;
+SO_KEEPALIVE :: 0x0008;
+SO_SNDBUF :: 0x1001;
+SO_RCVBUF :: 0x1002;
+SO_RCVTIMEO :: 0x1006;
+SO_SNDTIMEO :: 0x1005;
+TCP_NODELAY :: 0x0001;
+IPV6_V6ONLY :: 27;
+
+MSG_PEEK :: 0x2;
+MSG_WAITALL :: 0x8;
+
+SD_RECEIVE :: 0;
+SD_SEND :: 1;
+SD_BOTH :: 2;
+
+AI_PASSIVE :: 0x00000001;
+FIONBIO :: ( (0x8004667E )as i32 );
+
+WSAEWOULDBLOCK :: 10035;
 WSAEMSGSIZE :: 10040;
 WSAECONNRESET :: 10054;
-ABOVE_NORMAL_PRIORITY_CLASS :: 0x00008000;
-HKEY_CURRENT_USER :: ( ((( (0x80000001 )as LONG )as ULONG_PTR )as HKEY ) );
+WSAETIMEDOUT :: 10060;
+WSAECONNREFUSED :: 10061;
 
-FILE_ATTRIBUTE_READONLY :: 0x00000001;
-FILE_ATTRIBUTE_HIDDEN :: 0x00000002;
-FILE_ATTRIBUTE_SYSTEM :: 0x00000004;
-FILE_ATTRIBUTE_DIRECTORY :: 0x00000010;
-FILE_ATTRIBUTE_ARCHIVE :: 0x00000020;
-FILE_ATTRIBUTE_DEVICE :: 0x00000040;
-FILE_ATTRIBUTE_NORMAL :: 0x00000080;
-FILE_ATTRIBUTE_TEMPORARY :: 0x00000100;
-FILE_ATTRIBUTE_SPARSE_FILE :: 0x00000200;
-FILE_ATTRIBUTE_REPARSE_POINT :: 0x00000400;
-FILE_ATTRIBUTE_COMPRESSED :: 0x00000800;
-FILE_ATTRIBUTE_OFFLINE :: 0x00001000;
-FILE_ATTRIBUTE_NOT_CONTENT_INDEXED :: 0x00002000;
-FILE_ATTRIBUTE_ENCRYPTED :: 0x00004000;
-FILE_ATTRIBUTE_INTEGRITY_STREAM :: 0x00008000;
-FILE_ATTRIBUTE_VIRTUAL :: 0x00010000;
-FILE_ATTRIBUTE_NO_SCRUB_DATA :: 0x00020000;
-FILE_ATTRIBUTE_EA :: 0x00040000;
-FILE_ATTRIBUTE_PINNED :: 0x00080000;
-FILE_ATTRIBUTE_UNPINNED :: 0x00100000;
-FILE_ATTRIBUTE_RECALL_ON_OPEN :: 0x00040000;
-FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS :: 0x00400000;
+FD_SETSIZE :DWORD: 64;
 
-STD_INPUT_HANDLE :: ( (- 10 )as DWORD );
-STD_OUTPUT_HANDLE :: ( (- 11 )as DWORD );
-STD_ERROR_HANDLE :: ( (- 12 )as DWORD );
+WSADATA :: struct {
+	wVersion: WORD,
+	wHighVersion: WORD,
+	iMaxSockets: WORD,
+	iMaxUdpDg: WORD,
+	lpVendorInfo: ?*u8,
+	szDescription: [257]i8,
+	szSystemStatus: [129]i8,
+}
+
+LPWSADATA: type: ?*WSADATA;
+
+sockaddr :: struct {
+	sa_family: ADDRESS_FAMILY,
+	sa_data: [14]i8,
+}
+
+in_addr :: struct {
+	S_un: union {
+		S_un_b: struct {
+			s_b1: BYTE,
+			s_b2: BYTE,
+			s_b3: BYTE,
+			s_b4: BYTE,
+		},
+		S_un_w: struct {
+			s_w1: WORD,
+			s_w2: WORD,
+		},
+		S_addr: DWORD,
+	},
+}
+
+IN_ADDR: type: in_addr;
+
+in6_addr :: struct {
+	u: union {
+		Byte: [16]UCHAR,
+		Word: [8]USHORT,
+	},
+}
+
+IN6_ADDR: type: in6_addr;
+
+SCOPE_ID :: struct {
+	u: union {
+		s: struct {
+			zone_level_bitfield: ULONG,
+		},
+		value: ULONG,
+	},
+}
+
+sockaddr_in :: struct {
+	sin_family: ADDRESS_FAMILY,
+	sin_port: USHORT,
+	sin_addr: IN_ADDR,
+	sin_zero: [8]CHAR,
+}
+
+sockaddr_in6 :: struct {
+	sin6_family: ADDRESS_FAMILY,
+	sin6_port: USHORT,
+	sin6_flowinfo: ULONG,
+	sin6_addr: IN6_ADDR,
+	u: union {
+		sin6_scope_id: ULONG,
+		sin6_scope_struct: SCOPE_ID,
+	},
+}
+
+addrinfo :: struct {
+	ai_flags: i32,
+	ai_family: i32,
+	ai_socktype: i32,
+	ai_protocol: i32,
+	ai_addrlen: uint,
+	ai_canonname: ?*u8,
+	ai_addr: ?*sockaddr,
+	ai_next: ?*addrinfo,
+}
+
+fd_set :: struct {
+	fd_count: DWORD,
+	fd_array: [64]SOCKET,
+}
+
+timeval :: struct {
+	tv_sec: i32,
+	tv_usec: i32,
+}
+
+WSAStartup :: fn(
+	wVersionRequired: WORD,
+	lpWSAData: LPWSADATA
+) -> i32 #cc="stdcall" #foreign #link="WSAStartup";
+
+WSACleanup :: fn() -> i32 #cc="stdcall" #foreign #link="WSACleanup";
+
+WSAGetLastError :: fn() -> i32 #cc="stdcall" #foreign #link="WSAGetLastError";
+
+socket :: fn(
+	af: i32,
+	type: i32,
+	protocol: i32
+) -> SOCKET #cc="stdcall" #foreign #link="socket";
+
+closesocket :: fn(
+	s: SOCKET
+) -> i32 #cc="stdcall" #foreign #link="closesocket";
+
+shutdown :: fn(
+	s: SOCKET,
+	how: i32
+) -> i32 #cc="stdcall" #foreign #link="shutdown";
+
+bind :: fn(
+	s: SOCKET,
+	addr: ?*sockaddr,
+	namelen: i32
+) -> i32 #cc="stdcall" #foreign #link="bind";
+
+listen :: fn(
+	s: SOCKET,
+	backlog: i32
+) -> i32 #cc="stdcall" #foreign #link="listen";
+
+accept :: fn(
+	s: SOCKET,
+	addr: ?*sockaddr,
+	addrlen: ?*i32
+) -> SOCKET #cc="stdcall" #foreign #link="accept";
+
+connect :: fn(
+	s: SOCKET,
+	name: ?*sockaddr,
+	namelen: i32
+) -> i32 #cc="stdcall" #foreign #link="connect";
+
+send :: fn(
+	s: SOCKET,
+	buf: ?*u8,
+	len: i32,
+	flags: i32
+) -> i32 #cc="stdcall" #foreign #link="send";
+
+sendto :: fn(
+	s: SOCKET,
+	buf: ?*u8,
+	len: i32,
+	flags: i32,
+	to: ?*sockaddr,
+	tolen: i32
+) -> i32 #cc="stdcall" #foreign #link="sendto";
+
+recv :: fn(
+	s: SOCKET,
+	buf: ?*u8,
+	len: i32,
+	flags: i32
+) -> i32 #cc="stdcall" #foreign #link="recv";
+
+recvfrom :: fn(
+	s: SOCKET,
+	buf: ?*u8,
+	len: i32,
+	flags: i32,
+	from: ?*sockaddr,
+	fromlen: ?*i32
+) -> i32 #cc="stdcall" #foreign #link="recvfrom";
+
+select :: fn(
+	nfds: i32,
+	readfds: ?*fd_set,
+	writefds: ?*fd_set,
+	exceptfds: ?*fd_set,
+	timeout: ?*timeval
+) -> i32 #cc="stdcall" #foreign #link="select";
+
+setsockopt :: fn(
+	s: SOCKET,
+	level: i32,
+	optname: i32,
+	optval: ?*u8,
+	optlen: i32
+) -> i32 #cc="stdcall" #foreign #link="setsockopt";
+
+getsockopt :: fn(
+	s: SOCKET,
+	level: i32,
+	optname: i32,
+	optval: ?*u8,
+	optlen: ?*i32
+) -> i32 #cc="stdcall" #foreign #link="getsockopt";
+
+ioctlsocket :: fn(
+	s: SOCKET,
+	cmd: i32,
+	argp: ?*u_long
+) -> i32 #cc="stdcall" #foreign #link="ioctlsocket";
+
+getsockname :: fn(
+	s: SOCKET,
+	name: ?*sockaddr,
+	namelen: ?*i32
+) -> i32 #cc="stdcall" #foreign #link="getsockname";
+
+getpeername :: fn(
+	s: SOCKET,
+	name: ?*sockaddr,
+	namelen: ?*i32
+) -> i32 #cc="stdcall" #foreign #link="getpeername";
+
+getaddrinfo :: fn(
+	pNodeName: ?*u8,
+	pServiceName: ?*u8,
+	pHints: ?*addrinfo,
+	ppResult: ?*?*addrinfo
+) -> i32 #cc="stdcall" #foreign #link="getaddrinfo";
+
+freeaddrinfo :: fn(
+	pAddrInfo: ?*addrinfo
+) #cc="stdcall" #foreign #link="freeaddrinfo";
+
+htons :: fn(
+	hostshort: u_short
+) -> u_short #cc="stdcall" #foreign #link="htons";
+
+ntohs :: fn(
+	netshort: u_short
+) -> u_short #cc="stdcall" #foreign #link="ntohs";
+
+htonl :: fn(
+	hostlong: u_long
+) -> u_long #cc="stdcall" #foreign #link="htonl";
+
+ntohl :: fn(
+	netlong: u_long
+) -> u_long #cc="stdcall" #foreign #link="ntohl";
+
+__WSAFDIsSet :: fn(
+	unnamedParam1: SOCKET,
+	unnamedParam2: *fd_set
+) -> c_int #cc="stdcall" #foreign #link="__WSAFDIsSet";
+
+FD_ZERO :: fn(set: *fd_set) #inline {
+	set.fd_count = 0;
+}
+
+FD_SET :: fn(fd: SOCKET, set: *fd_set) #inline {
+	__i: DWORD;
+	for __i = 0; __i < set.fd_count; __i++ {
+		if set.fd_array[__i] == fd {
+			break;
+		}
+	}
+	if __i == set.fd_count {
+		if set.fd_count < FD_SETSIZE {
+			set.fd_array[__i] = (fd);
+			set.fd_count++;
+		}
+	}
+}
+
+FD_CLR :: fn(fd: SOCKET, set: *fd_set) #inline {
+	for __i: DWORD = 0; __i < set.fd_count; __i++ {
+		if set.fd_array[__i] == fd {
+			for __i < set.fd_count-1 {
+				set.fd_array[__i] = set.fd_array[__i+1];
+				__i++;
+			}
+			set.fd_count--;
+			break;
+		}
+	}
+}

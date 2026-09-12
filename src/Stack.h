@@ -41,6 +41,10 @@ struct stack
 		return Result;
 	}
 
-	b32 IsEmpty() { return Data.Count == 0; }
+	bool IsEmpty() { return Data.Count == 0; }
+	bool Contains(const T& item)
+	{
+		return Data.Contains(item);
+	}
 };
 

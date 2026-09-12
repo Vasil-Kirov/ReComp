@@ -4,6 +4,7 @@
 #include "DynamicLib.h"
 #include "Lexer.h"
 #include "Module.h"
+#include "Stack.h"
 #include "VString.h"
 struct type;
 struct function;
@@ -77,6 +78,8 @@ enum node_type
 	AST_YIELD,
 	AST_RUN,
 	AST_FILE_LOCATION,
+
+	AST_ERROR, // Error Node, no value
 };
 
 struct node
@@ -320,6 +323,12 @@ struct node
 	const error_info *ErrorInfo;
 };
 
+struct safe_token
+{
+	token_type Type;
+	bool EatOnSync;
+};
+
 struct parser
 {
 	dynamic<needs_resolving_import> Imported;
@@ -328,11 +337,14 @@ struct parser
 	string ModuleName;
 	token *Tokens;
 	token *Current;
+	stack<safe_token> SafeTokens;
 	u64 TokenIndex;
-	b32 CurrentlyPublic;
-	b32 NoStructLists;
-	b32 NoItemLists;
+	bool CurrentlyPublic;
+	bool NoStructLists;
+	bool NoItemLists;
+	bool PanicMode;
 	uint ScopeLevel;
+	uint ReportedErrors;
 };
 
 struct parse_result

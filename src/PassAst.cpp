@@ -56,6 +56,9 @@ InterpNode *NodeToInterp(node *N)
 			unreachable; 
 			break;
 
+		case AST_ERROR:
+			break;
+
 		case AST_SLICE:
 		{
 			R->slice.operand = NodeToInterp(N->Slice.Operand);
@@ -433,6 +436,9 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 	{
 		case AST_INVALID: 
 			unreachable; 
+			break;
+
+		case AST_ERROR:
 			break;
 
 		case AST_SLICE:

@@ -1,6 +1,5 @@
 #pragma once
 
-
 #if _WIN32
 #define STRSAFE_NO_DEPRECATE
 

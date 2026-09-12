@@ -241,10 +241,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 
 	MainThreadWorkUntilDone(CurrentPipeline.Queue);
 
-	ExitIfErroredOut();
-
 	dynamic<module*> Modules = {};
-
 	For(CurrentPipeline.ParseResults.Results)
 	{
 		ForN(CustomFiles, cf)
@@ -591,7 +588,9 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 			}
 		}
 
-		if(!FoundModule)
+		if(g_CompileFlags & CF_Standalone)
+		{}
+		else if(!FoundModule)
 		{
 			LogCompilerError("Error: Missing entry module %.*s\n", EntryModule.Size, EntryModule.Data);
 			CountError();

@@ -5,6 +5,7 @@
 
 void value_map::Add(u32 Register, LLVMValueRef Value)
 {
+	Assert(Value);
 	Data.Add(Register, Value);
 }
 

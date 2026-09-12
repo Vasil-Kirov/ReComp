@@ -118,6 +118,15 @@ struct slice {
 		return Data[Index];
 	}
 	b32 IsValid() const { return Data != NULL; }
+	bool Contains(const T& it)
+	{
+		for(size_t i = 0; i < Count; ++i)
+		{
+			if (Data[i] == it)
+				return true;
+		}
+		return false;
+	}
 	T Last()
 	{
 		if(Count == 0)
@@ -261,6 +270,20 @@ array<T> ArrayFromConst(std::initializer_list<T> List)
 	Result.Count = Size;
 	return Result;
 }
+
+#include <utility>
+template <typename T>
+struct scope_on_exit {
+	T Fn;
+	scope_on_exit(T F) : Fn{std::move(F)} {}
+	~scope_on_exit()
+	{
+		Fn();
+	}
+    scope_on_exit(const scope_on_exit&) = delete;
+    scope_on_exit& operator=(const scope_on_exit&) = delete;
+};
+
 
 #define ForArray(Index_, _Array) for(size_t Index_ = 0; Index_ < (_Array).Count; ++Index_)
 #define For(_Array) for(auto *it = (_Array).Data, *_end_ptr__ = (_Array).Data+(_Array).Count; it != _end_ptr__; ++it)

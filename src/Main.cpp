@@ -672,6 +672,10 @@ main(int ArgCount, char *Args[])
 			{
 				ConfigIDs.Push(STR_LIT("LIBC"));
 			}
+			if(Info->Flags & CF_Standalone)
+			{
+				ConfigIDs.Push(STR_LIT("Standalone"));
+			}
 
 			g_CompileFlags = Info->Flags;
 			if(Info->Flags & CF_CrossAndroid)

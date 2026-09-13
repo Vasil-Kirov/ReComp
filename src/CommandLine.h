@@ -39,12 +39,6 @@ enum arch
 	Arch_Wasm64	= 0b10000,
 };
 
-struct parse_params
-{
-	long long Pipe;
-	string Text;
-};
-
 struct command_line
 {
 	string BuildFile;
@@ -52,7 +46,7 @@ struct command_line
 	slice<string> ImportDLLs;
 	dynamic<string> LinkArgs; // dynamic so that more can be added later by the compile function
 	slice<string> IRModules;
-	slice<parse_params> ToParse;
+	long long ToolPipe;
 	uint Flags;
 };
 

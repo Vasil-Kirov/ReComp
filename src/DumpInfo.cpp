@@ -1,3 +1,4 @@
+#include "IPC.h"
 #include "Module.h"
 #include "Platform.h"
 #include "Semantics.h"
@@ -10,7 +11,6 @@
 binary_blob *GlobalBlob = NULL;
 dynamic<error_dump> ErrorsToDump = {};
 dynamic<scope_dump> ScopesToDump = {};
-bool AlreadyPipedInfo = false;
 std::unordered_map<node*, selector_info> SelectorInfo = {};
 std::unordered_map<u32, node*> TypeNodeRecord = {};
 
@@ -179,11 +179,8 @@ void DumpTypeTable(binary_blob *Blob)
 	}
 }
 
-void PipeInfoBlob(binary_blob *Blob)
+void PipeInfoBlob(binary_blob *Blob, slice<file*> Files, slice<module*> Modules)
 {
-	if(AlreadyPipedInfo)
-		return;
-
 	if(Blob == NULL)
 	{
 		if(GlobalBlob)
@@ -191,26 +188,41 @@ void PipeInfoBlob(binary_blob *Blob)
 		else
 			return;
 	}
-	DumpString(Blob, STR_LIT(":ERRS\n"));
+	if(ToolPipe == -1)
+		return;
+
+	DumpString(Blob, STR_LIT(":ERRS"));
 	DumpU32(Blob, ErrorsToDump.Count);
-	For(ErrorsToDump)
+	for(auto &it : ErrorsToDump)
 	{
-		DumpError(Blob, *it);
+		DumpError(Blob, it);
 	}
-	if(ScopesToDump.Count != 0)
+	DumpString(Blob, STR_LIT(":SCOP"));
+	DumpU32(Blob, ScopesToDump.Count);
+	for(auto it : ScopesToDump)
 	{
-		DumpString(Blob, STR_LIT(":SCOP\n"));
-		DumpU32(Blob, ScopesToDump.Count);
-		For(ScopesToDump)
-		{
-			DumpScope(Blob, *it);
-		}
+		DumpScope(Blob, it);
+	}
+	DumpString(Blob, STR_LIT(":FILE"));
+	DumpU32(Blob, Files.Count);
+	for(auto it : Files)
+	{
+		DumpFile(Blob, it);
 	}
 
-	AlreadyPipedInfo = true;
-	
-	//PlatformDeleteFile(DumpFileName.Data);
-	//PlatformWriteFile(DumpFileName.Data, Blob->Buf.Data, Blob->Buf.Count);
+	DumpString(Blob, STR_LIT(":MODS"));
+	DumpU32(Blob, Modules.Count);
+	for(auto it : Modules)
+	{
+		DumpModule(Blob, it);
+	}
+
+	DumpString(Blob, STR_LIT(":TYPE"));
+	DumpTypeTable(Blob);
+
+	u32 Size = Blob->Buf.Count;
+	PlatformWritePipe(ToolPipe, &Size, sizeof(Size));
+	PlatformWritePipe(ToolPipe, Blob->Buf.Data, Size);
 }
 
 void DumpError(binary_blob *Blob, error_dump Error)

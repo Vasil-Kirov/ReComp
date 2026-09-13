@@ -300,14 +300,10 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 		File->Checker->Imported	= File->Imported;
 	}
 
-	ExitIfErroredOut();
-
 	CurrentModules = SliceFromArray(Modules);
 	slice<file *> Files = SliceFromArray(FileArray);
 
 	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint);
-
-	ExitIfErroredOut();
 
 	bool FoundInternal = false;
 	For(Modules)
@@ -330,6 +326,11 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 
 
+	if (ToolPipe != -1)
+	{
+		PipeInfoBlob(&Blob, Files, SliceFromArray(Modules));
+		exit(0);
+	}
 	VLibStopTimer(&Timers.TypeCheck);
 	// END OF TYPE CHECKING     --------------------------------------------------
 

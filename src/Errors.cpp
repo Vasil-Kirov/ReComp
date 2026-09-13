@@ -8,6 +8,7 @@
 
 string BonusErrorMessage = {};
 bool DumpingInfo = false;
+long long ToolPipe = -1;
 std::atomic<uint> Errors = {};
 
 void SetBonusMessage(string S)
@@ -203,7 +204,8 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	ErrorMutex.unlock();
 	if((Abort || Errors > 4))
 	{
-		exit(1);
+		if (!DumpingInfo)
+			exit(1);
 	}
 }
 

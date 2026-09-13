@@ -512,6 +512,7 @@ main(int ArgCount, char *Args[])
 	if(CommandLine.BuildFile.Data == NULL && CommandLine.SingleFile.Data == NULL)
 		return 1;
 
+	ToolPipe = CommandLine.ToolPipe;
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
 	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
 	StdLibDir.Size--;

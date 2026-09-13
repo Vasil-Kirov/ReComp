@@ -33,14 +33,11 @@ OPTIONS:
 		Disables multi threading
 	--write-ctags
 		Writes a tags file using the universal ctags format
-	--parse pipe text
-		Parses the passed text and writes information about it to the pipe
+	--tool-info pipe
+		Sends an info dump about the compilation, doesn't output binary file
 	--
 		Pass arguments after this to the build script
 )#";
-
-//  --ipc write_pipe read_pipe
-//  	For tools, pass ids for communication pipes, compiler will dump info to write_pipe
 
 command_line ParseCommandLine(int ArgCount, char *CArgs[])
 {
@@ -66,11 +63,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--file"),
 		STR_LIT("--write-ctags"),
 		STR_LIT("--no-thread"),
-		STR_LIT("--parse"),
+		STR_LIT("--tool-info"),
 	};
 	bool HasPrintedHelp = false;
 
-	dynamic<parse_params> ToParse = {};
+	long long Pipe = -1;
 	dynamic<string> ImportDLLs = {};
 	dynamic<string> LinkCMDs = {};
 	dynamic<string> IRModules = {};
@@ -154,16 +151,14 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[11]))
 		{
-			if(i + 2 >= ArgCount)
+			if(i + 1 >= ArgCount)
 			{
-				LogCompilerError("Expected a pipe and string --parse");
+				LogCompilerError("Expected a pipe after --tool-info");
 				RET_EMPTY(command_line);
 			}
 			i++;
-			long long Pipe = strtoll(Args[i].Data, NULL, 0);
-			i++;
-			string Text = Args[i];
-			ToParse.Push({Pipe, Text});
+			Pipe = strtoll(Args[i].Data, NULL, 0);
+			Result.Flags |= CommandFlag_dumpinfo;
 		}
 		else if(Arg == "--")
 		{
@@ -198,7 +193,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 	Result.LinkArgs = LinkCMDs;
 	Result.ImportDLLs = SliceFromArray(ImportDLLs);
 	Result.IRModules = SliceFromArray(IRModules);
-	Result.ToParse = SliceFromArray(ToParse);
+	Result.ToolPipe = Pipe;
 
 	GlobalIRModules = Result.IRModules;
 	return Result;

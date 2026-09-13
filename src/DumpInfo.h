@@ -48,6 +48,7 @@ extern string DumpFileName;
 extern binary_blob *GlobalBlob;
 extern dynamic<error_dump> ErrorsToDump;
 extern dynamic<scope_dump> ScopesToDump;
+extern long long ToolPipe;
 binary_blob StartOutput();
 
 void DumpU32(binary_blob *Blob, u32 Num);
@@ -59,7 +60,7 @@ void DumpError(binary_blob *Blob, error_dump Error);
 void DumpScope(binary_blob *Blob, scope_dump Symbol);
 void AddErrorToDump(error_dump Error);
 void AddScopeToDump(scope_dump Symbol, struct scope *Scope);
-void PipeInfoBlob(binary_blob *Blob);
+void PipeInfoBlob(binary_blob *Blob, slice<file*> Files, slice<module*> Modules);
 void DumpFileTokens(binary_blob *Blob, file *File);
 void DumpLocationErrI(binary_blob *Blob, const error_info *ErrI);
 

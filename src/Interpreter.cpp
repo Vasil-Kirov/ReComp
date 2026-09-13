@@ -2056,7 +2056,7 @@ void DoAllocationForInstructions(interpreter *VM, slice<instruction> Instruction
 					value *V = VM->Registers.GetValue(Info->CallInfo->Args[0]);
 					u32 Out;
 					auto Data = (void **)IndexVM(VM, V, 1, Type->Function.Returns[0], &Out);
-					*Data = (void *)ALLOC((GetRegisterTypeSize()/8) * BuildScriptArgs.Count);
+					*Data = (void *)ArenaAllocate(&VM->Arena, (GetRegisterTypeSize()/4) * BuildScriptArgs.Count);
 				}
 			} break;
 			default: break;

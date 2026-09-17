@@ -956,7 +956,7 @@ void BuildSliceAssert(block_builder *Builder, node *Node, u32 From, u32 To, u32 
 {
 	if(From != -1)
 	{
-		u32 AssertCond = PushInstruction(Builder, Instruction(OP_LESS, From, Count, Basic_bool, Builder));
+		u32 AssertCond = PushInstruction(Builder, Instruction(OP_LEQ, From, Count, Basic_bool, Builder));
 		BuildAssertExpr(Builder, AssertCond, Node->Slice.From->ErrorInfo, STR_LIT("Start of slice is out of bounds!"));
 	}
 	if(To != -1)

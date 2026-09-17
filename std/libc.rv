@@ -3,13 +3,28 @@ module libc
 
 _ :: #import mem;
 
+
+
+SIGINT          :c_int: 2;   // interrupt
+SIGILL          :c_int: 4;   // illegal instruction - invalid function image
+SIGFPE          :c_int: 8;   // floating point exception
+SIGSEGV         :c_int: 11;  // segment violation
+SIGTERM         :c_int: 15;  // Software termination signal from kill
+SIGBREAK        :c_int: 21;  // Ctrl-Break sequence
+SIGABRT         :c_int: 22;  // abnormal termination triggered by abort call
+
+SIGABRT_COMPAT  :c_int: 6;   // SIGABRT compatible with other platforms, same as SIGABRT
+
+_crt_signal_t :type: fn(c_int);
+
 printf :: fn(fmt: *u8, args: ...) -> i32 #foreign;
 system :: fn(cmd: *u8) -> i32 #foreign;
 malloc :: fn(size: int) -> ?* #foreign;
 free   :: fn(ptr: ?*) #foreign;
+signal :: fn(_Signal: c_int, _Function: _crt_signal_t) #foreign;
 
 do_malloc_free :: fn(ptr: ?*, this: *Allocator) {
-    free(ptr);
+	free(ptr);
 }
 
 do_malloc_allocation :: fn(size: int, this: *Allocator) -> ?* {

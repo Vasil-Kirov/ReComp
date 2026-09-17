@@ -71,7 +71,10 @@ get_type_alignment :: fn(t: type) -> int {
 get_basic_type_size :: fn(t: BasicType) -> int {
     if t.size != -1
         return t.size as int;
-    return get_register_bit_count() / 8;
+	reg_size := get_register_bit_count();
+	if t.kind == .String
+		return reg_size / 4;
+    return reg_size / 8;
 }
 
 get_struct_size :: fn(st: type) -> int {

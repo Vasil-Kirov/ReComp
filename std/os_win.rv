@@ -45,6 +45,28 @@ win_str_to_wide :: fn(s: string, alloc: *mem.Allocator) -> []u16 {
 }
 
 
+sleep :: fn(ms: u32) {
+	Sleep(ms);
+}
+
+ThreadID :type: ?*void; /* HANDLE */
+
+create_thread :: fn(start: fn(*void) -> u32, arg: *void) -> (ThreadID, bool) {
+	handle := CreateThread(null, 0, start, arg, 0, null);
+	if handle == null {
+		return 0, false;
+	}
+	return handle, true;
+}
+
+wait_thread :: fn(thread: ThreadID) -> (int, bool) {
+	WaitForSingleObject(thread, INFINITE as DWORD);
+	ExitCode: DWORD;
+	if GetExitCodeThread(thread, &ExitCode) == 0
+		return 0, false;
+	return ExitCode as int, true;
+}
+
 Mutex : type : _RTL_SRWLOCK;
 MUTEX_INIT :: SRWLOCK {};
 

@@ -4,11 +4,7 @@ module lexer;
 _ :: #import mem;
 #import array
 
-Location :: struct {
-    file: string,
-    line: u16,
-    char: u16,
-}
+Location : type : FileLocation;
 
 Range :: struct {
     start: Location,
@@ -288,6 +284,32 @@ make_lexer :: fn(alloc: *Allocator) -> Lexer {
 }
 
 add_compiler_keywords :: fn(lexer: *Lexer) {
+	add_keyword(lexer, "#static",       .Static);
+	add_keyword(lexer, "#nocheck",      .NoCheck);
+	add_keyword(lexer, "#self",         .Self);
+	add_keyword(lexer, "#cc",           .CallConvention);
+	add_keyword(lexer, "#no_return",    .NoReturn);
+	add_keyword(lexer, "#wasm_import",  .WasmImport);
+	add_keyword(lexer, "#tag",          .Tag);
+	add_keyword(lexer, "#pack",         .Pack);
+	add_keyword(lexer, "#load_dl",      .LoadDl);
+	add_keyword(lexer, "#load_system_dl", .LoadSystemDl);
+	add_keyword(lexer, "#file_location",  .FileLocation);
+	add_keyword(lexer, "#run",          .Run);
+	add_keyword(lexer, "#assert",       .Assert);
+	add_keyword(lexer, "#shadow",       .Shadow);
+	add_keyword(lexer, "#import",       .Import);
+	add_keyword(lexer, "#foreign",      .Foreign);
+	add_keyword(lexer, "#link",         .Link);
+	add_keyword(lexer, "#intrinsic",    .Intrinsic);
+	add_keyword(lexer, "#public",       .Public);
+	add_keyword(lexer, "#private",      .Private);
+	add_keyword(lexer, "#embed_bin",    .EmbedBin);
+	add_keyword(lexer, "#embed_str",    .EmbedString);
+	add_keyword(lexer, "#inline",       .Inline);
+	add_keyword(lexer, "#if",           .PWDIf);
+	add_keyword(lexer, "#elif",         .PWDElseIf);
+	add_keyword(lexer, "#else",         .PWDElse);
 	add_keyword(lexer, "cast",          .NewCast);
 	add_keyword(lexer, "bit_cast",      .BitCast);
 	add_keyword(lexer, "continue",      .Continue);
@@ -314,37 +336,23 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 	add_keyword(lexer, "+=",            .PlusEqual);
 	add_keyword(lexer, "-=",            .MinusEqual);
 	add_keyword(lexer, "*=",            .TimesEqual);
-	add_keyword(lexer, "/=",            .DevideEqual);
+	add_keyword(lexer, "/=",            .DivideEqual);
 	add_keyword(lexer, "%=",            .ModEqual);
 	add_keyword(lexer, "&=",            .AndEqual);
-	add_keyword(lexer, "^=",            .XOrEqual);
+	add_keyword(lexer, "^=",            .XorEqual);
 	add_keyword(lexer, "|=",            .OrEqual);
 	add_keyword(lexer, "<<=",           .ShiftLeftEqual);
 	add_keyword(lexer, ">>=",           .ShiftRightEqual);
 	add_keyword(lexer, "```",           .RawString);
 	add_keyword(lexer, "...",           .VarArg);
-	add_keyword(lexer, "#shadow",       .Shadow);
-	add_keyword(lexer, "#import",       .Import);
-	add_keyword(lexer, "#foreign",      .Foreign);
-	add_keyword(lexer, "#link",         .Link);
-	add_keyword(lexer, "#intrinsic",    .Intrinsic);
-	add_keyword(lexer, "#public",       .Public);
-	add_keyword(lexer, "#private",      .Private);
-	add_keyword(lexer, "#embed_bin",    .EmbedBin);
-	add_keyword(lexer, "#embed_str",    .EmbedString);
-	add_keyword(lexer, "#inline",       .Inline);
-	add_keyword(lexer, "#if",           .PWDIf);
-	add_keyword(lexer, "#elif",         .PWDElseIf);
-	add_keyword(lexer, "#else",         .PWDElse);
 	add_keyword(lexer, "type_info",     .Info);
-	add_keyword(lexer, "#assert",       .Assert);
-	add_keyword(lexer, "#run",          .Run);
 	add_keyword(lexer, "return",        .Return);
 	add_keyword(lexer, "struct",        .Struct);
 	add_keyword(lexer, "enum",          .Enum);
 	add_keyword(lexer, "union",         .Union);
 	add_keyword(lexer, "defer",         .Defer);
 	add_keyword(lexer, "switch",        .Switch);
+	add_keyword(lexer, "case",          .Case);
 	add_keyword(lexer, "size_of",       .SizeOf);
 	add_keyword(lexer, "type_of",       .TypeOf);
 	add_keyword(lexer, "void",          .Void);
@@ -352,8 +360,6 @@ add_compiler_keywords :: fn(lexer: *Lexer) {
 	add_keyword(lexer, "using",         .Using);
 	add_keyword(lexer, "yield",         .Yield);
 	add_keyword(lexer, "module",        .Module);
-	add_keyword(lexer, "#load_dl",      .LoadDl);
-	add_keyword(lexer, "#load_system_dl",  .LoadSystemDl);
 }
 
 #private 
@@ -430,13 +436,15 @@ TokenType :: enum: i16 {
 	Dot             = cast(i16, '.'),
 	QuestionMark    = cast(i16, '?'),
 	Bang            = cast(i16, '!'),
-	Minus           = cast(i16, '-'),
 	SemiColon       = cast(i16, ';'),
 	Dollar          = cast(i16, '$'),
 	Plus            = cast(i16, '+'),
 	Minus           = cast(i16, '-'),
 	Or	            = cast(i16, '|'),
 	Div	            = cast(i16, '/'),
+	BitNot          = cast(i16, '~'),
+	Module          = cast(i16, '%'),
+	Xor             = cast(i16, '^'),
 	Unknown         = 0,
 	EOF             = -1,
 	ID              = -2,
@@ -464,7 +472,7 @@ TokenType :: enum: i16 {
 	ShiftLeftEqual  = -24,
 	ShiftRightEqual = -25,
 	AndEqual        = -26,
-	XOrEqual        = -27,
+	XorEqual        = -27,
 	OrEqual         = -28,
 	Function        = -29,
 	Const           = -30,
@@ -511,5 +519,15 @@ TokenType :: enum: i16 {
 	BitCast         = -81,
 	RawString       = -82,
 	Module          = -83,
+	FileLocation    = -84,
+	Static          = -85,
+	NoReturn        = -86,
+	Case            = -87,
+	WasmImport      = -88,
+	Tag             = -89,
+	CallConvention  = -90,
+	Pack            = -91,
+	NoCheck         = -92,
+	Self            = -93,
 }
 

@@ -1,6 +1,8 @@
 module mem
 #import os;
 
+#import "allocs/arena.rv";
+
 kb :: fn(b: int) -> int { return b << 10; }
 mb :: fn(b: int) -> int { return b << 20; }
 gb :: fn(b: int) -> int { return b << 30; }
@@ -11,11 +13,11 @@ temp_alloc := Allocator {
 			alloc = arena_alloc,
 			free = no_free,
 			data = null,
-		};
+		} #thread_local;
 
 Allocator :: struct {
-    alloc: *fn(size: int, this: *Allocator) -> ?*,
-    free:  *fn(ptr: *, this: *Allocator),
+	alloc: *fn(size: int, this: *Allocator) -> ?*,
+	free:  *fn(ptr: ?*, this: *Allocator),
     data: ?*,
 }
 
@@ -24,7 +26,7 @@ get_temp :: fn() -> *Allocator {
 }
 
 reset_temp :: fn() {
-    reset_scratch(&temp_alloc);
+    reset_arena(&temp_alloc);
 }
 
 dupe :: fn(data: []$T, alloc: *Allocator) -> ([]T, bool) {
@@ -82,71 +84,18 @@ create_generic_allocator :: fn() -> Allocator {
     return r;
 }
 
-ScratchContext :: struct {
-	start: *u8,
-    current: *u8,
-    max: *u8,
-}
-
 addr_align16 :: fn(addr: *) -> * {
 	addr := cast(*u8, addr);
     val := ((addr as u64) + 15) & 0xfffffffffffffff0;
 	return cast(*void, val);
 }
 
-arena_alloc :: fn(size: int, this: *Allocator) -> ?* {
-	if this.data == null {
-		this := this;
-		*this = create_scratch(mb(8));
-	}
-
-    ctx := cast(*ScratchContext, ?this.data);
-
-    #assert ctx && "Invalid allocator for arena_alloc()";
-    #assert ctx.max > ctx.current && "Calling arena_alloc() with an out of memory arena";
-	#assert ctx.current && "Arena is not properly initialized";
-
-	
-	res := addr_align16(ctx.current);
-    ctx.current = (res as *u8) + size;
-
-	set(res, 0, size);
-    
-    return res;
+no_alloc :: fn(int, *Allocator) -> ?* {
+	return null;
 }
 
-no_free :: fn(p: *, this: *Allocator) {
+no_free :: fn(?*void, *Allocator) {
 
-}
-
-create_scratch :: fn(max_size: int) -> Allocator {
-	mem, ok := os.alloc(max_size + size_of ScratchContext, .Reserve | .Commit, .Read | .Write);
-	#assert mem && "Couldn't allocate memory";
-    ctx := cast(*ScratchContext, ?mem);
-
-	ctx.start   = cast(*u8, (ctx + 1));
-    ctx.current = cast(*u8, (ctx + 1));
-    ctx.max = ctx.current + max_size;
-
-    r := Allocator {
-        alloc = arena_alloc,
-        free = no_free,
-        data = ctx,
-    };
-
-    return r;
-}
-
-reset_scratch :: fn(a: *Allocator) {
-	if a.data == null return;
-    ctx := cast(*ScratchContext, ?a.data);
-	ctx.current = ctx.start;
-}
-
-destroy_scratch :: fn(a: *Allocator) {
-	#assert a.data;
-    ctx := cast(*ScratchContext, ?a.data);
-    os.free(ctx);
 }
 
 copy  :: fn #link="memcpy"(dst: *, src: *, size: int) -> *;

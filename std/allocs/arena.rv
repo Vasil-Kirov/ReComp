@@ -1,0 +1,106 @@
+module mem;
+
+#import os;
+
+ArenaContext :: struct {
+	start: *u8,
+	end: *u8,
+	at: *u8,
+	chunk_size: int,
+	next: ?*ArenaContext,
+}
+
+arena_alloc :: fn(size: int, this: *Allocator) -> ?* #nocheck {
+	if size == 0
+		return null;
+
+	if this.data == null {
+		this := this;
+		alloc, ok := make_arena(kb(8));
+		if !ok return null;
+		*this = alloc;
+	}
+
+	chunk := this.data as *ArenaContext;
+	#assert chunk != null;
+
+	prev := chunk;
+	for chunk != null {
+		chunk.at = addr_align16(chunk.at);
+		remaining := chunk.end - chunk.at;
+		if size <= remaining && chunk.at < chunk.end {
+			ptr := chunk.at;
+			chunk.at += size;
+			set(ptr, 0, size);
+			return ptr;
+		}
+		prev := chunk;
+		chunk = chunk.next;
+	}
+
+	chunk = prev;
+	next_size := if chunk.chunk_size > size then chunk.chunk_size else size * 2;
+	chunk.next = arena_alloc_chunk(next_size);
+	if !chunk.next
+		return null;
+	chunk = chunk.next;
+
+	#assert addr_align16(chunk.at) == chunk.at;
+	ptr := chunk.at;
+	chunk.at += size;
+	set(ptr, 0, size);
+	return ptr;
+}
+
+arena_alloc_chunk :: fn(size: int) -> ?*ArenaContext {
+	if size <= 0
+		return null;
+
+	ctx_size := addr_align16(size_of ArenaContext) as int;
+	mem, ok := os.alloc(size + ctx_size, .Reserve | .Commit, .Read | .Write);
+	if !ok
+		return null;
+
+	ctx := mem as *ArenaContext;
+	ctx.start = cast(*u8, ctx) + ctx_size;
+	ctx.end = ctx.start + size;
+	ctx.at = ctx.start;
+	ctx.chunk_size = size;
+	ctx.next = null;
+	return ctx;
+}
+
+make_arena :: fn(chunk_size: int) -> (Allocator, bool) {
+	ctx := arena_alloc_chunk(chunk_size);
+	if !ctx
+		return Allocator{no_alloc, no_free, null}, false;
+
+	alloc := Allocator {
+		alloc = arena_alloc,
+		free = no_free,
+		data = ctx,
+	};
+	return alloc, true;
+}
+
+reset_arena :: fn(alloc: *Allocator) #nocheck {
+	if !alloc.data
+		return;
+	chunk := alloc.data as *ArenaContext;
+	for chunk {
+		chunk.at = chunk.start;
+		chunk = chunk.next;
+	}
+}
+
+destroy_arena :: fn(alloc: *Allocator) #nocheck {
+	if !alloc.data
+		return;
+	chunk := alloc.data as *ArenaContext;
+	for chunk {
+		prev := chunk;
+		chunk = chunk.next;
+		os.free(prev);
+	}
+}
+

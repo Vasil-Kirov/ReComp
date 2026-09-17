@@ -376,6 +376,16 @@ make_node :: fn(kind: NodeType, location: FileLocation, alloc: *mem.Allocator) -
 	return n;
 }
 
+make_binary :: fn(location: FileLocation, left: ?*Node, right: ?*Node, op: i16, alloc: *mem.Allocator) -> ?*Node {
+	n := make_node(.BINARY, location, alloc);
+	if !n
+		return null;
+	n.u.binary.left = left;
+	n.u.binary.right = right;
+	n.u.binary.op = op;
+	return n;
+}
+
 make_arraytype :: fn(location: FileLocation, t: ?*Node, expr: ?*Node, alloc: *mem.Allocator) -> ?*Node {
 	n := make_node(.ARRAYTYPE, location, alloc);
 	if !n

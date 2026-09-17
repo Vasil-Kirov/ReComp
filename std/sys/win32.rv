@@ -416,6 +416,16 @@ GET_FILEEX_INFO_LEVELS :: enum: u32 {
 	GetFileExInfoStandard = 0x0,
 }
 
+CreateFileA :: fn(
+	lpFileName: LPCSTR,
+	dwDesiredAccess: DWORD,
+	dwShareMode: DWORD,
+	lpSecurityAttributes: LPSECURITY_ATTRIBUTES,
+	dwCreationDisposition: DWORD,
+	dwFlagsAndAttributes: DWORD,
+	hTemplateFile: HANDLE
+) -> HANDLE #cc="stdcall" #foreign #link="CreateFileA";
+
 CreateFileW :: fn(
 	lpFileName: LPCWSTR,
 	dwDesiredAccess: DWORD,
@@ -725,6 +735,11 @@ GetExitCodeProcess :: fn(
 	hProcess: HANDLE,
 	lpExitCode: LPDWORD
 ) -> BOOL #cc="stdcall" #foreign #link="GetExitCodeProcess";
+
+GetExitCodeThread :: fn(
+	hThread: HANDLE,
+	lpExitCode: LPDWORD
+) -> BOOL #cc="stdcall" #foreign #link="GetExitCodeThread";
 
 TerminateProcess :: fn(
 	hProcess: HANDLE,

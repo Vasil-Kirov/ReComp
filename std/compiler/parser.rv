@@ -1,68 +1,23 @@
 module parser;
 
 _ :: #import mem;
-lex :: #import "lexer.rv";
+_ :: #import "lexer.rv";
+_ :: #import ast;
 base :: #import base;
 #import array;
 #import os;
 
-OpCode :: enum {
-	Nop,
-	Var,
-	Name,
-	Function,
-	Block,
-}
-
-Instruction :: struct {
-	op: OpCode,
-	reg: union {
-		lr: struct {
-			left: u32,
-			right: u32,
-		},
-		big_reg: u64,
-		ptr: ?*,
-	},
-	result: u32,
-	type_idx: u32,
-	location: Location,
-};
-
-make_instr :: fn(parser: *Parser, type: OpCode, location: Location) -> Instruction {
-	instr := make_type(Instruction, parser.alloc);
-	if instr == null {
-		stdout := os.stdout();
-		error := "Failed to allocate memory for parsing node";
-		os.write(stdout, error.data, error.count);
-		os.abort();
-	}
-	instr.op = type;
-	instr.location = location;
-	return instr;
-}
-
-parse_tokens :: fn(tokens: []Token, allocator: *Allocator) -> []*Node, []string {
+parse_tokens :: fn(tokens: []Token, allocator: *Allocator) -> ([]*Node, []string) {
 	if tokens.count == 0
 		return .{}, .{};
-
-	// @TODO: check for null and return error
-	global_body: Body;
-	global_body.instructions = array.create(Instruction, allocator);
-	#assert global_body.instructions.data;
-
-
-	builder := Builder {
-		current_body = &global_body;
-	}
 
 	parser := Parser {
 		tokens = tokens,
 		at = 0,
 		current_token = &tokens[0],
 		alloc = node_allocator,
-		errors = array.create(string, node_allocator);
-		current_builder = &builder;
+		errors = array.create(string, node_allocator),
+		current_builder = &builder,
 	};
 
     result := array.create(*Node, parser.alloc);
@@ -77,31 +32,96 @@ parse_tokens :: fn(tokens: []Token, allocator: *Allocator) -> []*Node, []string 
 	return result, parser.errors;
 }
 
-parse_top_level :: fn(parser: *Parser) -> Instruction, bool {
-	switch parser.current_token.type {
+parse_top_level :: fn(parser: *Parser) -> (Instruction, bool) {
+	switch current(parser).type {
 		case .ID: {
 		}
+	};
+}
 
+parse_unary :: fn(parser: *Parser) -> ?*Node {
+}
+
+parse_expression :: fn(parser: *Parser, current_prec := -999) -> ?*Node {
+	lhs := parse_unary(parser);
+	for {
+		leftp, rightp := get_precedence(current(parser).type);
+		if leftp < current_prec
+			break;
+
+		op := advance(parser);
+		rhs := parse_expression(parser, rightp);
+		lhs = make_binary(location(op), lhs, rhs, op.type as i16, parser.alloc);
 	}
 }
 
+get_precedence :: fn(op: TokenType) -> (int, int) {
+	return switch op
+	{
+		case .Dot:
+			yield 90, 91;
+
+		case .Pointer /* multiplication */, .Div, .Module:
+			yield 80, 81;
+
+		case .Plus, .Minus:
+			yield 70, 71;
+
+		case .ShiftLeft, .ShiftRight:
+			yield 60, 61;
+
+		case .And:
+			yield 50, 51;
+
+		case .Xor:
+			yield 40, 41;
+
+		case .Or:
+			yield 30, 31;
+
+
+		case .Lesser, .LesserEqual, .Greater, .GreaterEqual:
+			yield 20, 21;
+
+		case .EqualEqual, .NotEqual:
+			yield 10, 11;
+
+		case .LogicalAnd:
+			yield 0, 1;
+
+		case .LogicalOr:
+			yield -10, -9;
+
+		case .Equal, .PlusEqual, .MinusEqual, .TimesEqual, .DivideEqual, .ModEqual, .AndEqual, .XorEqual, .OrEqual, .ShiftLeftEqual, .ShiftRightEqual:
+			yield -20, -21; // right to left precedence
+
+
+		// Non binary operator, abort the loop
+		case _:
+			yield -1000, -1000;
+	};
+}
 
 #private
 
-Body :: struct {
-	instructions: []Instruction
-}
-
-Builder :: struct {
-	current_body: *Body,
-}
-
 Parser :: struct {
-	builder: *Builder,
 	tokens: []Token,
 	at: int,
-	current_token: *Token,
 	alloc: *Allocator,
 	errors: []string,
+}
+
+current :: fn(p: *Parser) -> *Token {
+	return &p.tokens[p.at];
+}
+
+advance :: fn(p: *Parser) -> *Token {
+	t := &p.tokens[p.at];
+	p.at += 1;
+	return t;
+}
+
+location :: fn(t: *Token) -> FileLocation {
+	return t.range.start;
 }
 

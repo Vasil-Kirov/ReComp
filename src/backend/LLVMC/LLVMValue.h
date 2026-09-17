@@ -5,7 +5,7 @@
 
 struct value_map
 {
-	map_int<LLVMValueRef> Data;
+	map_int<LLVMValueRef> Data {};
 	size_t Bottom = 0;
 
 	void Add(u32 Register, LLVMValueRef Value);

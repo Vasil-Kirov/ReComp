@@ -1873,12 +1873,20 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				{
 					if(M->Name == m->Name)
 					{
+						dynamic<std::tuple<string, LLVMValueRef>> ToAdd = {};
 						auto OldFn = Functions[LinkName];
 						for(auto [k, v] : Gen.global.Data.Dict)
 						{
-							if(v == OldFn)
-								Gen.global.Data.Dict.AddOrReplace(k, Fn);
+							if(v == OldFn) {
+								// Can't push directly because it invalidates iterators
+								ToAdd.Push({k, Fn});
+							}
 						}
+						for(auto [k, v] : ToAdd)
+						{
+							Gen.global.Data.Dict.AddOrReplace(k, Fn);
+						}
+						ToAdd.Free();
 						*Functions.GetUnstablePtr(LinkName) = Fn;
 					}
 				}

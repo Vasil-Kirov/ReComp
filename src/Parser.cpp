@@ -2913,6 +2913,11 @@ node *ParseTopLevel(parser *Parser)
 					Decl->Decl.Flags |= SymbolFlag_Public;
 				Result = Decl;
 
+				if(Parser->Current->Type == T_THREADLOCAL)
+				{
+					GetToken(Parser);
+					Decl->Decl.Flags |= SymbolFlag_ThreadLocal;
+				}
 				if(Parser->Current->Type == T_LINK)
 				{
 					ERROR_INFO;

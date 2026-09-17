@@ -326,7 +326,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	}
 
 
-	if (ToolPipe != -1)
+	if (ToolPipe != -1 && DumpingInfo)
 	{
 		PipeInfoBlob(&Blob, Files, SliceFromArray(Modules));
 		exit(0);

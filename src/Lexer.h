@@ -115,6 +115,7 @@ enum token_type
 	T_PACK  = -91,
 	T_NOCHECK = -92,
 	T_SELF = -93,
+	T_THREADLOCAL = -94,
 };
 
 struct token

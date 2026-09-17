@@ -1917,6 +1917,9 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 					TIdx = GetPointerTo(TIdx);
 				LLVMTypeRef LLVMType = ConvertToLLVMType(&Gen, TIdx);
 				LLVMValueRef Global = LLVMAddGlobal(Gen.mod, LLVMType, LinkName.Data);
+				if (it->s->Flags & SymbolFlag_ThreadLocal)
+					LLVMSetThreadLocal(Global, true);
+
 				//LLVMSetGlobalConstant(Global, it->s->Flags & SymbolFlag_Const);
 				LLVMSetLinkage(Global, Linkage);
 

@@ -54,6 +54,11 @@ void DumpU32(binary_blob *Blob, u32 Num)
 	Blob->Buf.Push((u8)(0xFF & (Num >> 24)));
 }
 
+void DumpU8(binary_blob *Blob, u8 b)
+{
+	Blob->Buf.Push(b);
+}
+
 void DumpString(binary_blob *Blob, string S)
 {
 	DumpU32(Blob, S.Size);
@@ -81,7 +86,11 @@ void DumpLocationErrI(binary_blob *Blob, const error_info *ErrI)
 void DumpModule(binary_blob *Blob, module* M)
 {
 	DumpString(Blob, M->Name);
-	DumpU32(Blob, M->Globals.Data_.Count);
+	u32 Count = 0;
+	for(auto _ : M->Globals)
+		Count++;
+
+	DumpU32(Blob, Count);
 	for(auto [_, s] : M->Globals)
 	{
 		DumpString(Blob, *s->Name);
@@ -108,8 +117,20 @@ void DumpTypeTable(binary_blob *Blob)
 	DumpU32(Blob, TypeCount);
 	for(int i = 0; i < TypeCount; ++i)
 	{
+		auto NodeTuple = TypeNodeRecord.find(i);
+		if (NodeTuple != TypeNodeRecord.end())
+		{
+			DumpU8(Blob, 1);
+			DumpLocationErrI(Blob, NodeTuple->second->ErrorInfo);
+		}
+		else
+		{
+			DumpU8(Blob, 0);
+		}
+
 		const type *T = GetType(i);
 		DumpU32(Blob, T->Kind);
+
 		//DumpString(Blob, GetTypeNameAsString(T));
 		switch(T->Kind)
 		{

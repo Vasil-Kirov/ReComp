@@ -681,5 +681,6 @@ void InitializeLexer()
 	AddKeyword("using",  T_USING);
 	AddKeyword("yield",  T_YIELD);
 	AddKeyword("module",  T_MODULE);
+	AddKeyword("#thread_local",  T_THREADLOCAL);
 }
 

@@ -52,6 +52,12 @@ struct dynamic {
 		Assert(Count != 0);
 		return Data[Count-1];
 	}
+	T LastOr(T Default) const
+	{
+		if (Count == 0)
+			return Default;
+		return Data[Count-1];
+	}
 	T *GetLast() const
 	{
 		Assert(Count != 0);

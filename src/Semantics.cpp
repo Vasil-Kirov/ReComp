@@ -3880,8 +3880,11 @@ void AnalyzeIf(checker *Checker, node *Node)
 	slice<node *> IfBody = SliceFromArray(Node->If.Body); 
 	AnalyzeInnerBody(Checker, IfBody);
 
-	Assert(Node->If.Body.Count > 0);
-	PopScope(Checker, Node->If.Body.Last()->ErrorInfo);
+	const error_info *ErrorInfo = Node->ErrorInfo;
+	if (Node->If.Body.Count != 0)
+		ErrorInfo = Node->If.Body.Last()->ErrorInfo;
+
+	PopScope(Checker, ErrorInfo);
 
 	if(Node->If.Else.IsValid())
 	{
@@ -3891,7 +3894,10 @@ void AnalyzeIf(checker *Checker, node *Node)
 		slice<node *> IfElse = SliceFromArray(Node->If.Else); 
 		AnalyzeInnerBody(Checker, IfElse);
 
-		PopScope(Checker, Node->If.Else.Last()->ErrorInfo);
+		const error_info *ErrorInfo = Node->ErrorInfo;
+		if (Node->If.Else.Count != 0)
+			ErrorInfo = Node->If.Else.Last()->ErrorInfo;
+		PopScope(Checker, ErrorInfo);
 	}
 }
 
@@ -4067,7 +4073,11 @@ void AnalyzeFor(checker *Checker, node *Node)
 	{
 		slice<node *> ForBody = SliceFromArray(Node->For.Body);
 		AnalyzeInnerBody(Checker, ForBody);
-		End = ForBody.Last()->ErrorInfo;
+
+		const error_info *ErrorInfo = Node->ErrorInfo;
+		if (ForBody.Count != 0)
+			ErrorInfo = ForBody.Last()->ErrorInfo;
+		End = ErrorInfo;
 	}
 	ForScopeGuard.Release();
 	PopScope(Checker, End);

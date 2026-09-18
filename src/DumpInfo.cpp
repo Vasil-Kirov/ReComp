@@ -264,11 +264,11 @@ void DumpScope(binary_blob *Blob, scope_dump Scope)
 	};
 	string FileName = string {Scope.From->FileName, strlen(Scope.From->FileName)};
 	DumpLocation(Blob, FileName, Range);
-	size_t CountValidSymbols = Scope.Symbols.Count;
+	size_t CountValidSymbols = 0;
 	For(Scope.Symbols)
 	{
-		if(!it->Node)
-			CountValidSymbols--;
+		if(it->Node)
+			CountValidSymbols++;
 	}
 	
 

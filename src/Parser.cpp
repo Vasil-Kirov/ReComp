@@ -1546,7 +1546,7 @@ bool ParseBody(parser *Parser, dynamic<node *> &OutBody)
 
 		if (Parser->PanicMode)
 		{
-			Parser->SafeTokens.Push({T_CLOSEBRACKET, false});
+			Parser->SafeTokens.Push({T_CLOSEBRACKET, true});
 			bool Sucess = TrySynchronize(Parser);
 			Parser->SafeTokens.Pop();
 			if (!Sucess)
@@ -2722,8 +2722,13 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 			Result = ParseExpression(Parser);
 		} break;
 	}
-	if(ExpectSemicolon)
+
+	if(ExpectSemicolon) {
+		bool WasPanicMode = Parser->PanicMode;
 		EatToken(Parser, ';');
+		Parser->PanicMode = WasPanicMode;
+	}
+
 	return Result;
 }
 

@@ -2989,7 +2989,7 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		else
 			Assert(false);
 
-		One = PushInt(1, Builder);
+		One = PushInt(1, Builder, IType);
 
 		IAlloc = PushInstruction(Builder,
 				Instruction(OP_ALLOC, -1, IType, Builder));
@@ -3183,13 +3183,13 @@ void BuildIRForIt(block_builder *Builder, node *Node)
 		PushStepLocation(Builder, Node);
 
 		u32 I = PushInstruction(Builder, 
-				Instruction(OP_LOAD, 0, IAlloc, Basic_int, Builder));
+				Instruction(OP_LOAD, 0, IAlloc, IType, Builder));
 		
 		u32 ToStore = PushInstruction(Builder, 
-				Instruction(OP_ADD, I, One, Basic_int, Builder));
+				Instruction(OP_ADD, I, One, IType, Builder));
 
 		PushInstruction(Builder,
-				InstructionStore(IAlloc, ToStore, Basic_int));
+				InstructionStore(IAlloc, ToStore, IType));
 
 		if(HasBasicFlag(T, BasicFlag_String))
 		{

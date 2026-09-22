@@ -67,6 +67,10 @@ wait_thread :: fn(thread: ThreadID) -> (int, bool) {
 	return ExitCode as int, true;
 }
 
+kill_thread :: fn(id: ThreadID) {
+	TerminateThread(id, 1);
+}
+
 Mutex : type : _RTL_SRWLOCK;
 MUTEX_INIT :: SRWLOCK {};
 
@@ -112,34 +116,34 @@ mkdir :: fn(dir_: string) -> bool {
 
 
 list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
-		entry: WIN32_FIND_DATAW = .{};
-		b := str.create_builder(&mem.temp_alloc);
-		str.builder_append(&b, dir_);
-		str.builder_append(&b, "\\*");
-		search := win_str_to_wide(str.from_builder(&b, &mem.temp_alloc), &mem.temp_alloc);
-		if search.count == 0
-			return false;
-		dir := FindFirstFileW(search.data as LPCWSTR, &entry);
-		if dir == INVALID_HANDLE_VALUE
-			return false;
-		defer FindClose(dir);
+	entry: WIN32_FIND_DATAW = .{};
+	b := str.create_builder(&mem.temp_alloc);
+	str.builder_append(&b, dir_);
+	str.builder_append(&b, "\\*");
+	search := win_str_to_wide(str.from_builder(&b, &mem.temp_alloc), &mem.temp_alloc);
+	if search.count == 0
+		return false;
+	dir := FindFirstFileW(search.data as LPCWSTR, &entry);
+	if dir == INVALID_HANDLE_VALUE
+		return false;
+	defer FindClose(dir);
 
-		for {
-			len := 0;
-			for i in 260 {
-				if entry.cFileName[i] == 0 break;
-				len++;
-			}
-			s := win_wide_to_str(entry.cFileName[:len], &mem.temp_alloc);
-			data: ListFileData = .{dir=dir_, file=s, is_directory=entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY as DWORD != 0};
-			if !callback(&data, arg)
-				break;
-
-			if !FindNextFileW(dir, &entry)
-				break;
+	for {
+		len := 0;
+		for i in 260 {
+			if entry.cFileName[i] == 0 break;
+			len++;
 		}
-		return true;
+		s := win_wide_to_str(entry.cFileName[:len], &mem.temp_alloc);
+		data: ListFileData = .{dir=dir_, file=s, is_directory=entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY as DWORD != 0};
+		if !callback(&data, arg)
+			break;
+
+		if !FindNextFileW(dir, &entry)
+			break;
 	}
+	return true;
+}
 
 alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
 	pass := 0 as u32;
@@ -173,7 +177,9 @@ alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, b
 	return p, false;
 }
 
-free :: fn(ptr: *) {
+free :: fn(ptr: ?*) {
+	if !ptr
+		return;
 	VirtualFree(ptr, 0, MEM_RELEASE as u32);
 }
 

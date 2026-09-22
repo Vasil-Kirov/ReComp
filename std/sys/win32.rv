@@ -741,6 +741,11 @@ GetExitCodeThread :: fn(
 	lpExitCode: LPDWORD
 ) -> BOOL #cc="stdcall" #foreign #link="GetExitCodeThread";
 
+TerminateThread :: fn(
+	hThread: HANDLE,
+	dwExitCode: DWORD
+) -> BOOL #cc="stdcall" #foreign #link="TerminateThread";
+
 TerminateProcess :: fn(
 	hProcess: HANDLE,
 	uExitCode: UINT

@@ -1119,7 +1119,7 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 			}
 		}
 	}
-	ErrorOnFoundGeneric = ErrOnGenSave; // @Note: Probably can just set it to false? eh  Vasko - 06/23/2026
+	ErrorOnFoundGeneric = ErrOnGenSave; // @Note: Probably can just set it to false? eh  Vasko - 23/06/2026
 
 	int AddedGenerics = 0;
 	for(int I = 0; I < Function.ArgCount; ++I)
@@ -1163,6 +1163,15 @@ u32 CreateFunctionType(checker *Checker, node *FnNode, bool Error)
 		}
 
 		Function.Returns = SliceFromArray(Returns);
+
+		// @Note: Prevents a bug where the tuple type is generated
+		// at the code generation stage while changing function types for the native
+		// architecture, which leads to the type not being entered into the type map
+		// - Vasko 22/09/2026
+		if(FnNode->Fn.ReturnTypes.Count)
+		{
+			ReturnsToType(Function.Returns);
+		}
 	}
 	else
 	{

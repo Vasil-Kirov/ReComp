@@ -2098,17 +2098,19 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			if(CallType->Function.Flags & SymbolFlag_Intrinsic)
 			{
-				if(Expr->Call.Fn->Type != AST_ID)
+				if(Expr->Call.Fn->Type != AST_ID && Expr->Call.Fn->Type != AST_SELECTOR)
 				{
-					RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Indirect call to intrinsic is not allowed");
-				}
-				else if(!CheckIntrinsic(*Expr->Call.Fn->ID.Name))
-				{
-					RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Unknown intrinsic %s. Are you taking a function pointer to an intrinsic? That is not allowed.", Expr->Call.Fn->ID.Name->Data);
+					RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Invalid call to intrinsic. Intrinsics must be called directly.");
+					return Basic_error;
 				}
 				else
 				{
-					Expr->Call.SymName = *Expr->Call.Fn->ID.Name;
+					symbol *s = FindSymbolFromNode(Checker, Expr->Call.Fn);
+					if(!CheckIntrinsic(*s->Name))
+					{
+						RaiseError(false, *Expr->Call.Fn->ErrorInfo, "Unknown intrinsic %s. Are you taking a function pointer to an intrinsic? That is not allowed.", Expr->Call.Fn->ID.Name->Data);
+					}
+					Expr->Call.SymName = *s->Name;
 				}
 			}
 			if(CallType->Function.Flags & SymbolFlag_Self && Expr->Call.Fn->Type == AST_SELECTOR)
@@ -4693,6 +4695,7 @@ symbol *CreateFunctionSymbol(checker *Checker, node *Node)
 void IntrinsicCheckFunctionType(node *Call)
 {
 	Assert(Call->Type == AST_CALL);
+	// @TODO: the rest of them
 	if(CompareFunctionName(Call->Call.SymName, STR_LIT("len")))
 	{
 		if(Call->Call.Args.Count != 1)
@@ -4749,6 +4752,7 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("len"),
 		STR_LIT("va_start"),
 		STR_LIT("va_end"),
+		STR_LIT("add_build_target"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)

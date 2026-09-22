@@ -17,6 +17,8 @@
 
 #if _WIN32
 #include <shlwapi.h>
+#define MICROSOFT_CRAZINESS_IMPLEMENTATION
+#include "microsoft_craziness.h"
 #endif
 
 pipeline CurrentPipeline = {};
@@ -573,42 +575,391 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	}
 
 	int Result = -1;
-	if(EntryModule.Size && EntryPoint.Size)
+	b32 FoundModule = false;
+	b32 FoundEntrypoint = false;
+	ForArray(Idx, Files)
 	{
-		b32 FoundModule = false;
-		b32 FoundEntrypoint = false;
-		ForArray(Idx, Files)
+		file *File = Files[Idx];
+		if(File->Module->Name == EntryModule)
 		{
-			file *File = Files[Idx];
-			if(File->Module->Name == EntryModule)
+			FoundModule = true;
+			for(auto [_, sym] : File->Module->Globals)
 			{
-				FoundModule = true;
-				for(auto [_, sym] : File->Module->Globals)
+				if(sym->Flags & SymbolFlag_Function &&
+						*sym->Name == EntryPoint)
 				{
-					if(sym->Flags & SymbolFlag_Function &&
-							*sym->Name == EntryPoint)
-					{
-						FoundEntrypoint = true;
-						Result = Idx;
-						break;
-					}
+					FoundEntrypoint = true;
+					Result = Idx;
+					break;
 				}
 			}
 		}
+	}
 
-		if(g_CompileFlags & CF_Standalone)
-		{}
-		else if(!FoundModule)
-		{
-			LogCompilerError("Error: Missing entry module %.*s\n", EntryModule.Size, EntryModule.Data);
-			CountError();
-		}
-		else if(!FoundEntrypoint)
-		{
-			LogCompilerError("Error: Missing entry point %.*s\n", EntryPoint.Size, EntryPoint.Data);
-			CountError();
-		}
+	if(g_CompileFlags & CF_Standalone)
+	{}
+	else if(!FoundModule && EntryModule.Size)
+	{
+		LogCompilerError("Error: Missing entry module %.*s\n", EntryModule.Size, EntryModule.Data);
+		CountError();
+	}
+	else if(!FoundEntrypoint && EntryPoint.Size)
+	{
+		LogCompilerError("Error: Missing entry point %.*s\n", EntryPoint.Size, EntryPoint.Data);
+		CountError();
 	}
 	return Result;
+}
+
+enum link_command_type
+{
+	LCT_List,
+	LCT_System,
+};
+
+struct link_command
+{
+	link_command_type Type;
+	union
+	{
+		struct {
+			string Command;
+			slice<string> Args;
+		} List;
+		string System;
+	};
+};
+
+bool is_winsdk_result_valid(Find_Result *r)
+{
+	return r && r->windows_sdk_version != 0 && r->vs_exe_path && r->windows_sdk_um_library_path && r->windows_sdk_ucrt_library_path && r->vs_library_path;
+}
+
+link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
+{
+	link_command LinkCommand = {};
+
+	string Command = STR_LIT("");
+	dynamic<string> Args = {};
+
+	string_builder Builder = MakeBuilder();
+	u32 CompileFlags = Info->Flags;
+#if _WIN32
+	b32 NoSetDefaultLib = false;
+	b32 NoSetEntryPoint = false;
+
+	{
+		Find_Result WinSdk = find_visual_studio_and_windows_sdk();
+		bool valid_sdk = is_winsdk_result_valid(&WinSdk);
+
+		if(valid_sdk)
+		{
+			LinkCommand.Type = LCT_List;
+			Builder.printf("\"%ls/LINK.EXE\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" ",
+					WinSdk.vs_exe_path, WinSdk.windows_sdk_ucrt_library_path, WinSdk.windows_sdk_um_library_path, WinSdk.vs_library_path);
+
+			Command = QuickBuild("%ls\\LINK.EXE", WinSdk.vs_exe_path);
+			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_um_library_path));
+			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_ucrt_library_path));
+			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.vs_library_path));
+			if(CompileFlags & CF_SanAdress)
+			{
+				auto b = MakeBuilder();
+				b.printf("%ls\\clang_rt.asan_dynamic-x86_64.dll", WinSdk.vs_exe_path);
+				auto s = MakeString(b);
+				PlatformCopyFile(s.Data, "clang_rt.asan_dynamic-x86_64.dll");
+			}
+			free_resources(&WinSdk);
+		}
+		else
+		{
+			LogCompilerError("Warning: Could not find windows sdk or visual studio paths, using fallback link command.\n");
+
+			if(CompileFlags & CF_SanAdress)
+			{
+				LogCompilerError("Warning: Cannot resolve path for address sanitizer dll, please disable it.\n");
+				CompileFlags &= ~CF_SanAdress;
+			}
+			LinkCommand.Type = LCT_System;
+			Builder += "LINK.EXE ";
+		}
+
+
+	}
+
+	if(LinkCommand.Type == LCT_List)
+	{
+		Args.Push(STR_LIT("/nologo"));
+		Args.Push(QuickBuild("/OUT:%.*s ", (int)Info->Output.Count, Info->Output.Data));
+		if(g_CompileFlags & CF_DebugInfo)
+			Args.Push(STR_LIT("/DEBUG"));
+	}
+	else
+	{
+		Builder += "/nologo ";
+		Builder.printf("/OUT:%.*s ", (int)Info->Output.Count, Info->Output.Data);
+		if(g_CompileFlags & CF_DebugInfo)
+			Builder += "/DEBUG ";
+	}
+
+	if(Info->EntryPoint.Data)
+	{
+		NoSetEntryPoint = true;
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(QuickBuild("/ENTRY:%.*s", (int)Info->EntryPoint.Count, Info->EntryPoint.Data));
+		}
+		else
+		{
+			Builder.printf("/ENTRY:%.*s ", (int)Info->EntryPoint.Count, Info->EntryPoint.Data);
+		}
+	}
+
+	bool SwitchLibCMT = false;
+	if(CompileFlags & CF_SanUndefined)
+	{
+		string UBsanLib = STR_LIT("clang_rt.ubsan_standalone-x86_64.lib");
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(UBsanLib);
+		}
+		else
+		{
+			Builder += UBsanLib;
+			Builder += " ";
+		}
+
+		SwitchLibCMT = true;
+	}
+	if(CompileFlags & CF_SanAdress)
+	{
+		string AsanLib = STR_LIT("clang_rt.asan_dynamic-x86_64.lib");
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(AsanLib);
+			Args.Push(STR_LIT("/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib"));
+		}
+		else
+		{
+			Builder += AsanLib;
+			Builder += " ";
+			Builder += "/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib ";
+		}
+
+		SwitchLibCMT = true;
+	}
+	if(SwitchLibCMT && (CompileFlags & CF_NoLibC) == 0)
+	{
+		NoSetDefaultLib = true;
+		if(LinkCommand.Type == LCT_List)
+			Args.Push(STR_LIT("/DEFAULTLIB:LIBCMT"));
+		else
+			Builder += "/DEFAULTLIB:LIBCMT ";
+	}
+
+	if(CompileFlags & CF_NoLibC)
+	{
+		NoSetDefaultLib = true;
+		if(LinkCommand.Type == LCT_List)
+			Args.Push(STR_LIT("/NODEFAULTLIB"));
+		else
+			Builder += "/NODEFAULTLIB ";
+
+		if(!NoSetEntryPoint)
+		{
+			if(LinkCommand.Type == LCT_List)
+				Args.Push(STR_LIT("/ENTRY:main"));
+			else
+				Builder += "/ENTRY:main ";
+		}
+	}
+	else if(!NoSetEntryPoint)
+	{
+		if(LinkCommand.Type == LCT_List)
+			Args.Push(STR_LIT("/ENTRY:mainCRTStartup"));
+		else
+			Builder += "/ENTRY:mainCRTStartup ";
+	}
+
+	if(!NoSetDefaultLib)
+	{
+		if(LinkCommand.Type == LCT_List)
+			Args.Push(STR_LIT("/DEFAULTLIB:MSVCRT"));
+		else
+			Builder += "/DEFAULTLIB:MSVCRT ";
+	}
+
+#elif CM_LINUX
+	LinkCommand.Type = LCT_System;
+	const char *StdDir = GetStdDir();
+	string Dir = MakeString(StdDir);
+
+	string SystemCallObj = GetFilePath(Dir, "system_call.o");
+	string Entry = STR_LIT("_start");
+	if(CompileFlags & CF_NoLibC)
+		Entry = STR_LIT("main");
+
+	if(Info->EntryPoint.Count != 0)
+		Entry = string { .Data = Info->EntryPoint.Data, .Size = Info->EntryPoint.Count };
+	if(LinkCommand.Type == LCT_List)
+	{
+		Command = STR_LIT("ld");
+		Args.Push(STR_LIT("ld"));
+		Args.Push(STR_LIT("-e"));
+		Args.Push(Entry);
+	}
+	else
+	{
+		Builder += "ld -e ";
+		Builder += Entry;
+		Builder += ' ';
+	}
+	slice<string> ObjFiles = FindObjectFiles();
+	if(CompileFlags & CF_NoLibC)
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			static_assert(false); // @TODO: update with Info->Output
+			Args.Push(STR_LIT("-o"));
+			Args.Push(STR_LIT("a"));
+			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
+		}
+		else
+		{
+			static_assert(false); // @TODO: update with Info->Output
+			Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+		}
+	}
+	else
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(STR_LIT("-lc"));
+			static_assert(false); // @TODO: update with Info->Output
+			Args.Push(STR_LIT("-o"));
+			Args.Push(STR_LIT("a"));
+			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
+			For(ObjFiles)
+				Args.Push(*it);
+			Args.Push(SystemCallObj);
+		}
+		else
+		{
+			static_assert(false); // @TODO: update with Info->Output
+			Builder += "-lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+			For(ObjFiles)
+			{
+				Builder += *it;
+				Builder += " ";
+			}
+
+			Builder += SystemCallObj;
+			Builder += ' ';
+		}
+	}
+#else
+#error Implement Link Command
+#endif
+
+	ForArray(Idx, Modules)
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(QuickBuild("%.*s.obj", (int)Modules[Idx]->Name.Size, Modules[Idx]->Name.Data));
+		}
+		else
+		{
+			Builder += Modules[Idx]->Name;
+			Builder += ".obj ";
+		}
+	}
+
+	ForArray(Idx, CMD.LinkArgs)
+	{
+		if(LinkCommand.Type == LCT_List)
+		{
+			Args.Push(CMD.LinkArgs[Idx]);
+		}
+		else
+		{
+			Builder += CMD.LinkArgs[Idx];
+			Builder += ' ';
+		}
+	}
+
+	if(LinkCommand.Type == LCT_List)
+	{
+		LinkCommand.List.Command = Command;
+		LinkCommand.List.Args = SliceFromArray(Args);
+	}
+	else
+	{
+		LinkCommand.System = MakeString(Builder);
+	}
+	return LinkCommand;
+}
+
+void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> ModuleArray)
+{
+	if((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
+	else
+	{
+		link_command Link = MakeLinkCommand(CommandLine, ModuleArray, Info);
+		switch(Link.Type)
+		{
+			case LCT_List:
+			{
+#if _WIN32
+				auto b = MakeBuilder();
+				/*
+				   b += Link.List.Command;
+				   b += ' ';
+				   */
+				b += "LINK.EXE ";
+
+				For(Link.List.Args)
+				{
+					b += *it;
+					b += ' ';
+				}
+
+				auto CommandLine = MakeString(b);
+				LDEBUG("LINK: (%s) %s", Link.List.Command.Data, CommandLine.Data);
+
+				PROCESS_INFORMATION ProcessInfo = {};
+				STARTUPINFOA SInfo = {};
+				SInfo.cb = sizeof(STARTUPINFOA);
+				if(CreateProcessA(Link.List.Command.Data, (char *)CommandLine.Data, NULL, NULL, true, 0, NULL, NULL, &SInfo, &ProcessInfo))
+				{
+					WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+					CloseHandle(ProcessInfo.hProcess);
+					CloseHandle(ProcessInfo.hThread);
+				}
+				else
+				{
+					LogCompilerError("Error: Couldn't spawn process for link command: %s", GetLastError());
+				}
+#elif CM_LINUX
+				array<char *> Args(Link.List.Args.Count);
+				ForArray(Idx, Args)
+				{
+					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
+				}
+				pid_t pid = fork();
+				if(pid == 0)
+				{
+					execv(Link.List.Command.Data, Args.Data);
+				}
+#else
+#error Implement a way to invoke a proces with the link command
+#endif
+
+			} break;
+			case LCT_System:
+			{
+				system(Link.System.Data);
+			} break;
+		}
+	}
 }
 

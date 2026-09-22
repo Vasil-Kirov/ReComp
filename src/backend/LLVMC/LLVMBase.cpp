@@ -642,6 +642,8 @@ void RCGenerateInstruction(generator *gen, instruction I)
 				{} break;
 				case IN_NOT_INTRIN:
 				{} break;
+				case IN_ADD_BUILD_TARGET:
+				{} break;
 				case IN_NO_COMPILE_OUTPUT:
 				{} break;
 				case IN_RAISE_ERROR:

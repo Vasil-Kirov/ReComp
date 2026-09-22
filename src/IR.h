@@ -18,6 +18,7 @@ enum compiler_intrinsic
 	IN_LEN,
 	IN_VA_START,
 	IN_VA_END,
+	IN_ADD_BUILD_TARGET,
 };
 
 enum op

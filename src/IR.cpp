@@ -1448,6 +1448,10 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					Intrin = IN_VA_END;
 				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("add_build_target")))
+				{
+					Intrin = IN_ADD_BUILD_TARGET;
+				}
 				else
 				{
 					unreachable;
@@ -4457,6 +4461,11 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 			{
 				case IN_NOT_INTRIN:
 				{} break;
+				case IN_ADD_BUILD_TARGET:
+				{
+					call_info *ci = Info->CallInfo;
+					Builder->printf("add_build_target(%%%d)", ci->Args[0]);
+				} break;
 				case IN_VA_START:
 				{
 					call_info *ci = Info->CallInfo;
@@ -4943,6 +4952,9 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 				case IN_LEN:
 				{
 					// TODO:
+				} break;
+				case IN_ADD_BUILD_TARGET:
+				{
 				} break;
 				case IN_GET_BUILD_ARGS:
 				{

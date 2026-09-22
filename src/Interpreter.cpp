@@ -27,6 +27,7 @@ bool g_DontErrorForMissingGlobals = false;
 bool g_InterpreterTrace = false;
 bool g_StopCompileOutput = false;
 dynamic<DLIB> g_DLs = {};
+dynamic<compile_info> g_CompileTargets = {};
 
 #define MARK_BIT 62
 
@@ -2216,6 +2217,13 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 				{
 					case IN_NOT_INTRIN:
 					{
+					} break;
+					case IN_ADD_BUILD_TARGET:
+					{
+						compile_info BuildInfo = {};
+						value *s = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+						memcpy(&BuildInfo, s->ptr, sizeof(compile_info));
+						g_CompileTargets.Push(BuildInfo);
 					} break;
 					case IN_VA_START:
 					case IN_VA_END:

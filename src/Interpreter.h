@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include "InterpCasts.h"
 
+extern bool g_StopCompileOutput;
+
 #define mmax(a, b) (a > b) ? a : b
 
 enum DebugAction
@@ -78,6 +80,7 @@ struct compile_info
 	interp_string Link;
 	interp_string InternalFile;
 	interp_string EntryPoint;
+	interp_string Output;
 };
 
 enum interpret_result_kind

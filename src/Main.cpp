@@ -5,8 +5,6 @@ static b32 _MemoryInitializer = InitializeMemory();
 
 #if defined(_WIN32)
 #include "Win32.cpp"
-#define MICROSOFT_CRAZINESS_IMPLEMENTATION
-#include "microsoft_craziness.h"
 
 #elif defined(CM_LINUX)
 #include "Linux.cpp"
@@ -134,289 +132,6 @@ string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
 	Builder += "../std/";
 	Builder += FileName;
 	return MakeString(Builder);
-}
-
-enum link_command_type
-{
-	LCT_List,
-	LCT_System,
-};
-
-struct link_command
-{
-	link_command_type Type;
-	union
-	{
-		struct {
-			string Command;
-			slice<string> Args;
-		} List;
-		string System;
-	};
-};
-
-bool is_winsdk_result_valid(Find_Result *r)
-{
-	return r && r->windows_sdk_version != 0 && r->vs_exe_path && r->windows_sdk_um_library_path && r->windows_sdk_ucrt_library_path && r->vs_library_path;
-}
-
-link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
-{
-	link_command LinkCommand = {};
-
-	string Command = STR_LIT("");
-	dynamic<string> Args = {};
-
-	string_builder Builder = MakeBuilder();
-	u32 CompileFlags = Info->Flags;
-#if _WIN32
-	b32 NoSetDefaultLib = false;
-	b32 NoSetEntryPoint = false;
-
-	{
-		Find_Result WinSdk = find_visual_studio_and_windows_sdk();
-		bool valid_sdk = is_winsdk_result_valid(&WinSdk);
-
-		if(valid_sdk)
-		{
-			LinkCommand.Type = LCT_List;
-			Builder.printf("\"%ls/LINK.EXE\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" /LIBPATH:\"%ls\" ",
-					WinSdk.vs_exe_path, WinSdk.windows_sdk_ucrt_library_path, WinSdk.windows_sdk_um_library_path, WinSdk.vs_library_path);
-
-			Command = QuickBuild("%ls\\LINK.EXE", WinSdk.vs_exe_path);
-			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_um_library_path));
-			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.windows_sdk_ucrt_library_path));
-			Args.Push(QuickBuild("/LIBPATH:\"%ls\"", WinSdk.vs_library_path));
-			if(CompileFlags & CF_SanAdress)
-			{
-				auto b = MakeBuilder();
-				b.printf("%ls\\clang_rt.asan_dynamic-x86_64.dll", WinSdk.vs_exe_path);
-				auto s = MakeString(b);
-				PlatformCopyFile(s.Data, "clang_rt.asan_dynamic-x86_64.dll");
-			}
-			free_resources(&WinSdk);
-		}
-		else
-		{
-			LogCompilerError("Warning: Could not find windows sdk or visual studio paths, using fallback link command.\n");
-
-			if(CompileFlags & CF_SanAdress)
-			{
-				LogCompilerError("Warning: Cannot resolve path for address sanitizer dll, please disable it.\n");
-				CompileFlags &= ~CF_SanAdress;
-			}
-			LinkCommand.Type = LCT_System;
-			Builder += "LINK.EXE ";
-		}
-
-
-	}
-
-	if(LinkCommand.Type == LCT_List)
-	{
-		Args.Push(STR_LIT("/nologo"));
-		Args.Push(STR_LIT("/OUT:a.exe"));
-		if(g_CompileFlags & CF_DebugInfo)
-			Args.Push(STR_LIT("/DEBUG"));
-	}
-	else
-	{
-		Builder += "/nologo /OUT:a.exe ";
-		if(g_CompileFlags & CF_DebugInfo)
-			Builder += "/DEBUG ";
-	}
-
-	if(Info->EntryPoint.Data)
-	{
-		NoSetEntryPoint = true;
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(QuickBuild("/ENTRY:%.*s", (int)Info->EntryPoint.Count, Info->EntryPoint.Data));
-		}
-		else
-		{
-			Builder.printf("/ENTRY:%.*s ", (int)Info->EntryPoint.Count, Info->EntryPoint.Data);
-		}
-	}
-
-	bool SwitchLibCMT = false;
-	if(CompileFlags & CF_SanUndefined)
-	{
-		string UBsanLib = STR_LIT("clang_rt.ubsan_standalone-x86_64.lib");
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(UBsanLib);
-		}
-		else
-		{
-			Builder += UBsanLib;
-			Builder += " ";
-		}
-
-		SwitchLibCMT = true;
-	}
-	if(CompileFlags & CF_SanAdress)
-	{
-		string AsanLib = STR_LIT("clang_rt.asan_dynamic-x86_64.lib");
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(AsanLib);
-			Args.Push(STR_LIT("/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib"));
-		}
-		else
-		{
-			Builder += AsanLib;
-			Builder += " ";
-			Builder += "/WHOLEARCHIVE:clang_rt.asan_static_runtime_thunk-x86_64.lib ";
-		}
-
-		SwitchLibCMT = true;
-	}
-	if(SwitchLibCMT && (CompileFlags & CF_NoLibC) == 0)
-	{
-		NoSetDefaultLib = true;
-		if(LinkCommand.Type == LCT_List)
-			Args.Push(STR_LIT("/DEFAULTLIB:LIBCMT"));
-		else
-			Builder += "/DEFAULTLIB:LIBCMT ";
-	}
-
-	if(CompileFlags & CF_NoLibC)
-	{
-		NoSetDefaultLib = true;
-		if(LinkCommand.Type == LCT_List)
-			Args.Push(STR_LIT("/NODEFAULTLIB"));
-		else
-			Builder += "/NODEFAULTLIB ";
-
-		if(!NoSetEntryPoint)
-		{
-			if(LinkCommand.Type == LCT_List)
-				Args.Push(STR_LIT("/ENTRY:main"));
-			else
-				Builder += "/ENTRY:main ";
-		}
-	}
-	else if(!NoSetEntryPoint)
-	{
-		if(LinkCommand.Type == LCT_List)
-			Args.Push(STR_LIT("/ENTRY:mainCRTStartup"));
-		else
-			Builder += "/ENTRY:mainCRTStartup ";
-	}
-
-	if(!NoSetDefaultLib)
-	{
-		if(LinkCommand.Type == LCT_List)
-			Args.Push(STR_LIT("/DEFAULTLIB:MSVCRT"));
-		else
-			Builder += "/DEFAULTLIB:MSVCRT ";
-	}
-
-#elif CM_LINUX
-	LinkCommand.Type = LCT_System;
-	const char *StdDir = GetStdDir();
-	string Dir = MakeString(StdDir);
-
-	string SystemCallObj = GetFilePath(Dir, "system_call.o");
-	string Entry = STR_LIT("_start");
-	if(CompileFlags & CF_NoLibC)
-		Entry = STR_LIT("main");
-
-	if(Info->EntryPoint.Count != 0)
-		Entry = string { .Data = Info->EntryPoint.Data, .Size = Info->EntryPoint.Count };
-	if(LinkCommand.Type == LCT_List)
-	{
-		Command = STR_LIT("ld");
-		Args.Push(STR_LIT("ld"));
-		Args.Push(STR_LIT("-e"));
-		Args.Push(Entry);
-	}
-	else
-	{
-		Builder += "ld -e ";
-		Builder += Entry;
-		Builder += ' ';
-	}
-	slice<string> ObjFiles = FindObjectFiles();
-	if(CompileFlags & CF_NoLibC)
-	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(STR_LIT("-o"));
-			Args.Push(STR_LIT("a"));
-			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
-		}
-		else
-		{
-			Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
-		}
-	}
-	else
-	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(STR_LIT("-lc"));
-			Args.Push(STR_LIT("-o"));
-			Args.Push(STR_LIT("a"));
-			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
-			For(ObjFiles)
-				Args.Push(*it);
-			Args.Push(SystemCallObj);
-		}
-		else
-		{
-			Builder += "-lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
-			For(ObjFiles)
-			{
-				Builder += *it;
-				Builder += " ";
-			}
-
-			Builder += SystemCallObj;
-			Builder += ' ';
-		}
-	}
-#else
-#error Implement Link Command
-#endif
-
-	ForArray(Idx, Modules)
-	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(QuickBuild("%.*s.obj", (int)Modules[Idx]->Name.Size, Modules[Idx]->Name.Data));
-		}
-		else
-		{
-			Builder += Modules[Idx]->Name;
-			Builder += ".obj ";
-		}
-	}
-
-	ForArray(Idx, CMD.LinkArgs)
-	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(CMD.LinkArgs[Idx]);
-		}
-		else
-		{
-			Builder += CMD.LinkArgs[Idx];
-			Builder += ' ';
-		}
-	}
-
-	if(LinkCommand.Type == LCT_List)
-	{
-		LinkCommand.List.Command = Command;
-		LinkCommand.List.Args = SliceFromArray(Args);
-	}
-	else
-	{
-		LinkCommand.System = MakeString(Builder);
-	}
-	return LinkCommand;
 }
 
 
@@ -563,12 +278,12 @@ main(int ArgCount, char *Args[])
 	saved_type_table BuildTimeTypeTable = {};
 
 	dynamic<timers> Timers = {};
+	dynamic<timer_group> LinkTimers = {};
 	slice<module*> ModuleArray = {};
-	compile_info *Info = NewType(compile_info);
 	slice<function> BuildFileFunctions = {};
 	interpreter BuildVM = {};
-	timer_group VMBuildTimer = {};
-	timer_group VMBuildTimer2 = {};
+	dynamic<timer_group> VMBuildTimers  = {};
+	dynamic<timer_group> VMBuildTimers2 = {};
 
 #if _WIN32
 	ConfigIDs.Push(STR_LIT("Windows"));
@@ -601,9 +316,17 @@ main(int ArgCount, char *Args[])
 			dynamic<string> FileNames = {};
 			FileNames.Push(CommandLine.BuildFile);
 			AddStdFiles(FileNames, false, {});
-			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("build"), STR_LIT("compile"));
+			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("build"), STR_LIT(""));
 			BuildModules = r.Modules;
-			BuildFile = *r.Files[r.EntryFileIdx];
+
+			if (r.EntryFileIdx != -1)
+			{
+				BuildFile = *r.Files[r.EntryFileIdx];
+			}
+			else if (r.Files.Count > 0)
+			{
+				BuildFile = *r.Files[0];
+			}
 			BuildTimers = r.Timers;
 
 			// Clear run-time defines
@@ -615,25 +338,16 @@ main(int ArgCount, char *Args[])
 
 		Timers.Push(BuildTimers);
 
-		value InfoValue = {};
-		InfoValue.Type = GetPointerTo(INVALID_TYPE);
-		InfoValue.ptr = Info;
-
 		function *CompileFunction = FindFunction(BuildFileFunctions, STR_LIT("compile"));
-		if(!CompileFunction)
+		if(CompileFunction)
 		{
-			LFATAL("File %s doesn't have the `compile` function defined, this function is used to define how to build the program", CommandLine.BuildFile.Data);
-		}
-		if(!CompileFunction || CompileFunction->Blocks.Count == 0)
-		{
-			LFATAL("compile function is empty");
-		}
-		const type *CompileT = GetType(CompileFunction->Type);
-		Assert(CompileT->Kind == TypeKind_Function);
-		if(CompileT->Function.ArgCount < 1 ||
-				GetTypeNameAsString(CompileT->Function.Args[0]) != STR_LIT("*compile.CompileInfo"))
-		{
-			LFATAL("compile function needs to return compile.CompileInfo");
+			const type *CompileT = GetType(CompileFunction->Type);
+			Assert(CompileT->Kind == TypeKind_Function);
+			if(CompileT->Function.ArgCount < 1 ||
+					GetTypeNameAsString(CompileT->Function.Args[0]) != STR_LIT("*compile.CompileInfo"))
+			{
+				LFATAL("compile function needs to return compile.CompileInfo");
+			}
 		}
 
 #if 0
@@ -643,7 +357,7 @@ main(int ArgCount, char *Args[])
 		}
 #endif
 
-		VMBuildTimer = VLibStartTimer("VM");
+		timer_group VMBuildTimer = VLibStartTimer("VM");
 
 		MakeInterpreter(BuildVM, BuildModules, BuildFile.IR->MaxRegisters);
 		if(HasErroredOut())
@@ -654,232 +368,275 @@ main(int ArgCount, char *Args[])
 			PlatformGetCWD(WasDir, VMAX_PATH);
 			PlatformChangeCWD(BuildFilePath);
 
-			if(g_InterpreterTrace)
-				LINFO("Interpreting compile function");
-			interpret_result Result = InterpretFunction(&BuildVM, *CompileFunction, {&InfoValue, 1});
-			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
-
-			if(Result.Kind == INTERPRET_RUNTIME_ERROR)
+			if(CompileFunction)
 			{
-				LogCompilerError("Error: Failed to evaluate build.compile\n");
-				return 1;
-			}
+				compile_info *Info = NewType(compile_info);
+				value InfoValue = {};
+				InfoValue.Type = GetPointerTo(INVALID_TYPE);
+				InfoValue.ptr = Info;
 
-			VLibStopTimer(&VMBuildTimer);
-
-			for(int i = 0; i < Info->DirectoryCount; ++i)
-			{
-				interp_string InterpDir = Info->Directories[i];
-				string Dir = { .Data = InterpDir.Data, .Size = InterpDir.Count };
-
-				if(!AddLookupPath(Dir))
+				if(g_InterpreterTrace)
+					LINFO("Interpreting compile function");
+				interpret_result Result = InterpretFunction(&BuildVM, *CompileFunction, {&InfoValue, 1});
+				if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 				{
-					LogCompilerError("Error: Couldn't find source directory: %.*s\n",
-							Dir.Size, Dir.Data);
-
+					LogCompilerError("Error: Failed to evaluate build.compile\n");
+					return 1;
 				}
+
+				VLibStopTimer(&VMBuildTimer);
+				VMBuildTimers.Push(VMBuildTimer);
+
+				for(int i = 0; i < Info->DirectoryCount; ++i)
+				{
+					interp_string InterpDir = Info->Directories[i];
+					string Dir = { .Data = InterpDir.Data, .Size = InterpDir.Count };
+
+					if(!AddLookupPath(Dir))
+					{
+						LogCompilerError("Error: Couldn't find source directory: %.*s\n",
+								Dir.Size, Dir.Data);
+
+					}
+				}
+				g_CompileTargets.Push(*Info);
 			}
+			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 			PlatformChangeCWD(WasDir);
 
-			g_TargetArch = (arch)Info->Arch;
-
-			for(size_t i = 0; i < Info->DefineCount; ++i)
-			{
-				ConfigIDs.Push(StringFromInterp(Info->Defines[i]));
-			}
-			if((Info->Flags & CF_NoLibC) == 0)
-			{
-				ConfigIDs.Push(STR_LIT("LIBC"));
-			}
-			if(Info->Flags & CF_Standalone)
-			{
-				ConfigIDs.Push(STR_LIT("Standalone"));
-			}
-
-			g_CompileFlags = Info->Flags;
-			if(Info->Flags & CF_CrossAndroid)
-			{
-				PTarget = platform_target::UnixBased;
-				Info->Flags |= CF_SharedLib;
-				if(Info->TargetTriple.Data == NULL)
-				{
-					Info->TargetTriple.Data = "armv7-none-linux-androideabi";
-					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
-				}
-			}
-			if(Info->Arch == Arch_Wasm32 || Info->Arch == Arch_Wasm64)
-			{
-				PTarget = platform_target::Wasm;
-			}
-
-			using pt = platform_target;
-			switch(PTarget)
-			{
-				case pt::Windows:
-				{
-					ConfigIDs.Push(STR_LIT("Windows"));
-				} break;
-				case pt::UnixBased:
-				{
-					ConfigIDs.Push(STR_LIT("Unix"));
-				} break;
-				case pt::Wasm:
-				{
-					ConfigIDs.Push(STR_LIT("WASM"));
-				} break;
-			}
-
-			if(Info->Arch == Arch_x86_64)
-			{
-				ConfigIDs.Push(STR_LIT("x86"));
-				ConfigIDs.Push(STR_LIT("x64"));
-			}
-			else if(Info->Arch == Arch_x86)
-			{
-				RegisterBitSize = 32;
-				ConfigIDs.Push(STR_LIT("x86"));
-			}
-			else if(Info->Arch == Arch_arm32)
-			{
-				RegisterBitSize = 32;
-				ConfigIDs.Push(STR_LIT("arm32"));
-			}
-			else if(Info->Arch == Arch_arm64)
-			{
-				ConfigIDs.Push(STR_LIT("arm64"));
-			}
-			else if(Info->Arch == Arch_Wasm32)
-			{
-				RegisterBitSize = 32;
-				ConfigIDs.Push(STR_LIT("wasm32"));
-				if(Info->TargetTriple.Data == NULL)
-				{
-					Info->TargetTriple.Data = "wasm32-unknown-unknown";
-					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
-				}
-			}
-			else if(Info->Arch == Arch_Wasm64)
-			{
-				ConfigIDs.Push(STR_LIT("wasm64"));
-				if(Info->TargetTriple.Data == NULL)
-				{
-					Info->TargetTriple.Data = "wasm64-unknown-unknown";
-					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
-				}
-			}
-
-			if(Info->Link.Count > 0)
-			{
-				string Args = MakeString(Info->Link.Data, Info->Link.Count);
-				CommandLine.LinkArgs.Push(Args);
-			}
-
-			timers FileTimer = {};
-			dynamic<string> FileNames = {};
-			for(int i = 0; i < Info->FileCount; ++i)
-			{
-				FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
-			}
-			AddStdFiles(FileNames, Info->Flags, Info->InternalFile);
-
-			For(ConfigIDs)
-			{
-				LDEBUG("CONFIG %s", it->Data);
-			}
-
-			string EntryPoint = STR_LIT("main");
-			if(Info->EntryPoint.Count != 0)
-			{
-				EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
-			}
-
-			slice<interp_file> CustomModules;
-			CustomModules.Data = Info->CustomFiles;
-			CustomModules.Count = Info->CustomFilesCount;
-
 			BuildTimeTypeTable = SaveTypeTableAndReset();
-			AddVectorTypes();
-			NeedToRestoreForAfterFunction = true;
-			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint, CustomModules);
-			slice<file*> Files = r.Files;
-			ModuleArray = r.Modules;
-			FileTimer = r.Timers;
-
-			int SaveRegisterBitSize = RegisterBitSize;
-			RegisterBitSize = sizeof(void*) * 8;
-
-			function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
-			if(ASTFunction)
+			for(compile_info &Info_ : g_CompileTargets)
 			{
-				saved_type_table CompileTypeTable = SaveTypeTableAndReset();
-				RestoreTypeTable(BuildTimeTypeTable);
-				u32 ASTNodeT = FindStructCanFail(STR_LIT("ast.Node"));
-				if(ASTNodeT != Basic_error)
+				compile_info *Info = &Info_;
+				if(Info->Output.Count == 0)
 				{
-					if(g_InterpreterTrace)
-						LINFO("Interpreting after_link function");
-
-					PlatformSetSignalHandler(InterpSegFault, &BuildVM);
-					BuildVM.HasSetSigHandler = true;
-
-					for(file *File : r.Files)
-					{
-						interp_slice Arg = NodeToInterpSlice(SliceFromArray(File->Nodes));
-						value ArgValue = {};
-						ArgValue.Type = GetSliceType(ASTNodeT);
-						ArgValue.ptr = &Arg;
-						InterpretFunction(&BuildVM, *ASTFunction, {&ArgValue, 1});
-					}
-
-
-					PlatformSetSignalHandler(DefaultSignalHandler, NULL);
-				}
-				RestoreTypeTable(CompileTypeTable);
-			}
-
-			// Remake vm to evaluate enums with new info
-
-			VMBuildTimer2 = VLibStartTimer("VM");
-
-			TypeTableInvalidateSizeCaches();
-			interpreter ComptimeVM = {};
-			MakeInterpreter(ComptimeVM, ModuleArray, 0);
-			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
-			if(HasErroredOut())
-				exit(1);
-
-			RegisterBitSize = SaveRegisterBitSize;
-			VLibStopTimer(&VMBuildTimer2);
-
-			if(!g_StopCompileOutput)
-			{
-				TypeTableInvalidateSizeCaches();
-				FileTimer.LLVM = VLibStartTimer("LLVM");
-				RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
-#if 0
-				{
-					InitX86OpUsage();
-					slice<op_reg_usage> u = {OpUsagex86, ARR_LEN(OpUsagex86)};
-
-					slice<uint> FnCallRegisters = SliceFromConst<uint>({
-							2, 3, 6, 7
-							});
-
-					reg_allocator r = MakeRegisterAllocator(u, 11, FnCallRegisters);
-					For(Files)
-					{
-						AllocateRegisters(&r, (*it)->IR);
-					}
-				}
+#if _WIN32
+					Info->Output = {5, "a.exe"};
+#else
+					Info->Output = {1, "a"};
 #endif
-				VLibStopTimer(&FileTimer.LLVM);
-			}
-			ComptimeVM.StackAllocator.Free();
+				}
+				g_TargetArch = (arch)Info->Arch;
 
-			Timers.Push(FileTimer);
-			if(DumpingInfo)
-			{
-				WriteCTags(ModuleArray);
+				for(size_t i = 0; i < Info->DefineCount; ++i)
+				{
+					ConfigIDs.Push(StringFromInterp(Info->Defines[i]));
+				}
+				if((Info->Flags & CF_NoLibC) == 0)
+				{
+					ConfigIDs.Push(STR_LIT("LIBC"));
+				}
+				if(Info->Flags & CF_Standalone)
+				{
+					ConfigIDs.Push(STR_LIT("Standalone"));
+				}
+
+				g_CompileFlags = Info->Flags;
+				if(Info->Flags & CF_CrossAndroid)
+				{
+					PTarget = platform_target::UnixBased;
+					Info->Flags |= CF_SharedLib;
+					if(Info->TargetTriple.Data == NULL)
+					{
+						Info->TargetTriple.Data = "armv7-none-linux-androideabi";
+						Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+					}
+				}
+				if(Info->Arch == Arch_Wasm32 || Info->Arch == Arch_Wasm64)
+				{
+					PTarget = platform_target::Wasm;
+				}
+
+				using pt = platform_target;
+				switch(PTarget)
+				{
+					case pt::Windows:
+					{
+						ConfigIDs.Push(STR_LIT("Windows"));
+					} break;
+					case pt::UnixBased:
+					{
+						ConfigIDs.Push(STR_LIT("Unix"));
+					} break;
+					case pt::Wasm:
+					{
+						ConfigIDs.Push(STR_LIT("WASM"));
+					} break;
+				}
+
+				if(Info->Arch == Arch_x86_64)
+				{
+					ConfigIDs.Push(STR_LIT("x86"));
+					ConfigIDs.Push(STR_LIT("x64"));
+				}
+				else if(Info->Arch == Arch_x86)
+				{
+					RegisterBitSize = 32;
+					ConfigIDs.Push(STR_LIT("x86"));
+				}
+				else if(Info->Arch == Arch_arm32)
+				{
+					RegisterBitSize = 32;
+					ConfigIDs.Push(STR_LIT("arm32"));
+				}
+				else if(Info->Arch == Arch_arm64)
+				{
+					ConfigIDs.Push(STR_LIT("arm64"));
+				}
+				else if(Info->Arch == Arch_Wasm32)
+				{
+					RegisterBitSize = 32;
+					ConfigIDs.Push(STR_LIT("wasm32"));
+					if(Info->TargetTriple.Data == NULL)
+					{
+						Info->TargetTriple.Data = "wasm32-unknown-unknown";
+						Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+					}
+				}
+				else if(Info->Arch == Arch_Wasm64)
+				{
+					ConfigIDs.Push(STR_LIT("wasm64"));
+					if(Info->TargetTriple.Data == NULL)
+					{
+						Info->TargetTriple.Data = "wasm64-unknown-unknown";
+						Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+					}
+				}
+
+				if(Info->Link.Count > 0)
+				{
+					string Args = MakeString(Info->Link.Data, Info->Link.Count);
+					CommandLine.LinkArgs.Push(Args);
+				}
+
+				timers FileTimer = {};
+				dynamic<string> FileNames = {};
+				for(int i = 0; i < Info->FileCount; ++i)
+				{
+					FileNames.Push(MakeString(Info->FileNames[i].Data, Info->FileNames[i].Count));
+				}
+				AddStdFiles(FileNames, Info->Flags, Info->InternalFile);
+
+				For(ConfigIDs)
+				{
+					LDEBUG("CONFIG %s", it->Data);
+				}
+
+				string EntryPoint = STR_LIT("main");
+				if(Info->EntryPoint.Count != 0)
+				{
+					EntryPoint = MakeString(Info->EntryPoint.Data, Info->EntryPoint.Count);
+				}
+
+				slice<interp_file> CustomModules;
+				CustomModules.Data = Info->CustomFiles;
+				CustomModules.Count = Info->CustomFilesCount;
+
+				auto _ = SaveTypeTableAndReset();
+				AddVectorTypes();
+				NeedToRestoreForAfterFunction = true;
+				auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("main"), EntryPoint, CustomModules);
+				slice<file*> Files = r.Files;
+				ModuleArray = r.Modules;
+				FileTimer = r.Timers;
+
+				int SaveRegisterBitSize = RegisterBitSize;
+				RegisterBitSize = sizeof(void*) * 8;
+
+				function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
+				if(ASTFunction)
+				{
+					saved_type_table CompileTypeTable = SaveTypeTableAndReset();
+					RestoreTypeTable(BuildTimeTypeTable);
+					u32 ASTNodeT = FindStructCanFail(STR_LIT("ast.Node"));
+					if(ASTNodeT != Basic_error)
+					{
+						if(g_InterpreterTrace)
+							LINFO("Interpreting after_link function");
+
+						PlatformSetSignalHandler(InterpSegFault, &BuildVM);
+						BuildVM.HasSetSigHandler = true;
+
+						for(file *File : r.Files)
+						{
+							interp_slice Arg = NodeToInterpSlice(SliceFromArray(File->Nodes));
+							value ArgValue = {};
+							ArgValue.Type = GetSliceType(ASTNodeT);
+							ArgValue.ptr = &Arg;
+							InterpretFunction(&BuildVM, *ASTFunction, {&ArgValue, 1});
+						}
+
+
+						PlatformSetSignalHandler(DefaultSignalHandler, NULL);
+					}
+					RestoreTypeTable(CompileTypeTable);
+				}
+
+				// Remake vm to evaluate enums with new info
+
+				timer_group VMBuildTimer2 = VLibStartTimer("VM");
+
+				TypeTableInvalidateSizeCaches();
+				interpreter ComptimeVM = {};
+				MakeInterpreter(ComptimeVM, ModuleArray, 0);
+				PlatformSetSignalHandler(DefaultSignalHandler, NULL);
+				if(HasErroredOut())
+					exit(1);
+
+				RegisterBitSize = SaveRegisterBitSize;
+				VLibStopTimer(&VMBuildTimer2);
+				VMBuildTimers2.Push(VMBuildTimer2);
+
+				if(!g_StopCompileOutput)
+				{
+					TypeTableInvalidateSizeCaches();
+					FileTimer.LLVM = VLibStartTimer("LLVM");
+					RCGenerateCode(CurrentPipeline.Queue, ModuleArray, Files, CommandLine.Flags, Info, ComptimeVM.StoredGlobals);
+#if 0
+					{
+						InitX86OpUsage();
+						slice<op_reg_usage> u = {OpUsagex86, ARR_LEN(OpUsagex86)};
+
+						slice<uint> FnCallRegisters = SliceFromConst<uint>({
+								2, 3, 6, 7
+								});
+
+						reg_allocator r = MakeRegisterAllocator(u, 11, FnCallRegisters);
+						For(Files)
+						{
+							AllocateRegisters(&r, (*it)->IR);
+						}
+					}
+#endif
+					VLibStopTimer(&FileTimer.LLVM);
+				}
+				ComptimeVM.StackAllocator.Free();
+
+				Timers.Push(FileTimer);
+				if(DumpingInfo)
+				{
+					WriteCTags(ModuleArray);
+				}
+
+				auto LinkTimer = VLibStartTimer("Linking");
+				RunLinker(Info, CommandLine, ModuleArray);
+				VLibStopTimer(&LinkTimer);
+				LinkTimers.Push(LinkTimer);
+
+				/* Clean up */
+				if((Info->Flags & CF_NoLink) == 0 && !g_StopCompileOutput)
+				{
+					ForArray(Idx, ModuleArray)
+					{
+						string_builder Builder = MakeBuilder();
+						Builder += ModuleArray[Idx]->Name;
+						Builder += ".obj";
+						string Path = MakeString(Builder);
+						if(!PlatformDeleteFile(Path.Data)) {
+							LDEBUG("Failed to detel file: %s", Path.Data);
+						}
+					}
+				}
 			}
 		}
 	}
@@ -922,6 +679,7 @@ main(int ArgCount, char *Args[])
 		if(HasErroredOut())
 			exit(1);
 
+		compile_info *Info = NewType(compile_info);
 		if(!g_StopCompileOutput)
 		{
 			FileTimer.LLVM = VLibStartTimer("LLVM");
@@ -935,71 +693,27 @@ main(int ArgCount, char *Args[])
 			WriteCTags(ModuleArray);
 		}
 		
-	}
-
-
-	auto LinkTimer = VLibStartTimer("Linking");
-	if((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
-	else
-	{
-		link_command Link = MakeLinkCommand(CommandLine, ModuleArray, Info);
-		switch(Link.Type)
+		auto LinkTimer = VLibStartTimer("Linking");
+		RunLinker(Info, CommandLine, ModuleArray);
+		VLibStopTimer(&LinkTimer);
+		LinkTimers.Push(LinkTimer);
+		
+		/* Clean up */
+		if((Info->Flags & CF_NoLink) == 0 && !g_StopCompileOutput)
 		{
-			case LCT_List:
+			ForArray(Idx, ModuleArray)
 			{
-#if _WIN32
-				auto b = MakeBuilder();
-				/*
-				b += Link.List.Command;
-				b += ' ';
-				*/
-				b += "LINK.EXE ";
-
-				For(Link.List.Args)
-				{
-					b += *it;
-					b += ' ';
+				string_builder Builder = MakeBuilder();
+				Builder += ModuleArray[Idx]->Name;
+				Builder += ".obj";
+				string Path = MakeString(Builder);
+				if(!PlatformDeleteFile(Path.Data)) {
+					LDEBUG("Failed to detel file: %s", Path.Data);
 				}
-
-				auto CommandLine = MakeString(b);
-				LDEBUG("LINK: (%s) %s", Link.List.Command.Data, CommandLine.Data);
-
-				PROCESS_INFORMATION ProcessInfo = {};
-				STARTUPINFOA SInfo = {};
-				SInfo.cb = sizeof(STARTUPINFOA);
-				if(CreateProcessA(Link.List.Command.Data, (char *)CommandLine.Data, NULL, NULL, true, 0, NULL, NULL, &SInfo, &ProcessInfo))
-				{
-					WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
-					CloseHandle(ProcessInfo.hProcess);
-					CloseHandle(ProcessInfo.hThread);
-				}
-				else
-				{
-					LogCompilerError("Error: Couldn't spawn process for link command: %s", GetLastError());
-				}
-#elif CM_LINUX
-				array<char *> Args(Link.List.Args.Count);
-				ForArray(Idx, Args)
-				{
-					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
-				}
-				pid_t pid = fork();
-				if(pid == 0)
-				{
-					execv(Link.List.Command.Data, Args.Data);
-				}
-#else
-#error Implement a way to invoke a proces with the link command
-#endif
-
-			} break;
-			case LCT_System:
-			{
-				system(Link.System.Data);
-			} break;
+			}
 		}
 	}
-	VLibStopTimer(&LinkTimer);
+
 
 	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
 	if(AfterFunction)
@@ -1037,20 +751,6 @@ main(int ArgCount, char *Args[])
 		PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 	}
 
-	/* Clean up */
-	if((Info->Flags & CF_NoLink) == 0 && !g_StopCompileOutput)
-	{
-		ForArray(Idx, ModuleArray)
-		{
-			string_builder Builder = MakeBuilder();
-			Builder += ModuleArray[Idx]->Name;
-			Builder += ".obj";
-			string Path = MakeString(Builder);
-			if(!PlatformDeleteFile(Path.Data)) {
-				LDEBUG("Failed to detel file: %s", Path.Data);
-			}
-		}
-	}
 	BuildVM.StackAllocator.Pop();
 
 	i64 ParseTime = 0;
@@ -1058,6 +758,9 @@ main(int ArgCount, char *Args[])
 	i64 IRBuildTime = 0;
 	i64 FlowTypingTime = 0;
 	i64 LLVMTime = 0;
+	i64 LinkTime = 0;
+	i64 VMTimer1 = 0;
+	i64 VMTimer2 = 0;
 
 	ForArray(Idx, Timers)
 	{
@@ -1067,18 +770,32 @@ main(int ArgCount, char *Args[])
 		FlowTypingTime+= TimeTaken(&Timers.Data[Idx].FlowTyping);
 		LLVMTime      += TimeTaken(&Timers.Data[Idx].LLVM);
 	}
+	ForArray(Idx, LinkTimers)
+	{
+		LinkTime += TimeTaken(&LinkTimers.Data[Idx]);
+	}
+	ForArray(Idx, VMBuildTimers)
+	{
+		VMTimer1 += TimeTaken(&VMBuildTimers.Data[Idx]);
+	}
+	ForArray(Idx, VMBuildTimers2)
+	{
+		VMTimer2 += TimeTaken(&VMBuildTimers2.Data[Idx]);
+	}
 
 	if(CommandLine.Flags & CommandFlag_time)
 	{
-		LWARN("Compiling Finished...");
-		LWARN("Parsing:                   %lldms", ParseTime                / 1000);
-		LWARN("Type Checking:             %lldms", TypeCheckTime            / 1000);
-		LWARN("Intermediate Generation:   %lldms", IRBuildTime              / 1000);
-		LWARN("Flow Typing:               %lldms", FlowTypingTime           / 1000);
-		LWARN("Interpreting Build File:   %lldms", TimeTaken(&VMBuildTimer) / 1000);
-		LWARN("Compile Time Evaluation:   %lldms", TimeTaken(&VMBuildTimer2)/ 1000);
-		LWARN("LLVM Code Generation:      %lldms", LLVMTime                 / 1000);
-		LWARN("Linking:                   %lldms", TimeTaken(&LinkTimer)    / 1000);
+		// @Note: Should probably have a better name for a function that logs without formatting...
+		// Vasko - 22/09/2026
+		LogCompilerError("Compiling Finished...\n");
+		LogCompilerError("Parsing:                   %lldms\n", ParseTime                / 1000);
+		LogCompilerError("Type Checking:             %lldms\n", TypeCheckTime            / 1000);
+		LogCompilerError("Intermediate Generation:   %lldms\n", IRBuildTime              / 1000);
+		LogCompilerError("Flow Typing:               %lldms\n", FlowTypingTime           / 1000);
+		LogCompilerError("Interpreting Build File:   %lldms\n", VMTimer1                 / 1000);
+		LogCompilerError("Compile Time Evaluation:   %lldms\n", VMTimer2                 / 1000);
+		LogCompilerError("LLVM Code Generation:      %lldms\n", LLVMTime                 / 1000);
+		LogCompilerError("Linking:                   %lldms\n", LinkTime                 / 1000);
 	}
 
 	FreeAllArenas();

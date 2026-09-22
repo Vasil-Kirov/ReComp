@@ -1,3 +1,4 @@
+#include <direct.h>
 #include <signal.h>
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -17,6 +18,16 @@ struct windows_signal_handler
 };
 
 thread_local windows_signal_handler SignalHandlerGlobal = {};
+
+void PlatformGetCWD(char *Buf, size_t BufSize)
+{
+	_getcwd(Buf, BufSize);
+}
+
+void PlatformChangeCWD(const char *Path)
+{
+	_chdir(Path);
+}
 
 bool PlatformCopyFile(const char *From, const char *To)
 {

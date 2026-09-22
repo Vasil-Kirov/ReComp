@@ -108,20 +108,26 @@ const char* __asan_default_options() { return "detect_leaks=0"; }
 
 dynamic<string> ConfigIDs = {};
 
-const char *GetStdDir()
+// @Note: Destroys the original string
+void FilePathToDirPath(char *FilePath)
+{
+	int i;
+	for(i = 0; FilePath[i] != 0; ++i);
+	int size = i;
+	for(; FilePath[i] != '\\' && FilePath[i] != '/';--i);
+	memset(FilePath + i + 1, 0, size - i - 1);
+}
+
+const char *GetRVCBinDir()
 {
 	char *Path = (char *)AllocatePermanent(VMAX_PATH);
 	GetExePath(Path);
-	int i;
-	for(i = 0; Path[i] != 0; ++i);
-	int size = i;
-	for(; Path[i] != '\\' && Path[i] != '/';--i);
-	memset(Path + i + 1, 0, size - i - 1);
+	FilePathToDirPath(Path);
 
 	return Path;
 }
 
-string GetFilePath(string Dir, const char *FileName)
+string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
 {
 	string_builder Builder = MakeBuilder();
 	Builder += Dir;
@@ -514,7 +520,7 @@ main(int ArgCount, char *Args[])
 
 	ToolPipe = CommandLine.ToolPipe;
 	DumpingInfo = (CommandLine.Flags & CommandFlag_dumpinfo) != 0;
-	string StdLibDir = GetFilePath(MakeString(GetStdDir()), "");
+	string StdLibDir = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "");
 	StdLibDir.Size--;
 	StdLibDir = MakeString(StdLibDir.Data, StdLibDir.Size);
 	AddLookupPath(STR_LIT("."));
@@ -582,6 +588,14 @@ main(int ArgCount, char *Args[])
 
 		bool WasDumpingInfo = DumpingInfo;
 		DumpingInfo = false;
+
+		char *BuildFilePath = GetAbsolutePath(CommandLine.BuildFile.Data);
+		// @Note: If Path is null then we can't find the build file, we don't error here
+		// because the RunPipeline will error on its own - Vasko 22/09/2026
+		if (BuildFilePath) {
+			FilePathToDirPath(BuildFilePath);
+			AddLookupPath((string){BuildFilePath, strlen(BuildFilePath)});
+		}
 
 		{
 			dynamic<string> FileNames = {};
@@ -651,17 +665,22 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer);
 
+			char WasDir[VMAX_PATH] = {};
+			PlatformGetCWD(WasDir, VMAX_PATH);
+			PlatformChangeCWD(BuildFilePath);
 			for(int i = 0; i < Info->DirectoryCount; ++i)
 			{
 				interp_string InterpDir = Info->Directories[i];
-				string Path = { .Data = InterpDir.Data, .Size = InterpDir.Count };
-				if(!AddLookupPath(Path))
+				string Dir = { .Data = InterpDir.Data, .Size = InterpDir.Count };
+
+				if(!AddLookupPath(Dir))
 				{
 					LogCompilerError("Error: Couldn't find source directory: %.*s\n",
-							Path.Size, Path.Data);
+							Dir.Size, Dir.Data);
 
 				}
 			}
+			PlatformChangeCWD(WasDir);
 
 			g_TargetArch = (arch)Info->Arch;
 

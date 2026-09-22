@@ -16,6 +16,8 @@ typedef sem_t *t_semaphore;
 typedef unsigned long (*t_proc)(void *);
 typedef void (*sig_proc)(void *Context);
 
+void PlatformGetCWD(char *Buf, size_t BufSize);
+void PlatformChangeCWD(const char *Path);
 bool PlatformCopyFile(const char *From, const char *To);
 bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size);
 bool PlatformReadPipe(u64 Pipe, void *Data, u32 Size);

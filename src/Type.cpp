@@ -865,6 +865,9 @@ b32 IsCastValid(const type *From, const type *To)
 		return IsCastValid(T, From);
 	}
 
+	if(IsString(From) != IsString(To))
+		return false;
+
 	if(From->Kind != To->Kind)
 		return false;
 

@@ -1061,14 +1061,15 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case TypeKind_Array:
 				{
-					if(To == -1)
-						To = PushInt(T->Array.MemberCount, Builder, Basic_int);
-					u32 Data = Operand;
 					if(ShouldDoBoundsChecking())
 					{
 						u32 Count = PushInt(T->Array.MemberCount, Builder, Basic_int);
 						BuildSliceAssert(Builder, Node, From, To, Count);
 					}
+
+					if(To == -1)
+						To = PushInt(T->Array.MemberCount, Builder, Basic_int);
+					u32 Data = Operand;
 					if(From != -1)
 					{
 						Data = PushInstruction(Builder, Instruction(OP_INDEX, Data, From, Node->Slice.OperandType, Builder));
@@ -3283,7 +3284,6 @@ void PushDefferedInstructions(block_builder *Builder)
 		int ActualIdx = Builder->Defered.Data.Count - 1 - Idx;
 		auto s = Builder->Defered.Data[ActualIdx];
 		PushDefferedScope(Builder, s);
-
 	}
 }
 

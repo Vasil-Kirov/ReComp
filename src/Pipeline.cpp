@@ -188,7 +188,7 @@ void CreatePipeline()
 
 extern dynamic<string> ConfigIDs;
 
-int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryPoint);
+int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryPoint, slice<module*> Modules);
 
 void ResetPipelineState()
 {
@@ -303,7 +303,7 @@ pipeline_result RunPipeline(slice<string> InitialFiles, string EntryModule, stri
 	CurrentModules = SliceFromArray(Modules);
 	slice<file *> Files = SliceFromArray(FileArray);
 
-	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint);
+	int EntryIdx = AnalyzeFilesForSymbols(Files, EntryModule, EntryPoint, SliceFromArray(Modules));
 
 	bool FoundInternal = false;
 	For(Modules)
@@ -411,13 +411,10 @@ void LexString(string FilePath, string FileData)
 	file *f = StringToTokens(FileData, ErrorInfo);
 	f->Name = FilePath;
 
-	if(!HasErroredOut())
-	{
-		job Job = {};
-		Job.Data = f;
-		Job.Task = ParseFile;
-		PostJob(CurrentPipeline.Queue, Job);
-	}
+	job Job = {};
+	Job.Data = f;
+	Job.Task = ParseFile;
+	PostJob(CurrentPipeline.Queue, Job);
 
 }
 
@@ -500,8 +497,10 @@ file *FindFileForCustomModule(string FileName, slice<module*> Modules)
 	return nullptr;
 }
 
-int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryPoint)
+int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryPoint, slice<module*> Modules)
 {
+	uint ErrorCount = GetNumErrors();
+
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
@@ -542,7 +541,15 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 		CheckForRecursiveStructs(File->Checker, SliceFromArray(File->Nodes));
 	}
 
-	ExitIfErroredOut();
+	if (GetNumErrors() > ErrorCount)
+	{
+		if (ToolPipe != -1 && DumpingInfo)
+		{
+			PipeInfoBlob(nullptr, Files, Modules);
+			exit(1);
+		}
+	}
+
 
 	ForArray(Idx, Files)
 	{

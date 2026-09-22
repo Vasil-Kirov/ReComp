@@ -3170,6 +3170,7 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 			} break;
 			BIN_BIN_OP(AND, &);
 			BIN_BIN_OP(OR, |);
+			BIN_BIN_OP(XOR, ^);
 			BIN_BIN_OP(SR, >>);
 			BIN_BIN_OP(SL, <<);
 			BIN_COMP_OP(GREAT, >);

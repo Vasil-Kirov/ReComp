@@ -2409,6 +2409,7 @@ node *ParseDeclaration(parser *Parser, b32 IsShadow, node *LHS, u32 BeforeFlags)
 node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 {
 	ERROR_INFO;
+	u64 StartTokenIndex = Parser->TokenIndex;
 
 	token Token = PeekToken(Parser);
 	node *Result = MakeError(ErrorInfo);
@@ -2726,7 +2727,11 @@ node *ParseNode(parser *Parser, b32 ExpectSemicolon)
 	if(ExpectSemicolon) {
 		bool WasPanicMode = Parser->PanicMode;
 		EatToken(Parser, ';');
-		Parser->PanicMode = WasPanicMode;
+
+		// @Note: This can get into a cycle if I restore panic mode here,
+		// so this is a check to prevent that - Vasko 19/09/2026
+		if (Parser->TokenIndex != StartTokenIndex)
+			Parser->PanicMode = WasPanicMode;
 	}
 
 	return Result;

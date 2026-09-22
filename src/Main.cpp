@@ -650,7 +650,9 @@ main(int ArgCount, char *Args[])
 			exit(1);
 
 		{
-
+			char WasDir[VMAX_PATH] = {};
+			PlatformGetCWD(WasDir, VMAX_PATH);
+			PlatformChangeCWD(BuildFilePath);
 
 			if(g_InterpreterTrace)
 				LINFO("Interpreting compile function");
@@ -665,9 +667,6 @@ main(int ArgCount, char *Args[])
 
 			VLibStopTimer(&VMBuildTimer);
 
-			char WasDir[VMAX_PATH] = {};
-			PlatformGetCWD(WasDir, VMAX_PATH);
-			PlatformChangeCWD(BuildFilePath);
 			for(int i = 0; i < Info->DirectoryCount; ++i)
 			{
 				interp_string InterpDir = Info->Directories[i];

@@ -337,18 +337,22 @@ u32 GetTypeForMultiReturn(slice<u32> Returns)
 
 	array<struct_member> Members(Returns.Count);
 
+	u32 GenericFlag = 0;
+
 	ForArray(Idx, Returns)
 	{
 		Members[Idx] = struct_member {
 			.ID = STR_LIT(":arg:"),
 			.Type = Returns[Idx],
 		};
+		if (IsGeneric(Returns[Idx]))
+			GenericFlag = StructFlag_Generic;
 	}
 
 	type *NewT = AllocType(TypeKind_Struct);
 	NewT->Struct.Name = Lookup;
 	NewT->Struct.Members = SliceFromArray(Members);
-	NewT->Struct.Flags = StructFlag_FnReturn;
+	NewT->Struct.Flags = StructFlag_FnReturn | GenericFlag;
 
 	return AddType(NewT);
 }

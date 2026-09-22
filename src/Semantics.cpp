@@ -4563,7 +4563,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 			}
 			else
 			{
-				if(!Checker->Scope.TryPeek() || !Checker->Scope.Peek()->Parent)
+				if(!Checker->Scope.TryPeek())
 				{
 					RaiseError(false, *Node->ErrorInfo, "Unexpected scope closing }");
 				}

@@ -135,12 +135,17 @@ string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
 }
 
 
-function *FindFunction(slice<function> Functions, string Name)
+function *FindFunction(module *Module, string Name)
 {
-	For(Functions)
+	if (!Module)
+		return NULL;
+	for(file *File : Module->Files)
 	{
-		if(*it->Name == Name)
-			return it;
+		for(auto &f : File->IR->Functions)
+		{
+			if(*f.Name == Name)
+				return &f;
+		}
 	}
 
 	return NULL;
@@ -280,7 +285,7 @@ main(int ArgCount, char *Args[])
 	dynamic<timers> Timers = {};
 	dynamic<timer_group> LinkTimers = {};
 	slice<module*> ModuleArray = {};
-	slice<function> BuildFileFunctions = {};
+	module *BuildModule = nullptr;
 	interpreter BuildVM = {};
 	dynamic<timer_group> VMBuildTimers  = {};
 	dynamic<timer_group> VMBuildTimers2 = {};
@@ -294,7 +299,6 @@ main(int ArgCount, char *Args[])
 	if(CommandLine.SingleFile.Data == NULL)
 	{
 		timers BuildTimers = {};
-		file BuildFile = {};
 		slice<module*> BuildModules = {};
 
 		// @TODO: maybe actually check the host machine?
@@ -319,14 +323,16 @@ main(int ArgCount, char *Args[])
 			auto r = RunPipeline(SliceFromArray(FileNames), STR_LIT("build"), STR_LIT(""));
 			BuildModules = r.Modules;
 
-			if (r.EntryFileIdx != -1)
+			for(auto Module : BuildModules)
 			{
-				BuildFile = *r.Files[r.EntryFileIdx];
+				if(Module->Name == STR_LIT("build"))
+				{
+					BuildModule = Module;
+					break;
+				}
 			}
-			else if (r.Files.Count > 0)
-			{
-				BuildFile = *r.Files[0];
-			}
+			Assert(BuildModule);
+
 			BuildTimers = r.Timers;
 
 			// Clear run-time defines
@@ -334,11 +340,9 @@ main(int ArgCount, char *Args[])
 		}
 		DumpingInfo = WasDumpingInfo;
 
-		BuildFileFunctions = SliceFromArray(BuildFile.IR->Functions);
-
 		Timers.Push(BuildTimers);
 
-		function *CompileFunction = FindFunction(BuildFileFunctions, STR_LIT("compile"));
+		function *CompileFunction = FindFunction(BuildModule, STR_LIT("compile"));
 		if(CompileFunction)
 		{
 			const type *CompileT = GetType(CompileFunction->Type);
@@ -359,7 +363,7 @@ main(int ArgCount, char *Args[])
 
 		timer_group VMBuildTimer = VLibStartTimer("VM");
 
-		MakeInterpreter(BuildVM, BuildModules, BuildFile.IR->MaxRegisters);
+		MakeInterpreter(BuildVM, BuildModules, 0);
 		if(HasErroredOut())
 			exit(1);
 
@@ -543,7 +547,7 @@ main(int ArgCount, char *Args[])
 				int SaveRegisterBitSize = RegisterBitSize;
 				RegisterBitSize = sizeof(void*) * 8;
 
-				function *ASTFunction = FindFunction(BuildFileFunctions, STR_LIT("inspect_ast"));
+				function *ASTFunction = FindFunction(BuildModule, STR_LIT("inspect_ast"));
 				if(ASTFunction)
 				{
 					saved_type_table CompileTypeTable = SaveTypeTableAndReset();
@@ -715,7 +719,7 @@ main(int ArgCount, char *Args[])
 	}
 
 
-	function *AfterFunction = FindFunction(BuildFileFunctions, STR_LIT("after_link"));
+	function *AfterFunction = FindFunction(BuildModule, STR_LIT("after_link"));
 	if(AfterFunction)
 	{
 		if(NeedToRestoreForAfterFunction)

@@ -54,8 +54,8 @@ ConstString :: struct
 
 ConstVector :: union
 {
-	F: v4,
-	I: iv4,
+	F: simd_f4,
+	I: simd_i4,
 }
 
 ConstValue :: struct

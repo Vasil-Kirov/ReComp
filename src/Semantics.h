@@ -90,7 +90,6 @@ string MakeNonGenericName(string GenericName);
 void AnalyzeInnerBody(checker *Checker, slice<node *> Body);
 u32 AnalyzeBooleanExpression(checker *Checker, node **NodePtr);
 u32 AnalyzeStructDeclaration(checker *Checker, node *Node);
-void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
 bool CheckIntrinsic(string Name);
 symbol *FindSymbolFromNode(checker *Checker, node *Node, module **OutModule = NULL);
 u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error=true, b32 *OutIsAutoDefineGeneric=NULL);
@@ -99,7 +98,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 symbol *CreateFunctionSymbol(checker *Checker, node *Node);
 void AnalyzeForModuleStructs(slice<node *>Nodes, module *Module);
 void AnalyzeEnumDefinitions(checker *Checker, slice<node *> Nodes, module *Module);
-void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes);
+void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes, bool ReportErrors);
 void AnalyzeDefineStructs(checker *Checker, slice<node *> Nodes);
 void CheckForRecursiveStructs(checker *Checker, slice<node *> Nodes);
 void AnalyzeEnums(checker *Checker, slice<node *> Nodes);

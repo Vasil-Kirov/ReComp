@@ -131,7 +131,9 @@ void RCGenerateIntrins(generator *gen)
 	LLVMTypeRef MemCmpType = LLVMFunctionType(
 			LLVMInt32TypeInContext(gen->ctx),
 				MemCmpArgs, 3, false);
-	LLVMValueRef MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
+	LLVMValueRef MemCmpLLVM = LLVMGetNamedFunction(gen->mod, MemCmp.Data);
+	if (!MemCmpLLVM)
+		MemCmpLLVM = LLVMAddFunction(gen->mod, MemCmp.Data, MemCmpType);
 	gen->Intrinsics.Add(MemCmp, llvm_intrin { MemCmpLLVM, MemCmpType } );
 
 	string Trap = STR_LIT("llvm.debugtrap");
@@ -1787,7 +1789,6 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 
 	RCGenerateCompilerTypes(&Gen);
 	RCGenerateComplexTypes(&Gen);
-	RCGenerateIntrins(&Gen);
 
 	struct gen_fn_info {
 		LLVMValueRef LLVM;
@@ -1968,6 +1969,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		}
 	}
 
+	RCGenerateIntrins(&Gen);
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(FIdx, M->Files)
 	{

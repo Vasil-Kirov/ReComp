@@ -75,7 +75,7 @@ void AddVectorTypes()
 	type *FloatV2 = AllocType(TypeKind_Vector);
 	FloatV2->Vector.Kind = Vector_Float;
 	FloatV2->Vector.ElementCount = 2;
-	AddTypeWithName(FloatV2, STR_LIT("v2"));
+	AddTypeWithName(FloatV2, STR_LIT("simd_f2"));
 
 	//type *FloatV3 = AllocType(TypeKind_Vector);
 	//FloatV3->Vector.Kind = Vector_Float;
@@ -85,12 +85,12 @@ void AddVectorTypes()
 	type *FloatV4 = AllocType(TypeKind_Vector);
 	FloatV4->Vector.Kind = Vector_Float;
 	FloatV4->Vector.ElementCount = 4;
-	AddTypeWithName(FloatV4, STR_LIT("v4"));
+	AddTypeWithName(FloatV4, STR_LIT("simd_f4"));
 
 	type *IntV2 = AllocType(TypeKind_Vector);
 	IntV2->Vector.Kind = Vector_Int;
 	IntV2->Vector.ElementCount = 2;
-	AddTypeWithName(IntV2, STR_LIT("iv2"));
+	AddTypeWithName(IntV2, STR_LIT("simd_i2"));
 
 	//type *IntV3 = AllocType(TypeKind_Vector);
 	//IntV3->Vector.Kind = Vector_Int;
@@ -100,7 +100,7 @@ void AddVectorTypes()
 	type *IntV4 = AllocType(TypeKind_Vector);
 	IntV4->Vector.Kind = Vector_Int;
 	IntV4->Vector.ElementCount = 4;
-	AddTypeWithName(IntV4, STR_LIT("iv4"));
+	AddTypeWithName(IntV4, STR_LIT("simd_i4"));
 
 	// type *UIntV2 = AllocType(TypeKind_Vector);
 	// UIntV2->Vector.Kind = Vector_UInt;
@@ -774,6 +774,9 @@ b32 CheckBasicTypes(const type *Left, const type *Right, const type **PotentialP
 		else
 			return false;
 	}
+
+	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Boolean))
+		return false;
 
 	if(CheckMissmatch(LeftFlags, RightFlags, BasicFlag_Float))
 	{

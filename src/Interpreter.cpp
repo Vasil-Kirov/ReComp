@@ -27,7 +27,7 @@ bool g_DontErrorForMissingGlobals = false;
 bool g_InterpreterTrace = false;
 bool g_StopCompileOutput = false;
 dynamic<DLIB> g_DLs = {};
-dynamic<compile_info> g_CompileTargets = {};
+dynamic<std::tuple<string, compile_info>> g_CompileTargets = {};
 
 #define MARK_BIT 62
 
@@ -2185,6 +2185,44 @@ void WriteInt(value *V, size_t value)
 	}
 }
 
+std::tuple<string, int> ReadStringFromCallArgs(interpreter *VM, call_info *Info, size_t ArgN)
+{
+	value *V = VM->Registers.GetValue(Info->Args[ArgN]);
+	const type *T1 = GetType(V->Type);
+	if (HasBasicFlag(T1, BasicFlag_Integer))
+	{
+		i64 Int = 0;
+		switch(V->Type)
+		{
+			case Basic_i16:
+			{
+				Int = V->i16;
+			} break;
+			case Basic_i32:
+			{
+				Int = V->i32;
+			} break;
+			case Basic_i64:
+			{
+				Int = V->i64;
+			} break;
+			default:
+			{
+				return {STR_LIT(""), 0};
+			} break;
+		}
+		if (Int < 0)
+		{
+			return {STR_LIT(""), 0};
+		}
+		value *Data = VM->Registers.GetValue(Info->Args[ArgN+1]);
+		return {MakeString((const char *)Data->ptr, (size_t)Int), 2};
+	}
+
+	interp_string *s = (interp_string *)V->ptr;
+	return {MakeString(s->Data, s->Count), 1};
+}
+
 interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<value> OptionalArgs)
 {
 	int LastCStringLocation = -1;
@@ -2221,9 +2259,16 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					case IN_ADD_BUILD_TARGET:
 					{
 						compile_info BuildInfo = {};
-						value *s = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+						auto [Str, Read] = ReadStringFromCallArgs(VM, Info->CallInfo, 0);
+						if (Read == 0)
+						{
+							LogCompilerError("Couldn't read name for compilation target!");
+							break;
+						}
+
+						value *s = VM->Registers.GetValue(Info->CallInfo->Args[Read]);
 						memcpy(&BuildInfo, s->ptr, sizeof(compile_info));
-						g_CompileTargets.Push(BuildInfo);
+						g_CompileTargets.Push({Str, BuildInfo});
 					} break;
 					case IN_VA_START:
 					case IN_VA_END:
@@ -3252,7 +3297,7 @@ void MakeInterpreter(interpreter &VM, slice<module*> Modules, u32 MaxRegisters)
 
 	InitArenaMem(&VM.Arena, GB(64), MB(1));
 	VM.Globals.Init(MaxRegisters, VM.StackAllocator.Push(MaxRegisters * sizeof(value)));
-	memset(VM.Globals.Registers, 0, MaxRegisters * sizeof(value));
+	memset(VM.Globals.Registers, 0, MaxRegisters * sizeof(value)); // @TODO: crash here randomly
 
 	ForArray(MIdx, Modules)
 	{

@@ -23,7 +23,12 @@ raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 
 no_compile_output :: fn() #intrinsic;
 get_build_args :: fn() -> []string #intrinsic;
-add_build_target :: fn(info: CompileInfo) #intrinsic; // new api for build scripts
+add_build_target :: fn(name: string, info: CompileInfo) #intrinsic; // new api for build scripts
+compile_mem :: fn(s: []$T) -> []T {
+	r, ok := mem.dupe(s, &mem.temp_alloc);
+	#assert ok;
+	return r;
+}
 
 #private
 bit: fn(u32) -> u32 : n -> 1 << n;
@@ -210,7 +215,7 @@ file_make_const_int :: fn(m: *CustomFile, n: i64, line: int, char: int) -> *ast.
 	intt := file_make_t(m, int, line, char);
 	cv: ast.ConstValue = .{};
 	cv.t = .Integer;
-	cv.u.int_.is_signed = true;
+	cv.u.int_.is_signed = 1;
 	cv.u.int_.u.signed = n;
 	n := ast.make_const(fl, cv, m.alloc); #assert n;
 	return n;

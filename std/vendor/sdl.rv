@@ -1004,13 +1004,13 @@ free :: fn(
 	mem: ?*
 ) #foreign #link="SDL_free";
 
-malloc_func :: ?*fn(a: uint) -> ?* #foreign;
+malloc_func :type: ?*fn(a: uint) -> ?* #foreign;
 
-calloc_func :: ?*fn(a: uint, b: uint) -> ?* #foreign;
+calloc_func :type: ?*fn(a: uint, b: uint) -> ?* #foreign;
 
-realloc_func :: ?*fn(a: ?*, b: uint) -> ?* #foreign;
+realloc_func :type: ?*fn(a: ?*, b: uint) -> ?* #foreign;
 
-free_func :: ?*fn(a: ?*) #foreign;
+free_func :type: ?*fn(a: ?*) #foreign;
 
 GetOriginalMemoryFunctions :: fn(
 	malloc_func: ?*malloc_func,
@@ -1096,7 +1096,7 @@ unsetenv_unsafe :: fn(
 	name: ?*u8
 ) -> i32 #foreign #link="SDL_unsetenv_unsafe";
 
-CompareCallback :: ?*fn(a: ?*, b: ?*) -> i32 #foreign;
+CompareCallback :type: ?*fn(a: ?*, b: ?*) -> i32 #foreign;
 
 qsort :: fn(
 	base: ?*,
@@ -1113,7 +1113,7 @@ bsearch :: fn(
 	compare: CompareCallback
 ) -> ?* #foreign #link="SDL_bsearch";
 
-CompareCallback_r :: ?*fn(a: ?*, b: ?*, c: ?*) -> i32 #foreign;
+CompareCallback_r :type: ?*fn(a: ?*, b: ?*, c: ?*) -> i32 #foreign;
 
 qsort_r :: fn(
 	base: ?*,
@@ -1812,7 +1812,7 @@ size_add_check_overflow_builtin :: fn(
 	ret: ?*uint
 ) -> bool #foreign #link="SDL_size_add_check_overflow_builtin";
 
-FunctionPointer :: ?*fn() #foreign;
+FunctionPointer :type: ?*fn() #foreign;
 
 AssertState :: enum: u32 {
 	ASSERTION_RETRY = 0x0,
@@ -1839,7 +1839,7 @@ ReportAssertion :: fn(
 	line: i32
 ) -> AssertState #foreign #link="SDL_ReportAssertion";
 
-AssertionHandler :: ?*fn(a: ?*AssertData, b: ?*) -> AssertState #foreign;
+AssertionHandler :type: ?*fn(a: ?*AssertData, b: ?*) -> AssertState #foreign;
 
 SetAssertionHandler :: fn(
 	handler: AssertionHandler,
@@ -2068,7 +2068,7 @@ UnlockProperties :: fn(
 	props: PropertiesID
 ) #foreign #link="SDL_UnlockProperties";
 
-CleanupPropertyCallback :: ?*fn(a: ?*, b: ?*) #foreign;
+CleanupPropertyCallback :type: ?*fn(a: ?*, b: ?*) #foreign;
 
 SetPointerPropertyWithCleanup :: fn(
 	props: PropertiesID,
@@ -2153,7 +2153,7 @@ ClearProperty :: fn(
 	name: ?*u8
 ) -> bool #foreign #link="SDL_ClearProperty";
 
-EnumeratePropertiesCallback :: ?*fn(a: ?*, b: PropertiesID, c: ?*u8) #foreign;
+EnumeratePropertiesCallback :type: ?*fn(a: ?*, b: PropertiesID, c: ?*u8) #foreign;
 
 EnumerateProperties :: fn(
 	props: PropertiesID,
@@ -2186,7 +2186,7 @@ ThreadState :: enum: u32 {
 	THREAD_COMPLETE = 0x3,
 }
 
-ThreadFunction :: ?*fn(a: ?*) -> i32 #foreign;
+ThreadFunction :type: ?*fn(a: ?*) -> i32 #foreign;
 
 CreateThreadRuntime :: fn(
 	fn_: ThreadFunction,
@@ -2233,7 +2233,7 @@ GetTLS :: fn(
 	id: ?*TLSID
 ) -> ?* #foreign #link="SDL_GetTLS";
 
-TLSDestructorCallback :: ?*fn(a: ?*) #foreign;
+TLSDestructorCallback :type: ?*fn(a: ?*) #foreign;
 
 SetTLS :: fn(
 	id: ?*TLSID,
@@ -2868,7 +2868,7 @@ UnlockAudioStream :: fn(
 	stream: ?*AudioStream
 ) -> bool #foreign #link="SDL_UnlockAudioStream";
 
-AudioStreamCallback :: ?*fn(a: ?*, b: ?*AudioStream, c: i32, d: i32) #foreign;
+AudioStreamCallback :type: ?*fn(a: ?*, b: ?*AudioStream, c: i32, d: i32) #foreign;
 
 SetAudioStreamGetCallback :: fn(
 	stream: ?*AudioStream,
@@ -2893,7 +2893,7 @@ OpenAudioDeviceStream :: fn(
 	userdata: ?*
 ) -> ?*AudioStream #foreign #link="SDL_OpenAudioDeviceStream";
 
-AudioPostmixCallback :: ?*fn(a: ?*, b: ?*AudioSpec, c: ?*f32, d: i32) #foreign;
+AudioPostmixCallback :type: ?*fn(a: ?*, b: ?*AudioSpec, c: ?*f32, d: i32) #foreign;
 
 SetAudioPostmixCallback :: fn(
 	devid: AudioDeviceID,
@@ -3943,9 +3943,9 @@ GetPrimarySelectionText :: fn() -> ?*u8 #foreign #link="SDL_GetPrimarySelectionT
 
 HasPrimarySelectionText :: fn() -> bool #foreign #link="SDL_HasPrimarySelectionText";
 
-ClipboardDataCallback :: ?*fn(a: ?*, b: ?*u8, c: ?*uint) -> ?* #foreign;
+ClipboardDataCallback :type: ?*fn(a: ?*, b: ?*u8, c: ?*uint) -> ?* #foreign;
 
-ClipboardCleanupCallback :: ?*fn(a: ?*) #foreign;
+ClipboardCleanupCallback :type: ?*fn(a: ?*) #foreign;
 
 SetClipboardData :: fn(
 	callback: ClipboardDataCallback,
@@ -4065,9 +4065,9 @@ EGLAttrib :: intptr_t;
 
 EGLint :: i32;
 
-EGLAttribArrayCallback :: ?*fn(a: ?*) -> ?*EGLAttrib #foreign;
+EGLAttribArrayCallback :type: ?*fn(a: ?*) -> ?*EGLAttrib #foreign;
 
-EGLIntArrayCallback :: ?*fn(a: ?*, b: EGLDisplay, c: EGLConfig) -> ?*EGLint #foreign;
+EGLIntArrayCallback :type: ?*fn(a: ?*, b: EGLDisplay, c: EGLConfig) -> ?*EGLint #foreign;
 
 GLAttr :: enum: u32 {
 	GL_RED_SIZE = 0x0,
@@ -4217,6 +4217,33 @@ GetWindowPixelFormat :: fn(
 GetWindows :: fn(
 	count: ?*i32
 ) -> ?*?*Window #foreign #link="SDL_GetWindows";
+
+WINDOW_FULLSCREEN           :u64: 0x0000000000000001;    /**< window is in fullscreen mode */
+WINDOW_OPENGL               :u64: 0x0000000000000002;    /**< window usable with OpenGL context */
+WINDOW_OCCLUDED             :u64: 0x0000000000000004;    /**< window is occluded */
+WINDOW_HIDDEN               :u64: 0x0000000000000008;    /**< window is neither mapped onto the desktop nor shown in the taskbar/dock/window list; SDL_ShowWindow() is required for it to become visible */
+WINDOW_BORDERLESS           :u64: 0x0000000000000010;    /**< no window decoration */
+WINDOW_RESIZABLE            :u64: 0x0000000000000020;    /**< window can be resized */
+WINDOW_MINIMIZED            :u64: 0x0000000000000040;    /**< window is minimized */
+WINDOW_MAXIMIZED            :u64: 0x0000000000000080;    /**< window is maximized */
+WINDOW_MOUSE_GRABBED        :u64: 0x0000000000000100;    /**< window has grabbed mouse input */
+WINDOW_INPUT_FOCUS          :u64: 0x0000000000000200;    /**< window has input focus */
+WINDOW_MOUSE_FOCUS          :u64: 0x0000000000000400;    /**< window has mouse focus */
+WINDOW_EXTERNAL             :u64: 0x0000000000000800;    /**< window not created by SDL */
+WINDOW_MODAL                :u64: 0x0000000000001000;    /**< window is modal */
+WINDOW_HIGH_PIXEL_DENSITY   :u64: 0x0000000000002000;    /**< window uses high pixel density back buffer if possible */
+WINDOW_MOUSE_CAPTURE        :u64: 0x0000000000004000;    /**< window has mouse captured (unrelated to MOUSE_GRABBED) */
+WINDOW_MOUSE_RELATIVE_MODE  :u64: 0x0000000000008000;    /**< window has relative mode enabled */
+WINDOW_ALWAYS_ON_TOP        :u64: 0x0000000000010000;    /**< window should always be above others */
+WINDOW_UTILITY              :u64: 0x0000000000020000;    /**< window should be treated as a utility window, not showing in the task bar and window list */
+WINDOW_TOOLTIP              :u64: 0x0000000000040000;    /**< window should be treated as a tooltip and does not get mouse or keyboard focus, requires a parent window */
+WINDOW_POPUP_MENU           :u64: 0x0000000000080000;    /**< window should be treated as a popup menu, requires a parent window */
+WINDOW_KEYBOARD_GRABBED     :u64: 0x0000000000100000;    /**< window has grabbed keyboard input */
+WINDOW_FILL_DOCUMENT        :u64: 0x0000000000200000;    /**< window is in fill-document mode (Emscripten only), since SDL 3.4.0 */
+WINDOW_VULKAN               :u64: 0x0000000010000000;    /**< window usable for Vulkan surface */
+WINDOW_METAL                :u64: 0x0000000020000000;    /**< window usable for Metal view */
+WINDOW_TRANSPARENT          :u64: 0x0000000040000000;    /**< window with transparent buffer */
+WINDOW_NOT_FOCUSABLE        :u64: 0x0000000080000000;    /**< window should not be focusable */
 
 CreateWindow :: fn(
 	title: ?*u8,
@@ -4503,7 +4530,7 @@ HitTestResult :: enum: u32 {
 	HITTEST_RESIZE_LEFT = 0x9,
 }
 
-HitTest :: ?*fn(a: ?*Window, b: ?*Point, c: ?*) -> HitTestResult #foreign;
+HitTest :type: ?*fn(a: ?*Window, b: ?*Point, c: ?*) -> HitTestResult #foreign;
 
 SetWindowHitTest :: fn(
 	window: ?*Window,
@@ -4610,7 +4637,7 @@ DialogFileFilter :: struct {
 	pattern: ?*u8,
 }
 
-DialogFileCallback :: ?*fn(a: ?*, b: ?*?*u8, c: i32) #foreign;
+DialogFileCallback :type: ?*fn(a: ?*, b: ?*?*u8, c: i32) #foreign;
 
 ShowOpenFileDialog :: fn(
 	callback: DialogFileCallback,
@@ -6655,7 +6682,7 @@ PushEvent :: fn(
 	event: ?*Event
 ) -> bool #foreign #link="SDL_PushEvent";
 
-EventFilter :: ?*fn(a: ?*, b: ?*Event) -> bool #foreign;
+EventFilter :type: ?*fn(a: ?*, b: ?*Event) -> bool #foreign;
 
 SetEventFilter :: fn(
 	filter: EventFilter,
@@ -6752,7 +6779,7 @@ EnumerationResult :: enum: u32 {
 	ENUM_FAILURE = 0x2,
 }
 
-EnumerateDirectoryCallback :: ?*fn(a: ?*, b: ?*u8, c: ?*u8) -> EnumerationResult #foreign;
+EnumerateDirectoryCallback :type: ?*fn(a: ?*, b: ?*u8, c: ?*u8) -> EnumerationResult #foreign;
 
 EnumerateDirectory :: fn(
 	path: ?*u8,
@@ -8399,7 +8426,7 @@ GetHintBoolean :: fn(
 	default_value: bool
 ) -> bool #foreign #link="SDL_GetHintBoolean";
 
-HintCallback :: ?*fn(a: ?*, b: ?*u8, c: ?*u8, d: ?*u8) #foreign;
+HintCallback :type: ?*fn(a: ?*, b: ?*u8, c: ?*u8, d: ?*u8) #foreign;
 
 AddHintCallback :: fn(
 	name: ?*u8,
@@ -8421,13 +8448,13 @@ AppResult :: enum: u32 {
 	APP_FAILURE = 0x2,
 }
 
-AppInit_func :: ?*fn(a: ?*?*, b: i32, c: *?*u8) -> AppResult #foreign;
+AppInit_func :type: ?*fn(a: ?*?*, b: i32, c: *?*u8) -> AppResult #foreign;
 
-AppIterate_func :: ?*fn(a: ?*) -> AppResult #foreign;
+AppIterate_func :type: ?*fn(a: ?*) -> AppResult #foreign;
 
-AppEvent_func :: ?*fn(a: ?*, b: ?*Event) -> AppResult #foreign;
+AppEvent_func :type: ?*fn(a: ?*, b: ?*Event) -> AppResult #foreign;
 
-AppQuit_func :: ?*fn(a: ?*, b: AppResult) #foreign;
+AppQuit_func :type: ?*fn(a: ?*, b: AppResult) #foreign;
 
 Init :: fn(
 	flags: InitFlags
@@ -8449,7 +8476,7 @@ Quit :: fn() #foreign #link="SDL_Quit";
 
 IsMainThread :: fn() -> bool #foreign #link="SDL_IsMainThread";
 
-MainThreadCallback :: ?*fn(a: ?*) #foreign;
+MainThreadCallback :type: ?*fn(a: ?*) #foreign;
 
 RunOnMainThread :: fn(
 	callback: MainThreadCallback,
@@ -8597,7 +8624,7 @@ LogMessage :: fn(
 	fmt: ?*u8
 ) #foreign #link="SDL_LogMessage";
 
-LogOutputFunction :: ?*fn(a: ?*, b: i32, c: LogPriority, d: ?*u8) #foreign;
+LogOutputFunction :type: ?*fn(a: ?*, b: i32, c: LogPriority, d: ?*u8) #foreign;
 
 GetDefaultLogOutputFunction :: fn() -> LogOutputFunction #foreign #link="SDL_GetDefaultLogOutputFunction";
 
@@ -9410,7 +9437,7 @@ tagMSG :: struct {
 
 MSG :: tagMSG;
 
-WindowsMessageHook :: ?*fn(a: ?*, b: ?*MSG) -> bool #foreign;
+WindowsMessageHook :type: ?*fn(a: ?*, b: ?*MSG) -> bool #foreign;
 
 SetWindowsMessageHook :: fn(
 	callback: WindowsMessageHook,
@@ -9430,7 +9457,7 @@ GetDXGIOutputInfo :: fn(
 _XEvent :: struct {};
 XEvent :: _XEvent;
 
-X11EventHook :: ?*fn(a: ?*, b: ?*XEvent) -> bool #foreign;
+X11EventHook :type: ?*fn(a: ?*, b: ?*XEvent) -> bool #foreign;
 
 SetX11EventHook :: fn(
 	callback: X11EventHook,
@@ -9556,7 +9583,7 @@ DelayPrecise :: fn(
 
 TimerID :: Uint32;
 
-TimerCallback :: ?*fn(a: ?*, b: TimerID, c: Uint32) -> Uint32 #foreign;
+TimerCallback :type: ?*fn(a: ?*, b: TimerID, c: Uint32) -> Uint32 #foreign;
 
 AddTimer :: fn(
 	interval: Uint32,
@@ -9564,7 +9591,7 @@ AddTimer :: fn(
 	userdata: ?*
 ) -> TimerID #foreign #link="SDL_AddTimer";
 
-NSTimerCallback :: ?*fn(a: ?*, b: TimerID, c: Uint64) -> Uint64 #foreign;
+NSTimerCallback :type: ?*fn(a: ?*, b: TimerID, c: Uint64) -> Uint64 #foreign;
 
 AddTimerNS :: fn(
 	interval: Uint64,
@@ -9587,7 +9614,7 @@ TrayEntry :: struct {
 
 TrayEntryFlags :: Uint32;
 
-TrayCallback :: ?*fn(a: ?*, b: ?*TrayEntry) #foreign;
+TrayCallback :type: ?*fn(a: ?*, b: ?*TrayEntry) #foreign;
 
 CreateTray :: fn(
 	icon: ?*Surface,

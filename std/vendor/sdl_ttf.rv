@@ -202,7 +202,14 @@ GetStringSize :: fn #link="TTF_GetStringSize"() -> i32;
 
 GetStringSizeWrapped :: fn #link="TTF_GetStringSizeWrapped"() -> i32;
 
-MeasureString :: fn #link="TTF_MeasureString"() -> i32;
+MeasureString :: fn #link="TTF_MeasureString"(
+	font: *Font,
+	text: *u8,
+	length: uint,
+	max_width: i32,
+	measured_width: ?*i32,
+	measured_length: ?*uint
+) -> bool;
 
 RenderText_Solid :: fn #link="TTF_RenderText_Solid"(
 	font: *Font,

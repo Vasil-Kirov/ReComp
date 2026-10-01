@@ -2159,6 +2159,10 @@ node *ParseOperand(parser *Parser)
 			Body.Push(ParseExpression(Parser));
 			Result = MakeRun(ErrorInfo, SliceFromArray(Body));
 		} break;
+		default:
+		{
+			RaiseError(false, *ErrorInfo, "Unexpected token in expression. Expected an operand.");
+		} break;
 	}
 	return Result;
 }

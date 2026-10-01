@@ -181,6 +181,14 @@ bool AddLookupPath(string PassPath)
 	return true;
 }
 
+void ClearLookupPaths()
+{
+	Lookups.Mutex.lock();
+	Lookups.Paths.Free();
+	Lookups.Paths = {};
+	Lookups.Mutex.unlock();
+}
+
 void CreatePipeline()
 {
 	work_queue *Queue = CreateWorkQueue();
@@ -524,13 +532,18 @@ int AnalyzeFilesForSymbols(slice<file*> Files, string EntryModule, string EntryP
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
-		AnalyzeForUserDefinedTypes(File->Checker, SliceFromArray(File->Nodes));
+		AnalyzeForUserDefinedTypes(File->Checker, SliceFromArray(File->Nodes), false);
 	}
 	ForArray(Idx, Files)
 	{
 		file *File = Files[Idx];
 		slice<node *> NodeSlice = SliceFromArray(File->Nodes);
 		AnalyzeEnumDefinitions(File->Checker, NodeSlice, File->Module);
+	}
+	ForArray(Idx, Files)
+	{
+		file *File = Files[Idx];
+		AnalyzeForUserDefinedTypes(File->Checker, SliceFromArray(File->Nodes), true);
 	}
 	ForArray(Idx, Files)
 	{

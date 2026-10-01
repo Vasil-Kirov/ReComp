@@ -5111,7 +5111,7 @@ void AnalyzeEnumDefinitions(checker *Checker, slice<node *> Nodes, module *)
 	}
 }
 
-void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
+void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes, bool ReportErrors)
 {
 	for(int I = 0; I < Nodes.Count; ++I)
 	{
@@ -5125,7 +5125,7 @@ void AnalyzeForUserDefinedTypes(checker *Checker, slice<node *> Nodes)
 				if(T != Basic_type)
 					continue;
 
-				ErrorOnInvalidType = true;
+				ErrorOnInvalidType = ReportErrors;
 			}
 
 			if(Node->Decl.LHS->Type != AST_ID)

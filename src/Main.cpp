@@ -334,9 +334,6 @@ main(int ArgCount, char *Args[])
 			Assert(BuildModule);
 
 			BuildTimers = r.Timers;
-
-			// Clear run-time defines
-			ConfigIDs.Count = 0;
 		}
 		DumpingInfo = WasDumpingInfo;
 
@@ -363,15 +360,14 @@ main(int ArgCount, char *Args[])
 
 		timer_group VMBuildTimer = VLibStartTimer("VM");
 
+		char WasDir[VMAX_PATH] = {};
+		PlatformGetCWD(WasDir, VMAX_PATH);
+		PlatformChangeCWD(BuildFilePath);
 		MakeInterpreter(BuildVM, BuildModules, 0);
 		if(HasErroredOut())
 			exit(1);
 
 		{
-			char WasDir[VMAX_PATH] = {};
-			PlatformGetCWD(WasDir, VMAX_PATH);
-			PlatformChangeCWD(BuildFilePath);
-
 			if(CompileFunction)
 			{
 				compile_info *Info = NewType(compile_info);
@@ -391,6 +387,24 @@ main(int ArgCount, char *Args[])
 				VLibStopTimer(&VMBuildTimer);
 				VMBuildTimers.Push(VMBuildTimer);
 
+				g_CompileTargets.Push({STR_LIT("main"), *Info});
+			}
+			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
+
+			BuildTimeTypeTable = SaveTypeTableAndReset();
+			for(auto Tuple : g_CompileTargets)
+			{
+				ClearLookupPaths();
+				ConfigIDs.Count = 0;
+
+				auto [TargetName, Info_] = Tuple;
+				compile_info *Info = &Info_;
+				LogCompilerError("Building target: %.*s\n", (int)TargetName.Size, TargetName.Data);
+
+				AddLookupPath(STR_LIT("."));
+				AddLookupPath(StdLibDir);
+				AddLookupPath((string){BuildFilePath, strlen(BuildFilePath)});
+
 				for(int i = 0; i < Info->DirectoryCount; ++i)
 				{
 					interp_string InterpDir = Info->Directories[i];
@@ -403,15 +417,6 @@ main(int ArgCount, char *Args[])
 
 					}
 				}
-				g_CompileTargets.Push(*Info);
-			}
-			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
-			PlatformChangeCWD(WasDir);
-
-			BuildTimeTypeTable = SaveTypeTableAndReset();
-			for(compile_info &Info_ : g_CompileTargets)
-			{
-				compile_info *Info = &Info_;
 				if(Info->Output.Count == 0)
 				{
 #if _WIN32
@@ -556,7 +561,7 @@ main(int ArgCount, char *Args[])
 					if(ASTNodeT != Basic_error)
 					{
 						if(g_InterpreterTrace)
-							LINFO("Interpreting after_link function");
+							LINFO("Interpreting inspect_ast function");
 
 						PlatformSetSignalHandler(InterpSegFault, &BuildVM);
 						BuildVM.HasSetSigHandler = true;
@@ -591,6 +596,9 @@ main(int ArgCount, char *Args[])
 				VLibStopTimer(&VMBuildTimer2);
 				VMBuildTimers2.Push(VMBuildTimer2);
 
+
+				PlatformChangeCWD(WasDir);
+
 				if(!g_StopCompileOutput)
 				{
 					TypeTableInvalidateSizeCaches();
@@ -622,14 +630,55 @@ main(int ArgCount, char *Args[])
 					WriteCTags(ModuleArray);
 				}
 
-				auto LinkTimer = VLibStartTimer("Linking");
-				RunLinker(Info, CommandLine, ModuleArray);
-				VLibStopTimer(&LinkTimer);
-				LinkTimers.Push(LinkTimer);
+
+					auto LinkTimer = VLibStartTimer("Linking");
+					RunLinker(Info, CommandLine, ModuleArray);
+					VLibStopTimer(&LinkTimer);
+					LinkTimers.Push(LinkTimer);
+
+				PlatformChangeCWD(BuildFilePath);
+
+				function *AfterFunction = FindFunction(BuildModule, STR_LIT("after_link"));
+				if(AfterFunction)
+				{
+					if(NeedToRestoreForAfterFunction)
+					{
+						RegisterBitSize = sizeof(void*) * 8;
+						RestoreTypeTable(BuildTimeTypeTable);
+					}
+					if(g_InterpreterTrace)
+						LINFO("Interpreting after_link function");
+
+					PlatformSetSignalHandler(InterpSegFault, &BuildVM);
+					BuildVM.HasSetSigHandler = true;
+
+					interp_slice Objs = {};
+					Objs.Count = ModuleArray.Count;
+					Objs.Data = AllocatePermanent(sizeof(interp_string) * Objs.Count);
+					ForArray(Idx, ModuleArray)
+					{
+						string_builder Builder = MakeBuilder();
+						Builder += ModuleArray[Idx]->Name;
+						Builder += ".obj";
+						string Path = MakeString(Builder);
+						((interp_string *)Objs.Data)[Idx] = {Path.Size, Path.Data};
+					}
+
+
+					value ObjsValue = {};
+					ObjsValue.Type = GetSliceType(Basic_string);
+					ObjsValue.ptr = &Objs;
+
+					InterpretFunction(&BuildVM, *AfterFunction, {&ObjsValue, 1});
+
+					PlatformSetSignalHandler(DefaultSignalHandler, NULL);
+				}
+				RegisterBitSize = SaveRegisterBitSize;
 
 				/* Clean up */
 				if((Info->Flags & CF_NoLink) == 0 && !g_StopCompileOutput)
 				{
+					PlatformChangeCWD(WasDir);
 					ForArray(Idx, ModuleArray)
 					{
 						string_builder Builder = MakeBuilder();
@@ -640,9 +689,13 @@ main(int ArgCount, char *Args[])
 							LDEBUG("Failed to detel file: %s", Path.Data);
 						}
 					}
+					PlatformChangeCWD(BuildFilePath);
 				}
 			}
 		}
+
+		BuildVM.StackAllocator.Pop();
+		PlatformChangeCWD(WasDir);
 	}
 	else
 	{
@@ -717,45 +770,6 @@ main(int ArgCount, char *Args[])
 			}
 		}
 	}
-
-
-	function *AfterFunction = FindFunction(BuildModule, STR_LIT("after_link"));
-	if(AfterFunction)
-	{
-		if(NeedToRestoreForAfterFunction)
-		{
-			RegisterBitSize = sizeof(void*) * 8;
-			RestoreTypeTable(BuildTimeTypeTable);
-		}
-		if(g_InterpreterTrace)
-			LINFO("Interpreting after_link function");
-
-		PlatformSetSignalHandler(InterpSegFault, &BuildVM);
-		BuildVM.HasSetSigHandler = true;
-
-		interp_slice Objs = {};
-		Objs.Count = ModuleArray.Count;
-		Objs.Data = AllocatePermanent(sizeof(interp_string) * Objs.Count);
-		ForArray(Idx, ModuleArray)
-		{
-			string_builder Builder = MakeBuilder();
-			Builder += ModuleArray[Idx]->Name;
-			Builder += ".obj";
-			string Path = MakeString(Builder);
-			((interp_string *)Objs.Data)[Idx] = {Path.Size, Path.Data};
-		}
-
-
-		value ObjsValue = {};
-		ObjsValue.Type = GetSliceType(Basic_string);
-		ObjsValue.ptr = &Objs;
-
-		InterpretFunction(&BuildVM, *AfterFunction, {&ObjsValue, 1});
-
-		PlatformSetSignalHandler(DefaultSignalHandler, NULL);
-	}
-
-	BuildVM.StackAllocator.Pop();
 
 	i64 ParseTime = 0;
 	i64 TypeCheckTime = 0;

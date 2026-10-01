@@ -4464,7 +4464,7 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 				case IN_ADD_BUILD_TARGET:
 				{
 					call_info *ci = Info->CallInfo;
-					Builder->printf("add_build_target(%%%d)", ci->Args[0]);
+					Builder->printf("add_build_target(%%%d, %%%d)", ci->Args[0], ci->Args[1]);
 				} break;
 				case IN_VA_START:
 				{

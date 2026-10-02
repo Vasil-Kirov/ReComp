@@ -75,7 +75,7 @@ generic_free :: fn(ptr: *, this: *Allocator) {
     os.free(ptr);
 }
 
-create_generic_allocator :: fn() -> Allocator {
+make_generic_allocator :: fn() -> Allocator {
     r := Allocator {
         alloc = generic_alloc,
         free = generic_free,

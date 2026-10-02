@@ -44,6 +44,23 @@ win_str_to_wide :: fn(s: string, alloc: *mem.Allocator) -> []u16 {
 	return res;
 }
 
+read_env :: fn(name_: string) -> string #nocheck {
+	name := win_str_to_wide(name_, &mem.temp_alloc);
+	bufsz := GetEnvironmentVariableW(&name[0], null, 0);
+	if bufsz == 0
+		return "";
+	
+	buf, ok := alloc(bufsz as int * size_of(u16), .Reserve | .Commit, .Read | .Write);
+	if !ok
+		return "";
+	defer free(buf);
+	
+	len := GetEnvironmentVariableW(&name[0], buf, bufsz);
+	if len == 0
+		return "";
+	os_alloc := mem.make_generic_allocator();
+	return win_wide_to_str(cast(*u16, buf)[:len], &os_alloc);
+}
 
 sleep :: fn(ms: u32) {
 	Sleep(ms);
@@ -174,7 +191,7 @@ alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, b
 	p := VirtualAlloc(null, size as uint, pass, rwx);
 	if p
 		return p, true;
-	return p, false;
+	return null, false;
 }
 
 free :: fn(ptr: ?*) {
@@ -264,6 +281,13 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 }
 
 make_std_stream :: fn() -> io.Stream {
+
+	#static done := false;
+	if !done {
+		SetConsoleOutputCP(65001);
+		done = true;
+	}
+
 	std_handles.write = GetStdHandle(STD_OUTPUT_HANDLE);
 	std_handles.read = GetStdHandle(STD_INPUT_HANDLE);
 	std_handles.closeable = false;

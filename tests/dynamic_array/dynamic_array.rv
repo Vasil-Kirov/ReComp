@@ -4,7 +4,7 @@ module main
 
 
 main :: fn() -> i32 {
-    alloc := mem.create_generic_allocator();
+    alloc := mem.make_generic_allocator();
 
     arr := array.create(i32, &alloc);
     array.add(&arr, 1);

@@ -19,6 +19,11 @@ struct windows_signal_handler
 
 thread_local windows_signal_handler SignalHandlerGlobal = {};
 
+void PlatformSetEnv(const char *Name, const char *Value)
+{
+	SetEnvironmentVariable(Name, Value);
+}
+
 void PlatformGetCWD(char *Buf, size_t BufSize)
 {
 	_getcwd(Buf, BufSize);

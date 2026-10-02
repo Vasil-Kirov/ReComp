@@ -81,6 +81,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "Pipeline.cpp"
 #include "FlowTyping.cpp"
 #include "PassAst.cpp"
+#include "DotEnv.cpp"
 
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -363,6 +364,7 @@ main(int ArgCount, char *Args[])
 		char WasDir[VMAX_PATH] = {};
 		PlatformGetCWD(WasDir, VMAX_PATH);
 		PlatformChangeCWD(BuildFilePath);
+		ReadEnvironment();
 		MakeInterpreter(BuildVM, BuildModules, 0);
 		if(HasErroredOut())
 			exit(1);

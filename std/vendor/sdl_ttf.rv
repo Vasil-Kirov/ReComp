@@ -304,7 +304,12 @@ Text :: struct {
 
 CreateSurfaceTextEngine :: fn #link="TTF_CreateSurfaceTextEngine"() -> *TextEngine;
 
-DrawSurfaceText :: fn #link="TTF_DrawSurfaceText"() -> i32;
+DrawSurfaceText :: fn #link="TTF_DrawSurfaceText"(
+	text: *Text,
+	x: i32,
+	y: i32,
+	surface: *SDL.Surface
+) -> i32;
 
 DestroySurfaceTextEngine :: fn #link="TTF_DestroySurfaceTextEngine"(
 	engine: *TextEngine);

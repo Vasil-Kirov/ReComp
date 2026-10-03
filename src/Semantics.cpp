@@ -1382,6 +1382,8 @@ b32 IsConstant(checker *Checker, node *Expr)
 		return true;
 	if(Expr->Type == AST_SIZE || Expr->Type == AST_TYPEOF)
 		return true;
+	if(Expr->Type == AST_LAMBDA)
+		return true;
 
 	if(Expr->Type == AST_SELECTOR)
 	{
@@ -1393,6 +1395,7 @@ b32 IsConstant(checker *Checker, node *Expr)
 			return true;
 		return IsConstant(Checker, Expr->Selector.Operand);
 	}
+
 
 	if(Expr->Type == AST_BINARY)
 	{
@@ -2615,7 +2618,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 							}
 							MemberIdx = Found;
 						}
-						WantType = Type->Struct.Members[MemberIdx].Type;
+						if (MemberIdx < Type->Struct.Members.Count) {
+							WantType = Type->Struct.Members[MemberIdx].Type;
+						} else {
+							WantType = Basic_error;
+						}
 					} break;
 					case TypeKind_Basic:
 					{

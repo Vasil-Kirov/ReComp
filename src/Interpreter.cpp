@@ -3545,7 +3545,11 @@ size_t DoGlobals(interpreter *VM, ir *IR)
 		PushBuilderFormated(&b, "While evaluating initializer for global variable %s at %s(%d:%d)",
 				it->s->Name->Data, se->FileName, se->Range.StartLine, se->Range.StartChar);
 		SetBonusMessage(MakeString(b));
-		interpret_result Result = RunBlocks(VM, it->Init, SliceFromArray(it->Init.Blocks), {}, SliceFromArray(it->Init.Blocks[0].Code), true);
+
+		slice<basic_block> blocks = SliceFromArray(it->Init.Blocks);
+		basic_block FirstBlock = FindBlockByID(blocks, 0);
+		interpret_result Result = RunBlocks(VM, it->Init, blocks, {}, SliceFromArray(FirstBlock.Code), true);
+
 		SetBonusMessage(STR_LIT(""));
 		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 		{
@@ -3586,7 +3590,9 @@ void DoRuns(interpreter *VM, ir *IR)
 
 	For(IR->GlobalRuns)
 	{
-		interpret_result Result = RunBlocks(VM, *it, SliceFromArray(it->Blocks), {}, SliceFromArray(it->Blocks[0].Code));
+		slice<basic_block> blocks = SliceFromArray(it->Blocks);
+		basic_block FirstBlock = FindBlockByID(blocks, 0);
+		interpret_result Result = RunBlocks(VM, *it, blocks, {}, SliceFromArray(FirstBlock.Code));
 		if(Result.Kind == INTERPRET_RUNTIME_ERROR)
 		{
 			DoAbort = true;

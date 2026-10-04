@@ -386,11 +386,11 @@ main(int ArgCount, char *Args[])
 					return 1;
 				}
 
-				VLibStopTimer(&VMBuildTimer);
-				VMBuildTimers.Push(VMBuildTimer);
-
 				g_CompileTargets.Push({STR_LIT("main"), *Info});
 			}
+			VLibStopTimer(&VMBuildTimer);
+			VMBuildTimers.Push(VMBuildTimer);
+
 			PlatformSetSignalHandler(DefaultSignalHandler, NULL);
 
 			BuildTimeTypeTable = SaveTypeTableAndReset();

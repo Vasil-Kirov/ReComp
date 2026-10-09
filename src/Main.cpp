@@ -38,6 +38,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "InterpCasts.h"
 #include "Pipeline.h"
 #include "FlowTyping.h"
+#include "Test.h"
 
 #if 0
 #include "backend/LLVMFileOutput.h"
@@ -82,6 +83,7 @@ static b32 _MemoryInitializer = InitializeMemory();
 #include "FlowTyping.cpp"
 #include "PassAst.cpp"
 #include "DotEnv.cpp"
+#include "Test.cpp"
 
 #if 0
 #include "backend/LLVMFileOutput.cpp"
@@ -318,6 +320,14 @@ main(int ArgCount, char *Args[])
 		}
 
 		{
+			char *BuildFilePath = GetAbsolutePath(CommandLine.BuildFile.Data);
+			if (BuildFilePath == NULL)
+			{
+				LogCompilerError("Error: Couldn't find build file %s.", BuildFilePath);
+				return 1;
+			}
+			CommandLine.BuildFile = MakeString(BuildFilePath);
+
 			dynamic<string> FileNames = {};
 			FileNames.Push(CommandLine.BuildFile);
 			AddStdFiles(FileNames, false, {});

@@ -7,6 +7,7 @@
 #include "StackAllocator.h"
 #include <unordered_map>
 #include "InterpCasts.h"
+#include "Test.h"
 
 extern bool g_StopCompileOutput;
 
@@ -237,6 +238,7 @@ struct interpreter
 	std::unordered_map<void *, uint> StoredGlobals;
 	function CurrentFn;
 	string CurrentFnName;
+	stack<test> TestInstances;
 	DebugAction PerformingDebugAction;
 	int AtInstructionIndex;
 	b32 IsCurrentFnRetInPtr;

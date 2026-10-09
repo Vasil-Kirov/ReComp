@@ -28,6 +28,16 @@ void SetLogLevel(log_level Level)
 	MinLevel = Level;
 }
 
+void LogLockMutex()
+{
+	LogMutex.lock();
+}
+
+void LogUnlockMutex()
+{
+	LogMutex.unlock();
+}
+
 void
 Log(log_level Level, const char *Format, ...)
 {

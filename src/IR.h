@@ -19,6 +19,10 @@ enum compiler_intrinsic
 	IN_VA_START,
 	IN_VA_END,
 	IN_ADD_BUILD_TARGET,
+	IN_START_TEST,
+	IN_END_TEST,
+	IN_CHECK_EQ,
+	IN_ASSERT_EQ,
 };
 
 enum op

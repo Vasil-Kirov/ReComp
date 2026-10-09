@@ -1382,8 +1382,13 @@ b32 IsConstant(checker *Checker, node *Expr)
 		return true;
 	if(Expr->Type == AST_SIZE || Expr->Type == AST_TYPEOF)
 		return true;
-	if(Expr->Type == AST_LAMBDA)
-		return true;
+
+	// @TODO: currently interpreter has no way of tracking
+	// lambda pointers to write in the binary, once this is fixed
+	// this can be declared as a constant expression
+	// Vasko - 10/04/2026
+	//if(Expr->Type == AST_LAMBDA)
+	//	return true;
 
 	if(Expr->Type == AST_SELECTOR)
 	{
@@ -2235,7 +2240,8 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Expr->Call.Type = CallTypeIdx;
 
-			if(CallType->Function.Flags & SymbolFlag_Generic && (CallType->Function.Flags & SymbolFlag_Intrinsic) == 0)
+			bool IsIntrinsic = (CallType->Function.Flags & SymbolFlag_Intrinsic) != 0;
+			if(CallType->Function.Flags & SymbolFlag_Generic && !IsIntrinsic)
 			{
 				symbol *s = GenerateFunctionFromPolymorphicCall(Checker, Expr);
 				if(!s)
@@ -2266,6 +2272,12 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 						Checker->AutoEnum.Pop();
 					}
 				}
+			}
+			if (CallType->Function.Flags & SymbolFlag_Generic && IsIntrinsic)
+			{
+				dict<u32> DefinedGenerics{};
+				symbol *s = FindSymbolFromNode(Checker, Expr->Call.Fn);
+				GenericFunctionPolymorphSignature(Checker, DefinedGenerics, Expr, s->Node, s->Type);
 			}
 
 			if(Expr->Call.SymName != "")
@@ -4760,6 +4772,10 @@ bool CheckIntrinsic(string Name)
 		STR_LIT("va_start"),
 		STR_LIT("va_end"),
 		STR_LIT("add_build_target"),
+		STR_LIT("start_test"),
+		STR_LIT("end_test"),
+		STR_LIT("check_eq"),
+		STR_LIT("assert_eq"),
 	};
 	size_t Len = ARR_LEN(Intrinsics);
 	for(int i = 0; i < Len; ++i)

@@ -17,6 +17,8 @@ typedef enum _log_level
 
 void Log(log_level Level, const char *Format, ...);
 void LogCompilerError(const char *Format, ...);
+void LogLockMutex();
+void LogUnlockMutex();
 void SetLogLevel(log_level);
 
 void InitializeLogger();

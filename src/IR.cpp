@@ -1452,6 +1452,22 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				{
 					Intrin = IN_ADD_BUILD_TARGET;
 				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("start_test")))
+				{
+					Intrin = IN_START_TEST;
+				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("end_test")))
+				{
+					Intrin = IN_END_TEST;
+				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("check_eq")))
+				{
+					Intrin = IN_CHECK_EQ;
+				}
+				else if(CompareFunctionName(Node->Call.SymName, STR_LIT("assert_eq")))
+				{
+					Intrin = IN_ASSERT_EQ;
+				}
 				else
 				{
 					unreachable;
@@ -4527,6 +4543,11 @@ void DissasembleInstruction(string_builder *Builder, instruction Instr)
 					call_info *ci = Info->CallInfo;
 					PushBuilderFormated(Builder, "cmp_xchg(%%%d, %%%d, %%%d)", ci->Args[0], ci->Args[1], ci->Args[2]);
 				} break;
+				default:
+				{
+					//call_info *ci = Info->CallInfo;
+					Builder->printf("unformatted_intrinisc()");
+				} break;
 			}
 		} break;
 		case OP_GLOBAL:
@@ -4946,6 +4967,7 @@ void GetUsedRegisters(instruction I, u32 *out, size_t *count)
 			intrin_info *Info = (intrin_info *)I.Ptr;
 			switch(Info->Intrin)
 			{
+				default:
 				case IN_NOT_INTRIN:
 				{
 				} break;

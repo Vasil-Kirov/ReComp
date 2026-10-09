@@ -2256,13 +2256,96 @@ interpret_result Run(interpreter *VM, slice<basic_block> OptionalBlocks, slice<v
 					case IN_NOT_INTRIN:
 					{
 					} break;
+					case IN_START_TEST:
+					{
+						auto [Str, Read] = ReadStringFromCallArgs(VM, Info->CallInfo, 0);
+						test NewTest {};
+						if (Read == 0)
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): Couldn't read name for test!", erri->FileName, erri->Range.StartLine);
+							Str = STR_LIT("Error Unknwon Test");
+						}
+						NewTest.StartTest(Str);
+						VM->TestInstances.Push(NewTest);
+					} break;
+					case IN_END_TEST:
+					{
+						if (VM->TestInstances.IsEmpty())
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): end_test() found without accompanying start_test()!", erri->FileName, erri->Range.StartLine);
+							break;
+						}
+						auto Test = VM->TestInstances.Pop();
+						Test.EndTest();
+					} break;
+					case IN_CHECK_EQ:
+					{
+						if(VM->TestInstances.IsEmpty())
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): check_eq() found without accompanying start_test()!", erri->FileName, erri->Range.StartLine);
+							break;
+						}
+						if(Info->CallInfo->Args.Count != 2)
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): check_eq() has invalid arguments!", erri->FileName, erri->Range.StartLine);
+							break;
+						}
+						auto Test = VM->TestInstances.Pop();
+						value *A = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+						value *B = VM->Registers.GetValue(Info->CallInfo->Args[1]);
+						Test.CheckEq(A, B);
+						VM->TestInstances.Push(Test);
+					} break;
+					case IN_ASSERT_EQ:
+					{
+						if(VM->TestInstances.IsEmpty())
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): check_eq() found without accompanying start_test()!", erri->FileName, erri->Range.StartLine);
+							break;
+						}
+						if(Info->CallInfo->Args.Count != 2)
+						{
+							auto erri = VM->ErrorInfo.Peek();
+							LogCompilerError("Error %s(%d): check_eq() has invalid arguments!", erri->FileName, erri->Range.StartLine);
+							break;
+						}
+
+						auto Test = VM->TestInstances.Pop();
+						value *A = VM->Registers.GetValue(Info->CallInfo->Args[0]);
+						value *B = VM->Registers.GetValue(Info->CallInfo->Args[1]);
+						auto r = Test.CheckEq(A, B);
+						VM->TestInstances.Push(Test);
+
+						if (r != TestCheck_Ok)
+						{
+							// @Note: Skip until the end of test - Vasko 09/10/2026
+							int depth = 1;
+							for (; depth > 0 && InstrIdx < VM->Executing->Code.Count; ++InstrIdx)
+							{
+								auto I = VM->Executing->Code[InstrIdx];
+								if (I.Op == OP_INTRIN)
+								{
+									intrin_info *Info = (intrin_info *)I.Ptr;
+									if (Info->Intrin == IN_START_TEST) depth++;
+									if (Info->Intrin == IN_END_TEST) depth--;
+								}
+							}
+							if (depth == 0)
+								InstrIdx--;
+						}
+					} break;
 					case IN_ADD_BUILD_TARGET:
 					{
 						compile_info BuildInfo = {};
 						auto [Str, Read] = ReadStringFromCallArgs(VM, Info->CallInfo, 0);
 						if (Read == 0)
 						{
-							LogCompilerError("Couldn't read name for compilation target!");
+							LogCompilerError("Error: Couldn't read name for compilation target!");
 							break;
 						}
 

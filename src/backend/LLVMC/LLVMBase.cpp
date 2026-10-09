@@ -640,6 +640,11 @@ void RCGenerateInstruction(generator *gen, instruction I)
 			intrin_info *Info = (intrin_info *)I.Ptr;
 			switch(Info->Intrin)
 			{
+				case IN_START_TEST:
+				case IN_END_TEST:
+				case IN_CHECK_EQ:
+				case IN_ASSERT_EQ:
+				{} break;
 				case IN_GET_BUILD_ARGS:
 				{} break;
 				case IN_NOT_INTRIN:

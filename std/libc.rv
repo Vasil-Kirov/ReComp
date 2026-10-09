@@ -3,8 +3,6 @@ module libc
 
 _ :: #import mem;
 
-
-
 SIGINT          :c_int: 2;   // interrupt
 SIGILL          :c_int: 4;   // illegal instruction - invalid function image
 SIGFPE          :c_int: 8;   // floating point exception
@@ -22,6 +20,9 @@ system :: fn(cmd: *u8) -> i32 #foreign;
 malloc :: fn(size: int) -> ?* #foreign;
 free   :: fn(ptr: ?*) #foreign;
 signal :: fn(_Signal: c_int, _Function: _crt_signal_t) #foreign;
+sinf   :: fn(t: f32) -> f32 #foreign;
+cosf   :: fn(t: f32) -> f32 #foreign;
+powf   :: fn(a: f32, b: f32) -> f32 #foreign;
 
 do_malloc_free :: fn(ptr: ?*, this: *Allocator) {
 	free(ptr);

@@ -1,0 +1,9 @@
+module test;
+
+
+start_test :: fn(name: string) #intrinsic;
+end_test :: fn() #intrinsic;
+check_eq :: fn(a: $T, b: T) -> bool #intrinsic;
+assert_eq :: fn(a: $T, b: T) -> bool #intrinsic;
+
+

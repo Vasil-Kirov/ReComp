@@ -715,7 +715,7 @@ LLVMTypeRef LLVMCreateFunctionType(generator *g, u32 TypeID)
 		}
 		else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 		{
-			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
+			if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsSysVSystem())
 				ReturnType = ConvertToLLVMType(g, AllFloatsStructToReturnType(RT));
 			else
 				ReturnType = ConvertToLLVMType(g, ComplexTypeToSizeType(RT));

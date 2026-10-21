@@ -22,6 +22,7 @@ enum class platform_target
 	Windows,
 	UnixBased,
 	Wasm,
+	VOS,
 };
 
 enum type_kind
@@ -338,9 +339,9 @@ struct generic_replacement
 extern platform_target PTarget;
 extern dynamic<generic_replacement> GenericReplacements;
 
-inline bool IsUnix()
+inline bool IsSysVSystem()
 {
-	return PTarget == platform_target::UnixBased;
+	return PTarget == platform_target::UnixBased || PTarget == platform_target::VOS;
 }
 
 inline bool IsFloatOrVec(const type *T)

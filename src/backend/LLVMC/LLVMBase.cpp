@@ -962,7 +962,7 @@ void RCGenerateInstruction(generator *gen, instruction I)
 		{
 			function *Fn = (function *)I.Ptr;
 			LLVMValueRef LLVMFn = RCGenerateFunctionSignature(gen, Fn);
-			LLVMSetLinkage(LLVMFn, LLVMPrivateLinkage);
+			LLVMSetLinkage(LLVMFn, LLVMInternalLinkage);
 
 
 			generator NewGen = {.StoredGlobals = gen->StoredGlobals};
@@ -1749,9 +1749,13 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		{
 			LLVMSetDataLayout(Gen.mod, "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-f128:64-n32:64-S128-ni:1:10:20");
 		}
-		else
+		else if (PTarget == platform_target::Windows)
 		{
 			LLVMSetDataLayout(Gen.mod, "e-m:x-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f80:32-n8:16:32-a:0:32-S32");
+		}
+		else
+		{
+			LLVMSetDataLayout(Gen.mod, "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-i64:64-i128:128-f64:32:64-f80:32-n8:16:32-S128");
 		}
 		Gen.data = LLVMGetModuleDataLayout(Gen.mod);
 	}
@@ -1840,9 +1844,9 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 			if(s->Flags & SymbolFlag_Public || s->Flags & SymbolFlag_Extern)
 				Linkage = LLVMExternalLinkage;
 			else
-				Linkage = LLVMPrivateLinkage;
+				Linkage = LLVMInternalLinkage;
 
-			if(Linkage == LLVMPrivateLinkage && s->Checker->Module->Name != M->Name)
+			if(Linkage == LLVMInternalLinkage && s->Checker->Module->Name != M->Name)
 				continue;
 
 			if(s->Flags & SymbolFlag_Function && GetType(s->Type)->Kind != TypeKind_Pointer)
@@ -1921,7 +1925,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 				}
 				else
 				{
-					Linkage = LLVMPrivateLinkage;
+					Linkage = LLVMInternalLinkage;
 					if(m->Name != M->Name)
 						continue;
 				}

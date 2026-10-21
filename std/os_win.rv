@@ -200,9 +200,12 @@ free :: fn(ptr: ?*) {
 	VirtualFree(ptr, 0, MEM_RELEASE as u32);
 }
 
+exit :: fn(code: int) #no_return {
+    ExitProcess(code as UINT);
+}
+
 abort :: fn() #no_return {
     ExitProcess(1);
-    return;
 }
 
 StreamHandles :: struct {

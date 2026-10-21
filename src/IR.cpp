@@ -490,7 +490,7 @@ void FixCallWithComplexParameter(block_builder *Builder, dynamic<u32> &Args, u32
 	}
 
 	b32 AllFloats = IsStructAllFloats(ArgType);
-	if(AllFloats && IsUnix())
+	if(AllFloats && IsSysVSystem())
 	{
 		type *Type = AllocType(TypeKind_Vector);
 		Type->Vector.Kind = Vector_Float;
@@ -1498,7 +1498,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 				else if(RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array)
 				{
-					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
+					if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsSysVSystem())
 						ReturnedWrongType = AllFloatsStructToReturnType(RT);
 					else
 						ReturnedWrongType = ComplexTypeToSizeType(RT);
@@ -3450,7 +3450,7 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		  		  Expression = BuildIRFromExpression(Builder, Node->Return.Expression);
 			  if(!IsRetTypePassInPointer(Type) && (RT->Kind == TypeKind_Struct || RT->Kind == TypeKind_Array))
 		  	  {
-		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
+		  		  if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsSysVSystem())
 		  		  {
 		  			  Type = AllFloatsStructToReturnType(RT);
 		  			  Expression = PushInstruction(Builder,
@@ -3659,7 +3659,7 @@ void FixFunctionComplexParameter(u32 TIdx, const type *T, dynamic<u32>& Args, lo
 	// }
 	// should be passes as call(int64, <2 x float>)
 	b32 AllFloats = IsStructAllFloats(T);
-	if(AllFloats && IsUnix())
+	if(AllFloats && IsSysVSystem())
 	{
 		type *Type = AllocType(TypeKind_Vector);
 		Type->Vector.Kind = Vector_Float;
@@ -3809,7 +3809,7 @@ u32 FixFunctionTypeForCallConv(u32 TIdx, dynamic<arg_location> &Loc, b32 *RetInP
 					FnArgs.Push(GetPointerTo(Returns));
 				}
 			}
-			else if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsUnix())
+			else if(RT->Kind == TypeKind_Struct && IsStructAllFloats(RT) && IsSysVSystem())
 			{
 				Return = AllFloatsStructToReturnType(RT);
 			}

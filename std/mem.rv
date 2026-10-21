@@ -85,8 +85,10 @@ make_generic_allocator :: fn() -> Allocator {
 }
 
 addr_align16 :: fn(addr: *) -> * {
-	addr := cast(*u8, addr);
-    val := ((addr as u64) + 15) & 0xfffffffffffffff0;
+	//addr := cast(*u8, addr);
+	mask := cast(uint, -1);
+	mask -= 0xf;
+    val := ((addr as uint) + 15) & mask;
 	return cast(*void, val);
 }
 

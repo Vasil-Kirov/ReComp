@@ -1,0 +1,141 @@
+module vos;
+
+SyscallN :: enum: u32 {
+	read,   // (fd, buf, size) -> read
+	write,  // (fd, buf, size) -> written
+	open,   // (name, name_len, flags) -> fd
+	close,  // (fd)
+	spawn,  // (name, name_len) -> pid
+	getpid, // () -> pid
+	readdir,// (fd, buf: [count]string, count) -> read
+	mmap,   // (size, flags, fd) -> *void
+	munmap, // (ptr)
+	exit,   // (code)
+}
+
+MMapFlags :: enum: u32 {
+	NoAccess = (1<<0),
+	ReadWrite = (1<<1),
+	//
+	Execute = (1<<3),
+	Anon = (1<<4),
+}
+
+STDIN_FD:  i32 : 0;
+STDOUT_FD: i32 : 1;
+STDERR_FD: i32 : 2;
+
+mmap :: fn(size: int, flags: MMapFlags, fd: i32) -> *void {
+	return syscall(.mmap, size, flags, fd) as *void;
+}
+
+munmap :: fn(ptr: ?*void) {
+	syscall(.munmap, ptr);
+}
+
+OpenFlags :: enum: u32 {
+	ReadOnly   = 0x00,
+	WriteOnly  = 0x01,
+	ReadWrite  = 0x02,
+	Create     = 0x04,
+	AlwaysOpen = 0x08,
+	Truncate   = 0x10,
+	Append     = 0x20,
+}
+
+open :: fn(path: string, flags: OpenFlags) -> i32 {
+	return syscall(.open, path, flags);
+}
+
+close :: fn(fd: i32) -> i32 {
+	return syscall(.close, fd);
+}
+
+exit :: fn(code: i32) #no_return {
+	syscall(.exit, code);
+}
+
+writes :: fn(fd: i32, buf: string) -> i32 {
+	return syscall(.write, fd, buf);
+}
+
+write :: fn(fd: i32, buf: []u8) -> i32 {
+	return syscall(.write, fd, buf);
+}
+
+read :: fn(fd: i32, buf: []u8) -> i32 {
+	return syscall(.read, fd, buf);
+}
+
+readdir :: fn(fd: i32, buf: []string) -> i32 {
+	buf := buf;
+	return syscall(.readdir, fd, &buf[0], len(buf));
+}
+
+print_num :: fn(tty: i32, str: string, n: i32) {
+	is_neg := false;
+	if (n < 0) {
+		is_neg = true;
+		n = -n;
+	}
+	if (n >= 10)
+		return;
+
+	buf: [1024]u8;
+	at := 0;
+	for c in cast([]u8, str) {
+		if at >= 1024
+			return;
+
+		buf[at++] = c;
+	}
+
+	if at >= 1020
+		return;
+
+	if is_neg buf[at++] = '-';
+	buf[at++] = '0' + cast(u8, n);
+	buf[at++] = '\n';
+
+	syscall(.write, tty, buf[:at]);
+}
+
+syscall_ :: fn(eax: u32, ebx: u32, ecx: u32, edx: u32, esi: u32, edi: u32) -> i32 #foreign #link="syscall" #cc="cdecl";
+
+ru32arg :: fn(arg: Arg) -> u32 {
+	return *cast(*u32, arg.val);
+}
+
+syscall :: fn(call: SyscallN, args: ...) -> i32 {
+	eax: u32 = cast(u32, call);
+	ebx: u32 = 0;
+	ecx: u32 = 0;
+	edx: u32 = 0;
+	esi: u32 = 0;
+	edi: u32 = 0;
+	regs := []*u32{&ebx, &ecx, &edx, &esi, &edi};
+	for reg in regs { *reg = 0; }
+
+	at_reg := 0;
+	for arg in args {
+		if at_reg == len(regs)
+			return -22;
+
+		if arg.t == string {
+			s := *cast(*string, arg.val);
+			*regs[at_reg++] = s.data as u32;
+			if at_reg == len(regs)
+				return -22;
+			*regs[at_reg++] = s.count as u32;
+		} else if arg.t == []u8 {
+			s := *cast(*[]u8, arg.val);
+			*regs[at_reg++] = s.data as u32;
+			if at_reg == len(regs)
+				return -22;
+			*regs[at_reg++] = s.count as u32;
+		} else {
+			*regs[at_reg++] = ru32arg(arg);
+		}
+	}
+	return syscall_(eax, ebx, ecx, edx, esi, edi);
+}

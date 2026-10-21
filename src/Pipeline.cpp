@@ -648,6 +648,34 @@ bool is_winsdk_result_valid(Find_Result *r)
 	return r && r->windows_sdk_version != 0 && r->vs_exe_path && r->windows_sdk_um_library_path && r->windows_sdk_ucrt_library_path && r->vs_library_path;
 }
 
+// @Note: Destroys the original string
+void FilePathToDirPath(char *FilePath)
+{
+	int i;
+	for(i = 0; FilePath[i] != 0; ++i);
+	int size = i;
+	for(; FilePath[i] != '\\' && FilePath[i] != '/';--i);
+	memset(FilePath + i + 1, 0, size - i - 1);
+}
+
+const char *GetRVCBinDir()
+{
+	char *Path = (char *)AllocatePermanent(VMAX_PATH);
+	GetExePath(Path);
+	FilePathToDirPath(Path);
+
+	return Path;
+}
+
+string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
+{
+	string_builder Builder = MakeBuilder();
+	Builder += Dir;
+	Builder += "../std/";
+	Builder += FileName;
+	return MakeString(Builder);
+}
+
 link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
 {
 	link_command LinkCommand = {};
@@ -914,7 +942,44 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 
 void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> ModuleArray)
 {
-	if((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
+	if ((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
+	else if (PTarget == platform_target::VOS)
+	{
+		auto b = MakeBuilder();
+		string SystemCallObj = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "vos_syscall.o");
+
+		b += "ld.lld.exe -m elf_i386 -static -nostdlib ";
+		b += SystemCallObj;
+		b += ' ';
+		if (Info->Output.Count)
+		{
+			b.printf("-o %.*s ", (int)Info->Output.Count, Info->Output.Data);
+		}
+		if (Info->EntryPoint.Count)
+		{
+			b.printf("-e %.*s ", (int)Info->EntryPoint.Count, Info->EntryPoint.Data);
+		}
+		ForArray(Idx, ModuleArray)
+		{
+			b += ModuleArray[Idx]->Name;
+			b += ".obj ";
+		}
+		PROCESS_INFORMATION ProcessInfo = {};
+		STARTUPINFOA SInfo = {};
+		SInfo.cb = sizeof(STARTUPINFOA);
+		auto CommandLine = MakeString(b);
+		if(CreateProcessA(NULL, (char *)CommandLine.Data, NULL, NULL, true, 0, NULL, NULL, &SInfo, &ProcessInfo))
+		{
+			WaitForSingleObject(ProcessInfo.hProcess, INFINITE);
+			CloseHandle(ProcessInfo.hProcess);
+			CloseHandle(ProcessInfo.hThread);
+		}
+		else
+		{
+			DWORD e = GetLastError();
+			LogCompilerError("Error: Couldn't spawn process for link command: %d", e);
+		}
+	}
 	else
 	{
 		link_command Link = MakeLinkCommand(CommandLine, ModuleArray, Info);
@@ -950,7 +1015,7 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 				}
 				else
 				{
-					LogCompilerError("Error: Couldn't spawn process for link command: %s", GetLastError());
+					LogCompilerError("Error: Couldn't spawn process for link command: %d", GetLastError());
 				}
 #elif CM_LINUX
 				array<char *> Args(Link.List.Args.Count);
@@ -958,6 +1023,8 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 				{
 					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
 				}
+				// NULL TERMINATE ARGS
+				// Vasko - 18/10/2026
 				pid_t pid = fork();
 				if(pid == 0)
 				{

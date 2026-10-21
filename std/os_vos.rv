@@ -1,0 +1,152 @@
+module os;
+
+#import io;
+#import mem;
+_ :: #import "sys/vos.rv";
+
+read_env :: fn(name_: string) -> string #nocheck {
+	return "";
+}
+
+sleep :: fn(ms: u32) {
+	return;
+}
+
+ThreadID :type: ?*void; /* HANDLE */
+
+create_thread :: fn(start: fn(*void) -> u32, arg: *void) -> (ThreadID, bool) {
+	return 0, false;
+}
+
+wait_thread :: fn(thread: ThreadID) -> (int, bool) {
+	return 0, false;
+}
+
+kill_thread :: fn(id: ThreadID) {
+}
+
+delete_dir :: fn(path_: string) -> bool {
+	return false;
+}
+
+delete_file :: fn(path_: string) -> bool {
+	return false;
+}
+
+copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
+	return false;
+}
+
+mkdir :: fn(dir_: string) -> bool {
+	return false;
+}
+
+list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
+
+	dir := open(dir_, .ReadOnly);
+	if dir < 0
+		return false;
+
+	// @TODO:
+	return false;
+}
+
+alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
+	rwx: MMapFlags = .Anon;
+	if perms == .None
+		rwx |= .NoAccess;
+	else if perms == .Read {
+
+	} else if perms == .Write
+		rwx |= .ReadWrite;
+	else if perms == .Write | .Read
+		rwx |= .ReadWrite;
+	else if perms == .Read | .Exec
+		rwx |= .Execute;
+	else if perms == .Write | .Exec
+		rwx |= .ReadWrite | .Execute;
+	else if perms == .Write | .Read | .Exec
+		rwx |= .ReadWrite | .Execute;
+	else
+		return null, false;
+
+	p := mmap(size, rwx, -1);
+	if p
+		return p, true;
+	return null, false;
+}
+
+free :: fn(ptr: ?*) {
+	munmap(ptr);
+}
+
+exit :: fn(code: int) #no_return {
+	vos.exit(code);
+}
+
+abort :: fn() #no_return {
+	vos.exit(1);
+}
+
+os_stream_fn :: fn(data: ?*void, op: io.StreamOp, p: []u8) -> (int, io.StreamError) #nocheck {
+	fd := cast(i32, data as uint);
+	switch op {
+		case .Write:
+		{
+			if fd == 0
+				fd = 1; // std handles use 0, but 1 is for stdout
+
+			written := 0;
+			for written < p.count {
+				wrote := write(fd, p[written:]);
+				if wrote <= 0
+					return written, io.StreamError.Failed;
+				written += wrote;
+			}
+			return written, io.StreamError.Ok;
+		}
+		case .Read:
+		{
+			read_total := 0;
+			for read_total < p.count {
+				read := read(fd, p[read_total:]);
+				if read <= 0
+					return read_total, io.StreamError.Failed;
+				read_total += read;
+			}
+			return read_total as int, io.StreamError.Ok;
+		}
+		case .Close:
+		{
+			close(fd);
+			return 0, io.StreamError.Ok;
+		}
+		case _:
+		{
+			return 0, io.StreamError.InvalidOp;
+		}
+	};
+	return 0, io.StreamError.Failed;
+}
+
+make_std_stream :: fn() -> io.Stream {
+	return .{ func = os_stream_fn, data = null };
+}
+
+make_file_stream :: fn(name: string, flags: FileOpenFlags, alloc: *mem.Allocator) -> (io.Stream, bool) {
+	open_f: OpenFlags = .ReadOnly;
+	if flags & .Read != 0 && flags & .Write != 0
+		open_f |= .ReadWrite;
+	else if flags & .Write
+		open_f |= .WriteOnly;
+	if flags & .Create
+		open_f |= .Create;
+	if flags & .Overwrite
+		open_f |= .AlwaysOpen | .Truncate;
+
+	fd := open(name, open_f);
+	if fd == -1
+		return io.Stream {func=os_stream_fn}, false;
+	return io.Stream { func = os_stream_fn, data = cast(*void, fd as uint) }, true;
+}
+

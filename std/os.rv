@@ -35,6 +35,10 @@ FileOpenFlags :: enum
 {
  	#import "os_win.rv"
 }
+#if VOS
+{
+	#import "os_vos.rv"
+}
 
 #if Unix {
 

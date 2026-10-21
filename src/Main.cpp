@@ -109,35 +109,6 @@ const char* __asan_default_options() { return "detect_leaks=0"; }
 
 dynamic<string> ConfigIDs = {};
 
-// @Note: Destroys the original string
-void FilePathToDirPath(char *FilePath)
-{
-	int i;
-	for(i = 0; FilePath[i] != 0; ++i);
-	int size = i;
-	for(; FilePath[i] != '\\' && FilePath[i] != '/';--i);
-	memset(FilePath + i + 1, 0, size - i - 1);
-}
-
-const char *GetRVCBinDir()
-{
-	char *Path = (char *)AllocatePermanent(VMAX_PATH);
-	GetExePath(Path);
-	FilePathToDirPath(Path);
-
-	return Path;
-}
-
-string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
-{
-	string_builder Builder = MakeBuilder();
-	Builder += Dir;
-	Builder += "../std/";
-	Builder += FileName;
-	return MakeString(Builder);
-}
-
-
 function *FindFunction(module *Module, string Name)
 {
 	if (!Module)
@@ -429,6 +400,19 @@ main(int ArgCount, char *Args[])
 
 					}
 				}
+
+				for(size_t i = 0; i < Info->DefineCount; ++i)
+				{
+					ConfigIDs.Push(StringFromInterp(Info->Defines[i]));
+				}
+				if(Info->Flags & CF_CrossVOS)
+				{
+					PTarget = platform_target::VOS;
+					Info->Arch = Arch_x86;
+					Info->TargetTriple.Data = "i386-unknown-elf";
+					Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
+					Info->Flags |= CF_NoLibC;
+				}
 				if(Info->Output.Count == 0)
 				{
 #if _WIN32
@@ -436,12 +420,10 @@ main(int ArgCount, char *Args[])
 #else
 					Info->Output = {1, "a"};
 #endif
-				}
-				g_TargetArch = (arch)Info->Arch;
-
-				for(size_t i = 0; i < Info->DefineCount; ++i)
-				{
-					ConfigIDs.Push(StringFromInterp(Info->Defines[i]));
+					if (PTarget == platform_target::VOS)
+					{
+						Info->Output = {1, "a"};
+					}
 				}
 				if((Info->Flags & CF_NoLibC) == 0)
 				{
@@ -463,6 +445,7 @@ main(int ArgCount, char *Args[])
 						Info->TargetTriple.Count = VStrLen(Info->TargetTriple.Data);
 					}
 				}
+				g_TargetArch = (arch)Info->Arch;
 				if(Info->Arch == Arch_Wasm32 || Info->Arch == Arch_Wasm64)
 				{
 					PTarget = platform_target::Wasm;
@@ -482,6 +465,10 @@ main(int ArgCount, char *Args[])
 					case pt::Wasm:
 					{
 						ConfigIDs.Push(STR_LIT("WASM"));
+					} break;
+					case pt::VOS:
+					{
+						ConfigIDs.Push(STR_LIT("VOS"));
 					} break;
 				}
 
@@ -643,10 +630,10 @@ main(int ArgCount, char *Args[])
 				}
 
 
-					auto LinkTimer = VLibStartTimer("Linking");
-					RunLinker(Info, CommandLine, ModuleArray);
-					VLibStopTimer(&LinkTimer);
-					LinkTimers.Push(LinkTimer);
+				auto LinkTimer = VLibStartTimer("Linking");
+				RunLinker(Info, CommandLine, ModuleArray);
+				VLibStopTimer(&LinkTimer);
+				LinkTimers.Push(LinkTimer);
 
 				PlatformChangeCWD(BuildFilePath);
 
@@ -728,6 +715,10 @@ main(int ArgCount, char *Args[])
 			case pt::Wasm:
 			{
 				ConfigIDs.Push(STR_LIT("WASM"));
+			} break;
+			case pt::VOS:
+			{
+				ConfigIDs.Push(STR_LIT("VOS"));
 			} break;
 		}
 		CommandLine.Flags |= CF_DebugInfo;

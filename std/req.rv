@@ -19,6 +19,17 @@ memset :: fn #foreign(dst: *, val: i32, num: int) -> * {
 	return dst;
 }
 
+memcmp :: fn #foreign(p1: *, p2: *, num: int) -> c_int {
+	a := p1 as *u8;
+	b := p2 as *u8;
+	for i in num {
+		res := a[i] - b[i];
+		if res != 0
+			return res as c_int;
+	}
+	return 0;
+}
+
 _fltused :: fn #foreign() {}
 
 #if Windows {

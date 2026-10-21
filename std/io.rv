@@ -329,7 +329,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
                 format_uint(b, num);
             }
             else if basic.kind == BasicKind.U64 {
-                num: uint = *cast(*u64, arg.val);
+                num: uint = cast(uint, *cast(*u64, arg.val));
                 format_uint(b, num);
             }
             else if basic.kind == BasicKind.I8  {
@@ -345,7 +345,7 @@ print_type :: fn(b: *Builder, arg: base.Arg) {
                 format_int(b, num);
             }
             else if basic.kind == BasicKind.I64 {
-                num: int = *cast(*i64, arg.val);
+                num: int = cast(int, *cast(*i64, arg.val));
                 format_int(b, num);
             }
             else if basic.kind == BasicKind.Int {

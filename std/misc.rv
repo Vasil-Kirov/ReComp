@@ -82,19 +82,6 @@ copy_dir :: fn(from: string, to: string) {
 	os.list_files(from, copy_dir_, &to);
 }
 
-min :: fn(a: $T, b: T) -> T {
-	return if a < b then a else b;
-}
-
-max :: fn(a: $T, b: T) -> T {
-	return if a > b then a else b;
-}
-
-abs :: fn(x: $T) -> T {
-    if x < 0 return -x;
-    return x;
-}
-
 clamp :: fn(x: $T, xstart: T, xend: T) -> T {
 	if x < xstart
 		return xstart;

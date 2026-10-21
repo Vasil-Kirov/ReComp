@@ -1,6 +1,10 @@
 module reflect
 
-#import misc;
+align_to :: fn(x: $T, align: T) -> T {
+	rem := x % align;
+	if rem == 0 return x;
+	return x + (align - rem);
+}
 
 get_struct_members :: fn(t: type) -> []StructMember {
 	ti := type_info t;
@@ -89,7 +93,7 @@ get_struct_size :: fn(st: type) -> int {
 		if t.flags & .Packed == 0 {
 			alignment := get_type_alignment(m.t);
 			if alignment != 0
-				result = misc.align_to(result, alignment);
+				result = align_to(result, alignment);
 		}
 		result += member_size;
 		if member_size > biggest_member
@@ -100,7 +104,7 @@ get_struct_size :: fn(st: type) -> int {
 	if t.flags & .Packed == 0 {
 		align := get_type_alignment(st);
 		if align != 0
-			result = misc.align_to(result, align);
+			result = align_to(result, align);
 	}
 	return result;
 }
@@ -151,7 +155,7 @@ get_struct_member_offset :: fn(st: StructType, mem_idx: int) -> int {
 		if st.flags & .Packed == 0 {
 			align := get_type_alignment(st.members[i].t);
 			if align != 0
-				result = misc.align_to(result, align);
+				result = align_to(result, align);
 		}
         result += size;
     }

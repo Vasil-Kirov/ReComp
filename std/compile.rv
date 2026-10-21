@@ -23,7 +23,7 @@ raise_error :: fn(location: FileLocation, fmt: string, args: ...) {
 
 no_compile_output :: fn() #intrinsic;
 get_build_args :: fn() -> []string #intrinsic;
-add_build_target :: fn(name: string, info: CompileInfo) #intrinsic; // new api for build scripts
+add_build_target :: fn(name: string, info: CompileInfo) #intrinsic;
 compile_mem :: fn(s: []$T) -> []T {
 	r, ok := mem.dupe(s, &mem.temp_alloc);
 	#assert ok;
@@ -48,6 +48,7 @@ CompileFlag :: enum: u32 {
     DebugInfo    = bit(10),
 	DisableAssert= bit(11),
 	DisableBoundsCheck=bit(12),
+	CrossVOS = bit(13),
 }
 
 Arch :: enum: u32 {
@@ -221,7 +222,7 @@ file_make_const_int :: fn(m: *CustomFile, n: i64, line: int, char: int) -> *ast.
 	return n;
 }
 
-file_make_t :: fn(m: *CustomFile, t: type, line: int, char: int) -> *ast.Node {
+file_make_t :: fn(m: *CustomFile, t: type, line: int, char: int) -> *ast.Node #nocheck {
 	fl := file_make_location(m, line, char);
 
 	ti := type_info(t);

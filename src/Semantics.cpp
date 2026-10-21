@@ -5193,6 +5193,7 @@ u32 MakeCVAList(node *Node)
 		case Arch_x86_64:
 		switch (PTarget)
 		{
+			case platform_target::VOS:
 			case platform_target::UnixBased:
 			Fields.Push({STR_LIT("gp_offset"), Basic_u32});
 			Fields.Push({STR_LIT("fp_offset"), Basic_u32});
@@ -5206,6 +5207,7 @@ u32 MakeCVAList(node *Node)
 		case Arch_arm64:
 		switch (PTarget)
 		{
+			case platform_target::VOS:
 			case platform_target::UnixBased:
 			Fields.Push({STR_LIT("__stack"), VoidP});
 			Fields.Push({STR_LIT("__gr_top"), VoidP});

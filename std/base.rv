@@ -219,17 +219,28 @@ va_list :: struct { /* Platform specific :))) */ }
 va_start :: fn(*va_list) #intrinsic;
 va_end :: fn(*va_list) #intrinsic;
 
-#if Standalone
+#if LIBC
+{
+	main :: fn #link="main.main"() -> i32;
+	
+	entry :: fn #link="main"() -> c_int {
+	    res := main();
+	
+	    return res as c_int;
+	}
+}
+#elif Standalone
 {}
 #else
 {
-main :: fn #link="main.main"() -> i32;
+	#import os;
 
-entry :: fn #link="main"() -> c_int {
-    res := main();
+	main :: fn #link="main.main"() -> i32;
 
-    return res as c_int;
-}
+	entry :: fn #link="_start"() #no_return {
+	    res := main();
+		os.exit(res as int);
+	}
 }
 
 type_table: []TypeInfo;

@@ -34,7 +34,7 @@ arena_alloc :: fn(size: int, this: *Allocator) -> ?* #nocheck {
 			set(ptr, 0, size);
 			return ptr;
 		}
-		prev := chunk;
+		prev = chunk;
 		chunk = chunk.next;
 	}
 
@@ -102,5 +102,6 @@ destroy_arena :: fn(alloc: *Allocator) #nocheck {
 		chunk = chunk.next;
 		os.free(prev);
 	}
+	alloc.data = null;
 }
 

@@ -128,40 +128,37 @@ from_builder :: fn (b: *Builder, alloc: *mem.Allocator) -> string {
 
 CONTINUE_BIT :: 0b1000_0000 as u8;
 
-substr :: fn(original: string, from: int, to_excl: int) -> string {
-    o := original;
-    r: string;
-    r.data = &o.data[from];
-    r.count = to_excl-from;
-    return r;
-}
-
 starts_with :: fn(s: string, start: string) -> bool {
-	return s.count >= start.count && substr(s, 0, start.count) == start;
+	return s.count >= start.count && s[:start.count] == start;
 }
 
 ends_with :: fn(s: string, end: string) -> bool {
-	return s.count >= end.count && substr(s, s.count-end.count, end.count) == end;
+	return s.count >= end.count && s[s.count-end.count:s.count] == end;
 }
 
 find_str :: fn(hay: string, needle: string) -> string {
+	if needle == ""
+		return "";
+
 	hay := hay;
 	for hay.count >= needle.count {
-		cmp := substr(hay, 0, needle.count);
+		cmp := hay[:needle.count];
 		if cmp == needle
 			return hay;
-		hay = substr(hay, 1, hay.count-1);
+		hay = hay[1:];
 	}
 	return "";
 }
 
 contains :: fn(s: string, other: string) -> bool {
+	if other == ""
+		return true;
 	return find_str(s, other) != "";
 }
 
 strip :: fn(s: string, prefix: string) -> string {
 	if starts_with(s, prefix)
-		return substr(s, prefix.count, s.count-prefix.count);
+		return s[prefix.count:];
 	return s;
 }
 
@@ -169,16 +166,19 @@ split :: fn(s: string, delim: u8, alloc: *mem.Allocator) -> []string {
 	res := array.create(string, alloc);
 	s := s;
 	at := 0;
-	for c in s {
+	pos := s.data;
+	for pos - s.data < s.count {
+		c := extract_codepoint(pos, get_codepoint_size(pos));
+		at := pos - s.data;
+		pos = advance(pos);
+
 		if c == delim {
 			it := s[:at];
 			array.add(&res, it);
 			if at+1 >= s.count
-				break;
+				return res;
 			s = s[at+1:];
-			at = -1;
 		}
-		at++;
 	}
 	if s != "" {
 		array.add(&res, s);

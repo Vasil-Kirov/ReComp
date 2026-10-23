@@ -1903,11 +1903,36 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				RaiseError(false, *Expr->ErrorInfo, "Expected expressions between , operator");
 				return Basic_error;
 			}
+			u32 AutoType = Basic_error;
+			for(ssize_t i = ((ssize_t)Checker->AutoEnum.Data.Count)-1; i >= 0; --i)
+			{
+				const type *T = GetType(Checker->AutoEnum.Data[i]);
+				if(T->Kind == TypeKind_Struct && T->Struct.Flags & StructFlag_FnReturn && T->Struct.Members.Count == Expr->List.Nodes.Count)
+				{
+					AutoType = Checker->AutoEnum.Data[i];
+					break;
+				}
+			}
+
+			const type *Auto = NULL;
+			if (AutoType != Basic_error)
+				Auto = GetType(AutoType);
+
+			auto SaveAutoEnum = Checker->AutoEnum;
+			Checker->AutoEnum = {};
+
 			array<u32> Ts(Expr->List.Nodes.Count);
 			uint At = 0;
 			For(Expr->List.Nodes)
 			{
+				if (Auto)
+					Checker->AutoEnum.Push(Auto->Struct.Members[At].Type);
+
 				Ts[At] = AnalyzeExpression(Checker, *it);
+
+				if (Auto)
+					Checker->AutoEnum.Pop();
+
 				const type *T = GetType(Ts[At]);
 				if(IsUntyped(T))
 				{
@@ -1918,6 +1943,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				At++;
 			}
+
+			Checker->AutoEnum.Data.Free();
+			Checker->AutoEnum = SaveAutoEnum;
+
 			Expr->List.Types = SliceFromArray(Ts);
 			Expr->List.WholeType = ReturnsToType(SliceFromArray(Ts));
 			Result = Expr->List.WholeType;

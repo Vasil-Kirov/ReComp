@@ -79,13 +79,17 @@ create_thread :: fn(start: fn(*void) -> u32, arg: *void) -> (ThreadID, bool) {
 wait_thread :: fn(thread: ThreadID) -> (int, bool) {
 	WaitForSingleObject(thread, INFINITE as DWORD);
 	ExitCode: DWORD;
-	if GetExitCodeThread(thread, &ExitCode) == 0
+	if GetExitCodeThread(thread, &ExitCode) == 0 {
+		CloseHandle(thread);
 		return 0, false;
+	}
+	CloseHandle(thread);
 	return ExitCode as int, true;
 }
 
 kill_thread :: fn(id: ThreadID) {
 	TerminateThread(id, 1);
+	CloseHandle(id);
 }
 
 Mutex : type : _RTL_SRWLOCK;

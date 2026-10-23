@@ -62,7 +62,7 @@ free :: fn(arg_arr: *[]$T) {
 
 clear :: fn(arg_arr: *[]$T) {
     arr := arg_arr;
-    mem.set(arr.data, 0, arr.count);
+    mem.set(arr.data, 0, arr.count * size_of T);
     arr.count = 0;
 }
 

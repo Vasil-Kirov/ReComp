@@ -1,0 +1,271 @@
+module os;
+
+#import io;
+#import mem;
+#import str;
+_ :: #import "sys/unix.rv";
+
+
+
+#private
+
+cnulls :: fn(s: string) -> *u8 {
+	return nulls(s).data;
+}
+
+nulls :: fn(s: string) -> string {
+	res, ok := str.null_term(s, mem.get_temp());
+	if !ok
+		return "";
+	return res;
+}
+#public
+
+init_env :: fn(env: **u8) {
+}
+
+#if LIBC {
+	read_env :: fn(name_: string) -> string #nocheck {
+		return "";
+	}
+}
+
+sleep :: fn(ms: u32) {
+	return;
+}
+
+#if LIBC {
+	ThreadID :: u64;
+	ThreadRetType :: *void;
+
+
+	create_thread :: fn(start: fn(*void) -> ThreadRetType, arg: ?*void) -> (ThreadID, bool) #nocheck {
+		thread: pthread_t;
+		if pthread_create(&thread, null, start, arg) != 0
+			return 0, false;
+		return thread, true;
+
+		/*
+thread_flags :: (CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM
+| CLONE_SIGHAND | CLONE_THREAD
+| CLONE_PARENT_SETTID
+| CLONE_CHILD_CLEARTID);
+
+p, ok := alloc(size_of Thread, .Reserve | .Commit, .Read | .Write)
+if !ok {
+return null, false;
+}
+
+
+thread := p as *Thread;
+
+stack := mmap(THREAD_STACK_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_STACK);
+if !stack {
+free(p);
+return null, false;
+}
+
+args: clone_args = .{
+flags = thread_flags,
+parent_tid = cast(u64, &thread.tid),
+child_tid  = cast(u64, &thread.tid_flag),
+stack = cast(u64, stack),
+stack_size = THREAD_STACK_SIZE,
+};
+res := clone(&args);
+if res < 0
+return null, false;
+if res == 0 {
+exit(start(arg));
+}
+return thread, true;
+*/
+	}
+
+	wait_thread :: fn(thread: ThreadID) -> (int, bool) {
+		r: *void;
+		if pthread_join(thread, &r) != 0 {
+			return 0, false;
+		}
+		return r as int, true;
+	}
+
+	kill_thread :: fn(id: ThreadID) {
+		if pthread_cancel(id) != 0
+			return;
+		r: *void;
+		pthread_join(id, &r);
+	}
+}
+
+delete_dir :: fn(path: string) -> bool {
+	return rmdir(cnulls(path)) == 0;
+}
+
+delete_file :: fn(path: string) -> bool {
+	return unlink(cnulls(path)) == 0;
+}
+
+copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
+	// @TODO:
+	return false;
+}
+
+mkdir :: fn(dir_: string) -> bool {
+	return unix.mkdir(cnulls(dir_), 0o0666) == 0;
+}
+
+list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {
+	dir := open(nulls(dir_), O_RDONLY);
+	if dir < 0
+		return false;
+
+	ent_fname :: fn(ent: *linux_dirent64) -> string {
+		len := 0;
+		for ent.d_name[len] != 0 {
+			len++;
+		}
+		return ent.d_name[:len] as string;
+	};
+
+	for {
+		buf: [2048]u8;
+		bufp := &buf[0];
+		nread := getdents64(dir, bufp, cast(uint, size_of buf));
+		if nread < 0
+			return false;
+		if nread == 0
+			break;
+
+		bpos := 0;
+		for bpos < nread {
+			d := cast(*linux_dirent64, bufp+bpos);
+
+			data: ListFileData = .{
+				dir = dir_,
+				file = ent_fname(d),
+				is_directory = d.d_type == .DIR,
+
+			};
+			if !callback(&data, arg)
+				return true;
+
+			bpos += d.d_reclen as int;
+		}
+
+	}
+	
+	return true;
+}
+
+#private
+AllocCtx :: struct {
+	size: u64,
+	padding: u64,
+}
+#public
+
+alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
+	flags := MAP_PRIVATE | MAP_ANONYMOUS;
+
+	rwx: i32 = 0;
+	if perms & .Read != 0
+		rwx |= PROT_READ;
+	if perms & .Write != 0
+		rwx |= PROT_WRITE;
+	if perms & .Exec != 0
+		rwx |= PROT_EXEC;
+
+	ctx := mmap(size + size_of AllocCtx, rwx, flags) as *AllocCtx;
+	if !ctx
+		return null, false;
+	ctx.size = size as u64;
+	return (ctx + 1), true;
+}
+
+free :: fn(ptr: ?*) {
+	if !ptr
+		return;
+	ctx := ptr as *AllocCtx - 1;
+	munmap(ctx, ctx.size as uint);;
+}
+
+exit :: fn(code: int) #no_return {
+	unix.exit(code);
+}
+
+abort :: fn() #no_return {
+	unix.exit(1);
+}
+
+os_stream_fn :: fn(data: ?*void, op: io.StreamOp, p: []u8) -> (int, io.StreamError) #nocheck {
+	fd := cast(i32, data as uint);
+	switch op {
+		case .Write:
+		{
+			if fd == 0
+				fd = handle_stdout;
+
+			written := 0;
+			for written < p.count {
+				wrote := write(fd, p[written:]);
+				if wrote <= 0
+					return written, io.StreamError.Failed;
+				written += wrote;
+			}
+			return written, io.StreamError.Ok;
+		}
+		case .Read:
+		{
+			read_total := 0;
+			for read_total < p.count {
+				read := read(fd, p[read_total:]);
+				if read <= 0
+					return read_total, io.StreamError.Failed;
+				read_total += read;
+			}
+			return read_total as int, io.StreamError.Ok;
+		}
+		case .Close:
+		{
+			if fd == 0 {
+				return 0, .InvalidOp;
+			}
+			close(fd);
+			return 0, io.StreamError.Ok;
+		}
+		case _:
+		{
+			return 0, io.StreamError.InvalidOp;
+		}
+	};
+	return 0, io.StreamError.Failed;
+}
+
+make_std_stream :: fn() -> io.Stream {
+	return .{ func = os_stream_fn, data = null };
+}
+
+make_file_stream :: fn(name: string, flags: FileOpenFlags, alloc: *mem.Allocator) -> (io.Stream, bool) {
+	open_f: u32 = 0;
+	mode: u32 = 0;
+	if flags & .Read != 0 && flags & .Write != 0
+		open_f |= O_RDWR;
+	else if flags & .Write
+		open_f |= O_WRONLY;
+	if flags & .Create {
+		open_f |= O_EXCL | O_CREAT;
+		mode = 0o0666;
+	}
+	if flags & .Overwrite {
+		open_f |= O_CREAT | O_TRUNC;
+		mode = 0o0666;
+	}
+
+	fd := open(name, open_f, mode);
+	if fd == -1
+		return io.Stream {func=os_stream_fn}, false;
+	return io.Stream { func = os_stream_fn, data = cast(*void, fd as uint) }, true;
+}
+
+

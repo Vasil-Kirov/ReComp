@@ -1061,7 +1061,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case TypeKind_Array:
 				{
-					if(ShouldDoBoundsChecking())
+					if(ShouldDoBoundsChecking() && T->Array.MemberCount != 0)
 					{
 						u32 Count = PushInt(T->Array.MemberCount, Builder, Basic_int);
 						BuildSliceAssert(Builder, Node, From, To, Count);
@@ -1895,7 +1895,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			}
 			else
 			{
-				if(ShouldDoBoundsChecking() && Type->Kind == TypeKind_Array)
+				if(ShouldDoBoundsChecking() && Type->Kind == TypeKind_Array && Type->Array.MemberCount != 0)
 				{
 					u32 IndexV = Index;
 					if(Node->Index.IndexExprType != Basic_int)

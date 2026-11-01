@@ -643,10 +643,12 @@ struct link_command
 	};
 };
 
+#if _WIN32
 bool is_winsdk_result_valid(Find_Result *r)
 {
 	return r && r->windows_sdk_version != 0 && r->vs_exe_path && r->windows_sdk_um_library_path && r->windows_sdk_ucrt_library_path && r->vs_library_path;
 }
+#endif
 
 // @Note: Destroys the original string
 void FilePathToDirPath(char *FilePath)
@@ -675,6 +677,8 @@ string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
 	Builder += FileName;
 	return MakeString(Builder);
 }
+
+slice<string> FindObjectFiles();
 
 link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
 {
@@ -832,10 +836,7 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 
 #elif CM_LINUX
 	LinkCommand.Type = LCT_System;
-	const char *StdDir = GetStdDir();
-	string Dir = MakeString(StdDir);
-
-	string SystemCallObj = GetFilePath(Dir, "system_call.o");
+	string SystemCallObj = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "system_call.o");
 	string Entry = STR_LIT("_start");
 	if(CompileFlags & CF_NoLibC)
 		Entry = STR_LIT("main");
@@ -860,15 +861,14 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 	{
 		if(LinkCommand.Type == LCT_List)
 		{
-			static_assert(false); // @TODO: update with Info->Output
 			Args.Push(STR_LIT("-o"));
-			Args.Push(STR_LIT("a"));
+			Args.Push(StringFromInterp(Info->Output));
 			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
 		}
 		else
 		{
-			static_assert(false); // @TODO: update with Info->Output
-			Builder += " -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+			string Output = StringFromInterp(Info->Output);
+			Builder.printf(" -o %.*s --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ", (int)Output.Size, Output.Data);
 		}
 	}
 	else
@@ -876,9 +876,8 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 		if(LinkCommand.Type == LCT_List)
 		{
 			Args.Push(STR_LIT("-lc"));
-			static_assert(false); // @TODO: update with Info->Output
 			Args.Push(STR_LIT("-o"));
-			Args.Push(STR_LIT("a"));
+			Args.Push(StringFromInterp(Info->Output));
 			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
 			For(ObjFiles)
 				Args.Push(*it);
@@ -886,8 +885,8 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 		}
 		else
 		{
-			static_assert(false); // @TODO: update with Info->Output
-			Builder += "-lc -o a --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ";
+			string Output = StringFromInterp(Info->Output);
+			Builder.printf("-lc -o %.*s --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ", (int)Output.Size, Output.Data);
 			For(ObjFiles)
 			{
 				Builder += *it;
@@ -945,9 +944,10 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 	if ((Info->Flags & CF_NoLink) != 0 || g_StopCompileOutput) {}
 	else if (PTarget == platform_target::VOS)
 	{
-		auto b = MakeBuilder();
 		string SystemCallObj = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "vos_syscall.o");
 
+#if _WIN32
+		auto b = MakeBuilder();
 		b += "ld.lld.exe -m elf_i386 -static -nostdlib ";
 		b += SystemCallObj;
 		b += ' ';
@@ -979,6 +979,39 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 			DWORD e = GetLastError();
 			LogCompilerError("Error: Couldn't spawn process for link command: %d", e);
 		}
+#else
+		dynamic<char *> Args = {};
+		Args.Push(strdup("ld"));
+		Args.Push(strdup("-m"));
+		Args.Push(strdup("elf_i386"));
+		Args.Push(strdup("-static"));
+		Args.Push(strdup("-nostdlib"));
+		if (Info->Output.Count)
+		{
+			string Output = StringFromInterp(Info->Output);
+			Args.Push(strdup("-o"));
+			Args.Push(strndup(Output.Data, Output.Size));
+		}
+		if (Info->EntryPoint.Count)
+		{
+			string Entry = StringFromInterp(Info->Output);
+			Args.Push(strdup("-e"));
+			Args.Push(strndup(Entry.Data, Entry.Size));
+		}
+		ForArray(Idx, ModuleArray)
+		{
+			auto Obj = QuickBuild("%.*s.obj", (int)ModuleArray[Idx]->Name.Size, ModuleArray[Idx]->Name.Data);
+			Args.Push(strndup(Obj.Data, Obj.Size));
+		}
+		Args.Push(strndup(SystemCallObj.Data, SystemCallObj.Size));
+		Args.Push(NULL);
+
+		pid_t pid = fork();
+		if(pid == 0)
+		{
+			execvp("ld", Args.Data);
+		}
+#endif
 	}
 	else
 	{
@@ -1018,17 +1051,17 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 					LogCompilerError("Error: Couldn't spawn process for link command: %d", GetLastError());
 				}
 #elif CM_LINUX
-				array<char *> Args(Link.List.Args.Count);
+				array<char *> Args(Link.List.Args.Count+1);
 				ForArray(Idx, Args)
 				{
 					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
 				}
-				// NULL TERMINATE ARGS
-				// Vasko - 18/10/2026
+				Args[Link.List.Args.Count] = 0;
+
 				pid_t pid = fork();
 				if(pid == 0)
 				{
-					execv(Link.List.Command.Data, Args.Data);
+					execvp(Link.List.Command.Data, Args.Data);
 				}
 #else
 #error Implement a way to invoke a proces with the link command

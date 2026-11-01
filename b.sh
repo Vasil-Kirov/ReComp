@@ -1,18 +1,20 @@
 #!/bin/bash
 
 DEFINES="-D_CRT_SECURE_NO_WARNINGS -DDEBUG -DCM_LINUX"
-LIBS=$(llvm-config-20 --ldflags --libs)
-LIBS+=' -L../libs -ldyncall_s'
+#LIBS=$(llvm-config-20 --ldflags --libs)
+LIBS=$(llvm-config --ldflags --libs)
+LIBS+=' -L../libs -ldyncall_s -ldyncallback_s'
 
 
+FLAGS=' -std=c++17'
 if [[ "$1" == "rel" ]]
 then
-	FLAGS='-O3'
+	FLAGS+=' -O3'
 elif [[ "$1" == "san" ]]
 then
-	FLAGS='-fsanitize=address,undefined --debug -O0'
+	FLAGS+=' -fsanitize=address,undefined --debug -O0'
 else
-	FLAGS='--debug -O0'
+	FLAGS+=' --debug -O0'
 fi
 
 #DO_ASAN=''
@@ -22,7 +24,7 @@ fi
 echo $FLAGS
 
 pushd bin
-clang++ $DO_ASAN -rdynamic -orcp $FLAGS -lz ../src/Main.cpp -I../include -I../src $LIBS $DEFINES -mavx -Wall -Wno-format
+clang++ $DO_ASAN -rdynamic -orvc $FLAGS -lz ../src/Main.cpp -I../include -I../src $LIBS $DEFINES -mavx -Wall -Wno-format
 popd
 
 

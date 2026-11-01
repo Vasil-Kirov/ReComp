@@ -9,6 +9,15 @@ Builder :: struct {
     data: []u8,
 }
 
+builder_char_len :: fn(b: *Builder) -> int {
+	s := b.data as string;
+	len := 0;
+	for c in s {
+		len++;
+	}
+	return len;
+}
+
 null_term :: fn(str: string, alloc: *mem.Allocator) -> (string, bool) {
 	str := str;
     ptr := alloc.alloc(str.count+1, alloc);

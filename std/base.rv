@@ -223,7 +223,7 @@ va_end :: fn(*va_list) #intrinsic;
 {
 	main :: fn #link="main.main"() -> i32;
 	
-	entry :: fn #link="main"() -> c_int {
+	entry :: fn #link="main"(argc: i32, argv: **u8, envp: **u8) -> c_int {
 	    res := main();
 	
 	    return res as c_int;

@@ -24,6 +24,21 @@ struct linux_signal_handler
 
 thread_local linux_signal_handler HandleContext = {};
 
+void PlatformSetEnv(const char *Name, const char *Value)
+{
+	setenv(Name, Value, 1);
+}
+
+void PlatformGetCWD(char *Buf, size_t BufSize)
+{
+	getcwd(Buf, BufSize);
+}
+
+void PlatformChangeCWD(const char *Path)
+{
+	chdir(Path);
+}
+
 bool PlatformWritePipe(u64 Pipe, const void *Data, u32 Size)
 {
 	u32 Total = 0;

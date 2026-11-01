@@ -1,3 +1,4 @@
+-DCM_LINUX
 -xc++
 -Iinclude
 -Isrc

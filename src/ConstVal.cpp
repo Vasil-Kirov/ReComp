@@ -1,6 +1,7 @@
 #include "ConstVal.h"
 #include "Memory.h"
 #include "Type.h"
+#include <cctype>
 #include <cmath>
 #include <stdlib.h>
 #include <Interpreter.h>
@@ -59,6 +60,7 @@ const_value MakeConstValue(const string *String)
 		Parse_Float,
 		Parse_Binary,
 		Parse_Hex,
+		Parse_Octal,
 	} ParseType = Parse_Int;
 
 	const_value Result = {};
@@ -70,6 +72,10 @@ const_value MakeConstValue(const string *String)
 	else if(String->Size > 1 && String->Data[0] == '0' && String->Data[1] == 'x')
 	{
 		ParseType = Parse_Hex;
+	}
+	else if(String->Size > 1 && String->Data[0] == '0' && String->Data[1] == 'o')
+	{
+		ParseType = Parse_Octal;
 	}
 	else
 	{
@@ -133,6 +139,20 @@ const_value MakeConstValue(const string *String)
 				Result.Int.Unsigned += (u64)val * mul;
 			}
 		} break;
+		case Parse_Octal:
+		{
+			Result.Type = const_type::Integer;
+			Result.Int.IsSigned = false;
+			Result.Int.Unsigned = 0;
+			int Position = 0;
+			for(int i = String->Size-1; i >= 2; --i)
+			{
+				char c = String->Data[i];
+				int val = c - '0';
+				u64 mul = (u64)pow(8, Position++);
+				Result.Int.Unsigned += (u64)val * mul;
+			}
+		}
 	}
 
 	return Result;

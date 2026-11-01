@@ -1,6 +1,7 @@
 #pragma once
 #include "Platform.h"
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
 
 #define READ_BARRIER atomic_thread_fence(std::memory_order_acquire)

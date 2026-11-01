@@ -232,37 +232,50 @@ is_digit :: fn(c: u32) -> bool {
 internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
     builder := create_builder(&mem.temp_alloc);
     arg_count := 0;
-    need_to_print_arg := false;
-    for c in fmt {
-		if c == '%' && need_to_print_arg {
-			need_to_print_arg = false;
-			builder_append_u32(&builder, '%');
+    for it := fmt.data; it < fmt.data+len(fmt); it = advance(it) {
+		c := deref(it);
+		if c == '`' {
+			start := advance(it);
+			if is_digit(deref(start)) {
+				it = start;
+				// @Note: do is_digit on the next one, so that `it` ends up at the final digit
+				// and the loop's next iteration starts directly after the digit.
+				for is_digit(deref(advance(it))) && advance(it) < fmt.data + len(fmt)
+					it = advance(it);
+				end := advance(it);
+				align := to_int(start[:end-start] as string);
+				len := builder_char_len(&builder);
+				for len < align {
+					builder_append_u32(&builder, ' ');
+					len++;
+				}
+			}
 		}
-		else if c == '%' && args.count > arg_count {
-            need_to_print_arg = true;
-        } else {
-            if need_to_print_arg {
-                arg: Arg;
+		else if c == '%' {
+			c = deref(advance(it));
+			if c != '`'
+				it = advance(it);
+			if c == '%' {
+				builder_append_u32(&builder, '%');
+			} else {
+				arg_i := 0;
                 if is_digit(c) {
-                    arg = args[c - '0'];
+					arg_i = cast(int, c - '0');
                 }
                 else {
-                    arg = args[arg_count];
-                    arg_count += 1;
+					arg_i = arg_count++;
                 }
+				if arg_i >= arg_count || arg_i < 0 {
+					builder_append_u32(&builder, '%');
+					builder_append_u32(&builder, c);
+					continue;
+				}
+				arg := args[arg_i];
                 print_type_with_formatter(&builder, c, arg);
-                need_to_print_arg = false;
-            } else {
-                builder_append_u32(&builder, c);
-            }
+			}
+        } else {
+			builder_append_u32(&builder, c);
         }
-    }
-
-    if need_to_print_arg {
-        arg := args[arg_count];
-        arg_count += 1;
-        print_type_with_formatter(&builder, '\0', arg);
-        need_to_print_arg = false;
     }
 
     return builder;
@@ -284,6 +297,8 @@ print_type_with_formatter :: fn(b: *Builder, c: u32, arg: Arg) {
                 c = *cast(*u32, arg.val);
             }
             builder_append_u32(b, c);
+	} else if c == '\\' || c == '`' {
+        print_type(b, arg);
     } else {
         print_type(b, arg);
 		if c != 0 && !is_digit(c)

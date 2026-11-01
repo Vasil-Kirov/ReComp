@@ -200,7 +200,7 @@ std::optional<u32> TryGetArraySize(checker *Checker, node *Node)
 				break;
 			if(Node->Constant.Value.Int.IsSigned)
 			{
-				if(Node->Constant.Value.Int.Signed <= 0)
+				if(Node->Constant.Value.Int.Signed < 0)
 					break;
 				if(Node->Constant.Value.Int.Signed >= UINT32_MAX)
 					break;
@@ -656,7 +656,7 @@ u32 GetTypeFromTypeNode(checker *Checker, node *TypeNode, b32 Error, b32 *OutAut
 				{
 					RaiseError(false, *Expr->ErrorInfo, "Expression does not produce a valid constant array size.");
 				}
-				else if(sz.value() <= 0)
+				else if(sz.value() < 0)
 				{
 					RaiseError(false, *Expr->ErrorInfo, "Expected positive integer for array type size, got %llu", sz.value());
 				}

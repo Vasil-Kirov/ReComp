@@ -22,10 +22,6 @@ print_stack -- prints the function stack
 
 )raw";
 
-#if _WIN32
-#include <iostream>
-#include <string>
-
 value Load(interpreter *VM, value *Value, u32 TypeIdx, b32 *NoResult, u32 ResultReg);
 
 value FindVariableRegister(interpreter *VM, string Name, slice<basic_block> Blocks, bool *Failed)
@@ -119,6 +115,9 @@ void PrintCodeAround(interpreter *VM)
 	printf("%.*s\n", (int)s.Size, s.Data);
 }
 
+#if _WIN32
+#include <iostream>
+#include <string>
 int getline(char **OutLine, size_t *OutSize, FILE *s)
 {
 	Assert(s == stdin);

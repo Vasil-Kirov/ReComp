@@ -234,10 +234,9 @@ main(int ArgCount, char *Args[])
 	g_DLs.Push(OpenLibrary("ucrtbase"));
 	//g_DLs.Push(OpenLibrary("ws2_32"));
 #elif CM_LINUX
-	const char *StdDir = GetStdDir();
-	string Dir = MakeString(StdDir);
+	string SystemCallObj = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "system_call.so");
 	g_DLs.Push(OpenLibrary("libc.so"));
-	g_DLs.Push(OpenLibrary(GetFilePath(Dir, "system_call.so").Data));
+	g_DLs.Push(OpenLibrary(SystemCallObj.Data));
 #else
 
 #endif

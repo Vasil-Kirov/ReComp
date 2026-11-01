@@ -1,0 +1,344 @@
+module unix;
+
+
+handle_stdin  :i32: 0;
+handle_stdout :i32: 1;
+handle_stderr :i32: 2;
+
+
+#if x64 {
+__SIZEOF_PTHREAD_MUTEX_T :: 40;
+__SIZEOF_PTHREAD_ATTR_T :: 56;
+__SIZEOF_PTHREAD_RWLOCK_T :: 56;
+__SIZEOF_PTHREAD_BARRIER_T :: 32;
+}
+#elif x86 {
+__SIZEOF_PTHREAD_MUTEX_T :: 32;
+__SIZEOF_PTHREAD_ATTR_T :: 32;
+__SIZEOF_PTHREAD_RWLOCK_T :: 44;
+__SIZEOF_PTHREAD_BARRIER_T :: 20;
+}
+#else {
+__SIZEOF_PTHREAD_MUTEX_T :: 24;
+__SIZEOF_PTHREAD_ATTR_T :: 36;
+__SIZEOF_PTHREAD_RWLOCK_T :: 32;
+__SIZEOF_PTHREAD_BARRIER_T :: 20;
+}
+__SIZEOF_PTHREAD_MUTEXATTR_T :: 4;
+__SIZEOF_PTHREAD_COND_T :: 48;
+__SIZEOF_PTHREAD_CONDATTR_T :: 4;
+__SIZEOF_PTHREAD_RWLOCKATTR_T :: 8;
+__SIZEOF_PTHREAD_BARRIERATTR_T :: 4;
+
+#if x64 {
+	SYS_read  	:: 0;
+	SYS_write  	:: 1;
+	SYS_open   	:: 2;
+	SYS_close	:: 3;
+	SYS_mmap   	:: 9;
+	SYS_munmap 	:: 11;
+	SYS_exit	:: 60;
+	SYS_fstat	:: 5;
+	SYS_clock_gettime :: 228;
+	SYS_getdents64 :: 217;
+	SYS_mkdir :: 83;
+	SYS_unlink :: 87;
+	SYS_rmdir :: 84;
+	SYS_clone3 :: 435;
+
+
+	stat :: struct {
+		pad0: [48]u8,
+		st_size: int,
+		pad1: [88]u8,
+	}
+}
+#elif x86 {
+	SYS_read      :: 3;
+	SYS_write     :: 4;
+	SYS_open      :: 5;
+	SYS_close     :: 6;
+	SYS_mmap      :: 90;
+	SYS_munmap    :: 91;
+	SYS_exit      :: 1;
+	SYS_clock_gettime :: 228;
+}
+#elif arm32 {
+	SYS_read    :: 3;
+	SYS_write   :: 4;
+	SYS_open    :: 5;
+	SYS_close	:: 6;
+	SYS_mmap    :: 90;
+	SYS_munmap  :: 91;
+	SYS_exit    :: 1;
+	SYS_clock_gettime :: 263;
+}
+#elif arm64 {
+	SYS_read    :: 63;
+	SYS_write   :: 64;
+	SYS_open    :: 56;
+	SYS_close	:: 57;
+	SYS_mmap    :: 222;
+	SYS_munmap  :: 215;
+	SYS_exit    :: 93;
+	SYS_clock_gettime :: 113;
+	SYS_fstat   :: 80;
+}
+CLOCK_MONOTONIC :: 1;
+
+__old_kernel_stat :: struct {
+	st_dev  : u16,
+	st_ino  : u16,
+	st_mode : u16,
+	st_nlink: u16,
+	st_uid  : u16,
+	st_gid  : u16,
+	st_rdev : u16,
+	st_size : u64,
+	st_atime: u64,
+	st_mtime: u64,
+	st_ctime: u64,
+}
+
+timespec :: struct {
+	tv_sec:     int,       //* seconds */
+	tv_nsec:    int,       //* nanoseconds */
+};
+
+syscall :: fn #foreign(number: int, args: ...) -> int;
+
+PROT_READ  :i32: 0x1;
+PROT_WRITE :i32: 0x2;
+PROT_EXEC  :i32: 0x4;
+PROT_NONE  :i32: 0x0;
+
+MAP_SHARED		:i32: 0x00001;
+MAP_PRIVATE		:i32: 0x00002;
+MAP_ANONYMOUS	:i32: 0x00020;
+MAP_ANON		:i32: 0x00020;
+MAP_NORESERVE	:i32: 0x04000;
+MAP_STACK       :i32: 0x20000;
+
+O_RDONLY 	:u32: 0x0;
+O_WRONLY 	:u32: 0x1;
+O_RDWR 		:u32: 0x2;
+O_CREAT		:u32: 0x40;
+O_EXCL		:u32: 0x80;
+O_NOCTTY	:u32: 0x100;
+O_TRUNC		:u32: 0x200;
+O_APPEND 	:u32: 0x400;
+O_NONBLOCK	:u32: 0x800;
+
+
+#if LIBC {
+	exit :: fn (code: int) #foreign #no_return;
+}
+#else {
+	exit :: fn (code: int) #no_return {
+		syscall(SYS_exit, 1);
+	}
+}
+
+DType :: enum: u8
+{
+	UNKNOWN = 0,
+	FIFO = 1,
+	CHR = 2,
+	DIR = 4,
+	BLK = 6,
+	REG = 8,
+	LNK = 10,
+	SOCK = 12,
+	WHT = 14
+};
+
+linux_dirent64 :: struct #pack {
+	d_ino: u64,      /* Inode number */
+	d_off: u64,      /* Not an offset; see below */
+	d_reclen:  u16,  /* Length of this linux_dirent */
+	d_type:    DType,/* File type */
+	d_name: [0]u8,   /* Filename (null-terminated) */
+}
+
+getdents64 :: fn(fd: i32, dirp: *void, count: uint) -> int {
+	return syscall(SYS_getdents64, fd, dirp, count);
+}
+
+SIGSTKFLT	:u64: 16;	/* Stack fault (obsolete).  */
+SIGPWR		:u64: 30;	/* Power failure imminent.  */
+
+/* Historical signals specified by POSIX. */
+SIGBUS		 :u64: 7;	/* Bus error.  */
+SIGSYS		:u64: 31;	/* Bad system call.  */
+
+/* New(er) POSIX signals (1003.1-2008, 1003.1-2013).  */
+SIGURG		:u64: 23;	/* Urgent data is available at a socket.  */
+SIGSTOP		:u64: 19;	/* Stop, unblockable.  */
+SIGTSTP		:u64: 20;	/* Keyboard stop.  */
+SIGCONT		:u64: 18;	/* Continue.  */
+SIGCHLD		:u64: 17;	/* Child terminated or stopped.  */
+SIGTTIN		:u64: 21;	/* Background read from control terminal.  */
+SIGTTOU		:u64: 22;	/* Background write to control terminal.  */
+SIGPOLL		:u64: 29;	/* Pollable event occurred (System V).  */
+SIGXFSZ		:u64: 25;	/* File size limit exceeded.  */
+SIGXCPU		:u64: 24;	/* CPU time limit exceeded.  */
+SIGVTALRM	:u64: 26;	/* Virtual timer expired.  */
+SIGPROF		:u64: 27;	/* Profiling timer expired.  */
+SIGUSR1		:u64: 10;	/* User-defined signal 1.  */
+SIGUSR2		:u64: 12;	/* User-defined signal 2.  */
+
+/* Nonstandard signals found in all modern POSIX systems
+   (including both BSD and Linux).  */
+SIGWINCH	:u64: 28;	/* Window size change (4.3 BSD, Sun).  */
+
+/* Archaic names for compatibility.  */
+SIGIO		:u64: SIGPOLL;	/* I/O now possible (4.2 BSD).  */
+//SIGIOT		:u64: SIGABRT;	/* IOT instruction, abort() on a PDP-11.  */
+SIGCLD		:u64: SIGCHLD;	/* Old System V name */
+
+__SIGRTMIN	:u64: 32;
+__SIGRTMAX	:u64: 64;
+
+
+/* Cloning flags.  */
+CSIGNAL       :u64: 0x000000ff; /* Signal mask to be sent at exit.  */
+CLONE_VM      :u64: 0x00000100; /* Set if VM shared between processes.  */
+CLONE_FS      :u64: 0x00000200; /* Set if fs info shared between processes.  */
+CLONE_FILES   :u64: 0x00000400; /* Set if open files shared between processes.  */
+CLONE_SIGHAND :u64: 0x00000800; /* Set if signal handlers shared.  */
+CLONE_PIDFD   :u64: 0x00001000; /* Set if a pidfd should be placed in parent.  */
+CLONE_PTRACE  :u64: 0x00002000; /* Set if tracing continues on the child.  */
+CLONE_VFORK   :u64: 0x00004000; /* Set if the parent wants the child to
+				     wake it up on mm_release.  */
+CLONE_PARENT  :u64: 0x00008000; /* Set if we want to have the same
+				     parent as the cloner.  */
+CLONE_THREAD  :u64: 0x00010000; /* Set to add to same thread group.  */
+CLONE_NEWNS   :u64: 0x00020000; /* Set to create new namespace.  */
+CLONE_SYSVSEM :u64: 0x00040000; /* Set to shared SVID SEM_UNDO semantics.  */
+CLONE_SETTLS  :u64: 0x00080000; /* Set TLS info.  */
+CLONE_PARENT_SETTID :u64: 0x00100000; /* Store TID in userlevel buffer
+					   before MM copy.  */
+CLONE_CHILD_CLEARTID :u64: 0x00200000; /* Register exit futex and memory
+					    location to clear.  */
+CLONE_DETACHED :u64: 0x00400000; /* Create clone detached.  */
+CLONE_UNTRACED :u64: 0x00800000; /* Set if the tracing process can't
+				      force CLONE_PTRACE on this clone.  */
+CLONE_CHILD_SETTID :u64: 0x01000000; /* Store TID in userlevel buffer in
+					  the child.  */
+CLONE_NEWCGROUP    :u64: 0x02000000;	/* New cgroup namespace.  */
+CLONE_NEWUTS :u64: 0x04000000;	/* New utsname group.  */
+CLONE_NEWIPC :u64: 0x08000000;	/* New ipcs.  */
+CLONE_NEWUSER :u64: 0x10000000;	/* New user namespace.  */
+CLONE_NEWPID :u64: 0x20000000;	/* New pid namespace.  */
+CLONE_NEWNET :u64: 0x40000000;	/* New network namespace.  */
+CLONE_IO :u64: 0x80000000;	/* Clone I/O context.  */
+
+/* cloning flags intersect with CSIGNAL so can be used only with unshare and
+   clone3 syscalls.  */
+CLONE_NEWTIME	:u64: 0x00000080;      /* New time namespace */
+
+
+clone_args :: struct {
+	flags: u64,        /* Flags bit mask */
+	pidfd: u64,        /* Where to store PID file descriptor (int *) */
+	child_tid: u64,    /* Where to store child TID, in child's memory (pid_t *) */
+	parent_tid: u64,   /* Where to store child TID, in parent's memory (pid_t *) */
+	exit_signal: u64,  /* Signal to deliver to parent on child termination */
+	stack: u64,        /* Pointer to lowest byte of stack */
+	stack_size: u64,   /* Size of stack */
+	tls: u64,          /* Location of new TLS */
+	set_tid: u64,      /* Pointer to a pid_t array (since Linux 5.5) */
+	set_tid_size: u64, /* Number of elements in set_tid (since Linux 5.5) */
+	cgroup: u64,       /* File descriptor for target cgroup
+                                  of child (since Linux 5.7) */
+}
+
+pthread_t :: u64;
+
+pthread_attr_t :: union {
+	__size: [__SIZEOF_PTHREAD_ATTR_T]u8,
+  __align: u64,
+};
+
+/* Create a new thread, starting with execution of START-ROUTINE
+   getting passed ARG.  Creation attributed come from ATTR.  The new
+   handle is stored in *NEWTHREAD.  */
+pthread_create :: fn(thread: *pthread_t,
+                          attr: ?*pthread_attr_t,
+                          start_routine: fn(*void) -> ?*void,
+                          arg: ?*) -> i32 #foreign;
+
+/* Terminate calling thread.*/
+pthread_exit :: fn (__retval: *void) #no_return #foreign;
+
+/* Make calling thread wait for termination of the thread TH.  The
+   exit status of the thread is stored in *THREAD_RETURN, if THREAD_RETURN
+   is not NULL.*/
+pthread_join :: fn (__th: pthread_t, __thread_return: **void) -> i32 #foreign;
+
+/* Send signal SIGNO to the given thread. */
+pthread_kill :: fn(__threadid: pthread_t, __signo: i32) -> i32 #foreign;
+
+/* Cancel THREAD immediately or at the next possibility.  */
+pthread_cancel :: fn(__th: pthread_t) -> i32 #foreign;
+
+rmdir :: fn(path: *u8) -> int {
+	return syscall(SYS_rmdir, path);
+}
+
+unlink :: fn(path: *u8) -> int {
+	return syscall(SYS_unlink, path);
+}
+
+mkdir :: fn(path: *u8, mode: u32) -> int {
+	return syscall(SYS_mkdir, path, mode);
+}
+
+mmap :: fn(size: int, prot: i32, flags: i32, mapat := null, fd: i32 = -1, off: uint = 0) -> ?* {
+	ptr := syscall(SYS_mmap, mapat, size, prot, flags, fd, off) as *void;
+	FAILED :: -1;
+	if ptr == null || ptr == cast(*void, FAILED) {
+		return null;
+	}
+	return ptr;
+}
+
+// @TODO: other platforms
+#if x64 {
+	get_file_size :: fn(fd: *) -> int {
+		fstat := stat {};
+		syscall(SYS_fstat, fd, &fstat);
+		return fstat.st_size;
+	}
+}
+#elif arm64 {
+	get_file_size :: fn(fd: *) -> int {
+		fstat := __old_kernel_stat {};
+		syscall(SYS_fstat, fd, &fstat);
+		return cast(int, fstat.st_size);
+	}
+}
+
+open :: fn(name: string, flags: u32, mode: u32 = 0) -> i32 {
+	fd := syscall(SYS_open, name.data, flags, mode);
+	return fd as i32;
+}
+
+write :: fn(fd: i32, buf: []u8) -> int {
+	buf := buf;
+	written := syscall(SYS_write, fd, &buf[0], buf.count);
+	if written == -1 return 0;
+	return written;
+}
+
+close :: fn(fd: i32) {
+	syscall(SYS_close, fd);
+}
+
+munmap :: fn(ptr: *, size: uint) {
+	syscall(SYS_munmap, ptr, size);
+}
+
+read :: fn(fd: i32, buf: []u8) -> int {
+	return syscall(SYS_read, fd, buf.data, buf.count);
+}

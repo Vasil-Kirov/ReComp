@@ -225,7 +225,7 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 			{}
 			else
 			{
-				RaiseError(false, *ErrorInfo, "Invalid character in hex number: %c", c);
+				RaiseError(false, *ErrorInfo, "Invalid character in hex number literal: %c", c);
 				HasErrored = true;
 			}
 			Builder += c;
@@ -234,7 +234,47 @@ token TokinizeNumber(string *String, error_info *ErrorInfo)
 
 		if(Builder.Size == 2)
 		{
-			RaiseError(false, *ErrorInfo, "Invalid hex number");
+			RaiseError(false, *ErrorInfo, "Invalid hex number literal");
+			HasErrored = true;
+		}
+
+		string Number = MakeString(Builder);
+		if(HasErrored)
+			return MakeToken(T_EOF, *ErrorInfo, NULL);
+		return MakeToken(T_VAL, *ErrorInfo, MakeStringPointer(Number));
+	}
+	else if (PeekC(String) == '0' && PeekCAhead(String, 1) == 'o')
+	{
+		bool HasErrored = false;
+		string_builder Builder = MakeBuilder();
+		Builder += AdvanceC(String, ErrorInfo);
+		Builder += AdvanceC(String, ErrorInfo);
+		while(true)
+		{
+			char c = PeekC(String);
+			if(c == '_')
+			{
+				AdvanceC(String, ErrorInfo);
+				continue;
+			}
+
+			if(!isalnum(c))
+				break;
+
+			if(c >= '0' && c <= '7')
+			{}
+			else
+			{
+				RaiseError(false, *ErrorInfo, "Invalid character in octal number literal: %c", c);
+				HasErrored = true;
+			}
+			Builder += c;
+			AdvanceC(String, ErrorInfo);
+		}
+
+		if(Builder.Size == 2)
+		{
+			RaiseError(false, *ErrorInfo, "Invalid octal number literal");
 			HasErrored = true;
 		}
 

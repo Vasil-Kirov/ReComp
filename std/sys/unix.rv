@@ -45,6 +45,7 @@ __SIZEOF_PTHREAD_BARRIERATTR_T :: 4;
 	SYS_unlink :: 87;
 	SYS_rmdir :: 84;
 	SYS_clone3 :: 435;
+	SYS_nanosleep :: 35;
 
 
 	stat :: struct {
@@ -100,8 +101,9 @@ __old_kernel_stat :: struct {
 	st_ctime: u64,
 }
 
+time_t :: int;
 timespec :: struct {
-	tv_sec:     int,       //* seconds */
+	tv_sec:  time_t,       //* seconds */
 	tv_nsec:    int,       //* nanoseconds */
 };
 
@@ -281,6 +283,26 @@ pthread_kill :: fn(__threadid: pthread_t, __signo: i32) -> i32 #foreign;
 
 /* Cancel THREAD immediately or at the next possibility.  */
 pthread_cancel :: fn(__th: pthread_t) -> i32 #foreign;
+
+pthread_mutex_t :: union {
+	__size: [__SIZEOF_PTHREAD_MUTEX_T]u8,
+	__align: u64,
+}
+
+pthread_mutexattr_t :: union {
+	__size: [__SIZEOF_PTHREAD_MUTEXATTR_T]u8,
+	__align: c_int,
+}
+
+pthread_mutex_init :: fn(mutex: *pthread_mutex_t, mutexattr: *pthread_mutexattr_t) -> c_int #foreign;
+pthread_mutex_lock :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
+pthread_mutex_trylock :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
+pthread_mutex_unlock  :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
+pthread_mutex_destroy :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
+
+nanosleep :: fn(duration: *timespec, rem: ?*timespec) -> int {
+	return syscall(SYS_nanosleep, duration, rem);
+}
 
 rmdir :: fn(path: *u8) -> int {
 	return syscall(SYS_rmdir, path);

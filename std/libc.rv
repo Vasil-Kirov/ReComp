@@ -24,6 +24,7 @@ sinf   :: fn(t: f32) -> f32 #foreign;
 cosf   :: fn(t: f32) -> f32 #foreign;
 powf   :: fn(a: f32, b: f32) -> f32 #foreign;
 ceilf  :: fn(a: f32) -> f32 #foreign;
+strlen :: fn(str: *u8) -> uint #foreign;
 
 do_malloc_free :: fn(ptr: ?*, this: *Allocator) {
 	free(ptr);
@@ -39,7 +40,7 @@ do_malloc_allocation :: fn(size: int, this: *Allocator) -> ?* {
     return ptr;
 }
 
-make_malloc_allocator :: fn (zero_on_alloc := true) -> Allocator {
+make_heap_alloc :: fn (zero_on_alloc := true) -> Allocator {
     return .{
         alloc = do_malloc_allocation,
         free = do_malloc_free,

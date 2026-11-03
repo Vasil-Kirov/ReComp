@@ -379,11 +379,13 @@ _VLibClock(i64 Factor)
 	if(QueryPerformanceCounter(&PerformanceCounter) == 0)
 		return 0;
 	
-	return (PerformanceCounter.QuadPart - StartCounter) * (Factor) / PerfFrequency;
+	i64 Ticks = PerformanceCounter.QuadPart - StartCounter;
+	return (Ticks / PerfFrequency) * Factor
+		 + (Ticks % PerfFrequency) * Factor / PerfFrequency;
 #else
 
 	timespec Counter;
-	clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &Counter);
+	clock_gettime(CLOCK_MONOTONIC, &Counter);
 	
     i64 Elapsed = (Counter.tv_sec - StartCounter.tv_sec) * 1000000000LL
                      + (Counter.tv_nsec - StartCounter.tv_nsec);

@@ -21,6 +21,11 @@
 #include "microsoft_craziness.h"
 #endif
 
+#if CM_LINUX
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
 pipeline CurrentPipeline = {};
 std::mutex PipelineMutex;
 slice<file_substitute> Substitutes;
@@ -835,7 +840,7 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 	}
 
 #elif CM_LINUX
-	LinkCommand.Type = LCT_System;
+	LinkCommand.Type = LCT_List;
 	string SystemCallObj = GetStdPathFromRVCBinDir(MakeString(GetRVCBinDir()), "system_call.o");
 	string Entry = STR_LIT("_start");
 	if(CompileFlags & CF_NoLibC)
@@ -1011,6 +1016,7 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 		{
 			execvp("ld", Args.Data);
 		}
+		wait(NULL);
 #endif
 	}
 	else
@@ -1052,7 +1058,7 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 				}
 #elif CM_LINUX
 				array<char *> Args(Link.List.Args.Count+1);
-				ForArray(Idx, Args)
+				ForArray(Idx, Link.List.Args)
 				{
 					Args[Idx] = strndup(Link.List.Args[Idx].Data, Link.List.Args[Idx].Size);
 				}
@@ -1063,6 +1069,7 @@ void RunLinker(compile_info *Info, command_line CommandLine, slice<module*> Modu
 				{
 					execvp(Link.List.Command.Data, Args.Data);
 				}
+				wait(NULL);
 #else
 #error Implement a way to invoke a proces with the link command
 #endif

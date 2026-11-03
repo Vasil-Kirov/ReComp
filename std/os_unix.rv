@@ -4,11 +4,14 @@ module os;
 #import mem;
 #import str;
 _ :: #import "sys/unix.rv";
+_ :: #import intrin;
+#if LIBC {
+	c :: #import "libc.rv";
+}
 
 
 
 #private
-
 cnulls :: fn(s: string) -> *u8 {
 	return nulls(s).data;
 }
@@ -19,22 +22,42 @@ nulls :: fn(s: string) -> string {
 		return "";
 	return res;
 }
+
 #public
 
-init_env :: fn(env: **u8) {
-}
-
-#if LIBC {
-	read_env :: fn(name_: string) -> string #nocheck {
-		return "";
-	}
-}
-
 sleep :: fn(ms: u32) {
-	return;
+	seconds := ms / 1000;
+	ms = ms - seconds * 1000;
+	duration: timespec = .{
+		tv_sec = seconds as int,
+		tv_nsec = ms as int * 1_000_000
+	};
+	nanosleep(&duration, null);
 }
 
+Mutex : type : pthread_mutex_t;
+MUTEX_INIT :: Mutex {};
+
 #if LIBC {
+	#private
+	getenv :: fn(name: *u8) -> ?*u8 #foreign;
+	#public
+	read_env :: fn(name: string) -> string #nocheck {
+		found := getenv(cnulls(name));
+		if !found
+			return "";
+		len := c.strlen(found);
+		return found[:len] as string;
+	}
+
+	lock_mutex :: fn(m: *Mutex) {
+		pthread_mutex_lock(m);
+	}
+
+	unlock_mutex :: fn(m: *Mutex) {
+		pthread_mutex_unlock(m);
+	}
+
 	ThreadID :: u64;
 	ThreadRetType :: *void;
 

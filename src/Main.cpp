@@ -195,6 +195,7 @@ main(int ArgCount, char *Args[])
 	SetBonusMessage(STR_LIT(""));
 	AddVectorTypes();
 
+
 	if(ArgCount < 2)
 	{
 		LFATAL("Expected arguments");
@@ -268,6 +269,7 @@ main(int ArgCount, char *Args[])
 #else
 	ConfigIDs.Push(STR_LIT("Unix"));
 #endif
+	ConfigIDs.Push(STR_LIT("LIBC"));
 
 	if(CommandLine.SingleFile.Data == NULL)
 	{
@@ -512,8 +514,17 @@ main(int ArgCount, char *Args[])
 
 				if(Info->Link.Count > 0)
 				{
-					string Args = MakeString(Info->Link.Data, Info->Link.Count);
-					CommandLine.LinkArgs.Push(Args);
+					auto ArgsOr = Split(MakeString(Info->Link.Data, Info->Link.Count), ' ', true, true);
+					if (!ArgsOr.has_value()) {
+						LogCompilerError("Error: CompileInfo link option have unclosed quotes, not used -> %.*s\n", (int)Info->Link.Count, Info->Link.Data);
+					}
+					auto Args = ArgsOr.value_or({});
+					for (auto Arg : Args) {
+						if (Arg.Size > 2 && Arg.Data[0] == '"' && Arg.Data[Arg.Size-1] == '"') {
+							Arg = SliceString(Arg, 1, -1);
+						}
+						CommandLine.LinkArgs.Push(Arg);
+					}
 				}
 
 				timers FileTimer = {};

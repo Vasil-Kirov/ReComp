@@ -46,6 +46,9 @@ __SIZEOF_PTHREAD_BARRIERATTR_T :: 4;
 	SYS_rmdir :: 84;
 	SYS_clone3 :: 435;
 	SYS_nanosleep :: 35;
+	SYS_kill :: 62;
+	SYS_getpid :: 39;
+	SYS_getppid :: 110;
 
 
 	stat :: struct {
@@ -85,7 +88,6 @@ __SIZEOF_PTHREAD_BARRIERATTR_T :: 4;
 	SYS_clock_gettime :: 113;
 	SYS_fstat   :: 80;
 }
-CLOCK_MONOTONIC :: 1;
 
 __old_kernel_stat :: struct {
 	st_dev  : u16,
@@ -107,7 +109,7 @@ timespec :: struct {
 	tv_nsec:    int,       //* nanoseconds */
 };
 
-syscall :: fn #foreign(number: int, args: ...) -> int;
+syscall :: fn (number: int, args: ...) -> int #foreign;
 
 PROT_READ  :i32: 0x1;
 PROT_WRITE :i32: 0x2;
@@ -162,44 +164,104 @@ linux_dirent64 :: struct #pack {
 	d_name: [0]u8,   /* Filename (null-terminated) */
 }
 
+/* Identifier for system-wide realtime clock.  */
+CLOCK_REALTIME  :i32: 0;
+
+/* Monotonic system-wide clock.  */
+CLOCK_MONOTONIC :i32: 1;
+
+/* High-resolution timer from the CPU.  */
+CLOCK_PROCESS_CPUTIME_ID :i32: 2;
+
+/* Thread-specific CPU-time clock.  */
+CLOCK_THREAD_CPUTIME_ID :i32: 3;
+
+/* Monotonic system-wide clock, not adjusted for frequency scaling.  */
+CLOCK_MONOTONIC_RAW :i32: 4;
+
+/* Identifier for system-wide realtime clock, updated only on ticks.  */
+CLOCK_REALTIME_COARSE :i32: 5;
+
+/* Monotonic system-wide clock, updated only on ticks.  */
+CLOCK_MONOTONIC_COARSE :i32: 6;
+
+/* Monotonic system-wide clock that includes time spent in suspension.  */
+CLOCK_BOOTTIME :i32: 7;
+
+/* Like CLOCK_REALTIME but also wakes suspended system.  */
+CLOCK_REALTIME_ALARM :i32: 8;
+
+/* Like CLOCK_BOOTTIME but also wakes suspended system.  */
+CLOCK_BOOTTIME_ALARM :i32: 9;
+
+/* Like CLOCK_REALTIME but in International Atomic Time.  */
+CLOCK_TAI :i32: 11;
+
+clock_gettime :: fn(clock_id: i32, tp: *timespec) -> int {
+	return syscall(clock_id, tp);
+}
+
+getpid :: fn() -> int {
+	return syscall(SYS_getpid);
+}
+
+getppid :: fn() -> int {
+	return syscall(SYS_getppid);
+}
+
 getdents64 :: fn(fd: i32, dirp: *void, count: uint) -> int {
 	return syscall(SYS_getdents64, fd, dirp, count);
 }
 
-SIGSTKFLT	:u64: 16;	/* Stack fault (obsolete).  */
-SIGPWR		:u64: 30;	/* Power failure imminent.  */
+SIGSTKFLT	:c_int: 16;	/* Stack fault (obsolete).  */
+SIGPWR		:c_int: 30;	/* Power failure imminent.  */
 
 /* Historical signals specified by POSIX. */
-SIGBUS		 :u64: 7;	/* Bus error.  */
-SIGSYS		:u64: 31;	/* Bad system call.  */
+SIGBUS		 :c_int: 7;	/* Bus error.  */
+SIGSYS		:c_int: 31;	/* Bad system call.  */
 
 /* New(er) POSIX signals (1003.1-2008, 1003.1-2013).  */
-SIGURG		:u64: 23;	/* Urgent data is available at a socket.  */
-SIGSTOP		:u64: 19;	/* Stop, unblockable.  */
-SIGTSTP		:u64: 20;	/* Keyboard stop.  */
-SIGCONT		:u64: 18;	/* Continue.  */
-SIGCHLD		:u64: 17;	/* Child terminated or stopped.  */
-SIGTTIN		:u64: 21;	/* Background read from control terminal.  */
-SIGTTOU		:u64: 22;	/* Background write to control terminal.  */
-SIGPOLL		:u64: 29;	/* Pollable event occurred (System V).  */
-SIGXFSZ		:u64: 25;	/* File size limit exceeded.  */
-SIGXCPU		:u64: 24;	/* CPU time limit exceeded.  */
-SIGVTALRM	:u64: 26;	/* Virtual timer expired.  */
-SIGPROF		:u64: 27;	/* Profiling timer expired.  */
-SIGUSR1		:u64: 10;	/* User-defined signal 1.  */
-SIGUSR2		:u64: 12;	/* User-defined signal 2.  */
+SIGURG		:c_int: 23;	/* Urgent data is available at a socket.  */
+SIGSTOP		:c_int: 19;	/* Stop, unblockable.  */
+SIGTSTP		:c_int: 20;	/* Keyboard stop.  */
+SIGCONT		:c_int: 18;	/* Continue.  */
+SIGCHLD		:c_int: 17;	/* Child terminated or stopped.  */
+SIGTTIN		:c_int: 21;	/* Background read from control terminal.  */
+SIGTTOU		:c_int: 22;	/* Background write to control terminal.  */
+SIGPOLL		:c_int: 29;	/* Pollable event occurred (System V).  */
+SIGXFSZ		:c_int: 25;	/* File size limit exceeded.  */
+SIGXCPU		:c_int: 24;	/* CPU time limit exceeded.  */
+SIGVTALRM	:c_int: 26;	/* Virtual timer expired.  */
+SIGPROF		:c_int: 27;	/* Profiling timer expired.  */
+SIGUSR1		:c_int: 10;	/* User-defined signal 1.  */
+SIGUSR2		:c_int: 12;	/* User-defined signal 2.  */
 
+/* ISO C99 signals.  */
+SIGINT		:c_int: 2;	/* Interactive attention signal.  */
+SIGILL		:c_int: 4;	/* Illegal instruction.  */
+SIGABRT		:c_int: 6;	/* Abnormal termination.  */
+SIGFPE		:c_int: 8;	/* Erroneous arithmetic operation.  */
+SIGSEGV		:c_int: 11;	/* Invalid access to storage.  */
+SIGTERM		:c_int: 15;	/* Termination request.  */
+
+/* Historical signals specified by POSIX. */
+SIGHUP		:c_int: 1;	/* Hangup.  */
+SIGQUIT		:c_int: 3;	/* Quit.  */
+SIGTRAP		:c_int: 5;	/* Trace/breakpoint trap.  */
+SIGKILL		:c_int: 9;	/* Killed.  */
+SIGPIPE		:c_int: 13;	/* Broken pipe.  */
+SIGALRM		:c_int: 14;	/* Alarm clock.  */
 /* Nonstandard signals found in all modern POSIX systems
    (including both BSD and Linux).  */
-SIGWINCH	:u64: 28;	/* Window size change (4.3 BSD, Sun).  */
+SIGWINCH	:c_int: 28;	/* Window size change (4.3 BSD, Sun).  */
 
 /* Archaic names for compatibility.  */
-SIGIO		:u64: SIGPOLL;	/* I/O now possible (4.2 BSD).  */
-//SIGIOT		:u64: SIGABRT;	/* IOT instruction, abort() on a PDP-11.  */
-SIGCLD		:u64: SIGCHLD;	/* Old System V name */
+SIGIO		:c_int: SIGPOLL;	/* I/O now possible (4.2 BSD).  */
+//SIGIOT		:c_int: SIGABRT;	/* IOT instruction, abort() on a PDP-11.  */
+SIGCLD		:c_int: SIGCHLD;	/* Old System V name */
 
-__SIGRTMIN	:u64: 32;
-__SIGRTMAX	:u64: 64;
+__SIGRTMIN	:c_int: 32;
+__SIGRTMAX	:c_int: 64;
 
 
 /* Cloning flags.  */
@@ -299,6 +361,10 @@ pthread_mutex_lock :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
 pthread_mutex_trylock :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
 pthread_mutex_unlock  :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
 pthread_mutex_destroy :: fn(mutex: *pthread_mutex_t) -> c_int #foreign;
+
+kill :: fn(pid: i32, sig: c_int) -> int {
+	return syscall(SYS_kill, pid, sig);
+}
 
 nanosleep :: fn(duration: *timespec, rem: ?*timespec) -> int {
 	return syscall(SYS_nanosleep, duration, rem);

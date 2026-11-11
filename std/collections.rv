@@ -125,3 +125,10 @@ filter :: fn(l: []$T, f: fn(x: T) -> bool, alloc: *mem.Allocator) -> []T {
 	return arr[:at];
 }
 
+contains :: fn(l: []$T, x: T) -> bool {
+	for it in l {
+		if it == x return true;
+	}
+	return false;
+}
+

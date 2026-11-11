@@ -2,6 +2,7 @@
 #include "Memory.h"
 #include <ctype.h>
 #include <immintrin.h>
+#include <optional>
 #include <pmmintrin.h>
 
 
@@ -221,6 +222,94 @@ split SplitAt(string S, char c)
 		}
 	}
 	return {};
+}
+
+
+int UTF8GetCodepointSize(const char *cp) {
+	const u8 SIZE4 = 0b1111'0000;
+	const u8 SIZE3 = 0b1110'0000;
+	const u8 SIZE2 = 0b1100'0000;
+	if ((*cp & SIZE4) == SIZE4) return 4;
+	if ((*cp & SIZE3) == SIZE3) return 3;
+	if ((*cp & SIZE2) == SIZE2) return 2;
+	return 1;
+}
+
+const char *UTF8Advance (const char *Position) {
+    int Size = UTF8GetCodepointSize(Position);
+    return &Position[Size];
+}
+
+u32 UTF8ExtractCodepoint(const char *cp, int Size) {
+    switch (Size) {
+		case 1: {
+			return (u32) *cp;
+		}
+		case 2: {
+			u8 First = *cp & 0b0001'1111;
+			u8 Second = *(cp+1) & 0b0011'1111;
+			return ((u32)First) << 6 | (u32)Second;
+		}
+		case 3: {
+			u8 First = *cp & 0b0000'1111;
+			u8 Second = *(cp+1) & 0b0011'1111;
+			u8 Third = *(cp+2) & 0b0011'1111;
+			return ((u32)First) << 12 | ((u32)Second) << 6 | (u32)Third;
+		}
+		case 4: {
+			u8 First = *cp & 0b0000'0111;
+			u8 Second = *(cp+1) & 0b0011'1111;
+			u8 Third = *(cp+2) & 0b0011'1111;
+			u8 Forth = *(cp+3) & 0b0011'1111;
+			return ((u32)First) << 18 | ((u32)Second) << 12 | ((u32)Third) << 6 | (u32)Forth ;
+		}
+	};
+	return 0;
+}
+
+u32 UTF8Deref (const char *s) {
+    int Size = UTF8GetCodepointSize(s);
+    return UTF8ExtractCodepoint(s, Size);
+}
+
+std::optional<slice<string>> Split(string S, u32 Delim, bool NullTerm=false, bool HandleQuotes=false)
+{
+	dynamic<string> r = {};
+	const char *p = S.Data;
+	while (p - S.Data < S.Size) {
+		u32 CP = UTF8Deref(p);
+		size_t At = p - S.Data;
+		p = UTF8Advance(p);
+
+		if (HandleQuotes && CP == '"') {
+			while ((p - S.Data < S.Size) && UTF8Deref(p) != '"') {
+				p = UTF8Advance(p);
+			}
+			if (p - S.Data >= S.Size) {
+				return std::nullopt;
+			}
+			p = UTF8Advance(p);
+			continue;
+		}
+
+		if (CP == Delim) {
+			SliceString(S, 0, At);
+			if (NullTerm)
+				r.Push(MakeString(S.Data, At));
+			else
+				r.Push((string){S.Data, At});
+			if (At+1 >= S.Size)
+				return SliceFromArray(r);
+			S = SliceString(S, p-S.Data, 0);
+		}
+	}
+	if (S != "") {
+		if (NullTerm)
+			r.Push(MakeString(S.Data, S.Size));
+		else
+			r.Push(S);
+	}
+	return SliceFromArray(r);
 }
 
 i32 DistanceBetweenStrings(const string &A, const string &B, int Threshold)

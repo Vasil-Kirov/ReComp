@@ -171,13 +171,13 @@ strip :: fn(s: string, prefix: string) -> string {
 	return s;
 }
 
-split :: fn(s: string, delim: u8, alloc: *mem.Allocator) -> []string {
+split :: fn(s: string, delim: u32, alloc: *mem.Allocator) -> []string {
 	res := array.create(string, alloc);
 	s := s;
 	at := 0;
 	pos := s.data;
 	for pos - s.data < s.count {
-		c := extract_codepoint(pos, get_codepoint_size(pos));
+		c := deref(pos);
 		at := pos - s.data;
 		pos = advance(pos);
 
@@ -186,7 +186,7 @@ split :: fn(s: string, delim: u8, alloc: *mem.Allocator) -> []string {
 			array.add(&res, it);
 			if at+1 >= s.count
 				return res;
-			s = s[at+1:];
+			s = s[pos-s.data:];
 		}
 	}
 	if s != "" {

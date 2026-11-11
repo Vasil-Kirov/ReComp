@@ -67,8 +67,9 @@ sleep :: fn(ms: u32) {
 }
 
 ThreadID :type: ?*void; /* HANDLE */
+ThreadRetType :type: u32;
 
-create_thread :: fn(start: fn(*void) -> u32, arg: *void) -> (ThreadID, bool) {
+create_thread :: fn(start: fn(*void) -> ThreadRetType, arg: *void) -> (ThreadID, bool) {
 	handle := CreateThread(null, 0, start, arg, 0, null);
 	if handle == null {
 		return 0, false;

@@ -15,6 +15,15 @@ temp_alloc := Allocator {
 			data = null,
 		} #thread_local;
 
+#if LIBC {
+	_ :: #import "libc.rv";
+	heap := Allocator {
+		alloc = do_malloc_allocation,
+		free = do_malloc_free,
+		data = cast(*void, 1),
+	};
+}
+
 Allocator :: struct {
 	alloc: *fn(size: int, this: *Allocator) -> ?*,
 	free:  *fn(ptr: ?*, this: *Allocator),

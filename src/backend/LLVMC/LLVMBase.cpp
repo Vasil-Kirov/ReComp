@@ -100,8 +100,7 @@ void RCGenerateIntrins(generator *gen)
 	u32 VAList = FindStruct(STR_LIT("base.va_list"));
 
 	string RDTSC = STR_LIT("llvm.readcyclecounter");
-	LLVMTypeRef RDTSCType = LLVMFunctionType(LLVMIntTypeInContext(gen->ctx,
-				GetRegisterTypeSize()),
+	LLVMTypeRef RDTSCType = LLVMFunctionType(LLVMIntTypeInContext(gen->ctx, 64),
 				NULL, 0, false);
 	LLVMValueRef RDTSCLLVM = LLVMAddFunction(gen->mod, RDTSC.Data, RDTSCType);
 	gen->Intrinsics.Add(RDTSC, llvm_intrin { RDTSCLLVM, RDTSCType } );

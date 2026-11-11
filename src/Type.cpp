@@ -713,6 +713,11 @@ b32 HasBasicFlag(const type *Type, u32 FlagMask)
 	return (Type->Kind == TypeKind_Basic) && (Type->Basic.Flags & FlagMask);
 }
 
+b32 HasBasicFlag(const u32 T, u32 FlagMask)
+{
+	return HasBasicFlag(GetType(T), FlagMask);
+}
+
 b32 IsSigned(const type *T)
 {
 	if(T->Kind == TypeKind_Vector)

@@ -1014,6 +1014,71 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			if(ShouldLoad && IsLoadableType(Type))
 				Result = PushInstruction(Builder, Instruction(OP_LOAD, 0, Result, Local->Type, Builder));
 		} break;
+		case AST_OR:
+		{
+			u32 Operand = BuildIRFromExpression(Builder, Node->Or.Operand);
+			u32 Cmp = -1;
+			const type *OT = GetType(Node->Or.OperandT);
+			switch (Node->Or.OrType)
+			{
+				case or_type::PtrNotNull:
+				{
+					if (Node->Or.ResultT == Basic_error)
+						Result = Operand;
+
+					u32 Null = PushInstruction(Builder, 
+							Instruction(OP_NULL, (u64)0, Node->Or.OperandT, Builder));
+					Cmp = PushInstruction(Builder, Instruction(OP_NEQ, Operand, Null, Node->Or.OperandT, Builder));
+				} break;
+				case or_type::BoolOk:
+				{
+					if (Node->Or.ResultT == Basic_error) {
+						Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					}
+					Cmp = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+				} break;
+				case or_type::EnumZero:
+				{
+					if (Node->Or.ResultT == Basic_error) {
+						Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					}
+					const type *EnumT = GetType(OT->Struct.Members[1].Type);
+					u32 EnumV = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+					Cmp = PushInstruction(Builder, Instruction(OP_EQEQ, EnumV, PushInt(0, Builder, EnumT->Enum.Type), EnumT->Enum.Type, Builder));
+				} break;
+			}
+
+			if (Node->Or.Expr) {
+				Result = BuildIRFromExpression(Builder, Node->Or.Expr);
+			} else {
+				u32 Alloc = -1;
+				if (Node->Or.ResultT != Basic_error) {
+					Alloc = PushInstruction(Builder, 
+							Instruction(OP_ALLOC, -1, Node->Or.ResultT, Builder));
+				}
+				basic_block OrBlock = AllocateBlock(Builder);
+				basic_block OkBlock = AllocateBlock(Builder);
+				PushInstruction(Builder, Instruction(OP_IF, OkBlock.ID, OrBlock.ID, Cmp, Basic_bool));
+				Terminate(Builder, OrBlock);
+				Builder->YieldReturn.Push({.ToBlockID = OkBlock.ID, .ValueStore = Alloc});
+				for (node *n : Node->Or.Body)
+				{
+					BuildIRFunctionLevel(Builder, n);
+				}
+				Builder->YieldReturn.Pop();
+				Terminate(Builder, OkBlock);
+
+				if (Node->Or.ResultT != Basic_error) {
+					Result = Alloc;
+					if (IsLoadableType(Node->Or.ResultT)) {
+						Result = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Alloc, Node->Or.ResultT, Builder));
+					}
+				}
+			}
+
+
+		} break;
 		case AST_SLICE:
 		{
 			const type *T = GetType(Node->Slice.OperandType);

@@ -722,5 +722,6 @@ void InitializeLexer()
 	AddKeyword("yield",  T_YIELD);
 	AddKeyword("module",  T_MODULE);
 	AddKeyword("#thread_local",  T_THREADLOCAL);
+	AddKeyword("or",  T_OK_OR);
 }
 

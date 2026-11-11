@@ -116,6 +116,7 @@ enum token_type
 	T_NOCHECK = -92,
 	T_SELF = -93,
 	T_THREADLOCAL = -94,
+	T_OK_OR = -95,
 };
 
 struct token

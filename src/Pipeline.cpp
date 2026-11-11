@@ -855,52 +855,26 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 		Args.Push(STR_LIT("-e"));
 		Args.Push(Entry);
 	}
-	else
-	{
-		Builder += "ld -e ";
-		Builder += Entry;
-		Builder += ' ';
-	}
 	slice<string> ObjFiles = FindObjectFiles();
+	if(CompileFlags & CF_SanAdress)
+	{
+		Args.Push(STR_LIT("-lasan"));
+	}
 	if(CompileFlags & CF_NoLibC)
 	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(STR_LIT("-o"));
-			Args.Push(StringFromInterp(Info->Output));
-			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
-		}
-		else
-		{
-			string Output = StringFromInterp(Info->Output);
-			Builder.printf(" -o %.*s --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ", (int)Output.Size, Output.Data);
-		}
+		Args.Push(STR_LIT("-o"));
+		Args.Push(StringFromInterp(Info->Output));
+		Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
 	}
 	else
 	{
-		if(LinkCommand.Type == LCT_List)
-		{
-			Args.Push(STR_LIT("-lc"));
-			Args.Push(STR_LIT("-o"));
-			Args.Push(StringFromInterp(Info->Output));
-			Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
-			For(ObjFiles)
-				Args.Push(*it);
-			Args.Push(SystemCallObj);
-		}
-		else
-		{
-			string Output = StringFromInterp(Info->Output);
-			Builder.printf("-lc -o %.*s --dynamic-linker=/lib64/ld-linux-x86-64.so.2 ", (int)Output.Size, Output.Data);
-			For(ObjFiles)
-			{
-				Builder += *it;
-				Builder += " ";
-			}
-
-			Builder += SystemCallObj;
-			Builder += ' ';
-		}
+		Args.Push(STR_LIT("-lc"));
+		Args.Push(STR_LIT("-o"));
+		Args.Push(StringFromInterp(Info->Output));
+		Args.Push(STR_LIT("--dynamic-linker=/lib64/ld-linux-x86-64.so.2"));
+		For(ObjFiles)
+			Args.Push(*it);
+		Args.Push(SystemCallObj);
 	}
 #else
 #error Implement Link Command

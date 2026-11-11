@@ -63,8 +63,6 @@ struct checker
 	dynamic<node *> *Nodes;
 	slice<u32> CurrentFnReturnTypeIdx;
 	string File;
-	u32 YieldT;
-	node **YieldExpr;
 };
 
 void AddFunctionToModule(checker *Checker, node *FnNode);

@@ -41,12 +41,23 @@ bool IsError(node *Node)
 	return Node->Type == AST_ERROR;
 }
 
+node *MakeOr(const error_info *ErrorInfo, node *Operand, slice<node *> Body, node *Expr)
+{
+	node *Result = AllocateNode(ErrorInfo, AST_OR);
+	Result->Or.Operand = Operand;
+	Result->Or.Body = Body;
+	Result->Or.Expr = Expr;
+
+	return Result;
+}
+
 node *MakeShortLambda(const error_info *ErrorInfo, node *Args, node *SingleExpr, slice<node*> Body)
 {
 	node *Result = AllocateNode(ErrorInfo, AST_LAMBDA);
 	Result->Lambda.Args = Args;
 	Result->Lambda.Body = Body;
 	Result->Lambda.SingleExpr = SingleExpr;
+
 	return Result;
 }
 
@@ -56,6 +67,7 @@ node *MakeSliceExpr(const error_info *ErrorInfo, node *Operand, node *From, node
 	Result->Slice.Operand = Operand;
 	Result->Slice.From = From;
 	Result->Slice.To = To;
+
 	return Result;
 }
 
@@ -1739,6 +1751,22 @@ node *ParseLambda(parser *Parser, node *Operand, const error_info *ErrorInfo)
 	return Operand;
 }
 
+node *ParseOr(parser *Parser, node *Operand, error_info *ErrorInfo)
+{
+	dynamic<node *> Body = {};
+	node *Expr = nullptr;
+	if(PeekToken(Parser).Type == T_STARTSCOPE)
+	{
+		ParseBody(Parser, Body);
+	}
+	else
+	{
+		Expr = ParseExpression(Parser);
+	}
+
+	return MakeOr(ErrorInfo, Operand, SliceFromArray(Body), Expr);
+}
+
 node *ParseAtom(parser *Parser, node *Operand)
 {
 	bool Loop = true;
@@ -1812,6 +1840,12 @@ node *ParseAtom(parser *Parser, node *Operand)
 				GetToken(Parser);
 				Operand = ParseLambda(Parser, Operand, ErrorInfo);
 				Loop = false;
+			} break;
+			case T_OK_OR:
+			{
+				ERROR_INFO;
+				GetToken(Parser);
+				Operand = ParseOr(Parser, Operand, ErrorInfo);
 			} break;
 			default:
 			{
@@ -3099,6 +3133,16 @@ node *CopyASTNode(node *N)
 		{
 		} break;
 
+		case AST_OR:
+		{
+			R->Or.OrType = N->Or.OrType;
+			R->Or.OperandT = N->Or.OperandT;
+			R->Or.ResultT = N->Or.ResultT;
+			R->Or.Body = CopyNodeSlice(N->Or.Body);
+			R->Or.Expr = CopyASTNode(N->Or.Expr);
+			R->Or.Operand = CopyASTNode(N->Or.Operand);
+		} break;
+
 		case AST_LAMBDA:
 		{
 			R->Lambda.SingleExpr = CopyASTNode(N->Lambda.SingleExpr);
@@ -3440,6 +3484,16 @@ void WalkASTNode(node *N, walker_fn Walker, void *Arg)
 
 		case AST_ERROR:
 		{
+		} break;
+
+		case AST_OR:
+		{
+			WalkASTNode(N->Or.Operand, Walker, Arg);
+			for(node *Node: N->Or.Body)
+			{
+				WalkASTNode(Node, Walker, Arg);
+			}
+			WalkASTNode(N->Or.Expr, Walker, Arg);
 		} break;
 
 		case AST_LAMBDA:

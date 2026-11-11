@@ -1556,7 +1556,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 								if((Sym->Flags & SymbolFlag_Public) == 0)
 								{
 									RaiseError(false, *Expr->ErrorInfo,
-											"Cannot access private member %s in module %s",
+											"Cannot access private member %s in module %s.",
 											Expr->ID.Name->Data, it->M->Name.Data);
 								}
 								Result = Sym->Type;
@@ -1601,7 +1601,7 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				if(Result == Basic_error)
 				{
-					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared", Expr->ID.Name->Data);
+					RaiseError(false, *Expr->ErrorInfo, "Refrenced variable %s is not declared.", Expr->ID.Name->Data);
 					return Basic_error;
 				}
 			}
@@ -1612,6 +1612,91 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 		case AST_ERROR:
 		{
 			Result = Basic_error;
+		} break;
+		case AST_OR:
+		{
+			u32 Ti = AnalyzeExpression(Checker, Expr->Or.Operand);
+			Expr->Or.OperandT = Ti;
+			if (Ti == Basic_error)
+			{
+				Result = Basic_error;
+				break;
+			}
+			u32 ExpectYieldT = Basic_error;
+			const type *T = GetType(Ti);
+			if (IsTypeMultiReturn(T))
+			{
+				Assert(T->Kind == TypeKind_Struct);
+				Assert(T->Struct.Members.Count > 1);
+				ExpectYieldT = T->Struct.Members[0].Type;
+				const type *SndT = GetType(T->Struct.Members[1].Type);
+				if (HasBasicFlag(SndT, BasicFlag_Boolean))
+				{
+					Expr->Or.OrType = or_type::BoolOk;
+				}
+				else if(SndT->Kind == TypeKind_Enum)
+				{
+					Expr->Or.OrType = or_type::EnumZero;
+				}
+				else
+				{
+					RaiseError(false, *Expr->ErrorInfo, "Invalid type for `or` expression: %s.", GetTypeName(T));
+					Result = Basic_error;
+					break;
+				}
+			}
+			else
+			{
+				if (T->Kind != TypeKind_Pointer || (T->Pointer.Flags & PointerFlag_Optional) == 0)
+				{
+					if (T->Kind == TypeKind_Pointer)
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Pointer type for `or` expression is not nullable: %s.", GetTypeName(T));
+					}
+					else
+					{
+						RaiseError(false, *Expr->ErrorInfo, "Invalid type for `or` expression: %s.", GetTypeName(T));
+					}
+					Result = Basic_error;
+					break;
+				}
+				Expr->Or.OrType = or_type::PtrNotNull;
+				ExpectYieldT = GetNonOptional(T);
+			}
+
+			Expr->Or.ResultT = Basic_error;
+			Expr->Or.LastYieldNode = NULL;
+			if (Expr->Or.Expr)
+			{
+				Expr->Or.ResultT = AnalyzeExpression(Checker, Expr->Or.Expr);
+				Expr->Or.ResultT = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ExpectYieldT, Expr->Or.ResultT, nullptr, &Expr->Or.Expr, "or expected a value of type %s, but got type %s.");
+			}
+			else
+			{
+				b32 FoundReturn = false;
+				for(node *Node : Expr->Or.Body)
+				{
+					if(Node->Type == AST_RETURN || Node->Type == AST_YIELD) {
+						FoundReturn = true;
+						break;
+					}
+				}
+				if (!FoundReturn) {
+					RaiseError(false, *Expr->ErrorInfo, "Missing yield or return in `or` expression block");
+				}
+
+				Checker->Scope.Push(AllocScope(Expr, Checker->Scope.TryPeek()));
+				AnalyzeInnerBody(Checker, Expr->Or.Body);
+				Checker->Scope.Pop();
+				if (Expr->Or.LastYieldNode && Expr->Or.ResultT != Basic_error) {
+					Expr->Or.ResultT = TypeCheckAndPromote(Checker, Expr->ErrorInfo, ExpectYieldT, Expr->Or.ResultT, nullptr, Expr->Or.LastYieldNode, "or expected a yield of type %s, but got type %s.");
+				}
+			}
+			if (IsUntyped(Expr->Or.ResultT))
+			{
+				Checker->UntypedStack.Push(&Expr->Or.ResultT);
+			}
+			Result = ExpectYieldT;
 		} break;
 		case AST_SLICE:
 		{
@@ -2034,13 +2119,10 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 
 			Result = INVALID_TYPE;
 
-			node **WasYieldExpr = Checker->YieldExpr;
-			u32 WasYieldT = Checker->YieldT;
-
 			Checker->Scope.Push(AllocScope(Expr, Checker->Scope.TryPeek()));
 			ForArray(Idx, Expr->Switch.Cases)
 			{
-				Checker->YieldT = INVALID_TYPE;
+				Expr->Switch.ReturnType = INVALID_TYPE;
 				node *Case = Expr->Switch.Cases[Idx];
 				if(!Case->Case.Body.IsValid())
 				{
@@ -2055,21 +2137,21 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				}
 				if(Idx == 0)
 				{
-					Result = Checker->YieldT;
+					Result = Expr->Switch.ReturnType;
 				}
 				else
 				{
-					if(Result == INVALID_TYPE && Checker->YieldT != INVALID_TYPE)
+					if(Result == INVALID_TYPE && Expr->Switch.ReturnType != INVALID_TYPE)
 					{
 						RaiseError(false, *Case->ErrorInfo, "Trying to yield a value in case when previous case doesn't");
 					}
-					else if(Checker->YieldT == INVALID_TYPE && Result != INVALID_TYPE)
+					else if(Expr->Switch.ReturnType == INVALID_TYPE && Result != INVALID_TYPE)
 					{
 						RaiseError(false, *Case->ErrorInfo, "Not yielding a value in case when previous case yields value of type %s", GetTypeName(Result));
 					}
-					else if(Checker->YieldT != INVALID_TYPE && Result != INVALID_TYPE)
+					else if(Expr->Switch.ReturnType != INVALID_TYPE && Result != INVALID_TYPE)
 					{
-						Result = TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Checker->YieldT, NULL, Checker->YieldExpr, "switch expected a yield of type %s based on previous cases, but got type %s");
+						Result = TypeCheckAndPromote(Checker, Case->ErrorInfo, Result, Expr->Switch.ReturnType, NULL, Expr->Switch.LastYieldNode, "switch expected a yield of type %s based on previous cases, but got type %s");
 					}
 				}
 				CheckBodyForUnreachableCode(Case->Case.Body);
@@ -2080,8 +2162,6 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 			}
 			Checker->Scope.Pop();
 
-			Checker->YieldT = WasYieldT;
-			Checker->YieldExpr = WasYieldExpr;
 			Expr->Switch.SwitchType = ExprTypeIdx;
 			Expr->Switch.ReturnType = Result;
 
@@ -4585,8 +4665,6 @@ void AnalyzeNode(checker *Checker, node *Node)
 				}
 			}
 			Node->TypedExpr.TypeIdx = T;
-			Checker->YieldT = T;
-			Checker->YieldExpr = &Node->TypedExpr.Expr;
 
 			b32 FoundYieldScope = false;
 			scope *Current = Checker->Scope.TryPeek();
@@ -4595,6 +4673,14 @@ void AnalyzeNode(checker *Checker, node *Node)
 			{
 				if(Current->ScopeNode->Type == AST_SWITCH)
 				{
+					Current->ScopeNode->Switch.ReturnType = T;
+					Current->ScopeNode->Switch.LastYieldNode = &Node->TypedExpr.Expr;
+					FoundYieldScope = true;
+					break;
+				}
+				else if(Current->ScopeNode->Type == AST_OR)
+				{
+					Current->ScopeNode->Or.ResultT = T;
 					FoundYieldScope = true;
 					break;
 				}

@@ -26,6 +26,13 @@ enum class for_type
 	Infinite,
 };
 
+enum class or_type
+{
+	BoolOk,
+	EnumZero,
+	PtrNotNull,
+};
+
 enum node_type
 {
 	AST_INVALID,
@@ -78,6 +85,7 @@ enum node_type
 	AST_YIELD,
 	AST_RUN,
 	AST_FILE_LOCATION,
+	AST_OR,
 
 	AST_ERROR, // Error Node, no value
 };
@@ -174,6 +182,7 @@ struct node
 			slice<node *> Cases;
 			u32 SwitchType; // Set by semantic analyzer
 			u32 ReturnType; // Set by semantic analyzer
+			node **LastYieldNode;
 		} Switch;
 		struct {
 			node *Value;
@@ -319,6 +328,15 @@ struct node
 			node *Expression;
 			u32 TypeIdx; // Set by semantic analyzer, used by ir generator
 		} Return;
+		struct {
+			node *Operand;
+			slice<node *> Body; // @Nullable: Either this or Expr
+			node *Expr; // @Nullable: Either this or Body
+			or_type OrType; // Set by semantic analyzer
+			u32 ResultT;  // Set by semantic analyzer
+			u32 OperandT; // Set by semantic analyzer
+			node **LastYieldNode;
+		} Or;
 	};
 	const error_info *ErrorInfo;
 };

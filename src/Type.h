@@ -266,6 +266,7 @@ b32 IsCallable(const type *Type);
 b32 IsCastRedundant(const type *From, const type *To);
 b32 ShouldCopyType(const type *Type);
 b32 HasBasicFlag(const type *Type, u32 FlagMask); // Checks if the type is basic too
+b32 HasBasicFlag(const u32 T, u32 FlagMask);
 b32 IsLoadableType(u32 Type);
 b32 IsLoadableType(const type *Type);
 u32 GetPointerTo(u32 Type, u32 Flags = 0);

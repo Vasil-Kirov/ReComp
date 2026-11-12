@@ -28,7 +28,7 @@ raise_parsing_unexpected_token(const char *expected_tok, File_Contents *f);
 #endif
 
 void
-RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...);
+RaiseError(b32 Warning, error_info ErrorInfo, const char *_ErrorMessage, ...);
 
 void
 SetBonusMessage(string S);

@@ -252,6 +252,7 @@ void DumpError(binary_blob *Blob, error_dump Error)
 	DumpString(Blob, ErrorString);
 	DumpString(Blob, Error.Code);
 	DumpLocationErrI(Blob, &Error.ErrI);
+	DumpU8(Blob, Error.IsWarning);
 }
 
 void DumpScope(binary_blob *Blob, scope_dump Scope)

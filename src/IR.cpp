@@ -1032,34 +1032,52 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				} break;
 				case or_type::BoolOk:
 				{
-					if (Node->Or.ResultT == Basic_error) {
-						Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					u32 Rt = OT->Struct.Members[0].Type;
+					Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					if (IsLoadableType(Rt)) {
+						Result = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Result, Rt, Builder));
 					}
-					Cmp = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+					u32 BoolPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+					Cmp = PushInstruction(Builder, 
+							Instruction(OP_LOAD, 0, BoolPtr, Basic_bool, Builder));
 				} break;
 				case or_type::EnumZero:
 				{
-					if (Node->Or.ResultT == Basic_error) {
-						Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					u32 Rt = OT->Struct.Members[0].Type;
+					Result = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 0, Node->Or.OperandT, Builder));;
+					if (IsLoadableType(Rt)) {
+						Result = PushInstruction(Builder,
+								Instruction(OP_LOAD, 0, Result, Rt, Builder));
 					}
 					const type *EnumT = GetType(OT->Struct.Members[1].Type);
-					u32 EnumV = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+					u32 EnumPtr = PushInstruction(Builder, Instruction(OP_INDEX, Operand, 1, Node->Or.OperandT, Builder));
+					u32 EnumV = PushInstruction(Builder, Instruction(OP_LOAD, 0, EnumPtr, EnumT->Enum.Type, Builder));
 					Cmp = PushInstruction(Builder, Instruction(OP_EQEQ, EnumV, PushInt(0, Builder, EnumT->Enum.Type), EnumT->Enum.Type, Builder));
 				} break;
 			}
 
-			if (Node->Or.Expr) {
-				Result = BuildIRFromExpression(Builder, Node->Or.Expr);
-			} else {
-				u32 Alloc = -1;
-				if (Node->Or.ResultT != Basic_error) {
-					Alloc = PushInstruction(Builder, 
-							Instruction(OP_ALLOC, -1, Node->Or.ResultT, Builder));
-				}
-				basic_block OrBlock = AllocateBlock(Builder);
-				basic_block OkBlock = AllocateBlock(Builder);
-				PushInstruction(Builder, Instruction(OP_IF, OkBlock.ID, OrBlock.ID, Cmp, Basic_bool));
-				Terminate(Builder, OrBlock);
+			u32 Alloc = -1;
+			if (Node->Or.ResultT != Basic_error) {
+				Alloc = PushInstruction(Builder, 
+						Instruction(OP_ALLOC, -1, Node->Or.ResultT, Builder));
+				PushInstruction(Builder,
+						InstructionStore(Alloc, Result, Node->Or.ResultT));
+			}
+			basic_block OrBlock = AllocateBlock(Builder);
+			basic_block OkBlock = AllocateBlock(Builder);
+			PushInstruction(Builder, Instruction(OP_IF, OkBlock.ID, OrBlock.ID, Cmp, Basic_bool));
+			Terminate(Builder, OrBlock);
+			if (Node->Or.Expr)
+			{
+				u32 ToStore = BuildIRFromExpression(Builder, Node->Or.Expr);
+				Assert(Alloc != -1);
+				PushInstruction(Builder, InstructionStore(Alloc, ToStore, Node->Or.ResultT));
+				PushInstruction(Builder, Instruction(OP_JMP, OkBlock.ID, Basic_type, Builder));
+				Terminate(Builder, OkBlock);
+			}
+			else
+			{
 				Builder->YieldReturn.Push({.ToBlockID = OkBlock.ID, .ValueStore = Alloc});
 				for (node *n : Node->Or.Body)
 				{
@@ -1067,13 +1085,13 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 				}
 				Builder->YieldReturn.Pop();
 				Terminate(Builder, OkBlock);
+			}
 
-				if (Node->Or.ResultT != Basic_error) {
-					Result = Alloc;
-					if (IsLoadableType(Node->Or.ResultT)) {
-						Result = PushInstruction(Builder,
-								Instruction(OP_LOAD, 0, Alloc, Node->Or.ResultT, Builder));
-					}
+			if (Node->Or.ResultT != Basic_error) {
+				Result = Alloc;
+				if (IsLoadableType(Node->Or.ResultT)) {
+					Result = PushInstruction(Builder,
+							Instruction(OP_LOAD, 0, Alloc, Node->Or.ResultT, Builder));
 				}
 			}
 

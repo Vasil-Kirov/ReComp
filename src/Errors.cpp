@@ -4,6 +4,7 @@
 #include "Log.h"
 #include "Platform.h"
 #include <atomic>
+#include <cctype>
 #include <mutex>
 
 string BonusErrorMessage = {};
@@ -140,10 +141,11 @@ void ExitIfErroredOut()
 }
 
 void
-RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
+RaiseError(b32 Warning, error_info ErrorInfo, const char *_ErrorMessage, ...)
 {
 	std::mutex ErrorMutex;
-	CountError();
+	if (!Warning)
+		CountError();
 
 	ErrorMutex.lock();
 	string ErrorMessage = MakeString(_ErrorMessage);
@@ -171,6 +173,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 #else
 			.Message = strdup(FinalFormat),
 #endif
+			.IsWarning = (u8)Warning,
 		};
 		AddErrorToDump(Error);
 	}
@@ -186,10 +189,17 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	}
 
 	FirstPart = SliceString(FirstPart, FirstNoSpace, 0);
+
+	const char *Prefix = "Error";
+	if (Warning)
+		Prefix = "Warning";
 	
-	LogCompilerError("\nError: %s (%d, %d):\n%s\n\n\t%s",
+	LogCompilerError("\n%s: %s (%d, %d):\n%s\n\n\t%s", Prefix,
 			ErrorInfo.FileName, ErrorInfo.Range.StartLine, ErrorInfo.Range.StartChar, FinalFormat, FirstPart.Data);
-	PlatformOutputString(Highlight, LOG_ERROR);
+	if (Warning)
+		PlatformOutputString(Highlight, LOG_WARN);
+	else
+		PlatformOutputString(Highlight, LOG_ERROR);
 	LogCompilerError("%s\n", AfterPart.Data);
 
 	if(BonusErrorMessage.Size > 0)
@@ -202,7 +212,7 @@ RaiseError(b32 Abort, error_info ErrorInfo, const char *_ErrorMessage, ...)
 	VFree(FinalFormat);
 
 	ErrorMutex.unlock();
-	if((Abort || Errors > 4))
+	if(Errors > 4)
 	{
 		if (!DumpingInfo)
 			exit(1);

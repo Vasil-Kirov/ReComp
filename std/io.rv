@@ -100,20 +100,20 @@ read :: fn(r: *Stream, b: []u8) -> (int, StreamError) {
 
 read_u8 :: fn(r: *Stream) -> u8 {
 	b: []u8 = .{0};
-	_, err := r.func(r.data, .Read, b);
+	_ := r.func(r.data, .Read, b) or { return 0; };
 	return b[0];
 }
 
 read_u16 :: fn(r: *Stream) -> u16 {
 	b: []u8 = .{0, 0};
-	_, err := r.func(r.data, .Read, b);
+	_ := r.func(r.data, .Read, b) or { return 0; };
 	res := cast(u16, b[1]) << 8 | cast(u16, b[0]);
 	return res;
 }
 
 read_u32 :: fn(r: *Stream) -> u32 {
 	b: []u8 = .{0, 0, 0, 0};
-	_, err := r.func(r.data, .Read, b);
+	_ := r.func(r.data, .Read, b) or { return 0; };
 	res := cast(u32, b[3]) << 24 | cast(u32, b[2]) << 16 | cast(u32, b[1]) << 8 | cast(u32, b[0]);
 	return res;
 }

@@ -1265,6 +1265,100 @@ void FunctionAddArugmentsToScope(checker *Checker, const type *FnT, slice<node *
 	}
 }
 
+struct track_var_info
+{
+	bool Used;
+	const error_info *ErrorInfo;
+};
+
+struct unused_var_track
+{
+	stack<dict<track_var_info>> VarStack;
+};
+
+void CheckVarDictForUnusedWarnings(dict<track_var_info> &Vars)
+{
+	for (auto [Name, Info] : Vars)
+	{
+		if (!Info.Used)
+		{
+			RaiseError(true, *Info.ErrorInfo, "Variable %.*s is not used.", (int)Name.Size, Name.Data);
+		}
+	}
+	Vars.Free();
+}
+
+bool UnusedVarWalker(node *Node, void *Arg)
+{
+	unused_var_track *Track = (unused_var_track *)Arg;
+	switch (Node->Type)
+	{
+		case AST_DECL:
+		{
+			WalkASTNode(Node->Decl.Expression, UnusedVarWalker, Arg);
+
+			if (Node->Decl.LHS->Type == AST_ID)
+			{
+				node *LHS = Node->Decl.LHS;
+				if (*LHS->ID.Name != "_")
+					Track->VarStack.Peek().Add(*LHS->ID.Name, {false, LHS->ErrorInfo});
+			}
+			if (Node->Decl.LHS->Type == AST_LIST)
+			{
+				for (node *it : Node->Decl.LHS->List.Nodes)
+				{
+					Assert(it->Type == AST_ID);
+					if (*it->ID.Name != "_")
+						Track->VarStack.Peek().Add(*it->ID.Name, {false, it->ErrorInfo});
+				}
+			}
+			return false; // Don't walk through LHS because it will be detected as usage
+		} break;
+		case AST_ID:
+		{
+			for (ssize_t i = Track->VarStack.Data.Count-1; i >= 0; --i)
+			{
+				auto Var = Track->VarStack.Data[i].GetUnstablePtr(*Node->ID.Name);
+				if (Var)
+				{
+					Var->Used = true;
+					break;
+				}
+			}
+		} break;
+		case AST_SCOPE:
+		{
+			if (Node->ScopeDelimiter.IsUp)
+			{
+				Track->VarStack.Push({});
+			}
+			else
+			{
+				auto Scope = Track->VarStack.Pop();
+				CheckVarDictForUnusedWarnings(Scope);
+			}
+		} break;
+		default:
+		{
+		} break;
+	}
+	return true;
+}
+
+void RaiseWarningsForUnusedVariables(slice<node *> Body)
+{
+	auto Tracker = NewType(unused_var_track);
+	*Tracker = {};
+	Tracker->VarStack.Push({});
+	for(node *Node : Body)
+	{
+		WalkASTNode(Node, UnusedVarWalker, Tracker);
+	}
+	auto Last = Tracker->VarStack.Pop();
+	CheckVarDictForUnusedWarnings(Last);
+	Tracker->VarStack.Data.Free();
+}
+
 void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, u32 FunctionTypeIdx, node *ScopeNode)
 {
 	if(FnNode->Fn.AlreadyAnalyzed)
@@ -1315,6 +1409,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		}
 		Body.Push(MakeReturn(Body[Body.Count-1]->ErrorInfo, NULL));
 	}
+	RaiseWarningsForUnusedVariables(SliceFromArray(Body));
 
 	const error_info *End = NULL;
 	if(Body.Count > 0)
@@ -1322,6 +1417,7 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 	PopScope(Checker, End);
 	Checker->CurrentFnReturnTypeIdx = Save;
 	Checker->Scope = WasScope;
+
 }
 
 int FindVectorAccessor(string Name, const type *T, const error_info *ErrorInfo)
@@ -2021,7 +2117,11 @@ u32 AnalyzeAtom(checker *Checker, node *Expr)
 				const type *T = GetType(Ts[At]);
 				if(IsUntyped(T))
 				{
-					Ts[At] = UntypedGetType(T);
+					if (Auto) {
+						Ts[At] = Auto->Struct.Members[At].Type;
+					} else {
+						Ts[At] = UntypedGetType(T);
+					}
 					FillUntypedStack(Checker, Ts[At]);
 					//RaiseError(false, *Expr->ErrorInfo, "Untyped expressions are not allowed in `,` lists. "
 							//"You can cast the untyped values.");
@@ -3252,12 +3352,20 @@ ANALYZE_SLICE_SELECTOR:
 				Result = Basic_error;
 				break;
 			}
-			Result = GetConstantType(Expr->Constant.Value);
-			Expr->Constant.Type = Result;
-			if(Expr->Constant.Value.Type != const_type::String)
+			Expr->Constant.Type = GetConstantType(Expr->Constant.Value);
+			switch (Expr->Constant.Value.Type)
 			{
-				Checker->UntypedStack.Push(&Expr->Constant.Type);
+				case const_type::Integer:
+				{
+					Checker->UntypedStack.Push(&Expr->Constant.Type);
+				} break;
+				case const_type::Float:
+				{
+					Checker->UntypedStack.Push(&Expr->Constant.Type);
+				} break;
+				default: break;
 			}
+			Result = Expr->Constant.Type;
 		} break;
 		case AST_FN:
 		{

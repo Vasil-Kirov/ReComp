@@ -46,8 +46,8 @@ CompileFlag :: enum: u32 {
     NoLink       = bit(8),
     Standalone   = bit(9),
     DebugInfo    = bit(10),
-	DisableAssert= bit(11),
-	DisableBoundsCheck=bit(12),
+	NoAssert     = bit(11),
+	NoBoundsCheck= bit(12),
 	CrossVOS = bit(13),
 }
 
@@ -213,7 +213,7 @@ file_add_constant :: fn(m: *CustomFile, name: string, t: *ast.Node, v: *ast.Node
 file_make_const_int :: fn(m: *CustomFile, n: i64, line: int, char: int) -> *ast.Node {
 	fl := file_make_location(m, line, char);
 
-	intt := file_make_t(m, int, line, char);
+	//intt := file_make_t(m, int, line, char);
 	cv: ast.ConstValue = .{};
 	cv.t = .Integer;
 	cv.u.int_.is_signed = 1;
@@ -258,6 +258,7 @@ file_make_t :: fn(m: *CustomFile, t: type, line: int, char: int) -> *ast.Node #n
 		{
 			using ti.t.struct_;
 			mems, ok := mem.make_slice(*ast.Node, members.count, m.alloc);
+			#assert ok;
 			for i, mem in members {
 				memt := file_make_t(m, mem.t, line, char);
 				n := ast.make_var(mem.name, memt, null, fl, m.alloc); #assert n;

@@ -15,6 +15,7 @@ struct error_dump
 	error_info ErrI;
 	string Code;
 	const char *Message;
+	u8 IsWarning;
 };
 
 struct scope_dump

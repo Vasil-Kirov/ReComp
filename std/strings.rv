@@ -174,7 +174,6 @@ strip :: fn(s: string, prefix: string) -> string {
 split :: fn(s: string, delim: u32, alloc: *mem.Allocator) -> []string {
 	res := array.create(string, alloc);
 	s := s;
-	at := 0;
 	pos := s.data;
 	for pos - s.data < s.count {
 		c := deref(pos);

@@ -4665,6 +4665,23 @@ void AnalyzeUsing(checker *Checker, node *Node)
 	}
 }
 
+int CountScopesTilFor(checker *Checker)
+{
+	scope *Current = Checker->Scope.TryPeek();
+	int Scopes = 0;
+	while(Current)
+	{
+		if(Current->ScopeNode->Type == AST_FOR)
+		{
+			break;
+		}
+		if (Current->ScopeNode->Type == AST_SCOPE)
+			Scopes++;
+		Current = Current->Parent;
+	}
+	return Scopes;
+}
+
 void AnalyzeNode(checker *Checker, node *Node)
 {
 	switch(Node->Type)
@@ -4694,6 +4711,7 @@ void AnalyzeNode(checker *Checker, node *Node)
 		{
 			b32 FoundContinueScope = false;
 			scope *Current = Checker->Scope.TryPeek();
+			Node->ContinueBreak.ScopesUp = CountScopesTilFor(Checker);
 
 			while(Current)
 			{
@@ -4714,8 +4732,9 @@ void AnalyzeNode(checker *Checker, node *Node)
 		{
 			b32 FoundBreakableScope = false;
 			scope *Current = Checker->Scope.TryPeek();
-			b32 MatchError = false;
+			Node->ContinueBreak.ScopesUp = CountScopesTilFor(Checker);
 
+			b32 MatchError = false;
 			while(Current)
 			{
 				if(Current->ScopeNode->Type == AST_SWITCH)

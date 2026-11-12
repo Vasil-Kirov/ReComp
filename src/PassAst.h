@@ -323,6 +323,14 @@ struct InterpNode
             InterpNode * expr;
             //type T;
         } return_;
+
+		struct
+		{
+			InterpNode *Operand;
+			interp_slice Body;
+			InterpNode *Expr;
+			u8 OrType;
+		} or_;
     };
 };
 

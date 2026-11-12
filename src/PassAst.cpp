@@ -59,6 +59,14 @@ InterpNode *NodeToInterp(node *N)
 		case AST_ERROR:
 			break;
 
+		case AST_OR:
+		{
+			R->or_.Operand = NodeToInterp(N->Or.Operand);
+			R->or_.Body = NodeToInterpSlice(N->Or.Body);
+			R->or_.Expr = NodeToInterp(N->Or.Expr);
+			R->or_.OrType = (u8)N->Or.OrType;
+		} break;
+
 		case AST_SLICE:
 		{
 			R->slice.operand = NodeToInterp(N->Slice.Operand);
@@ -440,6 +448,14 @@ node *InterpToNode(const InterpNode *R, dict<const string *> FileContents)
 
 		case AST_ERROR:
 			break;
+
+		case AST_OR:
+		{
+			N->Or.Operand = InterpToNode(R->or_.Operand, FileContents);
+			N->Or.Body = InterpSliceToNode(R->or_.Body, FileContents);
+			N->Or.Expr = InterpToNode(R->or_.Expr, FileContents);
+			N->Or.OrType = (or_type)R->or_.OrType;
+		} break;
 
 		case AST_SLICE:
 		{

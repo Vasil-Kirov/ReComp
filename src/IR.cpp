@@ -3621,8 +3621,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			PushStepLocation(Builder, Node);
 
-			auto Scope = Builder->Defered.TryPeek();
-			PushDefferedScope(Builder, Scope);
+			for (int i = 0; i < Node->ContinueBreak.ScopesUp; ++i)
+			{
+				auto Scope = Builder->Defered.TryPeekNth(i);
+				PushDefferedScope(Builder, Scope);
+			}
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->BreakBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;
@@ -3630,8 +3633,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		{
 			PushStepLocation(Builder, Node);
 
-			auto Scope = Builder->Defered.TryPeek();
-			PushDefferedScope(Builder, Scope);
+			for (int i = 0; i < Node->ContinueBreak.ScopesUp; ++i)
+			{
+				auto Scope = Builder->Defered.TryPeekNth(i);
+				PushDefferedScope(Builder, Scope);
+			}
 		    PushInstruction(Builder, Instruction(OP_JMP, Builder->ContinueBlockID, Basic_type, Builder));
 		    Builder->CurrentBlock.HasTerminator = true;
 		} break;

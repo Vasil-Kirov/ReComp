@@ -26,7 +26,7 @@ enum class for_type
 	Infinite,
 };
 
-enum class or_type
+enum class or_type: u8
 {
 	BoolOk,
 	EnumZero,
@@ -148,8 +148,8 @@ struct node
 			u32 Type; // Set by semantic analyzer
 		} PtrDiff;
 		struct {
-
-		} Continue;
+			int ScopesUp;
+		} ContinueBreak;
 		struct {
 			b32 IsUp; // is {
 		} ScopeDelimiter;

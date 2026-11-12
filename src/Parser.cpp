@@ -3396,9 +3396,13 @@ node *CopyASTNode(node *N)
 			R->Reserved.Type = N->Reserved.Type;
 		} break;
 
-		case AST_NOP:
 		case AST_BREAK:
 		case AST_CONTINUE:
+		{
+			R->ContinueBreak.ScopesUp = N->ContinueBreak.ScopesUp;
+		} break;
+
+		case AST_NOP:
 			// No additional data to copy
 			break;
 

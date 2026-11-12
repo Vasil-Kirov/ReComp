@@ -26,13 +26,20 @@ struct stack
 		return Result;
 	}
 
+	T TryPeekNth(size_t n)
+	{
+		if(Data.Count < 1 + n)
+			return T{};
+		T& Result = Data.Data[Data.Count - 1 - n];
+		return Result;
+	}
+
 	T& PeekNth(size_t n)
 	{
 		Assert(Data.Count > n);
 		T& Result = Data.Data[Data.Count - 1 - n];
 		return Result;
 	}
-
 
 	T Pop()
 	{

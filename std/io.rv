@@ -29,7 +29,7 @@ Stream :: struct {
 	data: ?*void,
 };
 
-dummy_stream_fn :: fn(stream_data: ?*void, op: StreamOp, p: []u8) -> (int, StreamError) {
+dummy_stream_fn :: fn(?*void, StreamOp, []u8) -> (int, StreamError) {
 	return 0, StreamError.InvalidOp;
 }
 
@@ -87,6 +87,14 @@ writefln :: fn(w: *Stream, str: string, args: ...) {
     builder := internal_print(str, args);
     builder_append_u8(&builder, '\n');
     res := from_builder(&builder, &mem.temp_alloc);
+	w.func(w.data, .Write, res as []u8);
+}
+
+writef_alloc :: fn(w: *Stream, alloc: *mem.Allocator, str: string, args: ...) {
+    builder := create_builder(alloc);
+	internal_print_builder(&builder, str, args);
+    builder_append_u8(&builder, '\n');
+    res := from_builder(&builder, alloc);
 	w.func(w.data, .Write, res as []u8);
 }
 
@@ -229,8 +237,7 @@ is_digit :: fn(c: u32) -> bool {
     return c >= '0' && c <= '9';
 }
 
-internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
-    builder := create_builder(&mem.temp_alloc);
+internal_print_builder :: fn(b: *Builder, fmt: string, args: []base.Arg) {
     arg_count := 0;
     for it := fmt.data; it < fmt.data+len(fmt); it = advance(it) {
 		c := deref(it);
@@ -244,9 +251,9 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
 					it = advance(it);
 				end := advance(it);
 				align := to_int(start[:end-start] as string);
-				len := builder_char_len(&builder);
+				len := builder_char_len(b);
 				for len < align {
-					builder_append_u32(&builder, ' ');
+					builder_append_u32(b, ' ');
 					len++;
 				}
 			}
@@ -256,7 +263,7 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
 			if c != '`'
 				it = advance(it);
 			if c == '%' {
-				builder_append_u32(&builder, '%');
+				builder_append_u32(b, '%');
 			} else {
 				arg_i := 0;
                 if is_digit(c) {
@@ -266,18 +273,22 @@ internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
 					arg_i = arg_count++;
                 }
 				if arg_i >= arg_count || arg_i < 0 {
-					builder_append_u32(&builder, '%');
-					builder_append_u32(&builder, c);
+					builder_append_u32(b, '%');
+					builder_append_u32(b, c);
 					continue;
 				}
 				arg := args[arg_i];
-                print_type_with_formatter(&builder, c, arg);
+                print_type_with_formatter(b, c, arg);
 			}
         } else {
-			builder_append_u32(&builder, c);
+			builder_append_u32(b, c);
         }
     }
+}
 
+internal_print :: fn(fmt: string, args: []base.Arg) -> Builder {
+    builder := create_builder(&mem.temp_alloc);
+	internal_print_builder(&builder, fmt, args);
     return builder;
 }
 

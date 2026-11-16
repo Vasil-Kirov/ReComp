@@ -1268,6 +1268,7 @@ void FunctionAddArugmentsToScope(checker *Checker, const type *FnT, slice<node *
 struct track_var_info
 {
 	bool Used;
+	bool IsArg;
 	const error_info *ErrorInfo;
 };
 
@@ -1282,7 +1283,12 @@ void CheckVarDictForUnusedWarnings(dict<track_var_info> &Vars)
 	{
 		if (!Info.Used)
 		{
-			RaiseError(true, *Info.ErrorInfo, "Variable %.*s is not used.", (int)Name.Size, Name.Data);
+			const char *Desc = "Variable";
+			if (Info.IsArg)
+			{
+				Desc = "Function argument";
+			}
+			RaiseError(true, *Info.ErrorInfo, "%s %.*s is not used.", Desc, (int)Name.Size, Name.Data);
 		}
 	}
 	Vars.Free();
@@ -1301,7 +1307,7 @@ bool UnusedVarWalker(node *Node, void *Arg)
 			{
 				node *LHS = Node->Decl.LHS;
 				if (*LHS->ID.Name != "_")
-					Track->VarStack.Peek().Add(*LHS->ID.Name, {false, LHS->ErrorInfo});
+					Track->VarStack.Peek().Add(*LHS->ID.Name, {false, false, LHS->ErrorInfo});
 			}
 			if (Node->Decl.LHS->Type == AST_LIST)
 			{
@@ -1309,7 +1315,7 @@ bool UnusedVarWalker(node *Node, void *Arg)
 				{
 					Assert(it->Type == AST_ID);
 					if (*it->ID.Name != "_")
-						Track->VarStack.Peek().Add(*it->ID.Name, {false, it->ErrorInfo});
+						Track->VarStack.Peek().Add(*it->ID.Name, {false, false, it->ErrorInfo});
 				}
 			}
 			return false; // Don't walk through LHS because it will be detected as usage
@@ -1345,11 +1351,16 @@ bool UnusedVarWalker(node *Node, void *Arg)
 	return true;
 }
 
-void RaiseWarningsForUnusedVariables(slice<node *> Body)
+void RaiseWarningsForUnusedVariables(slice<node *> FnArgs, slice<node *> Body)
 {
 	auto Tracker = NewType(unused_var_track);
 	*Tracker = {};
 	Tracker->VarStack.Push({});
+	for(node *Node : FnArgs)
+	{
+		if (*Node->ID.Name != "_")
+			Tracker->VarStack.Peek().Add(*Node->ID.Name, {false, true, Node->ErrorInfo});
+	}
 	for(node *Node : Body)
 	{
 		WalkASTNode(Node, UnusedVarWalker, Tracker);
@@ -1409,7 +1420,9 @@ void AnalyzeFunctionBody(checker *Checker, dynamic<node *> &Body, node *FnNode, 
 		}
 		Body.Push(MakeReturn(Body[Body.Count-1]->ErrorInfo, NULL));
 	}
-	RaiseWarningsForUnusedVariables(SliceFromArray(Body));
+
+	if (Body.Count != 0)
+		RaiseWarningsForUnusedVariables(FnNode->Fn.Args, SliceFromArray(Body));
 
 	const error_info *End = NULL;
 	if(Body.Count > 0)

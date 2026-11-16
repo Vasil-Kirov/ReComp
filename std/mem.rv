@@ -70,7 +70,7 @@ destroy_slice :: fn(slice: *[]$T, alloc: *Allocator) {
 	slice.count = 0;
 }
 
-generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
+generic_alloc :: fn(size: int, *Allocator) -> ?* {
     ptr, ok := os.alloc(size, .Reserve | .Commit, .Read | .Write);
 	if !ok
 		return null;
@@ -80,7 +80,7 @@ generic_alloc :: fn(size: int, this: *Allocator) -> ?* {
 	return ptr;
 }
 
-generic_free :: fn(ptr: *, this: *Allocator) {
+generic_free :: fn(ptr: *, *Allocator) {
     os.free(ptr);
 }
 

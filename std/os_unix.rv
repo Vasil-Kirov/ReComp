@@ -129,8 +129,11 @@ delete_file :: fn(path: string) -> bool {
 	return unlink(cnulls(path)) == 0;
 }
 
-copy_file :: fn(from_: string, to_: string, overwrite: bool = true) -> bool {
+copy_file :: fn(from: string, to: string, overwrite: bool = true) -> bool {
 	// @TODO:
+	_ := from;
+	_ := to;
+	_ := overwrite;
 	return false;
 }
 
@@ -189,7 +192,10 @@ AllocCtx :: struct {
 #public
 
 alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, bool) {
-	flags := MAP_PRIVATE | MAP_ANONYMOUS;
+	// @TODO:
+	_ := flags;
+
+	mmap_flags := MAP_PRIVATE | MAP_ANONYMOUS;
 
 	rwx: i32 = 0;
 	if perms & .Read != 0
@@ -199,7 +205,7 @@ alloc :: fn(size: int, flags: AllocationFlags, perms: AllocationPerms) -> (?*, b
 	if perms & .Exec != 0
 		rwx |= PROT_EXEC;
 
-	ctx := mmap(size + size_of AllocCtx, rwx, flags) as *AllocCtx;
+	ctx := mmap(size + size_of AllocCtx, rwx, mmap_flags) as *AllocCtx;
 	if !ctx
 		return null, false;
 	ctx.size = size as u64;
@@ -269,7 +275,7 @@ make_std_stream :: fn() -> io.Stream {
 	return .{ func = os_stream_fn, data = null };
 }
 
-make_file_stream :: fn(name: string, flags: FileOpenFlags, alloc: *mem.Allocator) -> (io.Stream, bool) {
+make_file_stream :: fn(name: string, flags: FileOpenFlags, *mem.Allocator) -> (io.Stream, bool) {
 	open_f: u32 = 0;
 	mode: u32 = 0;
 	if flags & .Read != 0 && flags & .Write != 0

@@ -1,0 +1,45 @@
+module main;
+
+_ :: #import misc;
+_ :: #import compile;
+_ :: #import os;
+_ :: #import io;
+#import mem;
+#import str;
+
+delete_rec :: fn(data: *ListFileData, ?*void) -> bool {
+	s := sprint("%/%", data.dir, data.file);
+	if data.is_directory {
+		walk_file_tree(s, delete_rec, null);
+		delete_dir(s);
+	}
+	else {
+		delete_file(s);
+	}
+	return true;
+}
+
+main :: fn() -> i32 {
+
+	walk_file_tree("release", delete_rec, null);
+	delete_dir("release");
+
+	mkdir("release");
+	mkdir("release/bin");
+	#if Windows {
+		copy_file("bin/rvc.exe", "release/bin/rvc.exe");
+		copy_file("bin/LLVM-C.dll", "release/bin/LLVM-C.dll");
+	} #else {
+		r := copy_file("bin/rvc", "release/bin/rvc");
+		println("copy: %", r);
+	}
+	copy_dir("std", "release/std");
+	copy_dir("tests", "release/examples");
+	copy_dir("example_program", "release/example_program");
+
+	return 0;
+}
+
+#run no_compile_output();
+#run main();
+

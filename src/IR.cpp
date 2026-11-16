@@ -1023,8 +1023,7 @@ u32 BuildIRFromAtom(block_builder *Builder, node *Node, b32 IsLHS)
 			{
 				case or_type::PtrNotNull:
 				{
-					if (Node->Or.ResultT == Basic_error)
-						Result = Operand;
+					Result = Operand;
 
 					u32 Null = PushInstruction(Builder, 
 							Instruction(OP_NULL, (u64)0, Node->Or.OperandT, Builder));

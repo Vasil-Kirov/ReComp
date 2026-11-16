@@ -685,6 +685,30 @@ string GetStdPathFromRVCBinDir(string Dir, const char *FileName)
 
 slice<string> FindObjectFiles();
 
+void DebugPrintLink(link_command Link)
+{
+	switch (Link.Type)
+	{
+		case LCT_List:
+		{
+			auto b = MakeBuilder();
+			b += Link.List.Command;
+			b += ' ';
+			for (auto Arg : Link.List.Args)
+			{
+				b += Arg;
+				b += ' ';
+			}
+			auto s = MakeString(b);
+			LDEBUG("Link command: %s", s.Data);
+		} break;
+		case LCT_System:
+		{
+			// cba
+		} break;
+	}
+}
+
 link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_info *Info)
 {
 	link_command LinkCommand = {};
@@ -915,6 +939,7 @@ link_command MakeLinkCommand(command_line CMD, slice<module*> Modules, compile_i
 	{
 		LinkCommand.System = MakeString(Builder);
 	}
+	DebugPrintLink(LinkCommand);
 	return LinkCommand;
 }
 

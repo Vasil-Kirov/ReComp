@@ -750,6 +750,11 @@ main(int ArgCount, char *Args[])
 			exit(1);
 
 		compile_info *Info = NewType(compile_info);
+#if _WIN32
+		Info->Output = {5, "a.exe"};
+#else
+		Info->Output = {1, "a"};
+#endif
 		if(!g_StopCompileOutput)
 		{
 			FileTimer.LLVM = VLibStartTimer("LLVM");

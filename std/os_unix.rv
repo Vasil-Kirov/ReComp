@@ -130,15 +130,35 @@ delete_file :: fn(path: string) -> bool {
 }
 
 copy_file :: fn(from: string, to: string, overwrite: bool = true) -> bool {
-	// @TODO:
-	_ := from;
-	_ := to;
-	_ := overwrite;
-	return false;
+	from := nulls(from);
+	to   := nulls(to);
+
+	src := open(from, O_RDONLY);
+	if src < 0 {
+		return false;
+	}
+	defer close(src);
+
+	flags: u32 = O_CREAT | O_WRONLY;
+	if !overwrite {
+		flags |= O_EXCL;
+	} else {
+		flags |= O_TRUNC;
+	}
+	dst := open(to, flags, 0o0666);
+	if dst < 0 {
+		return false;
+	}
+	defer close(dst);
+	stat: statx;
+	if statx(src, null, AT_EMPTY_PATH, STATX_SIZE, &stat) < 0 {
+		return false;
+	}
+	return copy_file_range(src, null, dst, null, stat.stx_size as uint) >= 0;
 }
 
 mkdir :: fn(dir_: string) -> bool {
-	return unix.mkdir(cnulls(dir_), 0o0666) == 0;
+	return unix.mkdir(cnulls(dir_), 0o0777) == 0;
 }
 
 list_files :: fn(dir_: string, callback: fn(data: *ListFileData, arg: ?*) -> bool, arg: ?*) -> bool {

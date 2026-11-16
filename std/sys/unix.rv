@@ -1,5 +1,6 @@
 module unix;
 
+#import "sys/linux_syscall.rv"
 
 handle_stdin  :i32: 0;
 handle_stdout :i32: 1;
@@ -30,64 +31,6 @@ __SIZEOF_PTHREAD_CONDATTR_T :: 4;
 __SIZEOF_PTHREAD_RWLOCKATTR_T :: 8;
 __SIZEOF_PTHREAD_BARRIERATTR_T :: 4;
 
-#if x64 {
-	SYS_read  	:: 0;
-	SYS_write  	:: 1;
-	SYS_open   	:: 2;
-	SYS_close	:: 3;
-	SYS_mmap   	:: 9;
-	SYS_munmap 	:: 11;
-	SYS_exit	:: 60;
-	SYS_fstat	:: 5;
-	SYS_clock_gettime :: 228;
-	SYS_getdents64 :: 217;
-	SYS_mkdir :: 83;
-	SYS_unlink :: 87;
-	SYS_rmdir :: 84;
-	SYS_clone3 :: 435;
-	SYS_nanosleep :: 35;
-	SYS_kill :: 62;
-	SYS_getpid :: 39;
-	SYS_getppid :: 110;
-
-
-	stat :: struct {
-		pad0: [48]u8,
-		st_size: int,
-		pad1: [88]u8,
-	}
-}
-#elif x86 {
-	SYS_read      :: 3;
-	SYS_write     :: 4;
-	SYS_open      :: 5;
-	SYS_close     :: 6;
-	SYS_mmap      :: 90;
-	SYS_munmap    :: 91;
-	SYS_exit      :: 1;
-	SYS_clock_gettime :: 228;
-}
-#elif arm32 {
-	SYS_read    :: 3;
-	SYS_write   :: 4;
-	SYS_open    :: 5;
-	SYS_close	:: 6;
-	SYS_mmap    :: 90;
-	SYS_munmap  :: 91;
-	SYS_exit    :: 1;
-	SYS_clock_gettime :: 263;
-}
-#elif arm64 {
-	SYS_read    :: 63;
-	SYS_write   :: 64;
-	SYS_open    :: 56;
-	SYS_close	:: 57;
-	SYS_mmap    :: 222;
-	SYS_munmap  :: 215;
-	SYS_exit    :: 93;
-	SYS_clock_gettime :: 113;
-	SYS_fstat   :: 80;
-}
 
 __old_kernel_stat :: struct {
 	st_dev  : u16,
@@ -139,7 +82,7 @@ O_NONBLOCK	:u32: 0x800;
 }
 #else {
 	exit :: fn (code: int) #no_return {
-		syscall(SYS_exit, 1);
+		syscall(SYS_exit_group, 1);
 	}
 }
 
@@ -163,6 +106,8 @@ linux_dirent64 :: struct #pack {
 	d_type:    DType,/* File type */
 	d_name: [0]u8,   /* Filename (null-terminated) */
 }
+
+off_t :: int;
 
 /* Identifier for system-wide realtime clock.  */
 CLOCK_REALTIME  :i32: 0;
@@ -198,7 +143,28 @@ CLOCK_BOOTTIME_ALARM :i32: 9;
 CLOCK_TAI :i32: 11;
 
 clock_gettime :: fn(clock_id: i32, tp: *timespec) -> int {
-	return syscall(clock_id, tp);
+	return syscall(SYS_clock_gettime, clock_id, tp);
+}
+
+/**
+* The copy_file_range() system call performs an in-kernel copy between two
+* file descriptors without the additional cost of transferring data from the
+* kernel to user space and then back into the kernel. It copies up to size
+* bytes of data from the source file descriptor fd_in to the target file
+* descriptor fd_out, overwriting any data that exists within the requested
+* range of the target file.
+*
+* @param fd_in  fd of source file to copy from
+* @param off_in pointer to an offset to start copying from, on completion the function
+*               does not change the file pointer but adjusts the value pointed to here.
+*               If null, the normal file pointer is used instead.
+* @param fd_out fd of dest file to copy to
+* @param off_out same as off_in, but for the destination file
+* @param flags  must be 0, it exists for possible future extensions
+*
+*/
+copy_file_range :: fn(fd_in: i32, off_in: ?*off_t, fd_out: i32, off_out: ?*off_t, size: uint, flags: u32 = 0) -> int {
+	return syscall(SYS_copy_file_range, fd_in, off_in, fd_out, off_out, size, flags);
 }
 
 getpid :: fn() -> int {
@@ -391,20 +357,84 @@ mmap :: fn(size: int, prot: i32, flags: i32, mapat := null, fd: i32 = -1, off: u
 	return ptr;
 }
 
-// @TODO: other platforms
-#if x64 {
-	get_file_size :: fn(fd: *) -> int {
-		fstat := stat {};
-		syscall(SYS_fstat, fd, &fstat);
-		return fstat.st_size;
-	}
+AT_FDCWD              :i32: -100;
+AT_SYMLINK_NOFOLLOW   :i32: 0x100;
+AT_EMPTY_PATH         :i32: 0x1000;
+
+STATX_TYPE        :u32: 0x001;
+STATX_MODE        :u32: 0x002;
+STATX_NLINK       :u32: 0x004;
+STATX_UID         :u32: 0x008;
+STATX_GID         :u32: 0x010;
+STATX_ATIME       :u32: 0x020 ;
+STATX_MTIME       :u32: 0x040 ;
+STATX_CTIME       :u32: 0x080 ;
+STATX_INO         :u32: 0x100 ;
+STATX_SIZE        :u32: 0x200 ;
+STATX_BLOCKS      :u32: 0x400 ;
+STATX_BASIC_STATS :u32: 0x7ff ;
+STATX_BTIME       :u32: 0x800 ;
+
+STATX_MNT_ID         :u32: 0x1000;
+STATX_DIOALIGN       :u32: 0x2000;
+STATX_MNT_ID_UNIQUE  :u32: 0x4000;
+STATX_SUBVOL         :u32: 0x8000;
+STATX_WRITE_ATOMIC   :u32: 0x10000;
+STATX_DIO_READ_ALIGN :u32: 0x20000;
+
+statx_timestamp :: struct {
+	tv_sec:     i64,
+	tv_nsec:    u32,
+	__reserved: i32,
 }
-#elif arm64 {
-	get_file_size :: fn(fd: *) -> int {
-		fstat := __old_kernel_stat {};
-		syscall(SYS_fstat, fd, &fstat);
-		return cast(int, fstat.st_size);
-	}
+
+statx :: struct {                    // size 256
+	stx_mask:                      u32,   // 0x00
+	stx_blksize:                   u32,   // 0x04
+	stx_attributes:                u64,   // 0x08
+	stx_nlink:                     u32,   // 0x10
+	stx_uid:                       u32,   // 0x14
+	stx_gid:                       u32,   // 0x18
+	stx_mode:                      u16,   // 0x1c
+	_spare0:                       u16,   // 0x1e
+	stx_ino:                       u64,   // 0x20
+	stx_size:                      u64,   // 0x28
+	stx_blocks:                    u64,   // 0x30
+	stx_attributes_mask:           u64,   // 0x38
+	stx_atime:                     statx_timestamp, // 0x40
+	stx_btime:                     statx_timestamp, // 0x50
+	stx_ctime:                     statx_timestamp, // 0x60
+	stx_mtime:                     statx_timestamp, // 0x70
+	stx_rdev_major:                u32,   // 0x80
+	stx_rdev_minor:                u32,   // 0x84
+	stx_dev_major:                 u32,   // 0x88
+	stx_dev_minor:                 u32,   // 0x8c
+	stx_mnt_id:                    u64,   // 0x90
+	stx_dio_mem_align:             u32,   // 0x98
+	stx_dio_offset_align:          u32,   // 0x9c
+	stx_subvol:                    u64,   // 0xa0
+	stx_atomic_write_unit_min:     u32,   // 0xa8
+	stx_atomic_write_unit_max:     u32,   // 0xac
+	stx_atomic_write_segments_max: u32,   // 0xb0
+	stx_dio_read_offset_align:     u32,   // 0xb4
+	stx_atomic_write_unit_max_opt: u32,   // 0xb8
+	_spare2:                       u32,   // 0xbc
+	_spare3:                       [8]u64, // 0xc0, ends at 0x100
+}
+
+/**
+* Get information about file
+*
+* @param dirfd  fd to stat, or fd of dir if path is not null relative path
+* @param path   path of file to stat, or null if dirfd is fd of the file
+* @param flags  AT_ flags
+* @param mask   STATX_ which fields in ptr to fill out
+* @param ptr    receives info if function succeeds
+*
+*/
+statx :: fn(dirfd: i32, path: ?*u8, flags: i32, mask: u32, ptr: *statx) -> int {
+	path := path or c"";
+	return syscall(SYS_statx, dirfd, path, flags, mask, ptr);
 }
 
 open :: fn(name: string, flags: u32, mode: u32 = 0) -> i32 {
@@ -430,3 +460,5 @@ munmap :: fn(ptr: *, size: uint) {
 read :: fn(fd: i32, buf: []u8) -> int {
 	return syscall(SYS_read, fd, buf.data, buf.count);
 }
+
+

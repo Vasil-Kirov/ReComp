@@ -1,0 +1,106 @@
+module unix;
+
+#if x64 {
+	SYS_read            :: 0;
+	SYS_write           :: 1;
+	SYS_open            :: 2;
+	SYS_close           :: 3;
+	SYS_fstat           :: 5;
+	SYS_mmap            :: 9;
+	SYS_munmap          :: 11;
+	SYS_nanosleep       :: 35;
+	SYS_getpid          :: 39;
+	SYS_exit            :: 60;
+	SYS_kill            :: 62;
+	SYS_mkdir           :: 83;
+	SYS_rmdir           :: 84;
+	SYS_unlink          :: 87;
+	SYS_getppid         :: 110;
+	SYS_getdents64      :: 217;
+	SYS_clock_gettime   :: 228;
+	SYS_exit_group      :: 231;
+	SYS_openat          :: 257;
+	SYS_mkdirat         :: 258;
+	SYS_unlinkat        :: 263;
+	SYS_copy_file_range :: 326;
+	SYS_statx           :: 332;
+	SYS_clone3          :: 435;
+}
+#elif x86 {
+	SYS_exit            :: 1;
+	SYS_read            :: 3;
+	SYS_write           :: 4;
+	SYS_open            :: 5;
+	SYS_close           :: 6;
+	SYS_unlink          :: 10;
+	SYS_getpid          :: 20;
+	SYS_kill            :: 37;
+	SYS_mkdir           :: 39;
+	SYS_rmdir           :: 40;
+	SYS_getppid         :: 64;
+	SYS_munmap          :: 91;
+	SYS_nanosleep       :: 162;
+	SYS_mmap            :: 192;  // mmap2: offset is in 4096-byte units
+	SYS_fstat           :: 197;  // fstat64
+	SYS_getdents64      :: 220;
+	SYS_exit_group      :: 252;
+	SYS_clock_gettime   :: 265;  // 32-bit timespec
+	SYS_openat          :: 295;
+	SYS_mkdirat         :: 296;
+	SYS_unlinkat        :: 301;
+	SYS_copy_file_range :: 377;
+	SYS_statx           :: 383;
+	SYS_clock_gettime64 :: 403;  // 64-bit timespec, Linux 5.1+
+	SYS_clone3          :: 435;
+}
+#elif arm32 {
+	SYS_exit            :: 1;
+	SYS_read            :: 3;
+	SYS_write           :: 4;
+	SYS_open            :: 5;
+	SYS_close           :: 6;
+	SYS_unlink          :: 10;
+	SYS_getpid          :: 20;
+	SYS_kill            :: 37;
+	SYS_mkdir           :: 39;
+	SYS_rmdir           :: 40;
+	SYS_getppid         :: 64;
+	SYS_munmap          :: 91;
+	SYS_nanosleep       :: 162;
+	SYS_mmap            :: 192;  // mmap2: offset is in 4096-byte units
+	SYS_fstat           :: 197;  // fstat64
+	SYS_getdents64      :: 217;
+	SYS_exit_group      :: 248;
+	SYS_clock_gettime   :: 263;  // 32-bit timespec
+	SYS_openat          :: 322;
+	SYS_mkdirat         :: 323;
+	SYS_unlinkat        :: 328;
+	SYS_copy_file_range :: 391;
+	SYS_statx           :: 397;
+	SYS_clock_gettime64 :: 403;  // 64-bit timespec, Linux 5.1+
+	SYS_clone3          :: 435;
+}
+#elif arm64 {
+	// No open, mkdir, rmdir or unlink syscalls here, only the *at variants
+	SYS_mkdirat         :: 34;
+	SYS_unlinkat        :: 35;
+	SYS_openat          :: 56;
+	SYS_close           :: 57;
+	SYS_getdents64      :: 61;
+	SYS_read            :: 63;
+	SYS_write           :: 64;
+	SYS_fstat           :: 80;
+	SYS_exit            :: 93;
+	SYS_exit_group      :: 94;
+	SYS_nanosleep       :: 101;
+	SYS_clock_gettime   :: 113;
+	SYS_kill            :: 129;
+	SYS_getpid          :: 172;
+	SYS_getppid         :: 173;
+	SYS_munmap          :: 215;
+	SYS_mmap            :: 222;
+	SYS_copy_file_range :: 285;
+	SYS_statx           :: 291;
+	SYS_clone3          :: 435;
+}
+

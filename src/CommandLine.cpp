@@ -165,7 +165,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		}
 		else if(StringsMatchNoCase(Arg, CompileCommands[12]))
 		{
-			LogCompilerError("Warning: warnings have been disables, this should only be used temporarily.\n");
+			LogCompilerError("Warning: warnings have been disabled, this should only be used temporarily.\n");
 			g_DisableWarnings = true;
 		}
 		else if(Arg == "--")

@@ -518,7 +518,8 @@ main(int ArgCount, char *Args[])
 					if (!ArgsOr.has_value()) {
 						LogCompilerError("Error: CompileInfo link option have unclosed quotes, not used -> %.*s\n", (int)Info->Link.Count, Info->Link.Data);
 					}
-					auto Args = ArgsOr.value_or({});
+					slice<string> NoArgs = {};
+					auto Args = ArgsOr.value_or(NoArgs);
 					for (auto Arg : Args) {
 						if (Arg.Size > 2 && Arg.Data[0] == '"' && Arg.Data[Arg.Size-1] == '"') {
 							Arg = SliceString(Arg, 1, -1);

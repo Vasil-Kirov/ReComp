@@ -274,7 +274,6 @@ os_stream_fn :: fn(stream_data: ?*StreamHandles, op: io.StreamOp, p: []u8) -> (i
 		case .Size:
 		{
 			li: LARGE_INTEGER;
-			high := 0 as u32;
 			if GetFileSizeEx(stream_data.read, &li) == 0 {
 				return 0, io.StreamError.Failed;
 			}

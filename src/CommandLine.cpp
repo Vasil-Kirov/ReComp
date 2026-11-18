@@ -1,5 +1,5 @@
 #include "CommandLine.h"
-#include "Basic.h"
+#include "Globals.h"
 #include "Log.h"
 #include "VString.h"
 
@@ -35,6 +35,8 @@ OPTIONS:
 		Writes a tags file using the universal ctags format
 	--tool-info pipe
 		Sends an info dump about the compilation, doesn't output binary file
+	--no-warnings
+		disables warnings
 	--
 		Pass arguments after this to the build script
 )#";
@@ -64,6 +66,7 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 		STR_LIT("--write-ctags"),
 		STR_LIT("--no-thread"),
 		STR_LIT("--tool-info"),
+		STR_LIT("--no-warnings"),
 	};
 	bool HasPrintedHelp = false;
 
@@ -159,6 +162,11 @@ command_line ParseCommandLine(int ArgCount, char *CArgs[])
 			i++;
 			Pipe = strtoll(Args[i].Data, NULL, 0);
 			Result.Flags |= CommandFlag_dumpinfo;
+		}
+		else if(StringsMatchNoCase(Arg, CompileCommands[12]))
+		{
+			LogCompilerError("Warning: warnings have been disables, this should only be used temporarily.\n");
+			g_DisableWarnings = true;
 		}
 		else if(Arg == "--")
 		{

@@ -137,6 +137,11 @@ print :: fn(str: string, args: ...) {
 	io.writev(&s, str, args);
 }
 
+vprint :: fn(str: string, args: []Arg) {
+	s := os.make_std_stream();
+	io.writev(&s, str, args);
+}
+
 println :: fn(str: string, args: ...) {
 	s := os.make_std_stream();
 	io.writev(&s, str, args);

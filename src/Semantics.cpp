@@ -4,6 +4,7 @@
 #include "DumpInfo.h"
 #include "Dynamic.h"
 #include "Errors.h"
+#include "Globals.h"
 #include "Lexer.h"
 #include "Log.h"
 #include "Module.h"
@@ -1353,13 +1354,19 @@ bool UnusedVarWalker(node *Node, void *Arg)
 
 void RaiseWarningsForUnusedVariables(slice<node *> FnArgs, slice<node *> Body)
 {
+	if (g_DisableWarnings)
+		return;
+
 	auto Tracker = NewType(unused_var_track);
 	*Tracker = {};
 	Tracker->VarStack.Push({});
 	for(node *Node : FnArgs)
 	{
-		if (*Node->ID.Name != "_")
+		if (Node == NULL || Node == (node *)0x1)
+			continue;
+		if (*Node->Var.Name != "_" && Node->Var.Type != Basic_type) {
 			Tracker->VarStack.Peek().Add(*Node->ID.Name, {false, true, Node->ErrorInfo});
+		}
 	}
 	for(node *Node : Body)
 	{

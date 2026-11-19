@@ -280,7 +280,7 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 					LLVMValueRef Size = LLVMConstInt(IntTy, Str.Size, true);
 					LLVMValueRef Data = RCGetStringConstPtr(gen, &Str);
 					LLVMValueRef Vals[2] = { Size, Data };
-					return LLVMConstStruct(Vals, 2, false);
+					return LLVMConstNamedStruct(ConvertToLLVMType(gen, Basic_string), Vals, 2);
 				} break;
 				case Basic_UntypedFloat:
 				case Basic_UntypedInteger:
@@ -355,7 +355,38 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 			{
 				return gen->global.Get(found->second);
 			}
-			return LLVMConstInt(lt, (unsigned long long)Val, false);
+			if (Val == 0)
+			{
+				return LLVMConstNull(lt);
+			}
+			else
+			{
+				LLVMValueRef V = NULL;
+				switch (GetRegisterTypeSize())
+				{
+					case 64:
+					{
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u64)Val, false);
+					} break;
+					case 32:
+					{
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u32)(u64)Val, false);
+					} break;
+					case 16:
+					{
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u16)(u64)Val, false);
+					} break;
+					case 8:
+					{
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u8)(u64)Val, false);
+					} break;
+					default:
+					{
+						Assert(false);
+					} break;
+				}
+				return LLVMConstIntToPtr(V, lt);
+			}
 		} break;
 		case TypeKind_Struct:
 		{
@@ -1461,6 +1492,7 @@ LLVMMetadataRef RCGenerateDebugInfoForFunction(generator *gen, function fn)
 			gen->f_dbg, fn.LineNo,
 			ToDebugTypeLLVM(gen, fn.Type), false, true, 0, LLVMDIFlagZero, false);
 	LLVMSetSubprogram(gen->fn, Meta);
+
 	return Meta;
 }
 
@@ -1540,7 +1572,8 @@ void RCGenerateFunction(generator *gen, function fn)
 		if(g_CompileFlags & CF_DebugInfo)
 		{
 			gen->CurrentScope = RCGenerateDebugInfoForFunction(gen, fn);
-			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentScope);
+			gen->CurrentLocation = LLVMDIBuilderCreateDebugLocation(gen->ctx, fn.LineNo, 0, gen->CurrentScope, NULL);
+			LLVMSetCurrentDebugLocation2(gen->bld, gen->CurrentLocation);
 		}
 	}
 
@@ -2114,7 +2147,7 @@ void RCInitLLVM(compile_info *Info)
 	{
 		TargetFeatures = "";
 	}
-#if 0
+#if 1
 	LLVMInitializeX86TargetInfo();
 	LLVMInitializeX86Target();
 	LLVMInitializeX86TargetMC();
@@ -2122,12 +2155,27 @@ void RCInitLLVM(compile_info *Info)
 	LLVMInitializeX86AsmPrinter();
 	LLVMInitializeX86Disassembler();
 
+	LLVMInitializeARMTargetInfo();
+	LLVMInitializeARMTarget();
+	LLVMInitializeARMTargetMC();
+	LLVMInitializeARMAsmParser();
+	LLVMInitializeARMAsmPrinter();
+	LLVMInitializeARMDisassembler();
+
+	LLVMInitializeAVRTargetInfo();
+	LLVMInitializeAVRTarget();
+	LLVMInitializeAVRTargetMC();
+	LLVMInitializeAVRAsmParser();
+	LLVMInitializeAVRAsmPrinter();
+	LLVMInitializeAVRDisassembler();
+	/*
 	LLVMInitializeAArch64TargetInfo();
 	LLVMInitializeAArch64Target();
 	LLVMInitializeAArch64TargetMC();
 	LLVMInitializeAArch64AsmParser();
 	LLVMInitializeAArch64AsmPrinter();
 	LLVMInitializeAArch64Disassembler();
+	*/
 
 	LLVMInitializeWebAssemblyTargetInfo();
 	LLVMInitializeWebAssemblyTarget();

@@ -515,6 +515,13 @@ LLVMTypeRef LLVMDefineStructType(generator *g, u32 TypeID)
 
 	LLVMTypeRef Opaque = LLVMFindMapType(g, TypeID);
 	Assert(Opaque);
+
+	if (!LLVMIsOpaqueStruct(Opaque))
+	{
+		LDEBUG("Non opaque struct in LLVMDefineStructType: %s", Type->Struct.Name.Data);
+		return Opaque;
+	}
+
 	const size_t MemberCount = Type->Struct.Members.Count;
 	const bool IsPacked = (Type->Struct.Flags & StructFlag_Packed) != 0;
 

@@ -139,10 +139,10 @@ LLVMValueRef GenTypeInfo(generator *gen)
 			ETypes[ETypeCount++] = LLVMArrayType2(LLVMIntTypeInContext(gen->ctx, 8), UnionSize-ESize);
 		}
 
-		UnionArrayType[i] = LLVMStructType(ETypes, ETypeCount, false);
+		UnionArrayType[i] = LLVMStructTypeInContext(gen->ctx, ETypes, ETypeCount, false);
 	}
 
-	LLVMTypeRef TypeInfoArray = LLVMStructType(UnionArrayType.Data, TypeCount, false);
+	LLVMTypeRef TypeInfoArray = LLVMStructTypeInContext(gen->ctx, UnionArrayType.Data, TypeCount, false);
 
 	LLVMValueRef TypeTableContents = LLVMAddGlobal(gen->mod, TypeInfoArray, "base.type_table_contents");
 	LLVMSetLinkage(TypeTableContents, LLVMLinkerPrivateLinkage);
@@ -176,8 +176,8 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 				LLVMValueRef ConstVals[] = {
 					LLVMConstInt(IntType, T->Basic.Kind, false),
-					LLVMConstInt(U32Type, T->Basic.Flags, false),
-					LLVMConstInt(U32Type, T->Basic.Size, false),
+					LLVMConstInt(U32Type, (u32)T->Basic.Flags, false),
+					LLVMConstInt(U32Type, (u32)T->Basic.Size, false),
 					RCConstString(gen, T->Basic.Name, IntType, StrType)
 				};
 
@@ -211,7 +211,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 				LLVMValueRef ConstVals[] = {
 					RCConstSlice(gen, Members, IntType, StructMemberType, StructMemberSliceType),
 					RCConstString(gen, T->Struct.Name, IntType, StrType),
-					LLVMConstInt(U32Type, T->Struct.Flags, false),
+					LLVMConstInt(U32Type, (u32)T->Struct.Flags, false),
 				};
 
 				UnionConst = LLVMConstNamedStruct(StructTypeType, ConstVals, ARR_LEN(ConstVals));
@@ -270,7 +270,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 				LLVMValueRef ConstVals[] = {
 					LLVMConstInt(TypeType, T->Array.Type, false),
-					LLVMConstInt(U32Type, T->Array.MemberCount, false),
+					LLVMConstInt(U32Type, (u32)T->Array.MemberCount, false),
 				};
 
 				UnionConst = LLVMConstNamedStruct(ArrayTypeType, ConstVals, ARR_LEN(ConstVals));
@@ -316,7 +316,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 				LLVMValueRef ConstVals[] = {
 					RCConstString(gen, T->Enum.Name, IntType, StrType),
-					RCConstSlice(gen, Members, IntType, StrType, EnumMemberSliceType),
+					RCConstSlice(gen, Members, IntType, EnumMemberType, EnumMemberSliceType),
 					LLVMConstInt(TypeType, T->Enum.Type, false),
 				};
 
@@ -332,7 +332,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 
 				LLVMValueRef ConstVals[] = {
 					LLVMConstInt(IntType, T->Vector.Kind, false),
-					LLVMConstInt(U32Type, T->Vector.ElementCount, false),
+					LLVMConstInt(U32Type, (u32)T->Vector.ElementCount, false),
 				};
 
 				UnionConst = LLVMConstNamedStruct(VectorTypeType, ConstVals, ARR_LEN(ConstVals));
@@ -340,12 +340,15 @@ LLVMValueRef GenTypeInfo(generator *gen)
 			} break;
 			case TypeKind_Generic:
 			{
-				// @NOTE: not exactly valid but it is what it is
+
+				// GenericType :: struct {
+				//     name: string,
+				// }
 				LLVMValueRef ConstVals[] = {
-					LLVMConstInt(TypeType, T->Slice.Type, false),
+					RCConstString(gen, T->Generic.Name, IntType, StrType)
 				};
 
-				UnionConst = LLVMConstNamedStruct(SliceTypeType, ConstVals, ARR_LEN(ConstVals));
+				UnionConst = LLVMConstNamedStruct(GenericTypeType, ConstVals, ARR_LEN(ConstVals));
 				Pad = UnionSize - GenericTypeSize;
 			} break;
 		}
@@ -363,7 +366,7 @@ LLVMValueRef GenTypeInfo(generator *gen)
 			}
 			Constants[ElemCount++] = LLVMConstArray2(LLVMIntTypeInContext(gen->ctx, 8), Padding.Data, Pad);
 		}
-		ArrayValues[i] = LLVMConstStruct(Constants, ElemCount, false);
+		ArrayValues[i] = LLVMConstStructInContext(gen->ctx, Constants, ElemCount, false);
 	}
 	
 	LLVMValueRef ConstArray = LLVMConstNamedStruct(TypeInfoArray, ArrayValues, TypeCount);

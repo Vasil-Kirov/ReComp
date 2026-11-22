@@ -1364,7 +1364,7 @@ void RaiseWarningsForUnusedVariables(slice<node *> FnArgs, slice<node *> Body)
 	{
 		if (Node == NULL || Node == (node *)0x1)
 			continue;
-		if (*Node->Var.Name != "_" && Node->Var.Type != Basic_type) {
+		if (!StringStartsWith(*Node->Var.Name, STR_LIT("_")) && Node->Var.Type != Basic_type) {
 			Tracker->VarStack.Peek().Add(*Node->ID.Name, {false, true, Node->ErrorInfo});
 		}
 	}

@@ -370,15 +370,15 @@ LLVMValueRef FromPtr(generator *gen, u32 TIdx, void *Ptr)
 					} break;
 					case 32:
 					{
-						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u32)(u64)Val, false);
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u32), (u32)(u64)Val, false);
 					} break;
 					case 16:
 					{
-						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u16)(u64)Val, false);
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u16), (u16)(u64)Val, false);
 					} break;
 					case 8:
 					{
-						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u64), (u8)(u64)Val, false);
+						V = LLVMConstInt(ConvertToLLVMType(gen, Basic_u8), (u8)(u64)Val, false);
 					} break;
 					default:
 					{

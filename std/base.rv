@@ -177,6 +177,8 @@ wrap :: fn(value: $t) -> Optional<t> {
 }
 
 none :: fn(t: type) -> Optional<t> {
+	_ := t;
+
 	v: Optional<t>;
 	v.ok = false;
 	return v;

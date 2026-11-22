@@ -3604,6 +3604,24 @@ void EvaluateEnums(interpreter *VM)
 	VM->Stack.Pop();
 }
 
+value CopyGlobal(value *V)
+{
+	if (IsLoadableType(V->Type))
+		return *V;
+
+	const type *T = GetType(V->Type);
+	if (T->Kind == TypeKind_Function)
+		return *V;
+
+	// @TODO: Is this enough
+	// Vasko - 22/11/2026
+	size_t Size = GetTypeSize(T, true);
+	value R = *V;
+	R.ptr = malloc(Size);
+	memcpy(R.ptr, V->ptr, Size);
+	return R;
+}
+
 size_t DoGlobals(interpreter *VM, ir *IR)
 {
 	size_t Failed = 0;
@@ -3651,6 +3669,10 @@ size_t DoGlobals(interpreter *VM, ir *IR)
 				Global.ptr = ArenaAllocate(&VM->Arena, GetTypeSize(Global.Type));
 				Store(VM, &Global, &Result.Result, it->s->Type);
 				Result.Result = Global;
+			}
+			else
+			{
+				Result.Result = CopyGlobal(&Result.Result);
 			}
 
 			Result.Result.Flags |= value_flag::Global;

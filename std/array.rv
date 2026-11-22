@@ -51,6 +51,18 @@ add :: fn(arg_arr: *[]$T, item: T) {
     (*arr)[arr.count-1] = item;
 }
 
+pop :: fn(arrp: *[]$T, idx: int) {
+	arr := *arrp;
+	if len(arr) <= 0 || len(arr) <= idx
+		return;
+
+	displace := len(arr) - (idx+1);
+	if displace > 0
+		memmove(&arr[idx], &arr[idx+1], displace);
+
+	arrp.count--;
+}
+
 free :: fn(arg_arr: *[]$T) {
 	size_of(T);
     arr := arg_arr;

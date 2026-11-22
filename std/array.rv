@@ -58,7 +58,7 @@ pop :: fn(arrp: *[]$T, idx: int) {
 
 	displace := len(arr) - (idx+1);
 	if displace > 0
-		memmove(&arr[idx], &arr[idx+1], displace);
+		memmove(&arr[idx], &arr[idx+1], displace * size_of T);
 
 	arrp.count--;
 }

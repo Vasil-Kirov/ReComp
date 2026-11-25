@@ -5576,7 +5576,7 @@ string MakeNonGenericName(string GenericName)
 	b32 IsNameGeneric = false;
 	for(int i = 0; i < GenericName.Size; ++i)
 	{
-		if(GenericName.Data[i] == ':')
+		if(GenericName.Data[i] == '<')
 		{
 			IsNameGeneric = true;
 			break;
@@ -5588,8 +5588,22 @@ string MakeNonGenericName(string GenericName)
 	string_builder Builder = MakeBuilder();
 	for(int i = 0; i < GenericName.Size; ++i)
 	{
-		if(GenericName.Data[i] == ':')
-			break;
+		if(GenericName.Data[i] == '<')
+		{
+			i++;
+			int Depth = 1;
+			while (i < GenericName.Size && Depth > 0)
+			{
+				if(GenericName.Data[i] == '<')
+					Depth++;
+				if(GenericName.Data[i] == '>')
+					Depth--;
+				i++;
+			}
+
+			if(i >= GenericName.Size)
+				break;
+		}
 
 		Builder += GenericName.Data[i];
 	}
@@ -5670,7 +5684,7 @@ b32 IsFunctionCorrectProfileCallback(const type *T)
 
 	if(T->Function.ArgCount != 2
 			|| !IsString(GetType(T->Function.Args[0]))
-			|| T->Function.Args[1] != Basic_int)
+			|| T->Function.Args[1] != Basic_u64)
 		return false;
 
 	if(T->Function.Returns.Count != 0)

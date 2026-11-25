@@ -8,19 +8,21 @@ Header :: struct {
     allocator: mem.Allocator,
 }
 
-create :: fn(T: type, allocator: *mem.Allocator) -> []T {
-    INITIAL_CAPACITY :: 8;
-    ptr: ?*Header = allocator.alloc(INITIAL_CAPACITY * size_of T + size_of Header, allocator);
+create :: fn(T: type, allocator: *mem.Allocator, reserve := 0) -> []T {
+	initial_capacity := 8;
+	if reserve != 0
+		initial_capacity = reserve;
+    ptr: ?*Header = allocator.alloc(initial_capacity * size_of T + size_of Header, allocator);
     if ptr == null {
 		panic("Allocation for array.create() failed!\n");
         return []T{};
     }
-    ptr.capacity = INITIAL_CAPACITY;
+    ptr.capacity = initial_capacity;
     ptr.allocator = *allocator;
 
     res := []T{};
     res.data = cast(*T, (ptr+1));
-    res.count = 0;
+    res.count = if reserve == 0 then 0 else reserve;
     return res;
 }
 

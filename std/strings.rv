@@ -18,6 +18,14 @@ builder_char_len :: fn(b: *Builder) -> int {
 	return len;
 }
 
+builder_pad_align :: fn(b: *Builder, from: int, pad_to: int, with := ' ') {
+	at := builder_char_len(b) - from;
+	for at < pad_to {
+		builder_append_u8(b, with);
+		at++;
+	}
+}
+
 null_term :: fn(str: string, alloc: *mem.Allocator) -> (string, bool) {
 	str := str;
     ptr := alloc.alloc(str.count+1, alloc);
@@ -328,6 +336,10 @@ format_float :: fn(ft: type, b: *Builder, num: ft, round_at: i32) {
 
     if num == 0 {
         builder_append_u32(b, '0');
+		builder_append_u8(b, '.');
+        for i := 1; i < round_at; i *= 10 {
+            builder_append_u8(b, '0');
+        }
         return;
     }
 

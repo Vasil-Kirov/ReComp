@@ -95,14 +95,24 @@ void LLVMGetProperArrayIndex(generator *gen, LLVMValueRef Index, LLVMValueRef Ou
 	OutArray[1] = Index;
 }
 
-void RCGenerateIntrins(generator *gen)
+void RCGenerateIntrins(generator *gen, compile_info *Info)
 {
 	u32 VAList = FindStruct(STR_LIT("base.va_list"));
 
 	string RDTSC = STR_LIT("llvm.readcyclecounter");
 	LLVMTypeRef RDTSCType = LLVMFunctionType(LLVMIntTypeInContext(gen->ctx, 64),
 				NULL, 0, false);
-	LLVMValueRef RDTSCLLVM = LLVMAddFunction(gen->mod, RDTSC.Data, RDTSCType);
+	LLVMValueRef RDTSCLLVM = NULL;
+	if(strstr(Info->TargetTriple.Data, "wasm32"))
+	{
+		RDTSCLLVM = LLVMGetNamedFunction(gen->mod, "__internal_read_cycles");
+		if (RDTSCLLVM == NULL)
+			RDTSCLLVM = LLVMAddFunction(gen->mod, "__internal_read_cycles", RDTSCType);
+	}
+	else
+	{
+		RDTSCLLVM = LLVMAddFunction(gen->mod, RDTSC.Data, RDTSCType);
+	}
 	gen->Intrinsics.Add(RDTSC, llvm_intrin { RDTSCLLVM, RDTSCType } );
 
 	string VAStart = STR_LIT("llvm.va_start.p0");
@@ -2010,7 +2020,7 @@ void RCGenerateFile(module *M, b32 OutputBC, compile_info *Info, const std::unor
 		}
 	}
 
-	RCGenerateIntrins(&Gen);
+	RCGenerateIntrins(&Gen, Info);
 	string TypeTableInitName = STR_LIT("base.__TypeTableInit");
 	ForArray(FIdx, M->Files)
 	{

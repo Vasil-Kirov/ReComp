@@ -3553,11 +3553,11 @@ void BuildIRFunctionLevel(block_builder *Builder, node *Node)
 		    {
 		  	  u32 Callback = BuildIRFromExpression(Builder, Builder->Profile->Callback);
 		  	  u32 EndTime = PushInstruction(Builder, 
-		  			  Instruction(OP_RDTSC, 0, Basic_int, Builder));
+		  			  Instruction(OP_RDTSC, 0, Basic_u64, Builder));
 
 		  	  u32 Taken = PushInstruction(Builder, 
-		  			  Instruction(OP_SUB, EndTime, Builder->Profile->StartTime, Basic_int, Builder));
-		  	  u32 FnName = MakeIRString(Builder, *Builder->Function->Name);
+		  			  Instruction(OP_SUB, EndTime, Builder->Profile->StartTime, Basic_u64, Builder));
+		  	  u32 FnName = MakeIRString(Builder, MakeNonGenericName(*Builder->Function->Name));
 
 		  	  call_info *Call = NewType(call_info);
 			  Call->ErrorInfo = Node->ErrorInfo;
@@ -4015,7 +4015,7 @@ function BuildFunctionIR(ir *IR, slice<node *> Body, const string *Name, u32 Typ
 		if(Node->Fn.ProfileCallback)
 		{
 			StartTime = PushInstruction(&Builder, 
-					Instruction(OP_RDTSC, 0, Basic_int, &Builder));
+					Instruction(OP_RDTSC, 0, Basic_u64, &Builder));
 			Builder.Profile = NewType(profiling);
 			Builder.Profile->StartTime = StartTime;
 			Builder.Profile->Callback = Node->Fn.ProfileCallback;

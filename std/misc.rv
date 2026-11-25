@@ -38,6 +38,11 @@ read_entire_file :: fn(name: string, alloc: *mem.Allocator) -> ([]u8, ReadError)
 	return buf, ReadError.Ok;
 }
 
+make_u8 :: fn(v: []$T) -> []u8 {
+	v := v;
+	return cast(*u8, &v[0])[:(len(v) * size_of T)];
+}
+
 #private
 RecurseStruct :: struct {
 	cb: *fn(data: *os.ListFileData, arg: ?*) -> bool,

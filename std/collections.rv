@@ -132,3 +132,14 @@ contains :: fn(l: []$T, x: T) -> bool {
 	return false;
 }
 
+sort :: fn(l: []$T, cmp: fn(a: T, b: T) -> bool) {
+	l := l;
+	for i := 0; i < len(l); ++i {
+		for j := i+1; j < len(l); ++j {
+			if !cmp(l[i], l[j]) {
+				l[i], l[j] = (l[j], l[i]);
+			}
+		}
+	}
+}
+

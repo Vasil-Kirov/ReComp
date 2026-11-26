@@ -39,11 +39,27 @@ null_term :: fn(str: string, alloc: *mem.Allocator) -> (string, bool) {
 	return p[:str.count] as string, true;
 }
 
+c_to_digit :: fn(c: u32) -> int {
+	return switch c {
+		case '0': yield 0;
+		case '1': yield 1;
+		case '2': yield 2;
+		case '3': yield 3;
+		case '4': yield 4;
+		case '5': yield 5;
+		case '6': yield 6;
+		case '7': yield 7;
+		case '8': yield 8;
+		case '9': yield 9;
+	};
+}
+
 to_int :: fn (str: string) -> int {
     neg := false;
     res := 0;
-    for c in str {
+    for idx, c in str {
         if c == '-' {
+			if idx != 0 return 0;
             if neg return 0;
             neg = true;
             continue;
@@ -51,23 +67,53 @@ to_int :: fn (str: string) -> int {
 
         res *= 10;
         
-        val := switch c {
-            case '0': yield 0;
-            case '1': yield 1;
-            case '2': yield 2;
-            case '3': yield 3;
-            case '4': yield 4;
-            case '5': yield 5;
-            case '6': yield 6;
-            case '7': yield 7;
-            case '8': yield 8;
-            case '9': yield 9;
-        };
+        val := c_to_digit(c);
         res += val;
     }
 
     if neg res = -res;
     return res;
+}
+
+to_f32 :: fn(str: string) -> f32 {
+	if len(str) == 0
+		return 0;
+	pos := str.data;
+	is_neg := false;
+	if deref(pos) == '-' {
+		is_neg = true;
+		pos = advance(pos);
+	}
+
+	v := 0.0;
+	for pos < str.data + len(str) {
+		c := deref(pos);
+		if c == '.' {
+			pos = advance(pos);
+			break;
+		}
+
+        v *= 10;
+        
+        digit := c_to_digit(c) as f32;
+        v += digit;
+
+		pos = advance(pos);
+	}
+
+	mult := 0.1;
+	for pos < str.data + len(str) {
+		c := deref(pos);
+
+		val := c_to_digit(c) as f32;
+		v += val * mult;
+
+
+		pos = advance(pos);
+		mult *= 0.1;
+	}
+
+	return v;
 }
 
 create_builder :: fn (alloc: *mem.Allocator) -> Builder {
